@@ -433,7 +433,7 @@ function finish(L, rank, zone, owned, pinned, palettes) {
       x: p.x, y: p.y, cx: q(p.cx), cy: q(p.cy),
       nail: { x: q(p.cx), y: q(p.y + p.h - drop) },
       role: p.role, row: p.row, price: p.price,
-      reason: pieceReason({ piece: p, group, anchorKind: anchor.kind, family: L.family, ownedInLayout: ownedIn.filter((o) => o.id !== p.ref.id), pal: palettes.get(p.ref.id) || [], taste: p.taste ?? 0.5 }),
+      reason: pieceReason({ piece: p, group, anchorKind: anchor.kind, family: L.family, ownedInLayout: ownedIn.filter((o) => o.id !== p.ref.id), othersPal: L.pieces.filter((o) => o.ref.id !== p.ref.id).map((o) => palettes.get(o.ref.id) || []), pal: palettes.get(p.ref.id) || [], taste: p.taste ?? 0.5 }),
     };
     if (!num(p.drop)) out.nailNote = `Assumes the wire sits ${RULES.defaultDrop} in below the top. Measure yours first.`;
     if (p.ref.source === 'catalog') Object.assign(out, { artist: p.artist, year: p.year, collection: p.collection, url: p.url, image: p.image });

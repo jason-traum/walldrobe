@@ -1,0 +1,363 @@
+// Walldrobe demo. Sample walls, Unsplash photos, and the real layout engine,
+// all in the browser. Nothing is saved and nothing is sent anywhere.
+
+import { layout } from '../engine/index.js';
+import { fitTaste, scoreTaste, quizPairs } from '../engine/taste.js';
+import { WALLS, SAMPLE_PICKS } from './samples.js';
+
+const CATALOG = window.WALLDROBE_CATALOG.items;
+const byId = new Map(CATALOG.map((c) => [c.id, c]));
+
+const state = {
+  wall: 'living',
+  keeps: Object.fromEntries(WALLS.flatMap((w) => w.owned.map((p) => [p.id, p.keep]))),
+  tasteSource: 'sample', // 'sample' | 'yours'
+  weights: null,
+  rank: 1,
+  selected: null,
+  measure: true,
+  quiz: null, // { pairs, i, picks }
+};
+
+// ---------- Taste ----------
+
+function firstOf(cat, n = 0) { return CATALOG.filter((c) => c.category === cat)[n]; }
+function samplePicks() {
+  return SAMPLE_PICKS.map(([w, l], i) => ({ winner: firstOf(w, i % 2), loser: firstOf(l, i % 2) })).filter((p) => p.winner && p.loser);
+}
+state.weights = fitTaste(samplePicks());
+
+// ---------- Engine ----------
+
+const cache = new Map();
+function currentWall() { return WALLS.find((w) => w.key === state.wall); }
+
+function run() {
+  const w = currentWall();
+  const owned = w.owned.map((p) => ({ ...p, keep: state.keeps[p.id] }));
+  const key = JSON.stringify([w.key, owned.map((p) => p.keep), state.tasteSource, state.weights]);
+  if (cache.has(key)) return cache.get(key);
+  const taste = scoreTaste(state.weights, CATALOG);
+  const result = layout({ wall: w.wall, obstacles: w.obstacles, owned, catalog: CATALOG, taste, room: w.room, count: 3 });
+  cache.set(key, result);
+  return result;
+}
+
+// ---------- Formatting ----------
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function inches(v) {
+  const whole = Math.floor(v + 1e-9);
+  const frac = Math.round((v - whole) * 4);
+  const f = ['', '¼', '½', '¾'][frac] || '';
+  return `${frac === 4 ? whole + 1 : whole}${frac === 4 ? '' : f} in`;
+}
+function feet(v) {
+  const ft = Math.floor(v / 12), inch = Math.round(v - ft * 12);
+  return inch ? `${ft} ft ${inch} in` : `${ft} ft`;
+}
+const FAMILY = {
+  salon: 'Two rows',
+  grid: 'Grid',
+  line: 'One row',
+  statement: 'Center piece',
+};
+function familyName(L) {
+  if (L.family === 'statement' && L.variant === 'solo') return 'One big piece';
+  if (L.family === 'statement') return L.variant === 'stack' ? 'Center, stacked sides' : 'Center and sides';
+  if (L.family === 'grid') return `${L.meta.rows} by ${L.meta.cols} grid`;
+  return FAMILY[L.family] || L.family;
+}
+
+// ---------- Wall drawing ----------
+
+function furniture(o, H, s) {
+  const y = H - o.y - o.h;
+  const base = `x="${o.x}" y="${y}" width="${o.w}" height="${o.h}"`;
+  switch (o.kind) {
+    case 'couch': case 'sofa': {
+      const arm = Math.min(7, o.w * 0.09);
+      return `<g class="furn">
+        <rect ${base} rx="3"/>
+        <rect x="${o.x}" y="${y + o.h * 0.35}" width="${arm}" height="${o.h * 0.65}" rx="2" class="furn-dark"/>
+        <rect x="${o.x + o.w - arm}" y="${y + o.h * 0.35}" width="${arm}" height="${o.h * 0.65}" rx="2" class="furn-dark"/>
+        <line x1="${o.x + o.w / 2}" x2="${o.x + o.w / 2}" y1="${y + o.h * 0.1}" y2="${y + o.h * 0.62}" class="seam"/>
+        <line x1="${o.x + arm}" x2="${o.x + o.w - arm}" y1="${y + o.h * 0.62}" y2="${y + o.h * 0.62}" class="seam"/>
+      </g>`;
+    }
+    case 'headboard': case 'bed': {
+      const bedH = Math.min(24, o.h * 0.6);
+      return `<g class="furn">
+        <rect ${base} rx="2"/>
+        <rect x="${o.x - 2}" y="${H - bedH}" width="${o.w + 4}" height="${bedH}" rx="2" class="bedding"/>
+        <rect x="${o.x + 6}" y="${H - bedH - 6}" width="${o.w / 2 - 9}" height="9" rx="3" class="pillow"/>
+        <rect x="${o.x + o.w / 2 + 3}" y="${H - bedH - 6}" width="${o.w / 2 - 9}" height="9" rx="3" class="pillow"/>
+      </g>`;
+    }
+    case 'dresser': case 'sideboard': case 'console': case 'credenza': {
+      const rows = 3;
+      const lines = Array.from({ length: rows - 1 }, (_, i) => `<line x1="${o.x + 1.5}" x2="${o.x + o.w - 1.5}" y1="${y + (o.h / rows) * (i + 1)}" y2="${y + (o.h / rows) * (i + 1)}" class="seam"/>`).join('');
+      return `<g class="furn"><rect ${base} rx="1"/>${lines}</g>`;
+    }
+    case 'lamp': {
+      const cx = o.x + o.w / 2;
+      return `<g class="furn">
+        <line x1="${cx}" x2="${cx}" y1="${H - 1}" y2="${y + 8}" class="pole"/>
+        <path d="M${o.x} ${y + 9} L${o.x + 2.5} ${y} L${o.x + o.w - 2.5} ${y} L${o.x + o.w} ${y + 9} Z" class="shade"/>
+        <rect x="${cx - 4}" y="${H - 1.5}" width="8" height="1.5" class="furn-dark"/>
+      </g>`;
+    }
+    case 'window': {
+      return `<g class="window"><rect ${base}/><line x1="${o.x + o.w / 2}" x2="${o.x + o.w / 2}" y1="${y}" y2="${y + o.h}"/><line x1="${o.x}" x2="${o.x + o.w}" y1="${y + o.h / 2}" y2="${y + o.h / 2}"/></g>`;
+    }
+    case 'outlet': case 'switch':
+      return `<rect ${base} rx="0.4" class="fixture"/>`;
+    default:
+      return `<rect ${base} class="furn"/>`;
+  }
+}
+
+function piece(p, s, H, selected) {
+  const y = H - p.y - p.h;
+  const matW = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
+  const frameW = 0.75;
+  const inner = { x: p.x + frameW + matW, y: y + frameW + matW, w: p.w - 2 * (frameW + matW), h: p.h - 2 * (frameW + matW) };
+  const item = byId.get(p.ref.id);
+  const owned = currentWall().owned.find((o) => o.id === p.ref.id);
+  const art = item
+    ? `<image href="${item.imageData}" x="${inner.x}" y="${inner.y}" width="${inner.w}" height="${inner.h}" preserveAspectRatio="xMidYMid slice"/>`
+    : `<rect x="${inner.x}" y="${inner.y}" width="${inner.w}" height="${inner.h}" fill="${owned ? owned.color : '#999'}"/>
+       <text x="${p.x + p.w / 2}" y="${y + p.h / 2}" class="owned-label" font-size="${s * 0.8}">yours</text>`;
+  return `<g class="art${selected ? ' is-selected' : ''}" data-id="${esc(p.ref.id)}" tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches">
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame"/>
+    <rect x="${p.x + frameW}" y="${y + frameW}" width="${p.w - 2 * frameW}" height="${p.h - 2 * frameW}" class="mat"/>
+    ${art}
+    <rect x="${p.x - 0.8}" y="${y - 0.8}" width="${p.w + 1.6}" height="${p.h + 1.6}" class="select-ring"/>
+  </g>`;
+}
+
+function measures(L, W, H, s) {
+  const g = L.group;
+  const top = H - (g.y + g.h);
+  const bottom = H - g.y;
+  const ty = Math.max(s * 1.6, top - s * 1.4);
+  const lx = g.x - s * 1.2;
+  const nails = L.pieces.map((p) => `<circle cx="${p.nail.x}" cy="${H - p.nail.y}" r="${s * 0.22}" class="nail"/>`).join('');
+  return `<g class="measure">
+    <line x1="0" x2="${W}" y1="${H - 57}" y2="${H - 57}" class="centerline"/>
+    <text x="${s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s * 0.85}">57 in to center</text>
+    <line x1="${g.x}" x2="${g.x + g.w}" y1="${ty}" y2="${ty}"/>
+    <line x1="${g.x}" x2="${g.x}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
+    <line x1="${g.x + g.w}" x2="${g.x + g.w}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
+    <text x="${g.x + g.w / 2}" y="${ty - s * 0.45}" text-anchor="middle" font-size="${s}">${esc(inches(g.w))}</text>
+    <line x1="${lx}" x2="${lx}" y1="${bottom}" y2="${H}"/>
+    <line x1="${lx - s * 0.5}" x2="${lx + s * 0.5}" y1="${bottom}" y2="${bottom}"/>
+    <text x="${lx - s * 0.45}" y="${bottom + (H - bottom) / 2}" text-anchor="end" font-size="${s}">${esc(inches(g.y))}</text>
+    ${nails}
+  </g>`;
+}
+
+function wallSvg(w, L) {
+  const W = w.wall.width, H = w.wall.height;
+  // Label size in inches: about W/34, but never under 11 px on screen.
+  const px = Math.max(240, ($('#drawing') && $('#drawing').clientWidth) || 600) / (W * 1.05);
+  const s = Math.max(W / 34, 11 / px);
+  const pad = s * 0.6;
+  const obs = w.obstacles.map((o) => furniture(o, H, s)).join('');
+  const arts = L ? L.pieces.map((p) => piece(p, s, H, p.ref.id === state.selected)).join('') : '';
+  return `<svg viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" role="img" aria-label="${esc(w.name)} wall, ${esc(feet(W))} wide and ${esc(feet(H))} tall${L ? `, with ${L.pieces.length} pieces` : ''}">
+    <rect x="0" y="0" width="${W}" height="${H}" class="wall"/>
+    <rect x="0" y="${H - 4}" width="${W}" height="4" class="baseboard"/>
+    ${obs}
+    ${arts}
+    ${L && state.measure ? measures(L, W, H, s) : ''}
+    <text x="${s * 0.4}" y="${s * 1.1}" font-size="${s * 0.85}" class="wall-size">${esc(feet(W))} x ${esc(feet(H))}</text>
+  </svg>`;
+}
+
+// ---------- Screens ----------
+
+const $ = (sel) => document.querySelector(sel);
+
+function renderWallTabs() {
+  $('#walls').innerHTML = WALLS.map((w) => `<button type="button" class="wall-tab" data-wall="${w.key}" aria-pressed="${w.key === state.wall}">${esc(w.name)}</button>`).join('');
+}
+
+function renderLayoutTabs(result) {
+  const seen = new Map();
+  const names = result.layouts.map((L) => { const n = familyName(L); seen.set(n, (seen.get(n) || 0) + 1); return seen.get(n) > 1 ? `${n}, other picks` : n; });
+  $('#layouts').innerHTML = result.layouts.map((L, i) => `
+    <button type="button" class="layout-tab" data-rank="${L.rank}" aria-pressed="${L.rank === state.rank}">
+      <span class="rank">${L.rank}</span>
+      <span class="lt-name">${esc(names[i])}</span>
+      <span class="lt-count">${L.pieces.length} piece${L.pieces.length === 1 ? '' : 's'}</span>
+    </button>`).join('');
+}
+
+function tasteLine() {
+  if (state.tasteSource === 'yours') return `Picked for your taste. <button type="button" class="linklike" data-act="quiz">Redo the quiz</button>`;
+  return `Showing picks for a sample taste. <button type="button" class="linklike" data-act="quiz">Take the 7-pick quiz</button> to make it yours.`;
+}
+
+function pieceRow(p, L) {
+  const item = byId.get(p.ref.id);
+  const w = currentWall();
+  const owned = w.owned.find((o) => o.id === p.ref.id);
+  const thumb = item
+    ? `<img src="${item.imageData}" alt="" width="${Math.round(64 * Math.min(1, item.aspect))}" height="${Math.round(64 / Math.max(1, item.aspect))}">`
+    : `<span class="swatch" style="background:${owned ? owned.color : '#999'}"></span>`;
+  const credit = item ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.artist)} on Unsplash</a>` : 'Yours';
+  const nail = `Nail ${esc(inches(p.nail.y))} up, ${esc(inches(p.nail.x))} from the left end.`;
+  const reason = state.tasteSource === 'sample' ? p.reason.replace('what you picked in the quiz', 'the sample taste') : p.reason;
+  return `<li class="piece${p.ref.id === state.selected ? ' is-selected' : ''}" data-id="${esc(p.ref.id)}">
+    <button type="button" class="piece-hit" data-id="${esc(p.ref.id)}" aria-pressed="${p.ref.id === state.selected}">
+      <span class="thumb">${thumb}</span>
+      <span class="piece-text">
+        <span class="piece-title">${esc(item ? item.title : `Your ${p.title}`)}</span>
+        <span class="piece-meta">${p.w} x ${p.h} in frame</span>
+      </span>
+    </button>
+    <p class="piece-meta">${item ? `Photo: ${credit}` : 'Already yours'}</p>
+    <p class="reason">${esc(reason)}</p>
+    <p class="nail-line">${nail}</p>
+  </li>`;
+}
+
+function renderOwned(w) {
+  const el = $('#owned');
+  if (!w.owned.length) { el.hidden = true; return; }
+  el.hidden = false;
+  const opts = [['must', 'Must keep'], ['happy', 'Happy to move'], ['dontcare', "Don't care"]];
+  el.innerHTML = `<h2>Already on this wall</h2>
+    <ul class="owned-list">${w.owned.map((p) => `
+      <li>
+        <span class="swatch" style="background:${p.color}"></span>
+        <span class="owned-name">Your ${esc(p.title)} <span class="muted">${p.w} x ${p.h} in</span></span>
+        <span class="seg" role="group" aria-label="Keep setting for your ${esc(p.title)}">
+          ${opts.map(([v, label]) => `<button type="button" data-keep="${v}" data-owned="${p.id}" aria-pressed="${state.keeps[p.id] === v}">${label}</button>`).join('')}
+        </span>
+      </li>`).join('')}</ul>`;
+}
+
+function renderQuiz() {
+  const q = state.quiz;
+  const [a, b] = q.pairs[q.i];
+  const card = (it) => `<button type="button" class="quiz-card" data-pick="${esc(it.id)}">
+      <img src="${it.imageData}" alt="${esc(it.title)}">
+      <span>${esc(it.title)}</span>
+    </button>`;
+  $('#quiz').innerHTML = `<div class="quiz-head">
+      <h2>Which one do you like more?</h2>
+      <span class="muted">${q.i + 1} of ${q.pairs.length}</span>
+    </div>
+    <div class="quiz-pair">${card(a)}${card(b)}</div>
+    <div class="quiz-foot">
+      <button type="button" class="linklike" data-act="quiz-skip">Neither, next pair</button>
+      <button type="button" class="linklike" data-act="quiz-cancel">Stop and keep the sample taste</button>
+    </div>`;
+}
+
+function render() {
+  renderWallTabs();
+  const w = currentWall();
+  $('#wall-note').textContent = w.note;
+  renderOwned(w);
+  const quizOn = !!state.quiz;
+  $('#quiz').hidden = !quizOn;
+  $('#stage').hidden = quizOn;
+  $('#list').hidden = quizOn;
+  if (quizOn) { renderQuiz(); return; }
+
+  const result = run();
+  const problems = result.problems.filter((p) => p.code !== 'FAMILY_SKIPPED');
+  if (!result.layouts.length) {
+    $('#layouts').innerHTML = '';
+    $('#drawing').innerHTML = wallSvg(w, null);
+    $('#summary').textContent = problems[0] ? problems[0].message : 'No layout fits this wall.';
+    $('#pieces').innerHTML = '';
+    $('#left').hidden = true;
+    return;
+  }
+  if (!result.layouts.some((L) => L.rank === state.rank)) state.rank = 1;
+  const L = result.layouts.find((x) => x.rank === state.rank);
+  if (state.selected && !L.pieces.some((p) => p.ref.id === state.selected)) state.selected = null;
+  renderLayoutTabs(result);
+  $('#drawing').innerHTML = wallSvg(w, L);
+  $('#summary').textContent = L.summary;
+  $('#taste-line').innerHTML = tasteLine();
+  $('#measure').checked = state.measure;
+  const newCount = L.pieces.filter((p) => p.ref.source === 'catalog').length;
+  const n = L.pieces.length;
+  $('#pieces-head').textContent = `${n} piece${n === 1 ? '' : 's'}${newCount ? `, ${newCount} new` : ''}`;
+  const order = [...L.pieces].sort((a, b) => (b.ref.source === 'owned') - (a.ref.source === 'owned') || b.w * b.h - a.w * a.h);
+  $('#pieces').innerHTML = order.map((p) => pieceRow(p, L)).join('');
+  const guessed = L.pieces.filter((p) => p.nailNote).length;
+  $('#nail-note').hidden = !guessed;
+  $('#nail-note').textContent = guessed ? `Nail heights assume the wire sits 2 in below the top of each frame${guessed < L.pieces.length ? ' where we don\'t know it' : ''}. Measure yours before you drill.` : '';
+  const left = $('#left');
+  left.hidden = !L.left.length;
+  left.innerHTML = L.left.length ? `<h3>Left off this wall</h3><ul>${L.left.map((l) => `<li><strong>Your ${esc(l.title)}.</strong> ${esc(l.reason)}</li>`).join('')}</ul>` : '';
+}
+
+// ---------- Events ----------
+
+function select(id) {
+  state.selected = state.selected === id ? null : id;
+  render();
+  if (state.selected) {
+    const row = document.querySelector(`.piece[data-id="${CSS.escape(state.selected)}"]`);
+    if (row && window.matchMedia('(max-width: 899px)').matches) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, .art');
+  if (!t) return;
+  if (t.dataset.wall) { state.wall = t.dataset.wall; state.rank = 1; state.selected = null; render(); return; }
+  if (t.dataset.rank) { state.rank = Number(t.dataset.rank); state.selected = null; render(); return; }
+  if (t.dataset.keep) { state.keeps[t.dataset.owned] = t.dataset.keep; state.rank = 1; render(); return; }
+  if (t.classList.contains('art') || t.classList.contains('piece-hit')) { select(t.dataset.id); return; }
+  if (t.dataset.pick) {
+    const q = state.quiz;
+    const [a, b] = q.pairs[q.i];
+    const winner = a.id === t.dataset.pick ? a : b;
+    q.picks.push({ winner, loser: winner === a ? b : a });
+    advanceQuiz();
+    return;
+  }
+  const act = t.dataset.act;
+  if (act === 'quiz') { state.quiz = { pairs: quizPairs(CATALOG, 7), i: 0, picks: [] }; render(); $('#quiz').scrollIntoView({ block: 'start' }); }
+  if (act === 'quiz-skip') advanceQuiz();
+  if (act === 'quiz-cancel') { state.quiz = null; render(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  const t = e.target.closest && e.target.closest('.art');
+  if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(t.dataset.id); }
+});
+
+$('#measure').addEventListener('change', (e) => { state.measure = e.target.checked; render(); });
+
+function advanceQuiz() {
+  const q = state.quiz;
+  q.i++;
+  if (q.i >= q.pairs.length) {
+    if (q.picks.length) { state.weights = fitTaste(q.picks); state.tasteSource = 'yours'; }
+    state.quiz = null;
+    state.rank = 1;
+    state.selected = null;
+    render();
+    $('#stage').scrollIntoView({ block: 'start' });
+    return;
+  }
+  render();
+}
+
+render();
+
+// Labels are sized from the drawing's width, so redraw when it changes.
+let lastW = 0;
+window.addEventListener('resize', () => {
+  const w = $('#drawing').clientWidth;
+  if (Math.abs(w - lastW) > 40) { lastW = w; if (!state.quiz) render(); }
+});

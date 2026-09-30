@@ -91,8 +91,8 @@ Shipping, payments, the printable hanging template, print swaps, renting origina
 
 ## Build order
 
-1. Layout engine: a pure module with tests and no UI. Spec in ENGINE.md.
-2. Demo UI: three sample walls, open-access art, `?demo`, embeddable at jason-traum.github.io/projects/walldrobe.html.
+1. Layout engine: a pure module with tests and no UI. Spec in ENGINE.md. Done (v0.1).
+2. Demo UI: three sample walls, free-to-show modern art, embeddable at jason-traum.github.io/projects/walldrobe.html. First version done: `npm run demo` builds `out/index.html`.
 3. Wall geometry from a photo: corner taps, one known measurement, perspective correction, obstacle marking.
 4. Taste: the pairwise quiz, image embeddings and palettes precomputed for the catalog, and a small preference model that runs in the browser.
 5. Preview: warp each chosen piece onto the original photo at true scale.

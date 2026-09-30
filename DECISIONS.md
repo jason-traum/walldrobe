@@ -34,9 +34,13 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 - 2026-09-30: Public repo, jason-traum/walldrobe, docs included. Why: it's a portfolio project for jason-traum.github.io.
 - 2026-09-30: Security: every database write goes through a function that checks who is asking; only the publishable key in the frontend; wall photos private by default.
 
+- 2026-09-30: Demo art is modern photography and painting from Unsplash (Unsplash License: free to show with credit, not sold), picked for what people actually hang: aerial pools and beaches, Mediterranean coast, tennis courts, Palm Springs, black-and-white film, neutral abstracts, food and drink. Credited to each photographer with a link. Replaces the CC0 museum line above for the demo. Why: Jason wants cool modern art and photos, not museum pieces; modern art is under copyright, and Unsplash is free to show. Unsplash+ premium photos are excluded.
+- 2026-09-30: Taste v0 is a Bradley-Terry model over simple features (category, painting or photo, light, vivid, warm or cool, black and white), fit in the browser from 7 fixed quiz pairs. The demo opens on a labeled sample taste. Reopen: when image embeddings are precomputed for the catalog.
+
 ## Design
 
 - 2026-09-30: Direction not picked. Compare structure options first, then visual directions, on real screens. The pitch deck's bone, serif and blue look does not carry over by default.
+- 2026-09-30: Picked for the demo (Jason: "you are the expert"): structure 1, wall first, with the three layouts as tabs above a full-width drawing and the pieces beside it. Direction: the hanging diagram, a framer's measured drawing at true scale, tape-measure red for every measurement, nail spot and action. Archivo for text, Archivo Narrow for measurements. Rejected for now: compare view and build-up view; museum label and painter's tape directions. Reopen: after Jason reviews the live demo.
 
 ## Prior apps (so Walldrobe doesn't repeat them)
 
