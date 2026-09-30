@@ -172,3 +172,15 @@ test('no two pieces on a wall look almost the same, even for a taste that loves 
     }
   }
 });
+
+test('the size lever: fewer, bigger or more, smaller', () => {
+  for (const w of [livingRoom, hallway]) {
+    const avg = (r) => r.layouts.reduce((s, L) => s + L.pieces.length, 0) / r.layouts.length;
+    const big = layout(inputFor(w, real, { prefs: { scale: -1 } }));
+    const small = layout(inputFor(w, real, { prefs: { scale: 1 } }));
+    assert.ok(avg(big) < avg(small), `${w.name}: ${avg(big)} < ${avg(small)}`);
+    assert.ok(big.layouts[0].pieces.length <= 3 && small.layouts[0].pieces.length >= 6, w.name);
+    for (const L of [...big.layouts, ...small.layouts]) assert.ok(L.checks.size >= 0 && L.checks.size <= 1);
+    assert.ok(!('size' in layout(inputFor(w, real)).layouts[0].checks), 'no lever, no size check');
+  }
+});

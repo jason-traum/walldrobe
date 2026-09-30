@@ -193,6 +193,10 @@ Total = 0.25 fit + 0.25 taste + 0.25 color + 0.25 design, plus the reuse bonus. 
 
 Each layout returns `notes`: up to four plain sentences on why the wall works (its scheme and proportions, the repeated accent, balance, rhythm), plus one honest caveat when a check scored low.
 
+### The size lever
+
+`prefs.scale` from -1 (fewer, bigger pieces) to 1 (more, smaller ones); leave it out for balanced. A wall's size is mostly its piece count (1 to 8 or more) and partly its average frame (8 x 10 in small, 30 x 40 in big). When the lever is set, the structures closest to it are kept through the early cut, their match adds up to 0.12 to the total (`checks.size`), and walls far from it are dropped while enough others are left.
+
 ### Keep, swap, refresh, try another
 
 - `layout({ ..., keep: [{ id, w, h }] })`: catalog pieces the person wants to keep go on every layout, like pieces they own and must keep.

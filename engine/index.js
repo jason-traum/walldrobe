@@ -90,6 +90,8 @@ function readPrefs(raw = {}) {
     budget: num(raw.budget) && raw.budget >= 0 ? raw.budget : null,
     maxPieces: num(raw.maxPieces) && raw.maxPieces >= 1 ? Math.floor(raw.maxPieces) : 9,
     families: Array.isArray(raw.families) ? raw.families.filter((f) => FAMILIES.includes(f)) : [...FAMILIES],
+    // The size lever: -1 fewer, bigger pieces; 1 more, smaller ones; null leaves it to the other scores.
+    scale: num(raw.scale) && raw.scale !== 0 ? Math.max(-1, Math.min(1, raw.scale)) : null,
   };
 }
 
@@ -328,6 +330,18 @@ function fitScore(L, zone) {
   return 0.25 * fw + 0.2 * fv + 0.1 * fs + 0.1 * fg + 0.1 * fd + 0.15 * fp + 0.1 * fm;
 }
 
+// Where a wall sits between one big piece (0) and many small ones (1): mostly the
+// count, partly the average frame size (8 x 10 in is small, 30 x 40 in is big).
+const SIZE_WEIGHT = 0.12;
+function sizeFit(pieces, scale) {
+  const n = pieces.length;
+  const mean = pieces.reduce((s, p) => s + p.w * p.h, 0) / n;
+  const count = clamp01((n - 1) / 7);
+  const small = 1 - clamp01((Math.log(mean) - Math.log(80)) / (Math.log(1200) - Math.log(80)));
+  const s = 0.7 * count + 0.3 * small;
+  return clamp01(1 - Math.abs(s - (scale + 1) / 2) * 1.4);
+}
+
 function judge(L, ctx) {
   const fit = fitScore(L, ctx.zone);
   // Taste covers every piece that was chosen from art, kept or new, but not the ones you own and fixed.
@@ -350,8 +364,15 @@ function judge(L, ctx) {
   const happyUsed = L.pieces.filter((p) => p.keep === 'happy').length;
   const reuse = L.happyTotal ? REUSE_BONUS * (happyUsed / L.happyTotal) : 0;
   const parts = { fit, taste, color: c.score, design: d.score };
+  // How close the wall is to the size lever, when it's set.
+  const checks = { ...c.checks, ...d.checks };
+  let size = 0;
+  if (ctx.prefs.scale !== null) {
+    checks.size = sizeFit(L.pieces, ctx.prefs.scale);
+    size = SIZE_WEIGHT * checks.size;
+  }
   const score = WEIGHTS.fit * fit + WEIGHTS.taste * taste + WEIGHTS.color * c.score + WEIGHTS.design * d.score + reuse - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
-  return { score, parts, checks: { ...c.checks, ...d.checks }, color: c, design: d };
+  return { score: score + size, parts, checks, color: c, design: d };
 }
 
 // Try the best few alternatives in each open slot and keep a swap when the whole
@@ -452,7 +473,7 @@ export function layout(input) {
     for (const c of index.owned) for (const [w, h] of STANDARD) {
       if (Math.abs(c.sizes[0].w - w) <= 1 && Math.abs(c.sizes[0].h - h) <= 1) avail.set(sizeKey(w, h), (avail.get(sizeKey(w, h)) || 0) + 1);
     }
-    const sctx = { fixed, zone, avail, maxPieces: prefs.maxPieces };
+    const sctx = { fixed, zone, avail, maxPieces: prefs.maxPieces, scale: prefs.scale || 0 };
 
     const structs = [];
     for (const fam of prefs.families) {
@@ -505,6 +526,12 @@ export function layout(input) {
     if (!valid.length && all.length) {
       problems.push({ code: 'BUDGET_TOO_LOW', message: `The cheapest layout that fits is $${Math.round(Math.min(...all.map(total)))}.` });
     }
+  }
+
+  // With the size lever set, drop walls far from it, as long as enough others are left.
+  if (prefs.scale !== null) {
+    const near = valid.filter((L) => L.checks.size >= 0.35);
+    if (near.length >= Math.min(count, valid.length)) valid = near;
   }
 
   // Rank for variety: best of each family first, then the next best overall. Each

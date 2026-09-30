@@ -59,6 +59,10 @@ function widthWindow(zone) {
   return [lo, hi];
 }
 
+// The size lever: -1 leans to fewer, bigger pieces, 1 to more, smaller ones.
+// Used only to order structures before the cut, so the ones asked for survive it.
+const lean = (n, scale) => (scale ? 0.08 * scale * (n - 4) : 0);
+
 const sameSize = (a, b) => Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1;
 
 // ---------- Two-row hang around a horizontal axis ----------
@@ -118,12 +122,12 @@ function buildSalon(t, b) {
   return { family: 'salon', W, H, slots, meta: { ragged, gaps: [gT, gB], axis: bH + G / 2, rows: 2 } };
 }
 
-export function salonStructures({ fixed, zone, avail, maxPieces }) {
+export function salonStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
   if (fixed.length > SEARCH.maxFixed) return [];
   const sizes = SIZES.salon.filter(([w, h]) => avail.has(sizeKey(w, h)));
   const [lo, hi] = widthWindow(zone);
   const target = Math.min(Math.max(zone.target, lo), hi);
-  const ideal = Math.max(4, Math.min(9, Math.round(target / 9)));
+  const ideal = Math.max(4, Math.min(9, Math.round(target / 9) + Math.round(2 * scale)));
   const found = [];
   for (let mask = 0; mask < 1 << fixed.length; mask++) {
     const topFixed = fixed.filter((_, i) => mask & (1 << i));
@@ -171,7 +175,7 @@ export function salonStructures({ fixed, zone, avail, maxPieces }) {
 
 // ---------- One row, centers on one line ----------
 
-export function lineStructures({ fixed, zone, avail, maxPieces }) {
+export function lineStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
   const [lo, hi] = widthWindow(zone);
   const base = fixed.map(fixedUnit);
   const heights = base.map((u) => u.h).sort((a, b) => a - b);
@@ -196,7 +200,7 @@ export function lineStructures({ fixed, zone, avail, maxPieces }) {
       const slots = [];
       let x = 0;
       for (const u of order) { slots.push({ w: u.w, h: u.h, dx: x, dy: q((H - u.h) / 2), fixed: u.fixed, row: null }); x += u.w + G; }
-      out.push({ family: 'line', W, H, slots, meta: { ragged: 0, gaps: [G], rows: 1 }, pre: -Math.abs(W - zone.target) / zone.target });
+      out.push({ family: 'line', W, H, slots, meta: { ragged: 0, gaps: [G], rows: 1 }, pre: -Math.abs(W - zone.target) / zone.target + lean(n, scale) });
     }
   }
   out.sort((a, b) => b.pre - a.pre);
@@ -205,7 +209,7 @@ export function lineStructures({ fixed, zone, avail, maxPieces }) {
 
 // ---------- Grid of one frame size ----------
 
-export function gridStructures({ fixed, zone, avail, maxPieces }) {
+export function gridStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
   const [lo, hi] = widthWindow(zone);
   const out = [];
   let mismatch = fixed.length > 0;
@@ -231,7 +235,7 @@ export function gridStructures({ fixed, zone, avail, maxPieces }) {
         fixed.forEach((p, i) => { byCenter[i].fixed = p; });
         out.push({
           family: 'grid', W, H, slots: cells, meta: { ragged: 0, gaps: [G], rows: r, cols: c },
-          pre: -Math.abs(W - zone.target) / zone.target - (r > c ? 0.05 : 0),
+          pre: -Math.abs(W - zone.target) / zone.target - (r > c ? 0.05 : 0) + lean(n, scale),
         });
       }
     }
@@ -242,7 +246,7 @@ export function gridStructures({ fixed, zone, avail, maxPieces }) {
 
 // ---------- One statement piece, alone or with matching pieces on each side ----------
 
-export function statementStructures({ fixed, zone, avail, maxPieces }) {
+export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
   const [lo, hi] = widthWindow(zone);
   // Frames stop at 40 in, so one piece alone may be as narrow as 0.35 of the
   // furniture; the fit score still marks it down for being narrow.
@@ -274,7 +278,7 @@ export function statementStructures({ fixed, zone, avail, maxPieces }) {
       out.push({
         family: 'statement', variant: 'solo', W: c.w, H: c.h,
         slots: [{ w: c.w, h: c.h, dx: 0, dy: 0, fixed: c.fixed, row: null, role: 'center' }],
-        meta: { ragged: 0, gaps: [], rows: 1 }, pre: -Math.abs(c.w - zone.target) / zone.target - 0.05,
+        meta: { ragged: 0, gaps: [], rows: 1 }, pre: -Math.abs(c.w - zone.target) / zone.target - 0.05 + lean(1, scale),
       });
     }
   }
@@ -309,7 +313,7 @@ export function statementStructures({ fixed, zone, avail, maxPieces }) {
         if (!fitsAvail(fills.filter(([w, h]) => SIZES.flank.concat(SIZES.large).some(([a, b]) => a === w && b === h)), avail)) continue;
         out.push({
           family: 'statement', variant: mode, W, H, slots: [...slots, ...flankSlots],
-          meta: { ragged: 0, gaps: [G], rows: 1 }, pre: -Math.abs(W - zone.target) / zone.target,
+          meta: { ragged: 0, gaps: [G], rows: 1 }, pre: -Math.abs(W - zone.target) / zone.target + lean(n, scale),
         });
       }
     }
