@@ -38,7 +38,7 @@ export function validateRecord(r) {
   if (!isStr(r.id)) at('id missing');
   if (!STATUS.includes(r.status)) at(`status must be one of ${STATUS.join(', ')}`);
   if (!isStr(r.title) || r.title.length > 40 || r.title.trim().split(/\s+/).length > 5) at('title must be 1 to 5 words, 40 characters at most');
-  if (/[—–]/.test(r.title || '')) at('title has a dash');
+  if (/[\u2014\u2013]/.test(r.title || '')) at('title has a dash');
   if (!MEDIA.includes(r.medium)) at(`medium must be one of ${MEDIA.join(', ')}`);
   if (!CATEGORIES.includes(r.category)) at(`unknown category ${r.category}`);
   if (!r.artist || !isStr(r.artist.name)) at('artist.name missing');
