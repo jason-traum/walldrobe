@@ -1,9 +1,8 @@
 // Build the demo. Usage: node tools/build_demo.mjs [esbuild path]
-// Writes out/walldrobe.html (page body, everything inlined, for embedding),
-// out/index.html (the same as a full page), and docs/ for GitHub Pages: a full
-// page with the catalog inlined and the images as files in docs/art/.
+// Writes out/walldrobe.html (page body, everything inlined, for embedding) and
+// out/index.html (the same as a full page). The site itself is tools/build_site.mjs.
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,10 +44,4 @@ mkdirSync(join(root, 'out'), { recursive: true });
 writeFileSync(join(root, 'out/walldrobe.html'), inlined);
 writeFileSync(join(root, 'out/index.html'), page(inlined));
 
-const site = bodyWith((it) => it.image.src);
-rmSync(join(root, 'docs'), { recursive: true, force: true });
-mkdirSync(join(root, 'docs'), { recursive: true });
-cpSync(join(root, 'demo/art'), join(root, 'docs/art'), { recursive: true });
-writeFileSync(join(root, 'docs/index.html'), page(site));
-writeFileSync(join(root, 'docs/.nojekyll'), '');
-console.log(`out/walldrobe.html ${(inlined.length / 1e6).toFixed(2)} MB, docs/index.html ${(site.length / 1e6).toFixed(2)} MB`);
+console.log(`out/walldrobe.html ${(inlined.length / 1e6).toFixed(2)} MB`);
