@@ -1,0 +1,11 @@
+{
+  "name": "walldrobe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Walldrobe: a wardrobe for your walls. Layout engine and demo.",
+  "scripts": {
+    "test": "node --test",
+    "elevations": "node tools/elevation.js"
+  }
+}
