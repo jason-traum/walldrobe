@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateCatalog } from '../engine/catalog.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const esbuild = process.argv[2] || 'esbuild';
@@ -13,9 +14,11 @@ const esbuild = process.argv[2] || 'esbuild';
 const app = execFileSync(esbuild, [join(root, 'demo/app.js'), '--bundle', '--format=iife', '--minify', '--target=es2020'], { encoding: 'utf8' });
 
 const catalog = JSON.parse(readFileSync(join(root, 'demo/catalog.json'), 'utf8'));
+const errors = validateCatalog(catalog.items);
+if (errors.length) { console.error(errors.slice(0, 20).join('\n')); process.exit(1); }
 for (const it of catalog.items) {
-  const b64 = readFileSync(join(root, 'demo', it.image)).toString('base64');
-  it.imageData = `data:image/jpeg;base64,${b64}`;
+  const b64 = readFileSync(join(root, 'demo', it.image.src)).toString('base64');
+  it.image.data = `data:image/jpeg;base64,${b64}`;
 }
 const json = JSON.stringify(catalog).replace(/</g, '\\u003c');
 

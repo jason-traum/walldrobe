@@ -2,10 +2,12 @@
 // all in the browser. Nothing is saved and nothing is sent anywhere.
 
 import { layout } from '../engine/index.js';
-import { fitTaste, scoreTaste, quizPairs } from '../engine/taste.js';
+import { fitTaste, scoreTaste, nextPair, describeTaste } from '../engine/taste.js';
+import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS, SAMPLE_PICKS } from './samples.js';
 
-const CATALOG = window.WALLDROBE_CATALOG.items;
+const QUIZ_LENGTH = 10;
+const CATALOG = activeRecords(window.WALLDROBE_CATALOG.items).map((r) => ({ ...toCandidate(r), imageData: r.image.data, aspect: r.image.aspect }));
 const byId = new Map(CATALOG.map((c) => [c.id, c]));
 
 const state = {
@@ -16,12 +18,12 @@ const state = {
   rank: 1,
   selected: null,
   measure: true,
-  quiz: null, // { pairs, i, picks }
+  quiz: null, // { picks, shown, pair, n }
 };
 
 // ---------- Taste ----------
 
-function firstOf(cat, n = 0) { return CATALOG.filter((c) => c.category === cat)[n]; }
+function firstOf(cat, n = 0) { return CATALOG.filter((c) => c.record.category === cat)[n]; }
 function samplePicks() {
   return SAMPLE_PICKS.map(([w, l], i) => ({ winner: firstOf(w, i % 2), loser: firstOf(l, i % 2) })).filter((p) => p.winner && p.loser);
 }
@@ -194,9 +196,17 @@ function renderLayoutTabs(result) {
     </button>`).join('');
 }
 
-function tasteLine() {
-  if (state.tasteSource === 'yours') return `Picked for your taste. <button type="button" class="linklike" data-act="quiz">Redo the quiz</button>`;
-  return `Showing picks for a sample taste. <button type="button" class="linklike" data-act="quiz">Take the 7-pick quiz</button> to make it yours.`;
+function tastePanel() {
+  const words = describeTaste(state.weights);
+  const list = words.length ? words.join(', ') : 'no strong leanings yet';
+  if (state.tasteSource === 'yours') {
+    return `<div><p class="taste-title">Your taste: ${esc(list)}.</p>
+      <p class="muted">Every wall below picked its art for this.</p></div>
+      <button type="button" class="btn-quiet" data-act="quiz">Retake the taste test</button>`;
+  }
+  return `<div><p class="taste-title">Take the taste test</p>
+      <p class="muted">${QUIZ_LENGTH} quick picks, then every wall re-picks its art for you. Right now it's showing a sample taste: ${esc(list)}.</p></div>
+      <button type="button" class="btn" data-act="quiz">Start the taste test</button>`;
 }
 
 function pieceRow(p, L) {
@@ -208,13 +218,14 @@ function pieceRow(p, L) {
     : `<span class="swatch" style="background:${owned ? owned.color : '#999'}"></span>`;
   const credit = item ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.artist)} on Unsplash</a>` : 'Yours';
   const nail = `Nail ${esc(inches(p.nail.y))} up, ${esc(inches(p.nail.x))} from the left end.`;
-  const reason = state.tasteSource === 'sample' ? p.reason.replace('what you picked in the quiz', 'the sample taste') : p.reason;
+  const reason = state.tasteSource === 'sample' ? p.reason.replace('what you picked in the quiz', 'the sample taste') : p.reason.replace('in the quiz', 'in the taste test');
+  const tags = item ? [item.record.tags.mood[0], item.record.tags.style[0]].filter(Boolean).join(', ') : '';
   return `<li class="piece${p.ref.id === state.selected ? ' is-selected' : ''}" data-id="${esc(p.ref.id)}">
     <button type="button" class="piece-hit" data-id="${esc(p.ref.id)}" aria-pressed="${p.ref.id === state.selected}">
       <span class="thumb">${thumb}</span>
       <span class="piece-text">
         <span class="piece-title">${esc(item ? item.title : `Your ${p.title}`)}</span>
-        <span class="piece-meta">${p.w} x ${p.h} in frame</span>
+        <span class="piece-meta">${p.w} x ${p.h} in frame${tags ? `. ${esc(tags.charAt(0).toUpperCase() + tags.slice(1))}.` : ''}</span>
       </span>
     </button>
     <p class="piece-meta">${item ? `Photo: ${credit}` : 'Already yours'}</p>
@@ -241,19 +252,20 @@ function renderOwned(w) {
 
 function renderQuiz() {
   const q = state.quiz;
-  const [a, b] = q.pairs[q.i];
+  const [a, b] = q.pair;
   const card = (it) => `<button type="button" class="quiz-card" data-pick="${esc(it.id)}">
       <img src="${it.imageData}" alt="${esc(it.title)}">
       <span>${esc(it.title)}</span>
     </button>`;
   $('#quiz').innerHTML = `<div class="quiz-head">
-      <h2>Which one do you like more?</h2>
-      <span class="muted">${q.i + 1} of ${q.pairs.length}</span>
+      <h2>Which one would you rather have on your wall?</h2>
+      <span class="muted">${q.n + 1} of ${QUIZ_LENGTH}</span>
     </div>
+    <div class="quiz-bar" aria-hidden="true"><span style="width:${(q.n / QUIZ_LENGTH) * 100}%"></span></div>
     <div class="quiz-pair">${card(a)}${card(b)}</div>
     <div class="quiz-foot">
-      <button type="button" class="linklike" data-act="quiz-skip">Neither, next pair</button>
-      <button type="button" class="linklike" data-act="quiz-cancel">Stop and keep the sample taste</button>
+      <button type="button" class="linklike" data-act="quiz-skip">Neither, show me another pair</button>
+      <button type="button" class="linklike" data-act="quiz-cancel">Stop the test</button>
     </div>`;
 }
 
@@ -266,6 +278,7 @@ function render() {
   $('#quiz').hidden = !quizOn;
   $('#stage').hidden = quizOn;
   $('#list').hidden = quizOn;
+  $('#taste').hidden = quizOn;
   if (quizOn) { renderQuiz(); return; }
 
   const result = run();
@@ -284,7 +297,7 @@ function render() {
   renderLayoutTabs(result);
   $('#drawing').innerHTML = wallSvg(w, L);
   $('#summary').textContent = L.summary;
-  $('#taste-line').innerHTML = tasteLine();
+  $('#taste').innerHTML = tastePanel();
   $('#measure').checked = state.measure;
   const newCount = L.pieces.filter((p) => p.ref.source === 'catalog').length;
   const n = L.pieces.length;
@@ -319,15 +332,20 @@ document.addEventListener('click', (e) => {
   if (t.classList.contains('art') || t.classList.contains('piece-hit')) { select(t.dataset.id); return; }
   if (t.dataset.pick) {
     const q = state.quiz;
-    const [a, b] = q.pairs[q.i];
+    const [a, b] = q.pair;
     const winner = a.id === t.dataset.pick ? a : b;
     q.picks.push({ winner, loser: winner === a ? b : a });
-    advanceQuiz();
+    advanceQuiz(true);
     return;
   }
   const act = t.dataset.act;
-  if (act === 'quiz') { state.quiz = { pairs: quizPairs(CATALOG, 7), i: 0, picks: [] }; render(); $('#quiz').scrollIntoView({ block: 'start' }); }
-  if (act === 'quiz-skip') advanceQuiz();
+  if (act === 'quiz') {
+    const shown = new Set();
+    state.quiz = { picks: [], shown, n: 0, pair: nextPair(CATALOG, [], shown) };
+    render();
+    $('#quiz').scrollIntoView({ block: 'start' });
+  }
+  if (act === 'quiz-skip') advanceQuiz(false);
   if (act === 'quiz-cancel') { state.quiz = null; render(); }
 });
 
@@ -338,18 +356,22 @@ document.addEventListener('keydown', (e) => {
 
 $('#measure').addEventListener('change', (e) => { state.measure = e.target.checked; render(); });
 
-function advanceQuiz() {
+// A pick counts toward the ten; a skip doesn't, but after 20 pairs the test ends anyway.
+function advanceQuiz(picked) {
   const q = state.quiz;
-  q.i++;
-  if (q.i >= q.pairs.length) {
+  q.pair.forEach((it) => q.shown.add(it.id));
+  if (picked) q.n++;
+  const next = q.n < QUIZ_LENGTH && q.shown.size < 40 ? nextPair(CATALOG, q.picks, q.shown) : null;
+  if (!next) {
     if (q.picks.length) { state.weights = fitTaste(q.picks); state.tasteSource = 'yours'; }
     state.quiz = null;
     state.rank = 1;
     state.selected = null;
     render();
-    $('#stage').scrollIntoView({ block: 'start' });
+    $('#taste').scrollIntoView({ block: 'start' });
     return;
   }
+  q.pair = next;
   render();
 }
 
