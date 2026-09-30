@@ -29,7 +29,7 @@ export const RULES = Object.freeze({
   centerlineSoftMax: 66, // over tall furniture the center may rise; above this it's marked down
 });
 
-export const WEIGHTS = Object.freeze({ fit: 0.35, taste: 0.30, harmony: 0.20, balance: 0.15 });
+export const WEIGHTS = Object.freeze({ fit: 0.25, taste: 0.25, color: 0.25, design: 0.25 });
 
 // Outer frame sizes in inches, [width, height]. New pieces only come in these,
 // so a swapped print always fits the frame already on the wall.
@@ -49,6 +49,9 @@ export const SEARCH = Object.freeze({
   rowOptions: 40,       // row compositions kept per row in the two-row search
   perFamily: 6,         // structures kept per family before filling
   maxFixed: 8,          // more owned pieces than this on one wall is not supported
+  improveTop: 10,       // finished layouts that get the improvement pass
+  alternatives: 12,     // pieces tried in each open slot during that pass
+  passes: 2,
 });
 
 export const FAMILIES = Object.freeze(['statement', 'line', 'grid', 'salon']);

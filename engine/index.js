@@ -2,25 +2,35 @@
 //
 // layout(input) takes one wall, what's on it, the art the person owns and a list
 // of candidate art, and returns ranked layouts with every piece's position in
-// inches and one sentence on why it's there. Pure: no DOM, no network, no clock.
-// Same input, same output. Spec: ENGINE.md.
+// inches and one sentence on why it's there. Each layout is judged as a whole:
+// fit, taste, color (theory.js) and design (design.js). refill() keeps a layout's
+// frames where they are and changes the art in them. Pure: no DOM, no network,
+// no clock. Same input, same output. Spec: ENGINE.md.
 
 import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD } from './constants.js';
-import { hexToRgb, normalizePalette, paletteSimilarity, hueFamilyCount, tone } from './color.js';
+import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZone, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures } from './structures.js';
-import { pieceReason, leftReason, summary, shortTitle } from './reasons.js';
+import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
+import { profileFromPalette, colorScore } from './theory.js';
+import { designScore } from './design.js';
 
 export { RULES, WEIGHTS } from './constants.js';
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
 
 const KEEPS = new Set(['must', 'happy', 'dontcare']);
 const REUSE_BONUS = 0.04;
+const SAME_ARTIST = 0.02;
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
 const ROOM = '\u0000room';
 const sizeKey = (w, h) => `${w}x${h}`;
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const titleOf = (p) => (p.title && String(p.title).trim()) || 'piece';
+const idList = (v, name) => {
+  if (v == null) return [];
+  if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) throw new TypeError(`${name} should be a list of ids.`);
+  return v;
+};
 
 // ---------- Input checks ----------
 
@@ -51,13 +61,26 @@ function validate(input) {
     checkPalette(p.palette, p.id);
     ids.add(p.id);
   }
+  const catIds = new Set();
   for (const c of input.catalog || []) {
     if (!c || !c.id || !Array.isArray(c.sizes)) throw new TypeError(`Catalog piece ${(c && c.id) || '(no id)'} needs an id and sizes.`);
     if (ids.has(c.id)) throw new TypeError(`Duplicate id ${c.id}.`);
     checkPalette(c.palette, c.id);
-    ids.add(c.id);
+    ids.add(c.id); catIds.add(c.id);
   }
   if (input.room) checkPalette(input.room.palette, 'the room');
+  if (input.keep != null) {
+    if (!Array.isArray(input.keep)) throw new TypeError('keep should be a list of { id, w, h }.');
+    const seen = new Set();
+    for (const k of input.keep) {
+      if (!k || !catIds.has(k.id)) throw new TypeError(`Kept piece ${(k && k.id) || '(no id)'} isn't in the catalog.`);
+      if (!num(k.w) || !num(k.h) || k.w <= 0 || k.h <= 0) throw new TypeError(`Kept piece ${k.id} needs the frame size it hangs in, w and h.`);
+      if (seen.has(k.id)) throw new TypeError(`Kept piece ${k.id} is listed twice.`);
+      seen.add(k.id);
+    }
+  }
+  idList(input.exclude, 'exclude');
+  idList(input.avoid, 'avoid');
 }
 
 function readPrefs(raw = {}) {
@@ -68,17 +91,85 @@ function readPrefs(raw = {}) {
   };
 }
 
-// ---------- Color memo ----------
+const validProfile = (p) => p && p.shares && Array.isArray(p.hues) && p.hues.length === 12 && num(p.chromatic) && p.value && num(p.weight);
 
-function pairSimFactory(palettes, paletteSimilarity) {
-  const memo = new Map();
+// Everything layout() and refill() share: the zone, colors, profiles and candidates.
+function prepare(input) {
+  validate(input);
+  const wall = input.wall;
+  const obstacles = input.obstacles || [];
+  const owned = input.owned || [];
+  const catalog = input.catalog || [];
+  const taste = input.taste || {};
+  const exclude = new Set(idList(input.exclude, 'exclude'));
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  const tasteOf = (id) => (num(taste[id]) ? clamp01(taste[id]) : 0.5);
+
+  const kept = (input.keep || []).map((k) => {
+    const c = byId.get(k.id);
+    return { id: c.id, w: k.w, h: k.h, keep: 'must', kept: true, title: titleOf(c), cat: c, taste: tasteOf(c.id) };
+  });
+  const keptIds = new Set(kept.map((k) => k.id));
+
+  const pinned = owned.filter((p) => p.pinned);
+  const loose = owned.filter((p) => !p.pinned);
+  const regions = blockedRegions(obstacles, pinned);
+  const zone = findZone(wall, obstacles, regions);
+
+  const palettes = new Map();
+  for (const p of owned) palettes.set(p.id, normalizePalette(p.palette));
+  for (const c of catalog) palettes.set(c.id, normalizePalette(c.palette));
+  const room = normalizePalette(input.room && input.room.palette);
+  if (room.length) palettes.set(ROOM, room);
+  const hasRoom = room.length > 0;
+  const pairSim = pairSimFactory(palettes);
+
+  const profiles = new Map();
+  for (const p of owned) profiles.set(p.id, profileFromPalette(palettes.get(p.id)));
+  for (const c of catalog) {
+    profiles.set(c.id, validProfile(c.profile) ? c.profile : profileFromPalette(palettes.get(c.id), {
+      weight: num(c.weight) && c.weight >= 0 && c.weight <= 1 ? c.weight : undefined, category: c.category, theme: c.theme,
+    }));
+  }
+
+  const catalogCands = catalog.filter((c) => !exclude.has(c.id) && !keptIds.has(c.id)).map((c) => ({
+    id: c.id, source: 'catalog', title: c.title, artist: c.artist || null, item: c,
+    sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0),
+    taste: tasteOf(c.id),
+  }));
+
+  return {
+    input, wall, obstacles, owned, catalog, prefs: readPrefs(input.prefs), exclude, kept, keptIds,
+    pinned, loose, regions, zone, palettes, hasRoom, pairSim, profiles,
+    roomProfile: hasRoom ? profileFromPalette(room) : null,
+    catalogCands, ownedById: new Map(owned.map((p) => [p.id, p])), catalogById: byId, tasteOf,
+  };
+}
+
+// Palette similarity is the slow part (CIEDE2000), so results are remembered across
+// calls by the palettes' colors. Same colors, same answer, so this stays pure.
+const SIM_CACHE = new Map();
+const SIM_CACHE_MAX = 400000;
+function pairSimFactory(palettes) {
+  const sig = new Map();
+  for (const [id, pal] of palettes) sig.set(id, pal.map((c) => `${c.hex}:${c.weight.toFixed(4)}`).join(','));
   return (a, b) => {
-    const k = a < b ? `${a}\u0001${b}` : `${b}\u0001${a}`;
-    let v = memo.get(k);
-    if (v === undefined) { v = paletteSimilarity(palettes.get(a) || [], palettes.get(b) || []); memo.set(k, v); }
+    const sa = sig.get(a) || '', sb = sig.get(b) || '';
+    const k = sa < sb ? `${sa}|${sb}` : `${sb}|${sa}`;
+    let v = SIM_CACHE.get(k);
+    if (v === undefined) {
+      v = paletteSimilarity(palettes.get(a) || [], palettes.get(b) || []);
+      if (SIM_CACHE.size >= SIM_CACHE_MAX) SIM_CACHE.clear();
+      SIM_CACHE.set(k, v);
+    }
     return v;
   };
 }
+
+const ownedCand = (p) => ({
+  id: p.id, source: 'owned', title: titleOf(p), artist: null, item: p,
+  sizes: [{ w: p.w, h: p.h, price: 0 }], taste: p.keep === 'happy' ? 0.75 : 0.5,
+});
 
 // ---------- Filling slots ----------
 
@@ -110,9 +201,17 @@ function optionsFor(index, slot) {
   return out;
 }
 
-// A small beam search. Value of a pick is 0.6 x taste + 0.4 x how well its colors
-// sit with what's already chosen, plus an edge for pieces the person already owns.
-function fill(struct, index, pairSim, hasRoom) {
+// How good a pick is before the whole wall is judged: 0.6 x taste + 0.4 x how well
+// its colors sit with the other pieces, plus an edge for pieces the person owns.
+function pickValue(cand, ctxIds, pairSim) {
+  const h = ctxIds.length ? ctxIds.reduce((s, id) => s + pairSim(cand.id, id), 0) / ctxIds.length : 0.5;
+  let v = 0.6 * cand.taste + 0.4 * h;
+  if (cand.source === 'owned') v += OWNED_PICK_BONUS[cand.item.keep] || 0;
+  return v;
+}
+
+// A small beam search over the open slots, biggest first.
+function fill(struct, index, pairSim, hasRoom, banned) {
   const open = struct.slots
     .map((s, i) => ({ ...s, i }))
     .filter((s) => !s.fixed)
@@ -122,7 +221,7 @@ function fill(struct, index, pairSim, hasRoom) {
   const fixedIds = struct.slots.filter((s) => s.fixed).map((s) => s.fixed.id);
   let beam = [{ picks: [], used: new Set(), artists: new Set(), value: 0, key: '' }];
   for (const slot of open) {
-    const opts = optionsFor(index, slot);
+    const opts = optionsFor(index, slot).filter((o) => !(banned && banned.has(o.cand.id)));
     if (!opts.length) return null;
     const next = [];
     for (const st of beam) {
@@ -130,10 +229,8 @@ function fill(struct, index, pairSim, hasRoom) {
       if (hasRoom) ctx.push(ROOM);
       for (const { cand, size } of opts) {
         if (st.used.has(cand.id)) continue;
-        const h = ctx.length ? ctx.reduce((s, id) => s + pairSim(cand.id, id), 0) / ctx.length : 0.5;
-        let v = 0.6 * cand.taste + 0.4 * h;
+        let v = pickValue(cand, ctx, pairSim);
         if (cand.artist && st.artists.has(cand.artist)) v -= 0.1;
-        if (cand.source === 'owned') v += OWNED_PICK_BONUS[cand.item.keep] || 0;
         next.push({ parent: st, pick: { slot, cand, size }, value: st.value + v, key: `${st.key},${cand.id}` });
       }
     }
@@ -148,13 +245,44 @@ function fill(struct, index, pairSim, hasRoom) {
   return beam[0];
 }
 
-// ---------- Scoring ----------
+const catalogExtra = (c) => ({ artist: c.artist || null, year: c.year || null, collection: c.source || null, url: c.url || null, image: c.image || null });
+const priceOf = (c, w, h) => {
+  const s = (c.sizes || []).find((z) => z.w === w && z.h === h);
+  return s && num(s.price) ? s.price : null;
+};
 
-function scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight) {
+// Every slot gets its piece, centered in the slot, on the quarter inch.
+function buildPieces(st, place, bySlot) {
+  return st.slots.map((slot, i) => {
+    let ref, title, w, h, price, extra = {}, keep = null, pickTaste = null, drop = null, kept = false, artist = null;
+    if (slot.fixed && slot.fixed.cat) {
+      // A catalog piece that stays: kept by the person, or not being changed by refill().
+      const p = slot.fixed, c = p.cat;
+      ref = { source: 'catalog', id: c.id }; title = titleOf(c); w = p.w; h = p.h; price = priceOf(c, w, h);
+      extra = catalogExtra(c); pickTaste = p.taste; kept = !!p.kept; keep = p.kept ? 'must' : null; artist = c.artist || null;
+    } else if (slot.fixed) {
+      const p = slot.fixed;
+      ref = { source: 'owned', id: p.id }; title = titleOf(p); w = p.w; h = p.h; price = 0; keep = p.keep; drop = p.drop;
+    } else {
+      const { cand: c, size } = bySlot.get(i);
+      ref = { source: c.source, id: c.id }; title = c.title; w = size.w; h = size.h; pickTaste = c.taste;
+      if (c.source === 'catalog') { price = num(size.price) ? size.price : null; extra = catalogExtra(c.item); artist = c.artist; }
+      else { price = 0; keep = c.item.keep; drop = c.item.drop; }
+    }
+    const x = q(place.x + slot.dx + (slot.w - w) / 2);
+    const y = q(place.y + slot.dy + (slot.h - h) / 2);
+    return {
+      id: ref.id, ref, title, w, h, x, y, cx: x + w / 2, cy: y + h / 2, row: slot.row, role: slot.role || 'fill', side: slot.side || null,
+      fixed: !!slot.fixed, keep, kept, price, taste: pickTaste, drop, artistName: artist, ...extra,
+      slot: { x: q(place.x + slot.dx), y: q(place.y + slot.dy), w: slot.w, h: slot.h },
+    };
+  });
+}
+
+// ---------- Judging a whole wall ----------
+
+function fitScore(L, zone) {
   const g = L.group;
-  const ids = L.pieces.map((p) => p.ref.id);
-
-  // Fit
   const ratio = g.w / zone.refW;
   const target = zone.type === 'anchor' ? RULES.anchorRatio : RULES.wallRatio;
   const fw = clamp01(1 - Math.abs(ratio - target) / 0.3);
@@ -170,7 +298,7 @@ function scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight) {
   }
   const fs = clamp01(1 - L.shift / 18);
   const gapsOk = L.meta.gaps.every((x) => x >= RULES.gapMin - EPS && x <= RULES.gapMax + EPS) ? 1 : 0.6;
-  const fg = gapsOk * clamp01(1 - L.meta.ragged / (0.15 * g.w));
+  const fg = gapsOk * clamp01(1 - (L.meta.ragged || 0) / (0.15 * g.w));
   const area = L.pieces.reduce((s, p) => s + p.w * p.h, 0);
   const fd = L.pieces.length === 1 ? 1 : clamp01((area / (g.w * g.h) - 0.5) / 0.3);
   // Presence: a group much shorter than its width looks thin over furniture.
@@ -179,55 +307,94 @@ function scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight) {
   const gcx = g.x + g.w / 2;
   const musts = L.pieces.filter((p) => p.keep === 'must' && p.fixed);
   const fm = musts.length ? clamp01(1 - musts.reduce((s, p) => s + Math.abs(p.cx - gcx) / (g.w / 2), 0) / musts.length) : 1;
-  const fit = 0.25 * fw + 0.2 * fv + 0.1 * fs + 0.1 * fg + 0.1 * fd + 0.15 * fp + 0.1 * fm;
+  return 0.25 * fw + 0.2 * fv + 0.1 * fs + 0.1 * fg + 0.1 * fd + 0.15 * fp + 0.1 * fm;
+}
 
-  // Taste
-  const fresh = L.pieces.filter((p) => !p.fixed);
-  const taste = fresh.length ? fresh.reduce((s, p) => s + p.taste, 0) / fresh.length : 0.7;
+function judge(L, ctx) {
+  const fit = fitScore(L, ctx.zone);
+  // Taste covers every piece that was chosen from art, kept or new, but not the ones you own and fixed.
+  const chosen = L.pieces.filter((p) => p.ref.source === 'catalog' || !p.fixed);
+  const taste = chosen.length ? chosen.reduce((s, p) => s + (p.taste ?? 0.5), 0) / chosen.length : 0.7;
 
-  // Harmony
-  const withPal = (id) => (palettes.get(id) || []).length > 0;
-  const context = L.pieces.filter((p) => p.fixed && withPal(p.ref.id)).map((p) => p.ref.id);
-  if (hasRoom) context.push(ROOM);
-  const freshIds = fresh.map((p) => p.ref.id).filter(withPal);
-  let sim = 0.5;
-  if (freshIds.length && context.length) {
-    let s = 0;
-    for (const a of freshIds) for (const b of context) s += pairSim(a, b);
-    sim = s / (freshIds.length * context.length);
-  } else {
-    const all = ids.filter(withPal);
-    let s = 0, n = 0;
-    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) { s += pairSim(all[i], all[j]); n++; }
-    if (n) sim = s / n;
+  const P = L.pieces.map((p) => ({ x: p.x, y: p.y, w: p.w, h: p.h, role: p.role, area: p.w * p.h, profile: ctx.profiles.get(p.ref.id) }));
+  const d = designScore(P, L.group, L.family);
+  let room = null;
+  if (ctx.hasRoom) {
+    const A = P.reduce((s, p) => s + p.area, 0);
+    const sim = L.pieces.reduce((s, p) => s + p.w * p.h * ctx.pairSim(p.ref.id, ROOM), 0) / A;
+    room = { profile: ctx.roomProfile, sim };
   }
-  const fams = hueFamilyCount(ids.map((id) => palettes.get(id) || []));
-  const harmony = 0.6 * sim + 0.4 * (fams <= 3 ? 1 : fams === 4 ? 0.7 : 0.4);
+  const c = colorScore(P, d.focalIdx, room);
 
-  // Balance
-  let wsum = 0, wx = 0, wy = 0, left = 0, right = 0;
-  for (const p of L.pieces) {
-    // Measured visual weight when the catalog has it, otherwise estimated from the palette.
-    const t = tone(palettes.get(p.ref.id) || []);
-    const perArea = vweight.has(p.ref.id) ? 0.3 + 1.2 * vweight.get(p.ref.id) : (0.3 + 0.7 * t.dark) * (1 + 0.5 * t.sat);
-    const wgt = p.w * p.h * perArea;
-    wsum += wgt; wx += wgt * p.cx; wy += wgt * p.cy;
-    if (p.cx < gcx - EPS) left += wgt; else if (p.cx > gcx + EPS) right += wgt; else { left += wgt / 2; right += wgt / 2; }
-  }
-  const off = wsum ? Math.abs(wx / wsum - gcx) / (g.w / 2) : 0;
-  const lr = Math.max(left, right) ? Math.min(left, right) / Math.max(left, right) : 1;
-  // Heavier at the bottom reads as settled; heavier at the top reads as about to tip.
-  const up = wsum ? (wy / wsum - cy) / (g.h / 2) : 0;
-  const fvb = up > 0.1 ? clamp01(1 - (up - 0.1) * 2.5) : 1;
-  const balance = 0.4 * clamp01(1 - off * 2) + 0.4 * (L.pieces.length === 1 ? 1 : lr) + 0.2 * fvb;
-
-  const parts = { fit, taste, harmony, balance };
-  // Using what you already own is the point: a small bonus for each
-  // happy-to-move piece that makes it onto the wall.
+  const artists = L.pieces.map((p) => p.artistName).filter(Boolean);
+  const dupArtists = artists.length - new Set(artists).size;
+  // Using what you already own is the point: a small bonus for each happy-to-move piece on the wall.
   const happyUsed = L.pieces.filter((p) => p.keep === 'happy').length;
   const reuse = L.happyTotal ? REUSE_BONUS * (happyUsed / L.happyTotal) : 0;
-  const score = WEIGHTS.fit * fit + WEIGHTS.taste * taste + WEIGHTS.harmony * harmony + WEIGHTS.balance * balance + reuse;
-  return { score, parts };
+  const parts = { fit, taste, color: c.score, design: d.score };
+  const score = WEIGHTS.fit * fit + WEIGHTS.taste * taste + WEIGHTS.color * c.score + WEIGHTS.design * d.score + reuse - SAME_ARTIST * dupArtists;
+  return { score, parts, checks: { ...c.checks, ...d.checks }, color: c, design: d };
+}
+
+// Try the best few alternatives in each open slot and keep a swap when the whole
+// wall scores higher. Frames and positions don't change.
+function improve(R, ctx, banned) {
+  let best = R;
+  const open = R.st.slots.map((s, i) => ({ s, i })).filter(({ s }) => !s.fixed)
+    .sort((a, b) => b.s.w * b.s.h - a.s.w * a.s.h || a.i - b.i);
+  for (let pass = 0; pass < SEARCH.passes; pass++) {
+    let changed = false;
+    for (const { s, i } of open) {
+      const current = best.bySlot.get(i).cand.id;
+      const onWall = new Set(best.pieces.map((p) => p.ref.id));
+      const others = best.pieces.filter((p) => p.ref.id !== current).map((p) => p.ref.id);
+      if (ctx.hasRoom) others.push(ROOM);
+      const alts = optionsFor(R.index, s)
+        .filter((o) => !onWall.has(o.cand.id) && !(banned && banned.has(o.cand.id)))
+        .map((o) => ({ o, v: pickValue(o.cand, others, ctx.pairSim) }))
+        .sort((a, b) => b.v - a.v || cmpStr(a.o.cand.id, b.o.cand.id))
+        .slice(0, SEARCH.alternatives);
+      for (const { o } of alts) {
+        const bySlot = new Map(best.bySlot); bySlot.set(i, o);
+        const pieces = buildPieces(R.st, best.group, bySlot);
+        if (o.cand.source === 'owned' && checkPieces(pieces, ctx.regions, ctx.wall).length) continue;
+        const L = { ...best, pieces, bySlot };
+        const j = judge(L, ctx);
+        if (j.score > best.score + 1e-6) { best = { ...L, ...j }; changed = true; }
+      }
+    }
+    if (!changed) break;
+  }
+  return best;
+}
+
+// The same arrangement, filled again without some pieces.
+function redo(L, banned, ctx) {
+  const picked = fill(L.st, L.index, ctx.pairSim, ctx.hasRoom, banned);
+  if (!picked) return null;
+  const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
+  const done = place(L.st, bySlot, L.group, ctx);
+  if (!done) return null;
+  const R = { ...L, pieces: done.pieces, group: done.where, shift: done.where.shift, bySlot };
+  return improve({ ...R, ...judge(R, ctx) }, ctx, banned);
+}
+
+// A layout's identity is its arrangement: family, frame sizes and where they go.
+function structureKey(st) {
+  const slots = st.slots.map((s) => `${q(s.dx)},${q(s.dy)},${s.w}x${s.h}`).sort(cmpStr).join(';');
+  return `${st.family}|${st.variant || ''}|${q(st.W)}x${q(st.H)}|${slots}`;
+}
+
+function place(st, pickedBySlot, base, ctx) {
+  let where = base, pieces = buildPieces(st, base, pickedBySlot);
+  // Positions are on the quarter inch before the hard checks, so what passes is what's printed.
+  for (const dx of [0.25, -0.25]) {
+    if (!checkPieces(pieces, ctx.regions, ctx.wall).length) break;
+    where = { ...base, x: base.x + dx, shift: Math.abs(base.x + dx + st.W / 2 - ctx.zone.cx) };
+    pieces = buildPieces(st, where, pickedBySlot);
+  }
+  if (checkPieces(pieces, ctx.regions, ctx.wall).length) return null;
+  return { where, pieces };
 }
 
 // ---------- Main ----------
@@ -237,24 +404,16 @@ function scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight) {
  * @returns {{ layouts: object[], problems: {code: string, message: string}[], zone: object|null }}
  */
 export function layout(input) {
-  validate(input);
-  const wall = input.wall;
-  const obstacles = input.obstacles || [];
-  const owned = input.owned || [];
-  const catalog = input.catalog || [];
-  const taste = input.taste || {};
-  const prefs = readPrefs(input.prefs);
+  const ctx = prepare(input);
+  const { zone, prefs, loose, kept } = ctx;
   const count = num(input.count) && input.count >= 1 ? Math.floor(input.count) : 3;
+  const avoid = new Set(idList(input.avoid, 'avoid'));
   const problems = [];
 
-  const pinned = owned.filter((p) => p.pinned);
-  const loose = owned.filter((p) => !p.pinned);
-  const must = loose.filter((p) => p.keep === 'must');
+  const must = [...loose.filter((p) => p.keep === 'must'), ...kept];
   const happy = loose.filter((p) => p.keep === 'happy');
-  const regions = blockedRegions(obstacles, pinned);
-  const zone = findZone(wall, obstacles, regions);
   if (!zone) {
-    const short = wall.height - RULES.ceilingHard - RULES.centerline < 4;
+    const short = ctx.wall.height - RULES.ceilingHard - RULES.centerline < 4;
     problems.push({
       code: 'NO_OPEN_SPACE',
       message: short ? 'This wall is too short to hang art at eye level.' : "There's no stretch of wall wide enough to hang on.",
@@ -262,116 +421,97 @@ export function layout(input) {
     return { layouts: [], problems, zone: null };
   }
 
-  const palettes = new Map();
-  for (const p of owned) palettes.set(p.id, normalizePalette(p.palette));
-  for (const c of catalog) palettes.set(c.id, normalizePalette(c.palette));
-  const room = normalizePalette(input.room && input.room.palette);
-  if (room.length) palettes.set(ROOM, room);
-  const hasRoom = room.length > 0;
-  const vweight = new Map(catalog.filter((c) => num(c.weight) && c.weight >= 0 && c.weight <= 1).map((c) => [c.id, c.weight]));
-  const pairSim = pairSimFactory(palettes, paletteSimilarity);
-
-  const catalogCands = catalog.map((c) => ({
-    id: c.id, source: 'catalog', title: c.title, artist: c.artist || null, item: c,
-    sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0),
-    taste: num(taste[c.id]) ? clamp01(taste[c.id]) : 0.5,
-  }));
-  const ownedCand = (p) => ({
-    id: p.id, source: 'owned', title: titleOf(p), artist: null, item: p,
-    sizes: [{ w: p.w, h: p.h, price: 0 }], taste: p.keep === 'happy' ? 0.75 : 0.5,
-  });
-
   const variants = happy.length ? [[...must, ...happy], must] : [must];
   const mismatch = new Map(); // family -> number of variants it was skipped in, with its message
   const results = [];
 
   for (const fixed of variants) {
     const fixedIds = new Set(fixed.map((p) => p.id));
-    const cands = [...catalogCands, ...loose.filter((p) => !fixedIds.has(p.id) && p.keep !== 'must').map(ownedCand)];
+    const cands = [...ctx.catalogCands, ...loose.filter((p) => !fixedIds.has(p.id) && p.keep !== 'must').map(ownedCand)];
     const index = indexCandidates(cands);
     const avail = new Map();
     for (const [k, list] of index.bySize) avail.set(k, list.length);
     for (const c of index.owned) for (const [w, h] of STANDARD) {
       if (Math.abs(c.sizes[0].w - w) <= 1 && Math.abs(c.sizes[0].h - h) <= 1) avail.set(sizeKey(w, h), (avail.get(sizeKey(w, h)) || 0) + 1);
     }
-    const ctx = { fixed, zone, avail, maxPieces: prefs.maxPieces };
+    const sctx = { fixed, zone, avail, maxPieces: prefs.maxPieces };
 
     const structs = [];
     for (const fam of prefs.families) {
       let r;
-      if (fam === 'salon') r = { structures: salonStructures(ctx) };
-      if (fam === 'line') r = { structures: lineStructures(ctx) };
-      if (fam === 'grid') r = gridStructures(ctx);
-      if (fam === 'statement') r = statementStructures(ctx);
+      if (fam === 'salon') r = { structures: salonStructures(sctx) };
+      if (fam === 'line') r = { structures: lineStructures(sctx) };
+      if (fam === 'grid') r = gridStructures(sctx);
+      if (fam === 'statement') r = statementStructures(sctx);
       structs.push(...r.structures);
       if (r.skipped) mismatch.set(fam, { n: (mismatch.get(fam)?.n || 0) + 1, message: r.skipped });
     }
 
     for (const st of structs) {
-      const picked = fill(st, index, pairSim, hasRoom);
+      const picked = fill(st, index, ctx.pairSim, ctx.hasRoom);
       if (!picked) continue;
-      const base = placeGroup(zone, st.W, st.H, regions, wall);
+      const base = placeGroup(zone, st.W, st.H, ctx.regions, ctx.wall);
       if (!base) continue;
       const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
-      const build = (place) => st.slots.map((slot, i) => {
-        let ref, title, w, h, price, extra = {}, keep = null, pickTaste = null, drop = null;
-        if (slot.fixed) {
-          const p = slot.fixed;
-          ref = { source: 'owned', id: p.id }; title = titleOf(p); w = p.w; h = p.h; price = 0; keep = p.keep; drop = p.drop;
-        } else {
-          const { cand: c, size } = bySlot.get(i);
-          ref = { source: c.source, id: c.id }; title = c.title; w = size.w; h = size.h; pickTaste = c.taste;
-          if (c.source === 'catalog') {
-            price = num(size.price) ? size.price : null;
-            extra = { artist: c.item.artist || null, year: c.item.year || null, collection: c.item.source || null, url: c.item.url || null, image: c.item.image || null };
-          } else { price = 0; keep = c.item.keep; drop = c.item.drop; }
-        }
-        const x = q(place.x + slot.dx + (slot.w - w) / 2);
-        const y = q(place.y + slot.dy + (slot.h - h) / 2);
-        return { id: ref.id, ref, title, w, h, x, y, cx: x + w / 2, cy: y + h / 2, row: slot.row, role: slot.role || 'fill', fixed: !!slot.fixed, keep, price, taste: pickTaste, drop, ...extra };
-      });
-      // Positions are on the quarter inch before the hard checks, so what passes is what's printed.
-      let place = base, pieces = build(base);
-      for (const dx of [0.25, -0.25]) {
-        if (!checkPieces(pieces, regions, wall).length) break;
-        place = { ...base, x: base.x + dx, shift: Math.abs(base.x + dx + st.W / 2 - zone.cx) };
-        pieces = build(place);
-      }
-      if (checkPieces(pieces, regions, wall).length) continue;
-      const L = { family: st.family, variant: st.variant || null, meta: st.meta, group: place, shift: place.shift, pieces, happyTotal: happy.length };
-      const { score, parts } = scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight);
-      results.push({ ...L, score, parts });
+      const done = place(st, bySlot, base, ctx);
+      if (!done) continue;
+      const L = {
+        family: st.family, variant: st.variant || null, meta: st.meta, group: done.where, shift: done.where.shift,
+        pieces: done.pieces, happyTotal: happy.length, st, index, bySlot, key: structureKey(st),
+      };
+      results.push({ ...L, ...judge(L, ctx) });
     }
   }
+
+  // The best few get the improvement pass, one per arrangement.
+  const byKey = new Map();
+  for (const R of results) if (!byKey.has(R.key) || R.score > byKey.get(R.key).score) byKey.set(R.key, R);
+  let pool = [...byKey.values()].sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
+  const fresh = pool.filter((R) => !avoid.has(R.key));
+  if (avoid.size && pool.length && !fresh.length) {
+    problems.push({ code: 'ALL_SHOWN', message: "That's every layout that fits this wall. Starting again from the best." });
+  } else pool = fresh;
+  // Improve the best of each family first, so variety survives, then the next best overall.
+  const toImprove = [];
+  const fams = new Set();
+  for (const R of pool) if (!fams.has(R.family)) { fams.add(R.family); toImprove.push(R); }
+  for (const R of pool) { if (toImprove.length >= SEARCH.improveTop) break; if (!toImprove.includes(R)) toImprove.push(R); }
+  const improved = new Map(toImprove.map((R) => [R, improve(R, ctx)]));
+  let valid = pool.map((R) => improved.get(R) || R);
 
   // Budget: drop layouts over it, but say what the cheapest one costs.
   const total = (L) => L.pieces.reduce((s, p) => s + (p.price || 0), 0);
-  let valid = results;
   if (prefs.budget !== null) {
-    valid = results.filter((L) => total(L) <= prefs.budget + EPS);
-    if (!valid.length && results.length) {
-      problems.push({ code: 'BUDGET_TOO_LOW', message: `The cheapest layout that fits is $${Math.round(Math.min(...results.map(total)))}.` });
+    const all = valid;
+    valid = all.filter((L) => total(L) <= prefs.budget + EPS);
+    if (!valid.length && all.length) {
+      problems.push({ code: 'BUDGET_TOO_LOW', message: `The cheapest layout that fits is $${Math.round(Math.min(...all.map(total)))}.` });
     }
   }
 
-  // Rank for variety: best of each family first, then the next best overall.
-  valid.sort((a, b) => b.score - a.score || cmpStr(keyOf(a), keyOf(b)));
-  const chosen = [];
-  const keys = new Set();
+  // Rank for variety: best of each family first, then the next best overall. Each
+  // layout after the first gets art the earlier ones don't use, when there's enough.
+  valid.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
+  const order = [];
   const famsSeen = new Set();
-  for (const L of valid) {
+  for (const L of valid) if (!famsSeen.has(L.family)) { famsSeen.add(L.family); order.push(L); }
+  for (const L of valid) if (!order.includes(L)) order.push(L);
+  const chosen = [];
+  const used = new Set();
+  const newArt = (L) => L.pieces.filter((p) => p.ref.source === 'catalog' && !p.kept).map((p) => p.ref.id);
+  for (const L of order) {
     if (chosen.length >= count) break;
-    if (famsSeen.has(L.family)) continue;
-    famsSeen.add(L.family); keys.add(keyOf(L)); chosen.push(L);
+    let pick = L;
+    if (newArt(L).some((id) => used.has(id))) {
+      const alt = redo(L, used, ctx);
+      if (alt && (prefs.budget === null || total(alt) <= prefs.budget + EPS)) pick = alt;
+    }
+    chosen.push(pick);
+    for (const id of newArt(pick)) used.add(id);
   }
-  for (const L of valid) {
-    if (chosen.length >= count) break;
-    if (keys.has(keyOf(L))) continue;
-    keys.add(keyOf(L)); chosen.push(L);
-  }
-  chosen.sort((a, b) => b.score - a.score || cmpStr(keyOf(a), keyOf(b)));
+  chosen.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
 
-  const present = new Set(valid.map((L) => L.family));
+  const present = new Set(results.map((L) => L.family));
   for (const fam of prefs.families) {
     if (present.has(fam)) continue;
     const m = mismatch.get(fam);
@@ -384,10 +524,81 @@ export function layout(input) {
     problems.push({ code: 'FAMILY_SKIPPED', family: fam, message });
   }
 
-  if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) problems.unshift(whyNothing(must, zone, catalogCands, loose));
+  if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) problems.unshift(whyNothing(must, zone, ctx.catalogCands, loose));
 
-  const layouts = chosen.map((L, i) => finish(L, i + 1, zone, owned, pinned, palettes));
+  const layouts = chosen.map((L, i) => finish(L, i + 1, ctx));
   return { layouts, problems, zone: zoneOut(zone) };
+}
+
+/**
+ * Same frames in the same places, new art in them.
+ * @param {object} input the same input layout() got (keep, exclude and taste may change)
+ * @param {object} prev a layout layout() or refill() returned
+ * @param {{ keep?: string[], swap?: string }} opts keep: ids that stay; swap: change only this one
+ */
+export function refill(input, prev, opts = {}) {
+  if (!prev || !Array.isArray(prev.pieces) || !prev.group) throw new TypeError('refill() needs a layout that layout() returned.');
+  const ctx = prepare(input);
+  const problems = [];
+  if (!ctx.zone) return { layouts: [], problems: [{ code: 'NO_OPEN_SPACE', message: "There's no stretch of wall wide enough to hang on." }], zone: null };
+  const keepIds = new Set([...idList(opts.keep, 'keep'), ...ctx.keptIds]);
+  const swap = typeof opts.swap === 'string' ? opts.swap : null;
+  const hung = prev.pieces.filter((p) => p.role !== 'pinned');
+  if (swap && !hung.some((p) => p.ref.id === swap)) throw new TypeError(`${swap} isn't on this layout.`);
+
+  const owned = (p) => p.ref.source === 'owned';
+  const stays = (p) => {
+    if (swap) return p.ref.id !== swap;
+    return owned(p) || keepIds.has(p.ref.id);
+  };
+  const ownedMust = (p) => owned(p) && ctx.ownedById.get(p.ref.id)?.keep === 'must';
+  if (swap && (ownedMust(hung.find((p) => p.ref.id === swap)) || keepIds.has(swap))) throw new TypeError(`${swap} is a piece you must keep.`);
+  const replaced = new Set(hung.filter((p) => !stays(p)).map((p) => p.ref.id));
+  if (!replaced.size) {
+    problems.push({ code: 'NOTHING_TO_CHANGE', message: 'Every piece on this wall is kept or yours, so there is nothing to change.' });
+  }
+
+  const g = prev.group;
+  const fixedFor = (p) => {
+    if (owned(p)) return ctx.ownedById.get(p.ref.id);
+    const c = ctx.catalogById.get(p.ref.id);
+    if (!c) throw new TypeError(`${p.ref.id} isn't in the catalog.`);
+    return { id: c.id, w: p.w, h: p.h, keep: keepIds.has(c.id) ? 'must' : null, kept: keepIds.has(c.id), title: titleOf(c), cat: c, taste: ctx.tasteOf(c.id) };
+  };
+  const slots = hung.map((p) => {
+    const sl = p.slot || { x: p.x, y: p.y, w: p.w, h: p.h };
+    return { w: sl.w, h: sl.h, dx: sl.x - g.x, dy: sl.y - g.y, row: p.row, role: p.role, side: p.side || null, fixed: stays(p) ? fixedFor(p) : null };
+  });
+  const st = { family: prev.family, variant: prev.variant, W: g.w, H: g.h, slots, meta: { rows: prev.meta.rows, cols: prev.meta.cols, gaps: prev.meta.gaps, ragged: prev.meta.ragged || 0 } };
+
+  const onWall = new Set(hung.filter(stays).map((p) => p.ref.id));
+  const cands = [
+    ...ctx.catalogCands.filter((c) => !onWall.has(c.id)),
+    ...ctx.loose.filter((p) => p.keep !== 'must' && !onWall.has(p.id)).map(ownedCand),
+  ];
+  const index = indexCandidates(cands);
+  const where = { x: g.x, y: g.y, w: g.w, h: g.h, shift: Math.abs(g.x + g.w / 2 - ctx.zone.cx) };
+  const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, replaced);
+  if (!picked) {
+    const stuck = hung.find((p) => !stays(p) && !optionsFor(index, p.slot || p).some((o) => !replaced.has(o.cand.id)));
+    return {
+      layouts: [], zone: zoneOut(ctx.zone),
+      problems: [{ code: 'NO_ART_FOR_SLOT', message: stuck ? `No other art comes in a ${stuck.w} x ${stuck.h} in frame.` : 'Not enough other art in these frame sizes.' }],
+    };
+  }
+  const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
+  const pieces = buildPieces(st, where, bySlot);
+  if (checkPieces(pieces, ctx.regions, ctx.wall).length) {
+    return { layouts: [], zone: zoneOut(ctx.zone), problems: [{ code: 'NO_LAYOUT', message: "The new art doesn't fit these frames on this wall." }] };
+  }
+  const happyTotal = ctx.loose.filter((p) => p.keep === 'happy').length;
+  const L = { family: st.family, variant: st.variant, meta: st.meta, group: where, shift: where.shift, pieces, happyTotal, st, index, bySlot, key: prev.key || structureKey(st) };
+  const best = improve({ ...L, ...judge(L, ctx) }, ctx, replaced);
+  const cost = best.pieces.reduce((s, p) => s + (p.price || 0), 0);
+  if (ctx.prefs.budget !== null && cost > ctx.prefs.budget + EPS) {
+    return { layouts: [], zone: zoneOut(ctx.zone), problems: [{ code: 'BUDGET_TOO_LOW', message: `New art for these frames would cost $${Math.round(cost)}, over your budget.` }] };
+  }
+  return { layouts: [finish(best, 1, ctx)], problems, zone: zoneOut(ctx.zone) };
 }
 
 function whyNothing(must, zone, catalogCands, loose) {
@@ -414,8 +625,6 @@ function whyNothing(must, zone, catalogCands, loose) {
   };
 }
 
-const keyOf = (L) => `${L.family}:${L.pieces.map((p) => p.ref.id).sort(cmpStr).join(',')}`;
-
 function zoneOut(z) {
   return {
     type: z.type, anchor: z.anchor ? { id: z.anchor.id, kind: z.anchor.kind } : null,
@@ -424,23 +633,39 @@ function zoneOut(z) {
 }
 
 const r3 = (v) => Math.round(v * 1000) / 1000;
+const r3map = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, r3(v)]));
+const topShares = (shares) => Object.fromEntries(Object.entries(shares).filter(([, v]) => v >= 0.01)
+  .sort((a, b) => b[1] - a[1] || cmpStr(a[0], b[0])).map(([k, v]) => [k, r3(v)]));
 
-function finish(L, rank, zone, owned, pinned, palettes) {
+function finish(L, rank, ctx) {
+  const { zone, owned, pinned, palettes, profiles } = ctx;
   const anchor = zone.anchor ? { id: zone.anchor.id, kind: zone.anchor.kind } : { kind: 'wall' };
   const group = { x: L.group.x, y: L.group.y, w: L.group.w, h: L.group.h };
   const ownedIn = L.pieces.filter((p) => p.ref.source === 'owned').map((p) => ({ id: p.ref.id, title: p.title, pal: palettes.get(p.ref.id) || [] }));
+  const NEUTRALS = new Set(['black', 'gray', 'white']);
+  const mainFamily = (sh) => {
+    const top = Object.entries(sh).filter(([k, v]) => !NEUTRALS.has(k) && v >= 0.1).sort((a, b) => b[1] - a[1] || cmpStr(a[0], b[0]))[0];
+    return top ? top[0] : null;
+  };
   const pieces = L.pieces.map((p) => {
     const drop = num(p.drop) ? p.drop : RULES.defaultDrop;
+    const sh = profiles.get(p.ref.id).shares;
+    const othersShares = L.pieces.filter((o) => o.ref.id !== p.ref.id).map((o) => profiles.get(o.ref.id).shares);
     const out = {
       ref: p.ref, title: p.title, w: p.w, h: p.h,
       x: p.x, y: p.y, cx: q(p.cx), cy: q(p.cy),
       nail: { x: q(p.cx), y: q(p.y + p.h - drop) },
       role: p.role, row: p.row, price: p.price,
-      reason: pieceReason({ piece: p, group, anchorKind: anchor.kind, family: L.family, ownedInLayout: ownedIn.filter((o) => o.id !== p.ref.id), othersPal: L.pieces.filter((o) => o.ref.id !== p.ref.id).map((o) => palettes.get(o.ref.id) || []), pal: palettes.get(p.ref.id) || [], taste: p.taste ?? 0.5 }),
+      shares: topShares(profiles.get(p.ref.id).shares),
+      reason: pieceReason({ piece: p, group, anchorKind: anchor.kind, family: L.family, ownedInLayout: ownedIn.filter((o) => o.id !== p.ref.id), othersPal: L.pieces.filter((o) => o.ref.id !== p.ref.id).map((o) => palettes.get(o.ref.id) || []), pal: palettes.get(p.ref.id) || [], taste: p.taste ?? 0.5, colorFamily: mainFamily(sh), othersShares }),
     };
+    if (p.side) out.side = p.side;
+    // The frame slot, when a piece you own is a little off a standard size.
+    if (p.slot && (p.slot.w !== p.w || p.slot.h !== p.h)) out.slot = p.slot;
     if (!num(p.drop)) out.nailNote = `Assumes the wire sits ${RULES.defaultDrop} in below the top. Measure yours first.`;
     if (p.ref.source === 'catalog') Object.assign(out, { artist: p.artist, year: p.year, collection: p.collection, url: p.url, image: p.image });
-    if (p.keep) out.keep = p.keep;
+    if (p.ref.source === 'owned' && p.keep) out.keep = p.keep;
+    if (p.kept) out.kept = true;
     return out;
   });
   for (const p of pinned) {
@@ -450,21 +675,30 @@ function finish(L, rank, zone, owned, pinned, palettes) {
       ref: { source: 'owned', id: p.id }, title, w: p.w, h: p.h,
       x: p.at.x, y: p.at.y, cx: q(p.at.x + p.w / 2), cy: q(p.at.y + p.h / 2),
       nail: { x: q(p.at.x + p.w / 2), y: q(p.at.y + p.h - drop) }, role: 'pinned', row: null, price: 0, keep: p.keep,
+      shares: topShares(profiles.get(p.id).shares),
       reason: pieceReason({ piece: { title, role: 'pinned', ref: { source: 'owned' } } }),
     });
   }
   const inIds = new Set(pieces.map((p) => p.ref.id));
   const left = owned.filter((p) => !inIds.has(p.id)).map((p) => ({ id: p.id, title: titleOf(p), reason: leftReason({ ...p, title: titleOf(p) }) }));
-  const mustTitles = L.pieces.filter((p) => p.keep === 'must' && p.fixed).map((p) => p.title);
-  const newCount = L.pieces.filter((p) => p.ref.source === 'catalog').length;
+  const mustTitles = L.pieces.filter((p) => p.keep === 'must' && p.fixed && !p.kept).map((p) => p.title);
+  const keptTitles = L.pieces.filter((p) => p.kept).map((p) => p.title);
+  const newCount = L.pieces.filter((p) => p.ref.source === 'catalog' && !p.kept).length;
+  const c = L.color;
   const out = {
-    rank, family: L.family, variant: L.variant, score: r3(Math.min(1, L.score)),
-    parts: Object.fromEntries(Object.entries(L.parts).map(([k, v]) => [k, r3(v)])),
+    rank, key: L.key, family: L.family, variant: L.variant, score: r3(Math.max(0, Math.min(1, L.score))),
+    parts: r3map(L.parts),
+    checks: r3map(L.checks),
+    color: {
+      scheme: c.scheme, colors: c.schemeColors, lean: c.lean,
+      shares: topShares(c.wall.shares), chromatic: r3(c.wall.chromatic), value: r3map(c.wall.value),
+      repeated: c.repeated.map((x) => x.family),
+    },
     anchor, group: { x: q(group.x), y: q(group.y), w: q(group.w), h: q(group.h) },
     pieces, left, total: pieces.reduce((s, p) => s + (p.price || 0), 0),
-    meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q) },
+    meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q), ragged: q(L.meta.ragged || 0) },
   };
-  out.summary = summary({ ...out, meta: L.meta, group }, mustTitles, newCount);
+  out.summary = summary({ ...out, meta: L.meta, group }, mustTitles, newCount, keptTitles);
+  out.notes = layoutNotes({ color: c, design: L.design, checks: L.checks, family: L.family, pieces: L.pieces });
   return out;
 }
-

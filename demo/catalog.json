@@ -59,7 +59,32 @@
     "contrast": 0.253,
     "saturation": 0.052,
     "colorfulness": 0.11,
-    "warmth": 0.063
+    "warmth": 0.063,
+    "shares": {
+     "yellow": 0.008,
+     "gray": 0.424,
+     "white": 0.568
+    },
+    "hues": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.012,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.064,
+     "light": 0.936
+    }
    },
    "composition": {
     "busyness": 0.046,
@@ -185,7 +210,34 @@
     "contrast": 0.262,
     "saturation": 0.121,
     "colorfulness": 0.212,
-    "warmth": 0.018
+    "warmth": 0.018,
+    "shares": {
+     "orange": 0.012,
+     "yellow": 0.021,
+     "blue": 0.066,
+     "gray": 0.361,
+     "white": 0.54
+    },
+    "hues": [
+     0.0,
+     0.002,
+     0.392,
+     0.009,
+     0.0,
+     0.014,
+     0.004,
+     0.0,
+     0.579,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.104,
+    "value": {
+     "dark": 0.001,
+     "mid": 0.069,
+     "light": 0.931
+    }
    },
    "composition": {
     "busyness": 0.035,
@@ -315,7 +367,33 @@
     "contrast": 0.402,
     "saturation": 0.216,
     "colorfulness": 0.426,
-    "warmth": -0.615
+    "warmth": -0.615,
+    "shares": {
+     "blue": 0.542,
+     "black": 0.008,
+     "gray": 0.357,
+     "white": 0.093
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.004,
+     0.996,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.543,
+    "value": {
+     "dark": 0.034,
+     "mid": 0.69,
+     "light": 0.275
+    }
    },
    "composition": {
     "busyness": 0.081,
@@ -443,7 +521,35 @@
     "contrast": 0.489,
     "saturation": 0.096,
     "colorfulness": 0.164,
-    "warmth": 0.126
+    "warmth": 0.126,
+    "shares": {
+     "yellow": 0.007,
+     "brown": 0.006,
+     "green": 0.007,
+     "black": 0.005,
+     "gray": 0.619,
+     "white": 0.356
+    },
+    "hues": [
+     0.0,
+     0.349,
+     0.115,
+     0.512,
+     0.025,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.022,
+    "value": {
+     "dark": 0.031,
+     "mid": 0.299,
+     "light": 0.67
+    }
    },
    "composition": {
     "busyness": 0.05,
@@ -585,7 +691,32 @@
     "contrast": 0.325,
     "saturation": 0.21,
     "colorfulness": 0.4,
-    "warmth": -0.628
+    "warmth": -0.628,
+    "shares": {
+     "blue": 0.663,
+     "gray": 0.01,
+     "white": 0.327
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.663,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.432,
+     "light": 0.568
+    }
    },
    "composition": {
     "busyness": 0.02,
@@ -713,7 +844,33 @@
     "contrast": 0.409,
     "saturation": 0.2,
     "colorfulness": 0.348,
-    "warmth": -0.58
+    "warmth": -0.58,
+    "shares": {
+     "teal": 0.315,
+     "blue": 0.316,
+     "gray": 0.303,
+     "white": 0.065
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.059,
+     0.941,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.631,
+    "value": {
+     "dark": 0.002,
+     "mid": 0.591,
+     "light": 0.407
+    }
    },
    "composition": {
     "busyness": 0.074,
@@ -859,7 +1016,34 @@
     "contrast": 0.41,
     "saturation": 0.139,
     "colorfulness": 0.221,
-    "warmth": 0.348
+    "warmth": 0.348,
+    "shares": {
+     "orange": 0.088,
+     "yellow": 0.065,
+     "brown": 0.094,
+     "gray": 0.527,
+     "white": 0.226
+    },
+    "hues": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.248,
+    "value": {
+     "dark": 0.018,
+     "mid": 0.186,
+     "light": 0.797
+    }
    },
    "composition": {
     "busyness": 0.054,
@@ -995,7 +1179,35 @@
     "contrast": 0.932,
     "saturation": 0.092,
     "colorfulness": 0.197,
-    "warmth": 0.069
+    "warmth": 0.069,
+    "shares": {
+     "red": 0.044,
+     "pink": 0.008,
+     "brown": 0.058,
+     "black": 0.3,
+     "gray": 0.41,
+     "white": 0.18
+    },
+    "hues": [
+     0.174,
+     0.824,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.111,
+    "value": {
+     "dark": 0.419,
+     "mid": 0.25,
+     "light": 0.331
+    }
    },
    "composition": {
     "busyness": 0.405,
@@ -1129,7 +1341,37 @@
     "contrast": 0.456,
     "saturation": 0.308,
     "colorfulness": 0.529,
-    "warmth": 0.685
+    "warmth": 0.685,
+    "shares": {
+     "red": 0.027,
+     "orange": 0.052,
+     "yellow": 0.026,
+     "brown": 0.316,
+     "teal": 0.009,
+     "blue": 0.013,
+     "black": 0.059,
+     "gray": 0.497
+    },
+    "hues": [
+     0.0,
+     0.579,
+     0.385,
+     0.015,
+     0.0,
+     0.0,
+     0.002,
+     0.018,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.454,
+    "value": {
+     "dark": 0.273,
+     "mid": 0.674,
+     "light": 0.053
+    }
    },
    "composition": {
     "busyness": 0.162,
@@ -1262,7 +1504,32 @@
     "contrast": 0.985,
     "saturation": 0.069,
     "colorfulness": 0.085,
-    "warmth": 0.03
+    "warmth": 0.03,
+    "shares": {
+     "black": 0.285,
+     "gray": 0.593,
+     "white": 0.122
+    },
+    "hues": [
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.394,
+     "mid": 0.162,
+     "light": 0.445
+    }
    },
    "composition": {
     "busyness": 0.326,
@@ -1407,7 +1674,36 @@
     "contrast": 0.758,
     "saturation": 0.199,
     "colorfulness": 0.387,
-    "warmth": -0.102
+    "warmth": -0.102,
+    "shares": {
+     "yellow": 0.118,
+     "green": 0.039,
+     "teal": 0.014,
+     "blue": 0.229,
+     "black": 0.105,
+     "gray": 0.426,
+     "white": 0.069
+    },
+    "hues": [
+     0.0,
+     0.002,
+     0.168,
+     0.241,
+     0.052,
+     0.006,
+     0.005,
+     0.238,
+     0.277,
+     0.006,
+     0.004,
+     0.0
+    ],
+    "chromatic": 0.422,
+    "value": {
+     "dark": 0.379,
+     "mid": 0.274,
+     "light": 0.347
+    }
    },
    "composition": {
     "busyness": 0.328,
@@ -1555,7 +1851,32 @@
     "contrast": 1.0,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.69,
+     "gray": 0.248,
+     "white": 0.062
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.706,
+     "mid": 0.063,
+     "light": 0.23
+    }
    },
    "composition": {
     "busyness": 0.124,
@@ -1689,7 +2010,37 @@
     "contrast": 0.378,
     "saturation": 0.768,
     "colorfulness": 1.0,
-    "warmth": 0.875
+    "warmth": 0.875,
+    "shares": {
+     "red": 0.15,
+     "orange": 0.152,
+     "yellow": 0.346,
+     "brown": 0.008,
+     "green": 0.016,
+     "blue": 0.024,
+     "gray": 0.29,
+     "white": 0.014
+    },
+    "hues": [
+     0.007,
+     0.284,
+     0.58,
+     0.118,
+     0.004,
+     0.0,
+     0.0,
+     0.0,
+     0.007,
+     0.0,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.695,
+    "value": {
+     "dark": 0.008,
+     "mid": 0.474,
+     "light": 0.518
+    }
    },
    "composition": {
     "busyness": 0.269,
@@ -1811,7 +2162,38 @@
     "contrast": 0.597,
     "saturation": 0.791,
     "colorfulness": 1.0,
-    "warmth": 0.477
+    "warmth": 0.477,
+    "shares": {
+     "red": 0.041,
+     "orange": 0.362,
+     "yellow": 0.113,
+     "brown": 0.023,
+     "green": 0.112,
+     "teal": 0.082,
+     "blue": 0.19,
+     "black": 0.063,
+     "gray": 0.013
+    },
+    "hues": [
+     0.005,
+     0.059,
+     0.645,
+     0.056,
+     0.005,
+     0.006,
+     0.035,
+     0.036,
+     0.023,
+     0.128,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.945,
+    "value": {
+     "dark": 0.12,
+     "mid": 0.585,
+     "light": 0.295
+    }
    },
    "composition": {
     "busyness": 0.115,
@@ -1961,7 +2343,38 @@
     "contrast": 0.664,
     "saturation": 0.205,
     "colorfulness": 0.516,
-    "warmth": -0.119
+    "warmth": -0.119,
+    "shares": {
+     "red": 0.016,
+     "yellow": 0.02,
+     "brown": 0.008,
+     "green": 0.142,
+     "teal": 0.043,
+     "blue": 0.09,
+     "black": 0.01,
+     "gray": 0.019,
+     "white": 0.652
+    },
+    "hues": [
+     0.077,
+     0.017,
+     0.015,
+     0.212,
+     0.114,
+     0.214,
+     0.03,
+     0.111,
+     0.162,
+     0.045,
+     0.001,
+     0.0
+    ],
+    "chromatic": 0.332,
+    "value": {
+     "dark": 0.069,
+     "mid": 0.157,
+     "light": 0.774
+    }
    },
    "composition": {
     "busyness": 0.242,
@@ -2111,7 +2524,39 @@
     "contrast": 0.451,
     "saturation": 0.37,
     "colorfulness": 0.823,
-    "warmth": 0.211
+    "warmth": 0.211,
+    "shares": {
+     "red": 0.119,
+     "orange": 0.041,
+     "yellow": 0.023,
+     "brown": 0.035,
+     "green": 0.005,
+     "teal": 0.125,
+     "blue": 0.155,
+     "black": 0.006,
+     "gray": 0.483,
+     "white": 0.007
+    },
+    "hues": [
+     0.001,
+     0.607,
+     0.036,
+     0.005,
+     0.0,
+     0.006,
+     0.047,
+     0.149,
+     0.106,
+     0.045,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.51,
+    "value": {
+     "dark": 0.019,
+     "mid": 0.399,
+     "light": 0.582
+    }
    },
    "composition": {
     "busyness": 0.133,
@@ -2245,7 +2690,32 @@
     "contrast": 0.985,
     "saturation": 0.051,
     "colorfulness": 0.091,
-    "warmth": -0.143
+    "warmth": -0.143,
+    "shares": {
+     "black": 0.245,
+     "gray": 0.542,
+     "white": 0.214
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.981,
+     0.019,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.002,
+    "value": {
+     "dark": 0.322,
+     "mid": 0.254,
+     "light": 0.424
+    }
    },
    "composition": {
     "busyness": 0.416,
@@ -2390,7 +2860,38 @@
     "contrast": 0.372,
     "saturation": 0.286,
     "colorfulness": 0.529,
-    "warmth": -0.263
+    "warmth": -0.263,
+    "shares": {
+     "red": 0.019,
+     "orange": 0.02,
+     "yellow": 0.06,
+     "brown": 0.101,
+     "green": 0.034,
+     "teal": 0.086,
+     "blue": 0.382,
+     "black": 0.015,
+     "gray": 0.282
+    },
+    "hues": [
+     0.028,
+     0.045,
+     0.185,
+     0.141,
+     0.006,
+     0.001,
+     0.006,
+     0.468,
+     0.116,
+     0.002,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.713,
+    "value": {
+     "dark": 0.105,
+     "mid": 0.85,
+     "light": 0.045
+    }
    },
    "composition": {
     "busyness": 0.26,
@@ -2523,7 +3024,37 @@
     "contrast": 0.715,
     "saturation": 0.413,
     "colorfulness": 0.658,
-    "warmth": 0.823
+    "warmth": 0.823,
+    "shares": {
+     "red": 0.198,
+     "orange": 0.147,
+     "yellow": 0.046,
+     "brown": 0.137,
+     "green": 0.016,
+     "blue": 0.012,
+     "black": 0.129,
+     "gray": 0.314
+    },
+    "hues": [
+     0.147,
+     0.578,
+     0.197,
+     0.049,
+     0.002,
+     0.0,
+     0.0,
+     0.008,
+     0.001,
+     0.0,
+     0.0,
+     0.017
+    ],
+    "chromatic": 0.606,
+    "value": {
+     "dark": 0.329,
+     "mid": 0.395,
+     "light": 0.277
+    }
    },
    "composition": {
     "busyness": 0.337,
@@ -2656,7 +3187,36 @@
     "contrast": 0.551,
     "saturation": 0.248,
     "colorfulness": 0.523,
-    "warmth": 0.457
+    "warmth": 0.457,
+    "shares": {
+     "red": 0.04,
+     "orange": 0.098,
+     "yellow": 0.006,
+     "brown": 0.136,
+     "blue": 0.039,
+     "black": 0.213,
+     "gray": 0.468
+    },
+    "hues": [
+     0.004,
+     0.429,
+     0.499,
+     0.012,
+     0.002,
+     0.001,
+     0.001,
+     0.038,
+     0.01,
+     0.005,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.323,
+    "value": {
+     "dark": 0.37,
+     "mid": 0.615,
+     "light": 0.015
+    }
    },
    "composition": {
     "busyness": 0.12,
@@ -2790,7 +3350,35 @@
     "contrast": 0.645,
     "saturation": 0.378,
     "colorfulness": 0.8,
-    "warmth": -0.341
+    "warmth": -0.341,
+    "shares": {
+     "orange": 0.301,
+     "yellow": 0.006,
+     "green": 0.025,
+     "teal": 0.564,
+     "gray": 0.048,
+     "white": 0.056
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.307,
+     0.003,
+     0.007,
+     0.046,
+     0.637,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.896,
+    "value": {
+     "dark": 0.176,
+     "mid": 0.464,
+     "light": 0.36
+    }
    },
    "composition": {
     "busyness": 0.083,
@@ -2941,7 +3529,35 @@
     "contrast": 0.648,
     "saturation": 0.254,
     "colorfulness": 0.677,
-    "warmth": -0.613
+    "warmth": -0.613,
+    "shares": {
+     "yellow": 0.006,
+     "green": 0.042,
+     "teal": 0.359,
+     "blue": 0.161,
+     "gray": 0.408,
+     "white": 0.023
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.001,
+     0.091,
+     0.011,
+     0.004,
+     0.243,
+     0.651,
+     0.001,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.569,
+    "value": {
+     "dark": 0.228,
+     "mid": 0.335,
+     "light": 0.437
+    }
    },
    "composition": {
     "busyness": 0.12,
@@ -3091,7 +3707,35 @@
     "contrast": 0.402,
     "saturation": 0.325,
     "colorfulness": 0.641,
-    "warmth": -0.592
+    "warmth": -0.592,
+    "shares": {
+     "brown": 0.014,
+     "green": 0.234,
+     "teal": 0.434,
+     "blue": 0.085,
+     "black": 0.093,
+     "gray": 0.14
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.002,
+     0.172,
+     0.164,
+     0.04,
+     0.422,
+     0.191,
+     0.01,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.784,
+    "value": {
+     "dark": 0.518,
+     "mid": 0.456,
+     "light": 0.026
+    }
    },
    "composition": {
     "busyness": 0.209,
@@ -3236,7 +3880,36 @@
     "contrast": 0.33,
     "saturation": 0.426,
     "colorfulness": 1.0,
-    "warmth": -0.57
+    "warmth": -0.57,
+    "shares": {
+     "pink": 0.069,
+     "orange": 0.093,
+     "yellow": 0.011,
+     "green": 0.039,
+     "teal": 0.551,
+     "gray": 0.055,
+     "white": 0.182
+    },
+    "hues": [
+     0.0,
+     0.107,
+     0.017,
+     0.002,
+     0.008,
+     0.052,
+     0.813,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.763,
+    "value": {
+     "dark": 0.001,
+     "mid": 0.288,
+     "light": 0.712
+    }
    },
    "composition": {
     "busyness": 0.092,
@@ -3370,7 +4043,34 @@
     "contrast": 0.16,
     "saturation": 0.198,
     "colorfulness": 0.361,
-    "warmth": 0.26
+    "warmth": 0.26,
+    "shares": {
+     "red": 0.064,
+     "pink": 0.158,
+     "orange": 0.182,
+     "teal": 0.108,
+     "gray": 0.487
+    },
+    "hues": [
+     0.123,
+     0.515,
+     0.127,
+     0.0,
+     0.0,
+     0.012,
+     0.189,
+     0.035,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.514,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.159,
+     "light": 0.841
+    }
    },
    "composition": {
     "busyness": 0.034,
@@ -3521,7 +4221,34 @@
     "contrast": 0.398,
     "saturation": 0.247,
     "colorfulness": 0.457,
-    "warmth": 0.029
+    "warmth": 0.029,
+    "shares": {
+     "yellow": 0.37,
+     "green": 0.067,
+     "teal": 0.225,
+     "gray": 0.16,
+     "white": 0.179
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.442,
+     0.017,
+     0.021,
+     0.186,
+     0.331,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.661,
+    "value": {
+     "dark": 0.004,
+     "mid": 0.23,
+     "light": 0.766
+    }
    },
    "composition": {
     "busyness": 0.039,
@@ -3651,7 +4378,37 @@
     "contrast": 0.629,
     "saturation": 0.295,
     "colorfulness": 0.473,
-    "warmth": 0.298
+    "warmth": 0.298,
+    "shares": {
+     "red": 0.012,
+     "orange": 0.402,
+     "yellow": 0.031,
+     "brown": 0.1,
+     "green": 0.062,
+     "teal": 0.3,
+     "black": 0.026,
+     "gray": 0.067
+    },
+    "hues": [
+     0.001,
+     0.242,
+     0.394,
+     0.005,
+     0.017,
+     0.113,
+     0.228,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.922,
+    "value": {
+     "dark": 0.262,
+     "mid": 0.368,
+     "light": 0.369
+    }
    },
    "composition": {
     "busyness": 0.248,
@@ -3796,7 +4553,34 @@
     "contrast": 0.501,
     "saturation": 0.365,
     "colorfulness": 0.848,
-    "warmth": -0.558
+    "warmth": -0.558,
+    "shares": {
+     "red": 0.005,
+     "orange": 0.198,
+     "green": 0.017,
+     "teal": 0.605,
+     "gray": 0.175
+    },
+    "hues": [
+     0.0,
+     0.086,
+     0.076,
+     0.0,
+     0.001,
+     0.051,
+     0.754,
+     0.031,
+     0.001,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.825,
+    "value": {
+     "dark": 0.085,
+     "mid": 0.598,
+     "light": 0.317
+    }
    },
    "composition": {
     "busyness": 0.081,
@@ -3946,7 +4730,32 @@
     "contrast": 0.921,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.202,
+     "gray": 0.532,
+     "white": 0.266
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.373,
+     "mid": 0.183,
+     "light": 0.445
+    }
    },
    "composition": {
     "busyness": 0.058,
@@ -4079,7 +4888,31 @@
     "contrast": 0.531,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.398,
+     "gray": 0.602
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.769,
+     "mid": 0.182,
+     "light": 0.049
+    }
    },
    "composition": {
     "busyness": 0.098,
@@ -4215,7 +5048,32 @@
     "contrast": 0.776,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.324,
+     "gray": 0.614,
+     "white": 0.062
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.551,
+     "mid": 0.321,
+     "light": 0.128
+    }
    },
    "composition": {
     "busyness": 0.38,
@@ -4348,7 +5206,32 @@
     "contrast": 0.815,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.179,
+     "gray": 0.765,
+     "white": 0.056
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.285,
+     "mid": 0.188,
+     "light": 0.528
+    }
    },
    "composition": {
     "busyness": 0.181,
@@ -4470,7 +5353,32 @@
     "contrast": 0.578,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.623,
+     "gray": 0.371,
+     "white": 0.006
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.778,
+     "mid": 0.181,
+     "light": 0.042
+    }
    },
    "composition": {
     "busyness": 0.101,
@@ -4605,7 +5513,32 @@
     "contrast": 0.94,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.192,
+     "gray": 0.593,
+     "white": 0.215
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.415,
+     "mid": 0.28,
+     "light": 0.305
+    }
    },
    "composition": {
     "busyness": 0.455,
@@ -4738,7 +5671,33 @@
     "contrast": 0.497,
     "saturation": 0.337,
     "colorfulness": 0.799,
-    "warmth": -0.172
+    "warmth": -0.172,
+    "shares": {
+     "red": 0.117,
+     "brown": 0.036,
+     "blue": 0.285,
+     "black": 0.562
+    },
+    "hues": [
+     0.204,
+     0.208,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.402,
+     0.168,
+     0.005,
+     0.014
+    ],
+    "chromatic": 0.567,
+    "value": {
+     "dark": 0.782,
+     "mid": 0.218,
+     "light": 0.0
+    }
    },
    "composition": {
     "busyness": 0.357,
@@ -4872,7 +5831,33 @@
     "contrast": 0.242,
     "saturation": 0.136,
     "colorfulness": 0.278,
-    "warmth": 0.322
+    "warmth": 0.322,
+    "shares": {
+     "red": 0.022,
+     "orange": 0.087,
+     "brown": 0.122,
+     "gray": 0.768
+    },
+    "hues": [
+     0.002,
+     0.902,
+     0.088,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.008,
+     0.0
+    ],
+    "chromatic": 0.234,
+    "value": {
+     "dark": 0.036,
+     "mid": 0.964,
+     "light": 0.0
+    }
    },
    "composition": {
     "busyness": 0.005,
@@ -5001,7 +5986,32 @@
     "contrast": 1.0,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.232,
+     "gray": 0.211,
+     "white": 0.557
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.343,
+     "mid": 0.097,
+     "light": 0.56
+    }
    },
    "composition": {
     "busyness": 0.049,
@@ -5122,7 +6132,34 @@
     "contrast": 0.202,
     "saturation": 0.527,
     "colorfulness": 0.81,
-    "warmth": 0.34
+    "warmth": 0.34,
+    "shares": {
+     "orange": 0.086,
+     "yellow": 0.313,
+     "brown": 0.056,
+     "blue": 0.453,
+     "gray": 0.092
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.685,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.314,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.908,
+    "value": {
+     "dark": 0.001,
+     "mid": 0.864,
+     "light": 0.134
+    }
    },
    "composition": {
     "busyness": 0.005,
@@ -5252,7 +6289,32 @@
     "contrast": 0.27,
     "saturation": 0.543,
     "colorfulness": 0.754,
-    "warmth": 0.944
+    "warmth": 0.944,
+    "shares": {
+     "orange": 0.594,
+     "brown": 0.056,
+     "gray": 0.35
+    },
+    "hues": [
+     0.0,
+     0.01,
+     0.99,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.65,
+    "value": {
+     "dark": 0.001,
+     "mid": 0.344,
+     "light": 0.655
+    }
    },
    "composition": {
     "busyness": 0.024,
@@ -5388,7 +6450,32 @@
     "contrast": 0.456,
     "saturation": 0.67,
     "colorfulness": 0.639,
-    "warmth": 0.978
+    "warmth": 0.978,
+    "shares": {
+     "orange": 0.462,
+     "brown": 0.428,
+     "gray": 0.109
+    },
+    "hues": [
+     0.0,
+     0.004,
+     0.996,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.891,
+    "value": {
+     "dark": 0.274,
+     "mid": 0.677,
+     "light": 0.048
+    }
    },
    "composition": {
     "busyness": 0.066,
@@ -5522,7 +6609,36 @@
     "contrast": 0.588,
     "saturation": 0.22,
     "colorfulness": 0.22,
-    "warmth": 0.607
+    "warmth": 0.607,
+    "shares": {
+     "red": 0.339,
+     "pink": 0.033,
+     "orange": 0.025,
+     "brown": 0.118,
+     "green": 0.03,
+     "black": 0.129,
+     "gray": 0.325
+    },
+    "hues": [
+     0.031,
+     0.825,
+     0.023,
+     0.07,
+     0.051,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.557,
+    "value": {
+     "dark": 0.496,
+     "mid": 0.43,
+     "light": 0.074
+    }
    },
    "composition": {
     "busyness": 0.141,
@@ -5655,7 +6771,37 @@
     "contrast": 0.608,
     "saturation": 0.241,
     "colorfulness": 0.597,
-    "warmth": 0.18
+    "warmth": 0.18,
+    "shares": {
+     "red": 0.064,
+     "orange": 0.02,
+     "yellow": 0.012,
+     "brown": 0.013,
+     "green": 0.022,
+     "teal": 0.017,
+     "black": 0.589,
+     "gray": 0.263
+    },
+    "hues": [
+     0.058,
+     0.604,
+     0.129,
+     0.12,
+     0.025,
+     0.0,
+     0.063,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.209,
+    "value": {
+     "dark": 0.822,
+     "mid": 0.115,
+     "light": 0.062
+    }
    },
    "composition": {
     "busyness": 0.16,
@@ -5789,7 +6935,35 @@
     "contrast": 0.597,
     "saturation": 0.423,
     "colorfulness": 0.806,
-    "warmth": 0.664
+    "warmth": 0.664,
+    "shares": {
+     "red": 0.096,
+     "orange": 0.089,
+     "yellow": 0.023,
+     "brown": 0.022,
+     "green": 0.147,
+     "black": 0.623
+    },
+    "hues": [
+     0.018,
+     0.444,
+     0.209,
+     0.059,
+     0.269,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.487,
+    "value": {
+     "dark": 0.773,
+     "mid": 0.201,
+     "light": 0.027
+    }
    },
    "composition": {
     "busyness": 0.274,
@@ -5939,7 +7113,33 @@
     "contrast": 0.408,
     "saturation": 0.344,
     "colorfulness": 0.639,
-    "warmth": -0.946
+    "warmth": -0.946,
+    "shares": {
+     "teal": 0.727,
+     "blue": 0.067,
+     "gray": 0.088,
+     "white": 0.117
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.001,
+     0.0,
+     0.0,
+     0.002,
+     0.353,
+     0.629,
+     0.016,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.794,
+    "value": {
+     "dark": 0.029,
+     "mid": 0.603,
+     "light": 0.367
+    }
    },
    "composition": {
     "busyness": 0.28,
@@ -6091,7 +7291,37 @@
     "contrast": 0.532,
     "saturation": 0.286,
     "colorfulness": 0.521,
-    "warmth": -0.208
+    "warmth": -0.208,
+    "shares": {
+     "orange": 0.053,
+     "yellow": 0.071,
+     "brown": 0.086,
+     "green": 0.107,
+     "teal": 0.007,
+     "blue": 0.351,
+     "black": 0.137,
+     "gray": 0.187
+    },
+    "hues": [
+     0.0,
+     0.01,
+     0.199,
+     0.228,
+     0.048,
+     0.001,
+     0.001,
+     0.382,
+     0.13,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.711,
+    "value": {
+     "dark": 0.355,
+     "mid": 0.613,
+     "light": 0.032
+    }
    },
    "composition": {
     "busyness": 0.419,
@@ -6240,7 +7470,31 @@
     "contrast": 0.175,
     "saturation": 0.373,
     "colorfulness": 0.761,
-    "warmth": -0.979
+    "warmth": -0.979,
+    "shares": {
+     "blue": 0.56,
+     "gray": 0.44
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.909,
+     0.09,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.56,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.919,
+     "light": 0.081
+    }
    },
    "composition": {
     "busyness": 0.141,
@@ -6366,7 +7620,36 @@
     "contrast": 0.39,
     "saturation": 0.297,
     "colorfulness": 0.606,
-    "warmth": -0.027
+    "warmth": -0.027,
+    "shares": {
+     "orange": 0.075,
+     "yellow": 0.205,
+     "brown": 0.137,
+     "teal": 0.26,
+     "blue": 0.104,
+     "black": 0.012,
+     "gray": 0.207
+    },
+    "hues": [
+     0.0,
+     0.006,
+     0.436,
+     0.002,
+     0.0,
+     0.0,
+     0.006,
+     0.476,
+     0.074,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.78,
+    "value": {
+     "dark": 0.108,
+     "mid": 0.841,
+     "light": 0.051
+    }
    },
    "composition": {
     "busyness": 0.258,
@@ -6502,7 +7785,36 @@
     "contrast": 0.438,
     "saturation": 0.395,
     "colorfulness": 0.884,
-    "warmth": -0.815
+    "warmth": -0.815,
+    "shares": {
+     "red": 0.005,
+     "orange": 0.022,
+     "green": 0.028,
+     "teal": 0.005,
+     "blue": 0.364,
+     "black": 0.011,
+     "gray": 0.564
+    },
+    "hues": [
+     0.001,
+     0.016,
+     0.007,
+     0.009,
+     0.024,
+     0.0,
+     0.002,
+     0.005,
+     0.057,
+     0.87,
+     0.008,
+     0.0
+    ],
+    "chromatic": 0.437,
+    "value": {
+     "dark": 0.172,
+     "mid": 0.713,
+     "light": 0.115
+    }
    },
    "composition": {
     "busyness": 0.174,
@@ -6637,7 +7949,35 @@
     "contrast": 0.602,
     "saturation": 0.338,
     "colorfulness": 0.728,
-    "warmth": -0.324
+    "warmth": -0.324,
+    "shares": {
+     "brown": 0.034,
+     "green": 0.289,
+     "teal": 0.238,
+     "black": 0.017,
+     "gray": 0.386,
+     "white": 0.035
+    },
+    "hues": [
+     0.001,
+     0.005,
+     0.023,
+     0.276,
+     0.291,
+     0.009,
+     0.391,
+     0.001,
+     0.001,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.576,
+    "value": {
+     "dark": 0.222,
+     "mid": 0.403,
+     "light": 0.375
+    }
    },
    "composition": {
     "busyness": 0.37,
@@ -6774,7 +8114,33 @@
     "contrast": 0.277,
     "saturation": 0.245,
     "colorfulness": 0.207,
-    "warmth": -0.127
+    "warmth": -0.127,
+    "shares": {
+     "green": 0.628,
+     "black": 0.034,
+     "gray": 0.328,
+     "white": 0.01
+    },
+    "hues": [
+     0.0,
+     0.003,
+     0.007,
+     0.0,
+     0.987,
+     0.0,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.63,
+    "value": {
+     "dark": 0.643,
+     "mid": 0.339,
+     "light": 0.018
+    }
    },
    "composition": {
     "busyness": 0.074,
@@ -6909,7 +8275,33 @@
     "contrast": 0.361,
     "saturation": 0.673,
     "colorfulness": 0.554,
-    "warmth": 1.0
+    "warmth": 1.0,
+    "shares": {
+     "red": 0.357,
+     "orange": 0.055,
+     "brown": 0.381,
+     "black": 0.207
+    },
+    "hues": [
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.962,
+    "value": {
+     "dark": 0.543,
+     "mid": 0.457,
+     "light": 0.0
+    }
    },
    "composition": {
     "busyness": 0.105,
@@ -7034,7 +8426,33 @@
     "contrast": 0.329,
     "saturation": 0.294,
     "colorfulness": 0.251,
-    "warmth": -0.289
+    "warmth": -0.289,
+    "shares": {
+     "green": 0.535,
+     "teal": 0.291,
+     "black": 0.076,
+     "gray": 0.098
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.04,
+     0.437,
+     0.361,
+     0.16,
+     0.003,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.881,
+    "value": {
+     "dark": 0.708,
+     "mid": 0.287,
+     "light": 0.005
+    }
    },
    "composition": {
     "busyness": 0.3,
@@ -7165,7 +8583,32 @@
     "contrast": 0.492,
     "saturation": 0.355,
     "colorfulness": 0.572,
-    "warmth": -0.949
+    "warmth": -0.949,
+    "shares": {
+     "blue": 0.759,
+     "black": 0.157,
+     "gray": 0.084
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.013,
+     0.002,
+     0.0,
+     0.0,
+     0.075,
+     0.909,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.885,
+    "value": {
+     "dark": 0.884,
+     "mid": 0.029,
+     "light": 0.087
+    }
    },
    "composition": {
     "busyness": 0.049,
@@ -7311,7 +8754,32 @@
     "contrast": 0.317,
     "saturation": 0.563,
     "colorfulness": 0.656,
-    "warmth": -1.0
+    "warmth": -1.0,
+    "shares": {
+     "blue": 0.972,
+     "gray": 0.018,
+     "white": 0.01
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.012,
+     0.988,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.971,
+    "value": {
+     "dark": 0.013,
+     "mid": 0.794,
+     "light": 0.193
+    }
    },
    "composition": {
     "busyness": 0.107,
@@ -7445,7 +8913,39 @@
     "contrast": 0.506,
     "saturation": 0.281,
     "colorfulness": 0.507,
-    "warmth": -0.309
+    "warmth": -0.309,
+    "shares": {
+     "red": 0.016,
+     "orange": 0.049,
+     "yellow": 0.024,
+     "brown": 0.082,
+     "green": 0.007,
+     "teal": 0.039,
+     "blue": 0.273,
+     "black": 0.017,
+     "gray": 0.47,
+     "white": 0.023
+    },
+    "hues": [
+     0.009,
+     0.111,
+     0.154,
+     0.021,
+     0.002,
+     0.0,
+     0.004,
+     0.098,
+     0.043,
+     0.555,
+     0.0,
+     0.002
+    ],
+    "chromatic": 0.491,
+    "value": {
+     "dark": 0.226,
+     "mid": 0.65,
+     "light": 0.125
+    }
    },
    "composition": {
     "busyness": 0.416,
@@ -7578,7 +9078,36 @@
     "contrast": 0.427,
     "saturation": 0.224,
     "colorfulness": 0.426,
-    "warmth": -0.197
+    "warmth": -0.197,
+    "shares": {
+     "orange": 0.022,
+     "yellow": 0.117,
+     "brown": 0.049,
+     "teal": 0.312,
+     "blue": 0.068,
+     "black": 0.023,
+     "gray": 0.408
+    },
+    "hues": [
+     0.0,
+     0.02,
+     0.266,
+     0.028,
+     0.001,
+     0.005,
+     0.104,
+     0.571,
+     0.003,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.572,
+    "value": {
+     "dark": 0.218,
+     "mid": 0.717,
+     "light": 0.065
+    }
    },
    "composition": {
     "busyness": 0.37,
@@ -7723,7 +9252,38 @@
     "contrast": 0.735,
     "saturation": 0.191,
     "colorfulness": 0.348,
-    "warmth": 0.263
+    "warmth": 0.263,
+    "shares": {
+     "red": 0.012,
+     "orange": 0.01,
+     "yellow": 0.061,
+     "brown": 0.136,
+     "green": 0.011,
+     "teal": 0.061,
+     "black": 0.114,
+     "gray": 0.587,
+     "white": 0.008
+    },
+    "hues": [
+     0.01,
+     0.059,
+     0.55,
+     0.231,
+     0.003,
+     0.013,
+     0.067,
+     0.065,
+     0.001,
+     0.0,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.298,
+    "value": {
+     "dark": 0.332,
+     "mid": 0.297,
+     "light": 0.371
+    }
    },
    "composition": {
     "busyness": 0.445,
@@ -7858,7 +9418,33 @@
     "contrast": 0.198,
     "saturation": 0.306,
     "colorfulness": 0.337,
-    "warmth": -0.909
+    "warmth": -0.909,
+    "shares": {
+     "teal": 0.683,
+     "blue": 0.287,
+     "black": 0.022,
+     "gray": 0.007
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.031,
+     0.967,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.989,
+    "value": {
+     "dark": 0.957,
+     "mid": 0.036,
+     "light": 0.007
+    }
    },
    "composition": {
     "busyness": 0.063,
@@ -7992,7 +9578,38 @@
     "contrast": 0.627,
     "saturation": 0.32,
     "colorfulness": 0.524,
-    "warmth": -0.261
+    "warmth": -0.261,
+    "shares": {
+     "orange": 0.02,
+     "yellow": 0.143,
+     "brown": 0.046,
+     "green": 0.184,
+     "teal": 0.098,
+     "blue": 0.286,
+     "black": 0.073,
+     "gray": 0.141,
+     "white": 0.008
+    },
+    "hues": [
+     0.0,
+     0.004,
+     0.13,
+     0.303,
+     0.079,
+     0.017,
+     0.063,
+     0.143,
+     0.261,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.788,
+    "value": {
+     "dark": 0.283,
+     "mid": 0.477,
+     "light": 0.24
+    }
    },
    "composition": {
     "busyness": 0.389,
@@ -8125,7 +9742,36 @@
     "contrast": 0.547,
     "saturation": 0.155,
     "colorfulness": 0.251,
-    "warmth": 0.356
+    "warmth": 0.356,
+    "shares": {
+     "red": 0.007,
+     "orange": 0.058,
+     "yellow": 0.021,
+     "brown": 0.143,
+     "teal": 0.008,
+     "black": 0.107,
+     "gray": 0.656
+    },
+    "hues": [
+     0.001,
+     0.338,
+     0.534,
+     0.102,
+     0.003,
+     0.0,
+     0.013,
+     0.009,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.249,
+    "value": {
+     "dark": 0.452,
+     "mid": 0.452,
+     "light": 0.096
+    }
    },
    "composition": {
     "busyness": 0.464,
@@ -8259,7 +9905,37 @@
     "contrast": 0.586,
     "saturation": 0.18,
     "colorfulness": 0.315,
-    "warmth": -0.061
+    "warmth": -0.061,
+    "shares": {
+     "orange": 0.026,
+     "yellow": 0.034,
+     "brown": 0.103,
+     "green": 0.007,
+     "teal": 0.034,
+     "blue": 0.122,
+     "black": 0.048,
+     "gray": 0.626
+    },
+    "hues": [
+     0.0,
+     0.011,
+     0.394,
+     0.172,
+     0.002,
+     0.0,
+     0.004,
+     0.395,
+     0.023,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.335,
+    "value": {
+     "dark": 0.139,
+     "mid": 0.404,
+     "light": 0.457
+    }
    },
    "composition": {
     "busyness": 0.347,
@@ -8393,7 +10069,36 @@
     "contrast": 0.615,
     "saturation": 0.216,
     "colorfulness": 0.495,
-    "warmth": -0.18
+    "warmth": -0.18,
+    "shares": {
+     "orange": 0.008,
+     "yellow": 0.025,
+     "brown": 0.096,
+     "green": 0.007,
+     "teal": 0.201,
+     "black": 0.084,
+     "gray": 0.579
+    },
+    "hues": [
+     0.009,
+     0.101,
+     0.273,
+     0.024,
+     0.002,
+     0.047,
+     0.524,
+     0.021,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.345,
+    "value": {
+     "dark": 0.203,
+     "mid": 0.459,
+     "light": 0.338
+    }
    },
    "composition": {
     "busyness": 0.324,
@@ -8545,7 +10250,38 @@
     "contrast": 0.472,
     "saturation": 0.427,
     "colorfulness": 0.898,
-    "warmth": -0.526
+    "warmth": -0.526,
+    "shares": {
+     "red": 0.025,
+     "orange": 0.039,
+     "yellow": 0.038,
+     "brown": 0.052,
+     "green": 0.033,
+     "blue": 0.613,
+     "black": 0.011,
+     "gray": 0.141,
+     "white": 0.047
+    },
+    "hues": [
+     0.011,
+     0.082,
+     0.098,
+     0.05,
+     0.008,
+     0.001,
+     0.001,
+     0.011,
+     0.735,
+     0.0,
+     0.0,
+     0.004
+    ],
+    "chromatic": 0.808,
+    "value": {
+     "dark": 0.06,
+     "mid": 0.579,
+     "light": 0.361
+    }
    },
    "composition": {
     "busyness": 0.28,
@@ -8669,7 +10405,36 @@
     "contrast": 0.621,
     "saturation": 0.325,
     "colorfulness": 0.615,
-    "warmth": -0.712
+    "warmth": -0.712,
+    "shares": {
+     "yellow": 0.011,
+     "brown": 0.014,
+     "green": 0.107,
+     "teal": 0.503,
+     "blue": 0.14,
+     "black": 0.05,
+     "gray": 0.175
+    },
+    "hues": [
+     0.0,
+     0.004,
+     0.012,
+     0.127,
+     0.05,
+     0.011,
+     0.132,
+     0.663,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.787,
+    "value": {
+     "dark": 0.231,
+     "mid": 0.463,
+     "light": 0.306
+    }
    },
    "composition": {
     "busyness": 0.272,
@@ -8792,7 +10557,38 @@
     "contrast": 0.327,
     "saturation": 0.33,
     "colorfulness": 0.492,
-    "warmth": 0.321
+    "warmth": 0.321,
+    "shares": {
+     "red": 0.02,
+     "pink": 0.037,
+     "orange": 0.013,
+     "yellow": 0.384,
+     "brown": 0.014,
+     "green": 0.174,
+     "teal": 0.192,
+     "gray": 0.062,
+     "white": 0.105
+    },
+    "hues": [
+     0.037,
+     0.067,
+     0.194,
+     0.437,
+     0.071,
+     0.02,
+     0.107,
+     0.066,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.834,
+    "value": {
+     "dark": 0.006,
+     "mid": 0.14,
+     "light": 0.854
+    }
    },
    "composition": {
     "busyness": 0.149,
@@ -8944,7 +10740,38 @@
     "contrast": 0.469,
     "saturation": 0.253,
     "colorfulness": 0.547,
-    "warmth": 0.117
+    "warmth": 0.117,
+    "shares": {
+     "red": 0.055,
+     "orange": 0.035,
+     "yellow": 0.091,
+     "brown": 0.05,
+     "teal": 0.197,
+     "blue": 0.066,
+     "black": 0.018,
+     "gray": 0.47,
+     "white": 0.017
+    },
+    "hues": [
+     0.0,
+     0.278,
+     0.153,
+     0.118,
+     0.0,
+     0.0,
+     0.128,
+     0.323,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.497,
+    "value": {
+     "dark": 0.064,
+     "mid": 0.615,
+     "light": 0.321
+    }
    },
    "composition": {
     "busyness": 0.248,
@@ -9074,7 +10901,33 @@
     "contrast": 0.455,
     "saturation": 0.145,
     "colorfulness": 0.155,
-    "warmth": 0.36
+    "warmth": 0.36,
+    "shares": {
+     "yellow": 0.217,
+     "black": 0.01,
+     "gray": 0.414,
+     "white": 0.359
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.442,
+     0.558,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.218,
+    "value": {
+     "dark": 0.022,
+     "mid": 0.142,
+     "light": 0.835
+    }
    },
    "composition": {
     "busyness": 0.199,
@@ -9208,7 +11061,34 @@
     "contrast": 0.34,
     "saturation": 0.269,
     "colorfulness": 0.372,
-    "warmth": 0.747
+    "warmth": 0.747,
+    "shares": {
+     "red": 0.054,
+     "orange": 0.189,
+     "yellow": 0.221,
+     "brown": 0.134,
+     "gray": 0.401
+    },
+    "hues": [
+     0.152,
+     0.23,
+     0.605,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.003
+    ],
+    "chromatic": 0.599,
+    "value": {
+     "dark": 0.046,
+     "mid": 0.672,
+     "light": 0.283
+    }
    },
    "composition": {
     "busyness": 0.155,
@@ -9341,7 +11221,35 @@
     "contrast": 0.692,
     "saturation": 0.145,
     "colorfulness": 0.202,
-    "warmth": 0.428
+    "warmth": 0.428,
+    "shares": {
+     "red": 0.01,
+     "orange": 0.041,
+     "brown": 0.104,
+     "black": 0.072,
+     "gray": 0.656,
+     "white": 0.117
+    },
+    "hues": [
+     0.0,
+     0.961,
+     0.039,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.163,
+    "value": {
+     "dark": 0.135,
+     "mid": 0.17,
+     "light": 0.695
+    }
    },
    "composition": {
     "busyness": 0.202,
@@ -9469,7 +11377,36 @@
     "contrast": 0.323,
     "saturation": 0.126,
     "colorfulness": 0.199,
-    "warmth": 0.054
+    "warmth": 0.054,
+    "shares": {
+     "orange": 0.005,
+     "yellow": 0.13,
+     "green": 0.012,
+     "teal": 0.006,
+     "blue": 0.007,
+     "gray": 0.777,
+     "white": 0.062
+    },
+    "hues": [
+     0.01,
+     0.027,
+     0.268,
+     0.602,
+     0.008,
+     0.001,
+     0.008,
+     0.059,
+     0.013,
+     0.0,
+     0.0,
+     0.004
+    ],
+    "chromatic": 0.166,
+    "value": {
+     "dark": 0.01,
+     "mid": 0.245,
+     "light": 0.746
+    }
    },
    "composition": {
     "busyness": 0.305,
@@ -9602,7 +11539,38 @@
     "contrast": 0.471,
     "saturation": 0.305,
     "colorfulness": 0.472,
-    "warmth": 0.835
+    "warmth": 0.835,
+    "shares": {
+     "red": 0.053,
+     "pink": 0.009,
+     "orange": 0.257,
+     "yellow": 0.207,
+     "brown": 0.044,
+     "green": 0.018,
+     "black": 0.009,
+     "gray": 0.207,
+     "white": 0.197
+    },
+    "hues": [
+     0.013,
+     0.395,
+     0.525,
+     0.052,
+     0.008,
+     0.002,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.002,
+     0.002
+    ],
+    "chromatic": 0.596,
+    "value": {
+     "dark": 0.034,
+     "mid": 0.183,
+     "light": 0.783
+    }
    },
    "composition": {
     "busyness": 0.367,
@@ -9737,7 +11705,35 @@
     "contrast": 0.338,
     "saturation": 0.245,
     "colorfulness": 0.435,
-    "warmth": 0.169
+    "warmth": 0.169,
+    "shares": {
+     "orange": 0.055,
+     "yellow": 0.189,
+     "brown": 0.026,
+     "green": 0.008,
+     "blue": 0.208,
+     "gray": 0.514
+    },
+    "hues": [
+     0.0,
+     0.004,
+     0.62,
+     0.103,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.244,
+     0.028,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.486,
+    "value": {
+     "dark": 0.01,
+     "mid": 0.375,
+     "light": 0.615
+    }
    },
    "composition": {
     "busyness": 0.199,
@@ -9883,7 +11879,35 @@
     "contrast": 0.565,
     "saturation": 0.419,
     "colorfulness": 0.703,
-    "warmth": 0.924
+    "warmth": 0.924,
+    "shares": {
+     "orange": 0.018,
+     "yellow": 0.4,
+     "brown": 0.162,
+     "black": 0.006,
+     "gray": 0.29,
+     "white": 0.124
+    },
+    "hues": [
+     0.0,
+     0.009,
+     0.845,
+     0.146,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.586,
+    "value": {
+     "dark": 0.088,
+     "mid": 0.418,
+     "light": 0.494
+    }
    },
    "composition": {
     "busyness": 0.412,
@@ -10017,7 +12041,33 @@
     "contrast": 0.567,
     "saturation": 1.0,
     "colorfulness": 0.857,
-    "warmth": 1.0
+    "warmth": 1.0,
+    "shares": {
+     "orange": 0.202,
+     "yellow": 0.683,
+     "brown": 0.071,
+     "black": 0.044
+    },
+    "hues": [
+     0.0,
+     0.056,
+     0.791,
+     0.153,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.982,
+    "value": {
+     "dark": 0.099,
+     "mid": 0.399,
+     "light": 0.502
+    }
    },
    "composition": {
     "busyness": 0.256,
@@ -10166,7 +12216,33 @@
     "contrast": 0.63,
     "saturation": 0.949,
     "colorfulness": 0.877,
-    "warmth": 0.997
+    "warmth": 0.997,
+    "shares": {
+     "orange": 0.218,
+     "yellow": 0.376,
+     "brown": 0.347,
+     "black": 0.059
+    },
+    "hues": [
+     0.0,
+     0.004,
+     0.948,
+     0.048,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.963,
+    "value": {
+     "dark": 0.255,
+     "mid": 0.483,
+     "light": 0.261
+    }
    },
    "composition": {
     "busyness": 0.192,
@@ -10314,7 +12390,35 @@
     "contrast": 0.712,
     "saturation": 0.374,
     "colorfulness": 0.483,
-    "warmth": 0.16
+    "warmth": 0.16,
+    "shares": {
+     "yellow": 0.121,
+     "brown": 0.097,
+     "green": 0.189,
+     "blue": 0.102,
+     "black": 0.248,
+     "gray": 0.244
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.092,
+     0.76,
+     0.079,
+     0.0,
+     0.0,
+     0.0,
+     0.068,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.722,
+    "value": {
+     "dark": 0.481,
+     "mid": 0.358,
+     "light": 0.161
+    }
    },
    "composition": {
     "busyness": 0.345,
@@ -10446,7 +12550,31 @@
     "contrast": 0.294,
     "saturation": 1.0,
     "colorfulness": 0.792,
-    "warmth": 0.99
+    "warmth": 0.99,
+    "shares": {
+     "orange": 0.224,
+     "yellow": 0.776
+    },
+    "hues": [
+     0.0,
+     0.019,
+     0.858,
+     0.123,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.999,
+    "value": {
+     "dark": 0.002,
+     "mid": 0.328,
+     "light": 0.67
+    }
    },
    "composition": {
     "busyness": 0.177,
@@ -10575,7 +12703,34 @@
     "contrast": 0.757,
     "saturation": 0.094,
     "colorfulness": 0.175,
-    "warmth": 0.028
+    "warmth": 0.028,
+    "shares": {
+     "orange": 0.067,
+     "yellow": 0.023,
+     "brown": 0.006,
+     "black": 0.691,
+     "gray": 0.213
+    },
+    "hues": [
+     0.0,
+     0.021,
+     0.966,
+     0.003,
+     0.0,
+     0.0,
+     0.001,
+     0.009,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.098,
+    "value": {
+     "dark": 0.733,
+     "mid": 0.142,
+     "light": 0.125
+    }
    },
    "composition": {
     "busyness": 0.094,
@@ -10702,7 +12857,31 @@
     "contrast": 0.181,
     "saturation": 1.0,
     "colorfulness": 0.709,
-    "warmth": 1.0
+    "warmth": 1.0,
+    "shares": {
+     "red": 0.978,
+     "brown": 0.022
+    },
+    "hues": [
+     0.023,
+     0.976,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.998,
+    "value": {
+     "dark": 0.476,
+     "mid": 0.521,
+     "light": 0.003
+    }
    },
    "composition": {
     "busyness": 0.073,
@@ -10834,7 +13013,37 @@
     "contrast": 0.718,
     "saturation": 0.163,
     "colorfulness": 0.319,
-    "warmth": -0.337
+    "warmth": -0.337,
+    "shares": {
+     "yellow": 0.007,
+     "brown": 0.017,
+     "green": 0.016,
+     "teal": 0.096,
+     "blue": 0.198,
+     "black": 0.28,
+     "gray": 0.349,
+     "white": 0.037
+    },
+    "hues": [
+     0.025,
+     0.013,
+     0.051,
+     0.053,
+     0.01,
+     0.008,
+     0.036,
+     0.565,
+     0.241,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.341,
+    "value": {
+     "dark": 0.584,
+     "mid": 0.278,
+     "light": 0.138
+    }
    },
    "composition": {
     "busyness": 0.223,
@@ -10965,7 +13174,36 @@
     "contrast": 0.736,
     "saturation": 0.146,
     "colorfulness": 0.267,
-    "warmth": 0.127
+    "warmth": 0.127,
+    "shares": {
+     "orange": 0.052,
+     "yellow": 0.1,
+     "brown": 0.047,
+     "teal": 0.023,
+     "black": 0.543,
+     "gray": 0.224,
+     "white": 0.011
+    },
+    "hues": [
+     0.0,
+     0.008,
+     0.911,
+     0.005,
+     0.0,
+     0.0,
+     0.003,
+     0.074,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.223,
+    "value": {
+     "dark": 0.644,
+     "mid": 0.228,
+     "light": 0.128
+    }
    },
    "composition": {
     "busyness": 0.121,
@@ -11097,7 +13335,34 @@
     "contrast": 0.475,
     "saturation": 0.344,
     "colorfulness": 0.478,
-    "warmth": -0.998
+    "warmth": -0.998,
+    "shares": {
+     "teal": 0.662,
+     "blue": 0.253,
+     "black": 0.042,
+     "gray": 0.031,
+     "white": 0.012
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.268,
+     0.544,
+     0.152,
+     0.036,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.956,
+    "value": {
+     "dark": 0.567,
+     "mid": 0.361,
+     "light": 0.073
+    }
    },
    "composition": {
     "busyness": 0.079,
@@ -11248,7 +13513,32 @@
     "contrast": 0.512,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.072,
+     "gray": 0.919,
+     "white": 0.009
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.212,
+     "mid": 0.675,
+     "light": 0.113
+    }
    },
    "composition": {
     "busyness": 0.268,
@@ -11381,7 +13671,41 @@
     "contrast": 0.797,
     "saturation": 0.286,
     "colorfulness": 0.5,
-    "warmth": 0.126
+    "warmth": 0.126,
+    "shares": {
+     "red": 0.15,
+     "pink": 0.145,
+     "orange": 0.026,
+     "yellow": 0.018,
+     "brown": 0.006,
+     "green": 0.034,
+     "teal": 0.128,
+     "blue": 0.099,
+     "purple": 0.024,
+     "black": 0.263,
+     "gray": 0.09,
+     "white": 0.018
+    },
+    "hues": [
+     0.266,
+     0.194,
+     0.03,
+     0.013,
+     0.017,
+     0.105,
+     0.154,
+     0.056,
+     0.089,
+     0.013,
+     0.012,
+     0.05
+    ],
+    "chromatic": 0.76,
+    "value": {
+     "dark": 0.423,
+     "mid": 0.361,
+     "light": 0.216
+    }
    },
    "composition": {
     "busyness": 0.132,
@@ -11515,7 +13839,37 @@
     "contrast": 0.838,
     "saturation": 0.383,
     "colorfulness": 0.473,
-    "warmth": 0.887
+    "warmth": 0.887,
+    "shares": {
+     "red": 0.029,
+     "orange": 0.2,
+     "yellow": 0.15,
+     "brown": 0.268,
+     "green": 0.051,
+     "black": 0.134,
+     "gray": 0.144,
+     "white": 0.025
+    },
+    "hues": [
+     0.001,
+     0.547,
+     0.281,
+     0.172,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.733,
+    "value": {
+     "dark": 0.303,
+     "mid": 0.307,
+     "light": 0.39
+    }
    },
    "composition": {
     "busyness": 0.233,
@@ -11638,7 +13992,32 @@
     "contrast": 0.662,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.039,
+     "gray": 0.63,
+     "white": 0.331
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.088,
+     "mid": 0.311,
+     "light": 0.601
+    }
    },
    "composition": {
     "busyness": 0.199,
@@ -11771,7 +14150,31 @@
     "contrast": 0.125,
     "saturation": 0.085,
     "colorfulness": 0.058,
-    "warmth": -0.254
+    "warmth": -0.254,
+    "shares": {
+     "gray": 0.478,
+     "white": 0.522
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.005,
+     "light": 0.995
+    }
    },
    "composition": {
     "busyness": 0.031,
@@ -11906,7 +14309,32 @@
     "contrast": 0.592,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.014,
+     "gray": 0.282,
+     "white": 0.704
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.038,
+     "mid": 0.136,
+     "light": 0.826
+    }
    },
    "composition": {
     "busyness": 0.252,
@@ -12044,7 +14472,34 @@
     "contrast": 0.269,
     "saturation": 0.203,
     "colorfulness": 0.392,
-    "warmth": -0.222
+    "warmth": -0.222,
+    "shares": {
+     "yellow": 0.183,
+     "teal": 0.008,
+     "blue": 0.352,
+     "gray": 0.114,
+     "white": 0.343
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.036,
+     0.265,
+     0.0,
+     0.0,
+     0.002,
+     0.39,
+     0.306,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.544,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.104,
+     "light": 0.896
+    }
    },
    "composition": {
     "busyness": 0.079,
@@ -12178,7 +14633,35 @@
     "contrast": 0.277,
     "saturation": 0.378,
     "colorfulness": 0.705,
-    "warmth": 0.566
+    "warmth": 0.566,
+    "shares": {
+     "orange": 0.178,
+     "yellow": 0.17,
+     "brown": 0.015,
+     "blue": 0.125,
+     "gray": 0.463,
+     "white": 0.049
+    },
+    "hues": [
+     0.001,
+     0.012,
+     0.89,
+     0.009,
+     0.0,
+     0.0,
+     0.0,
+     0.017,
+     0.07,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.489,
+    "value": {
+     "dark": 0.002,
+     "mid": 0.377,
+     "light": 0.622
+    }
    },
    "composition": {
     "busyness": 0.137,
@@ -12302,7 +14785,34 @@
     "contrast": 0.333,
     "saturation": 0.301,
     "colorfulness": 0.813,
-    "warmth": 0.809
+    "warmth": 0.809,
+    "shares": {
+     "orange": 0.075,
+     "yellow": 0.106,
+     "brown": 0.025,
+     "teal": 0.018,
+     "gray": 0.776
+    },
+    "hues": [
+     0.0,
+     0.024,
+     0.93,
+     0.003,
+     0.001,
+     0.001,
+     0.009,
+     0.033,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.227,
+    "value": {
+     "dark": 0.029,
+     "mid": 0.643,
+     "light": 0.328
+    }
    },
    "composition": {
     "busyness": 0.152,
@@ -12426,7 +14936,35 @@
     "contrast": 0.552,
     "saturation": 0.34,
     "colorfulness": 0.512,
-    "warmth": -0.439
+    "warmth": -0.439,
+    "shares": {
+     "orange": 0.046,
+     "yellow": 0.144,
+     "brown": 0.021,
+     "blue": 0.503,
+     "black": 0.086,
+     "gray": 0.2
+    },
+    "hues": [
+     0.004,
+     0.018,
+     0.234,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.007,
+     0.15,
+     0.557,
+     0.01,
+     0.009
+    ],
+    "chromatic": 0.755,
+    "value": {
+     "dark": 0.314,
+     "mid": 0.624,
+     "light": 0.062
+    }
    },
    "composition": {
     "busyness": 0.635,
@@ -12548,7 +15086,35 @@
     "contrast": 0.388,
     "saturation": 0.439,
     "colorfulness": 0.757,
-    "warmth": 0.508
+    "warmth": 0.508,
+    "shares": {
+     "orange": 0.197,
+     "brown": 0.243,
+     "green": 0.005,
+     "blue": 0.207,
+     "black": 0.015,
+     "gray": 0.333
+    },
+    "hues": [
+     0.0,
+     0.205,
+     0.597,
+     0.0,
+     0.001,
+     0.005,
+     0.0,
+     0.003,
+     0.188,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.655,
+    "value": {
+     "dark": 0.224,
+     "mid": 0.74,
+     "light": 0.035
+    }
    },
    "composition": {
     "busyness": 0.251,
@@ -12671,7 +15237,34 @@
     "contrast": 0.321,
     "saturation": 0.121,
     "colorfulness": 0.234,
-    "warmth": -0.328
+    "warmth": -0.328,
+    "shares": {
+     "green": 0.02,
+     "teal": 0.026,
+     "blue": 0.195,
+     "gray": 0.424,
+     "white": 0.334
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.102,
+     0.017,
+     0.1,
+     0.209,
+     0.573,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.24,
+    "value": {
+     "dark": 0.009,
+     "mid": 0.079,
+     "light": 0.912
+    }
    },
    "composition": {
     "busyness": 0.111,
@@ -12821,7 +15414,34 @@
     "contrast": 0.678,
     "saturation": 0.07,
     "colorfulness": 0.117,
-    "warmth": 0.133
+    "warmth": 0.133,
+    "shares": {
+     "orange": 0.006,
+     "brown": 0.01,
+     "black": 0.455,
+     "gray": 0.511,
+     "white": 0.018
+    },
+    "hues": [
+     0.128,
+     0.455,
+     0.416,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.019,
+    "value": {
+     "dark": 0.664,
+     "mid": 0.205,
+     "light": 0.13
+    }
    },
    "composition": {
     "busyness": 0.333,
@@ -12955,7 +15575,37 @@
     "contrast": 0.769,
     "saturation": 0.204,
     "colorfulness": 0.398,
-    "warmth": 0.515
+    "warmth": 0.515,
+    "shares": {
+     "red": 0.07,
+     "pink": 0.017,
+     "orange": 0.104,
+     "yellow": 0.01,
+     "brown": 0.099,
+     "black": 0.268,
+     "gray": 0.405,
+     "white": 0.028
+    },
+    "hues": [
+     0.304,
+     0.539,
+     0.151,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.004
+    ],
+    "chromatic": 0.329,
+    "value": {
+     "dark": 0.391,
+     "mid": 0.42,
+     "light": 0.188
+    }
    },
    "composition": {
     "busyness": 0.549,
@@ -13089,7 +15739,36 @@
     "contrast": 0.902,
     "saturation": 0.197,
     "colorfulness": 0.42,
-    "warmth": 0.551
+    "warmth": 0.551,
+    "shares": {
+     "red": 0.075,
+     "pink": 0.014,
+     "orange": 0.029,
+     "brown": 0.143,
+     "black": 0.211,
+     "gray": 0.309,
+     "white": 0.218
+    },
+    "hues": [
+     0.391,
+     0.518,
+     0.085,
+     0.006,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.302,
+    "value": {
+     "dark": 0.455,
+     "mid": 0.232,
+     "light": 0.313
+    }
    },
    "composition": {
     "busyness": 0.388,
@@ -13224,7 +15903,37 @@
     "contrast": 0.579,
     "saturation": 0.279,
     "colorfulness": 0.475,
-    "warmth": 0.259
+    "warmth": 0.259,
+    "shares": {
+     "red": 0.082,
+     "orange": 0.017,
+     "brown": 0.247,
+     "green": 0.035,
+     "teal": 0.202,
+     "blue": 0.03,
+     "black": 0.071,
+     "gray": 0.316
+    },
+    "hues": [
+     0.024,
+     0.547,
+     0.163,
+     0.001,
+     0.0,
+     0.08,
+     0.142,
+     0.025,
+     0.017,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.685,
+    "value": {
+     "dark": 0.226,
+     "mid": 0.511,
+     "light": 0.262
+    }
    },
    "composition": {
     "busyness": 0.208,
@@ -13374,7 +16083,36 @@
     "contrast": 0.734,
     "saturation": 0.468,
     "colorfulness": 0.717,
-    "warmth": 0.813
+    "warmth": 0.813,
+    "shares": {
+     "orange": 0.07,
+     "yellow": 0.222,
+     "brown": 0.217,
+     "green": 0.079,
+     "black": 0.301,
+     "gray": 0.081,
+     "white": 0.029
+    },
+    "hues": [
+     0.001,
+     0.058,
+     0.713,
+     0.153,
+     0.073,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.703,
+    "value": {
+     "dark": 0.496,
+     "mid": 0.376,
+     "light": 0.128
+    }
    },
    "composition": {
     "busyness": 0.516,
@@ -13507,7 +16245,35 @@
     "contrast": 0.41,
     "saturation": 0.166,
     "colorfulness": 0.306,
-    "warmth": 0.058
+    "warmth": 0.058,
+    "shares": {
+     "red": 0.009,
+     "brown": 0.191,
+     "teal": 0.108,
+     "blue": 0.021,
+     "black": 0.083,
+     "gray": 0.587
+    },
+    "hues": [
+     0.201,
+     0.441,
+     0.001,
+     0.0,
+     0.0,
+     0.042,
+     0.211,
+     0.085,
+     0.02,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.331,
+    "value": {
+     "dark": 0.425,
+     "mid": 0.547,
+     "light": 0.027
+    }
    },
    "composition": {
     "busyness": 0.287,
@@ -13658,7 +16424,32 @@
     "contrast": 0.857,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.133,
+     "gray": 0.628,
+     "white": 0.239
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.195,
+     "mid": 0.22,
+     "light": 0.585
+    }
    },
    "composition": {
     "busyness": 0.227,
@@ -13793,7 +16584,40 @@
     "contrast": 0.858,
     "saturation": 0.221,
     "colorfulness": 0.425,
-    "warmth": -0.056
+    "warmth": -0.056,
+    "shares": {
+     "red": 0.038,
+     "pink": 0.007,
+     "orange": 0.051,
+     "yellow": 0.005,
+     "brown": 0.075,
+     "green": 0.032,
+     "teal": 0.012,
+     "blue": 0.182,
+     "black": 0.181,
+     "gray": 0.251,
+     "white": 0.165
+    },
+    "hues": [
+     0.03,
+     0.359,
+     0.104,
+     0.023,
+     0.091,
+     0.009,
+     0.004,
+     0.118,
+     0.244,
+     0.008,
+     0.002,
+     0.006
+    ],
+    "chromatic": 0.436,
+    "value": {
+     "dark": 0.405,
+     "mid": 0.259,
+     "light": 0.336
+    }
    },
    "composition": {
     "busyness": 0.38,
@@ -13926,7 +16750,39 @@
     "contrast": 0.603,
     "saturation": 0.298,
     "colorfulness": 0.551,
-    "warmth": -0.616
+    "warmth": -0.616,
+    "shares": {
+     "red": 0.006,
+     "orange": 0.012,
+     "yellow": 0.018,
+     "brown": 0.016,
+     "green": 0.102,
+     "teal": 0.115,
+     "blue": 0.418,
+     "black": 0.028,
+     "gray": 0.247,
+     "white": 0.039
+    },
+    "hues": [
+     0.008,
+     0.025,
+     0.051,
+     0.013,
+     0.047,
+     0.086,
+     0.073,
+     0.34,
+     0.342,
+     0.012,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.703,
+    "value": {
+     "dark": 0.172,
+     "mid": 0.482,
+     "light": 0.346
+    }
    },
    "composition": {
     "busyness": 0.372,
@@ -14077,7 +16933,37 @@
     "contrast": 0.574,
     "saturation": 0.458,
     "colorfulness": 0.898,
-    "warmth": 0.206
+    "warmth": 0.206,
+    "shares": {
+     "orange": 0.094,
+     "yellow": 0.116,
+     "brown": 0.093,
+     "green": 0.008,
+     "teal": 0.483,
+     "black": 0.044,
+     "gray": 0.144,
+     "white": 0.018
+    },
+    "hues": [
+     0.0,
+     0.015,
+     0.566,
+     0.026,
+     0.002,
+     0.021,
+     0.372,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.799,
+    "value": {
+     "dark": 0.153,
+     "mid": 0.5,
+     "light": 0.348
+    }
    },
    "composition": {
     "busyness": 0.405,
@@ -14224,7 +17110,37 @@
     "contrast": 0.806,
     "saturation": 0.244,
     "colorfulness": 0.452,
-    "warmth": -0.311
+    "warmth": -0.311,
+    "shares": {
+     "yellow": 0.038,
+     "brown": 0.056,
+     "green": 0.1,
+     "teal": 0.019,
+     "blue": 0.285,
+     "black": 0.062,
+     "gray": 0.275,
+     "white": 0.166
+    },
+    "hues": [
+     0.007,
+     0.019,
+     0.071,
+     0.209,
+     0.106,
+     0.009,
+     0.008,
+     0.108,
+     0.447,
+     0.013,
+     0.001,
+     0.002
+    ],
+    "chromatic": 0.522,
+    "value": {
+     "dark": 0.385,
+     "mid": 0.323,
+     "light": 0.292
+    }
    },
    "composition": {
     "busyness": 0.409,
@@ -14358,7 +17274,38 @@
     "contrast": 0.555,
     "saturation": 0.4,
     "colorfulness": 0.755,
-    "warmth": -0.566
+    "warmth": -0.566,
+    "shares": {
+     "orange": 0.006,
+     "yellow": 0.098,
+     "brown": 0.021,
+     "green": 0.133,
+     "teal": 0.02,
+     "blue": 0.498,
+     "black": 0.02,
+     "gray": 0.189,
+     "white": 0.014
+    },
+    "hues": [
+     0.001,
+     0.006,
+     0.026,
+     0.24,
+     0.053,
+     0.002,
+     0.005,
+     0.08,
+     0.462,
+     0.125,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.786,
+    "value": {
+     "dark": 0.158,
+     "mid": 0.531,
+     "light": 0.311
+    }
    },
    "composition": {
     "busyness": 0.438,
@@ -14510,7 +17457,35 @@
     "contrast": 0.695,
     "saturation": 0.18,
     "colorfulness": 0.291,
-    "warmth": 0.033
+    "warmth": 0.033,
+    "shares": {
+     "orange": 0.022,
+     "yellow": 0.007,
+     "brown": 0.172,
+     "teal": 0.096,
+     "black": 0.125,
+     "gray": 0.578
+    },
+    "hues": [
+     0.003,
+     0.202,
+     0.462,
+     0.08,
+     0.0,
+     0.0,
+     0.162,
+     0.09,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.312,
+    "value": {
+     "dark": 0.393,
+     "mid": 0.342,
+     "light": 0.265
+    }
    },
    "composition": {
     "busyness": 0.354,
@@ -14644,7 +17619,38 @@
     "contrast": 0.553,
     "saturation": 0.386,
     "colorfulness": 0.558,
-    "warmth": 0.126
+    "warmth": 0.126,
+    "shares": {
+     "orange": 0.026,
+     "yellow": 0.289,
+     "brown": 0.093,
+     "green": 0.174,
+     "teal": 0.024,
+     "blue": 0.22,
+     "black": 0.062,
+     "gray": 0.097,
+     "white": 0.014
+    },
+    "hues": [
+     0.0,
+     0.022,
+     0.201,
+     0.439,
+     0.043,
+     0.011,
+     0.018,
+     0.003,
+     0.262,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.848,
+    "value": {
+     "dark": 0.145,
+     "mid": 0.644,
+     "light": 0.211
+    }
    },
    "composition": {
     "busyness": 0.54,
@@ -14779,7 +17785,34 @@
     "contrast": 0.973,
     "saturation": 0.179,
     "colorfulness": 0.208,
-    "warmth": 0.506
+    "warmth": 0.506,
+    "shares": {
+     "yellow": 0.072,
+     "brown": 0.25,
+     "black": 0.297,
+     "gray": 0.209,
+     "white": 0.172
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.993,
+     0.006,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.404,
+    "value": {
+     "dark": 0.487,
+     "mid": 0.133,
+     "light": 0.38
+    }
    },
    "composition": {
     "busyness": 0.123,
@@ -14913,7 +17946,32 @@
     "contrast": 0.809,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.69,
+     "gray": 0.258,
+     "white": 0.052
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.751,
+     "mid": 0.149,
+     "light": 0.1
+    }
    },
    "composition": {
     "busyness": 0.201,
@@ -15066,7 +18124,34 @@
     "contrast": 0.826,
     "saturation": 0.128,
     "colorfulness": 0.226,
-    "warmth": -0.056
+    "warmth": -0.056,
+    "shares": {
+     "yellow": 0.006,
+     "brown": 0.046,
+     "green": 0.044,
+     "black": 0.304,
+     "gray": 0.599
+    },
+    "hues": [
+     0.0,
+     0.013,
+     0.451,
+     0.386,
+     0.122,
+     0.001,
+     0.0,
+     0.026,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.101,
+    "value": {
+     "dark": 0.509,
+     "mid": 0.096,
+     "light": 0.395
+    }
    },
    "composition": {
     "busyness": 0.095,
@@ -15188,7 +18273,34 @@
     "contrast": 0.98,
     "saturation": 0.307,
     "colorfulness": 0.452,
-    "warmth": 0.775
+    "warmth": 0.775,
+    "shares": {
+     "orange": 0.098,
+     "yellow": 0.307,
+     "brown": 0.085,
+     "black": 0.455,
+     "white": 0.054
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.945,
+     0.053,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.511,
+    "value": {
+     "dark": 0.497,
+     "mid": 0.278,
+     "light": 0.225
+    }
    },
    "composition": {
     "busyness": 0.063,
@@ -15312,7 +18424,33 @@
     "contrast": 0.873,
     "saturation": 0.154,
     "colorfulness": 0.13,
-    "warmth": 0.37
+    "warmth": 0.37,
+    "shares": {
+     "yellow": 0.028,
+     "brown": 0.07,
+     "black": 0.227,
+     "gray": 0.674
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.984,
+     0.016,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.144,
+    "value": {
+     "dark": 0.358,
+     "mid": 0.128,
+     "light": 0.513
+    }
    },
    "composition": {
     "busyness": 0.062,
@@ -15445,7 +18583,36 @@
     "contrast": 0.604,
     "saturation": 0.139,
     "colorfulness": 0.202,
-    "warmth": -0.104
+    "warmth": -0.104,
+    "shares": {
+     "orange": 0.007,
+     "yellow": 0.015,
+     "brown": 0.049,
+     "green": 0.03,
+     "black": 0.662,
+     "gray": 0.226,
+     "white": 0.011
+    },
+    "hues": [
+     0.0,
+     0.037,
+     0.457,
+     0.093,
+     0.118,
+     0.276,
+     0.019,
+     0.0,
+     0.0,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.151,
+    "value": {
+     "dark": 0.844,
+     "mid": 0.078,
+     "light": 0.078
+    }
    },
    "composition": {
     "busyness": 0.218,
@@ -15579,7 +18746,34 @@
     "contrast": 0.679,
     "saturation": 0.384,
     "colorfulness": 0.634,
-    "warmth": 0.984
+    "warmth": 0.984,
+    "shares": {
+     "orange": 0.21,
+     "yellow": 0.018,
+     "brown": 0.252,
+     "black": 0.457,
+     "gray": 0.062
+    },
+    "hues": [
+     0.0,
+     0.582,
+     0.414,
+     0.004,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.541,
+    "value": {
+     "dark": 0.684,
+     "mid": 0.253,
+     "light": 0.063
+    }
    },
    "composition": {
     "busyness": 0.286,
@@ -15714,7 +18908,34 @@
     "contrast": 0.53,
     "saturation": 0.325,
     "colorfulness": 0.426,
-    "warmth": 0.929
+    "warmth": 0.929,
+    "shares": {
+     "orange": 0.072,
+     "yellow": 0.082,
+     "brown": 0.421,
+     "black": 0.247,
+     "gray": 0.177
+    },
+    "hues": [
+     0.0,
+     0.207,
+     0.749,
+     0.044,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.674,
+    "value": {
+     "dark": 0.593,
+     "mid": 0.37,
+     "light": 0.037
+    }
    },
    "composition": {
     "busyness": 0.235,
@@ -15848,7 +19069,37 @@
     "contrast": 0.658,
     "saturation": 0.229,
     "colorfulness": 0.384,
-    "warmth": 0.347
+    "warmth": 0.347,
+    "shares": {
+     "orange": 0.043,
+     "yellow": 0.188,
+     "brown": 0.106,
+     "green": 0.059,
+     "blue": 0.008,
+     "black": 0.02,
+     "gray": 0.435,
+     "white": 0.14
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.821,
+     0.147,
+     0.02,
+     0.0,
+     0.0,
+     0.005,
+     0.005,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.405,
+    "value": {
+     "dark": 0.182,
+     "mid": 0.398,
+     "light": 0.42
+    }
    },
    "composition": {
     "busyness": 0.24,
@@ -15982,7 +19233,32 @@
     "contrast": 0.7,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.011,
+     "gray": 0.335,
+     "white": 0.654
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.08,
+     "mid": 0.179,
+     "light": 0.742
+    }
    },
    "composition": {
     "busyness": 0.159,
@@ -16117,7 +19393,31 @@
     "contrast": 0.703,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "gray": 0.595,
+     "white": 0.405
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.048,
+     "mid": 0.418,
+     "light": 0.533
+    }
    },
    "composition": {
     "busyness": 0.168,
@@ -16253,7 +19553,31 @@
     "contrast": 0.698,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "gray": 0.757,
+     "white": 0.243
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.074,
+     "mid": 0.581,
+     "light": 0.345
+    }
    },
    "composition": {
     "busyness": 0.348,
@@ -16390,7 +19714,35 @@
     "contrast": 0.811,
     "saturation": 0.151,
     "colorfulness": 0.237,
-    "warmth": 0.412
+    "warmth": 0.412,
+    "shares": {
+     "orange": 0.268,
+     "yellow": 0.071,
+     "brown": 0.061,
+     "black": 0.042,
+     "gray": 0.521,
+     "white": 0.037
+    },
+    "hues": [
+     0.0,
+     0.071,
+     0.929,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.4,
+    "value": {
+     "dark": 0.507,
+     "mid": 0.201,
+     "light": 0.292
+    }
    },
    "composition": {
     "busyness": 0.377,
@@ -16542,7 +19894,32 @@
     "contrast": 0.602,
     "saturation": 0.45,
     "colorfulness": 0.273,
-    "warmth": 1.0
+    "warmth": 1.0,
+    "shares": {
+     "orange": 0.151,
+     "yellow": 0.257,
+     "brown": 0.592
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.995,
+     0.004,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 1.0,
+    "value": {
+     "dark": 0.333,
+     "mid": 0.424,
+     "light": 0.244
+    }
    },
    "composition": {
     "busyness": 0.291,
@@ -16694,7 +20071,32 @@
     "contrast": 0.91,
     "saturation": 0.016,
     "colorfulness": 0.027,
-    "warmth": -0.034
+    "warmth": -0.034,
+    "shares": {
+     "black": 0.016,
+     "gray": 0.495,
+     "white": 0.489
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.33,
+     "mid": 0.094,
+     "light": 0.575
+    }
    },
    "composition": {
     "busyness": 0.259,
@@ -16825,7 +20227,34 @@
     "contrast": 0.55,
     "saturation": 0.319,
     "colorfulness": 0.191,
-    "warmth": 0.043
+    "warmth": 0.043,
+    "shares": {
+     "yellow": 0.513,
+     "brown": 0.073,
+     "green": 0.294,
+     "black": 0.015,
+     "white": 0.105
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.893,
+    "value": {
+     "dark": 0.068,
+     "mid": 0.55,
+     "light": 0.381
+    }
    },
    "composition": {
     "busyness": 0.088,
@@ -16972,7 +20401,33 @@
     "contrast": 0.4,
     "saturation": 0.068,
     "colorfulness": 0.154,
-    "warmth": -0.115
+    "warmth": -0.115,
+    "shares": {
+     "orange": 0.009,
+     "black": 0.006,
+     "gray": 0.475,
+     "white": 0.51
+    },
+    "hues": [
+     0.016,
+     0.237,
+     0.685,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.062,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.014,
+    "value": {
+     "dark": 0.014,
+     "mid": 0.141,
+     "light": 0.845
+    }
    },
    "composition": {
     "busyness": 0.149,
@@ -17101,7 +20556,33 @@
     "contrast": 0.558,
     "saturation": 0.313,
     "colorfulness": 0.503,
-    "warmth": -0.923
+    "warmth": -0.923,
+    "shares": {
+     "teal": 0.021,
+     "blue": 0.748,
+     "gray": 0.109,
+     "white": 0.121
+    },
+    "hues": [
+     0.001,
+     0.004,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.214,
+     0.779,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.77,
+    "value": {
+     "dark": 0.048,
+     "mid": 0.457,
+     "light": 0.495
+    }
    },
    "composition": {
     "busyness": 0.176,
@@ -17235,7 +20716,38 @@
     "contrast": 0.87,
     "saturation": 0.39,
     "colorfulness": 0.604,
-    "warmth": 0.909
+    "warmth": 0.909,
+    "shares": {
+     "red": 0.088,
+     "pink": 0.041,
+     "orange": 0.312,
+     "yellow": 0.038,
+     "brown": 0.163,
+     "green": 0.005,
+     "black": 0.269,
+     "gray": 0.076,
+     "white": 0.009
+    },
+    "hues": [
+     0.001,
+     0.683,
+     0.295,
+     0.017,
+     0.003,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.657,
+    "value": {
+     "dark": 0.385,
+     "mid": 0.297,
+     "light": 0.318
+    }
    },
    "composition": {
     "busyness": 0.33,
@@ -17364,7 +20876,33 @@
     "contrast": 0.361,
     "saturation": 0.614,
     "colorfulness": 0.671,
-    "warmth": -0.995
+    "warmth": -0.995,
+    "shares": {
+     "blue": 0.889,
+     "black": 0.012,
+     "gray": 0.076,
+     "white": 0.023
+    },
+    "hues": [
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.278,
+     0.721,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.896,
+    "value": {
+     "dark": 0.03,
+     "mid": 0.587,
+     "light": 0.383
+    }
    },
    "composition": {
     "busyness": 0.169,
@@ -17498,7 +21036,33 @@
     "contrast": 0.57,
     "saturation": 0.304,
     "colorfulness": 0.463,
-    "warmth": -0.905
+    "warmth": -0.905,
+    "shares": {
+     "blue": 0.705,
+     "black": 0.019,
+     "gray": 0.259,
+     "white": 0.017
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.1,
+     0.895,
+     0.005,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.706,
+    "value": {
+     "dark": 0.155,
+     "mid": 0.476,
+     "light": 0.37
+    }
    },
    "composition": {
     "busyness": 0.12,
@@ -17632,7 +21196,34 @@
     "contrast": 0.497,
     "saturation": 0.064,
     "colorfulness": 0.19,
-    "warmth": -0.187
+    "warmth": -0.187,
+    "shares": {
+     "teal": 0.02,
+     "blue": 0.102,
+     "black": 0.006,
+     "gray": 0.282,
+     "white": 0.59
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.79,
+     0.21,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.122,
+    "value": {
+     "dark": 0.024,
+     "mid": 0.2,
+     "light": 0.776
+    }
    },
    "composition": {
     "busyness": 0.145,
@@ -17762,7 +21353,33 @@
     "contrast": 0.854,
     "saturation": 0.28,
     "colorfulness": 0.41,
-    "warmth": -0.832
+    "warmth": -0.832,
+    "shares": {
+     "blue": 0.566,
+     "black": 0.23,
+     "gray": 0.158,
+     "white": 0.046
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.003,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.002,
+     0.789,
+     0.205,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.634,
+    "value": {
+     "dark": 0.358,
+     "mid": 0.276,
+     "light": 0.365
+    }
    },
    "composition": {
     "busyness": 0.018,
@@ -17907,7 +21524,34 @@
     "contrast": 0.532,
     "saturation": 0.107,
     "colorfulness": 0.213,
-    "warmth": -0.199
+    "warmth": -0.199,
+    "shares": {
+     "red": 0.014,
+     "blue": 0.021,
+     "black": 0.015,
+     "gray": 0.673,
+     "white": 0.276
+    },
+    "hues": [
+     0.129,
+     0.447,
+     0.003,
+     0.006,
+     0.001,
+     0.0,
+     0.0,
+     0.001,
+     0.213,
+     0.011,
+     0.054,
+     0.135
+    ],
+    "chromatic": 0.044,
+    "value": {
+     "dark": 0.068,
+     "mid": 0.112,
+     "light": 0.82
+    }
    },
    "composition": {
     "busyness": 0.198,
@@ -18036,7 +21680,34 @@
     "contrast": 0.33,
     "saturation": 0.375,
     "colorfulness": 0.479,
-    "warmth": -0.909
+    "warmth": -0.909,
+    "shares": {
+     "brown": 0.005,
+     "green": 0.015,
+     "teal": 0.014,
+     "blue": 0.959,
+     "gray": 0.006
+    },
+    "hues": [
+     0.003,
+     0.023,
+     0.001,
+     0.003,
+     0.029,
+     0.002,
+     0.001,
+     0.124,
+     0.813,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.991,
+    "value": {
+     "dark": 0.45,
+     "mid": 0.549,
+     "light": 0.001
+    }
    },
    "composition": {
     "busyness": 0.042,
@@ -18171,7 +21842,31 @@
     "contrast": 0.551,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "gray": 0.659,
+     "white": 0.341
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.043,
+     "mid": 0.49,
+     "light": 0.467
+    }
    },
    "composition": {
     "busyness": 0.046,
@@ -18287,7 +21982,31 @@
     "contrast": 0.171,
     "saturation": 0.118,
     "colorfulness": 0.148,
-    "warmth": -0.27
+    "warmth": -0.27,
+    "shares": {
+     "gray": 0.276,
+     "white": 0.724
+    },
+    "hues": [
+     0.334,
+     0.551,
+     0.02,
+     0.062,
+     0.012,
+     0.004,
+     0.007,
+     0.006,
+     0.004,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.007,
+    "value": {
+     "dark": 0.002,
+     "mid": 0.021,
+     "light": 0.977
+    }
    },
    "composition": {
     "busyness": 0.05,
@@ -18411,7 +22130,32 @@
     "contrast": 0.524,
     "saturation": 0.32,
     "colorfulness": 0.452,
-    "warmth": -0.95
+    "warmth": -0.95,
+    "shares": {
+     "blue": 0.697,
+     "black": 0.008,
+     "gray": 0.294
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.906,
+     0.093,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.695,
+    "value": {
+     "dark": 0.287,
+     "mid": 0.506,
+     "light": 0.207
+    }
    },
    "composition": {
     "busyness": 0.126,
@@ -18546,7 +22290,34 @@
     "contrast": 0.598,
     "saturation": 0.32,
     "colorfulness": 0.634,
-    "warmth": -0.942
+    "warmth": -0.942,
+    "shares": {
+     "teal": 0.597,
+     "blue": 0.199,
+     "black": 0.012,
+     "gray": 0.103,
+     "white": 0.089
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.999,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.796,
+    "value": {
+     "dark": 0.205,
+     "mid": 0.555,
+     "light": 0.239
+    }
    },
    "composition": {
     "busyness": 0.137,
@@ -18693,7 +22464,32 @@
     "contrast": 0.558,
     "saturation": 0.129,
     "colorfulness": 0.112,
-    "warmth": -0.365
+    "warmth": -0.365,
+    "shares": {
+     "black": 0.017,
+     "gray": 0.835,
+     "white": 0.148
+    },
+    "hues": [
+     0.22,
+     0.031,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.749
+    ],
+    "chromatic": 0.007,
+    "value": {
+     "dark": 0.034,
+     "mid": 0.39,
+     "light": 0.575
+    }
    },
    "composition": {
     "busyness": 0.081,
@@ -18816,7 +22612,35 @@
     "contrast": 0.488,
     "saturation": 0.568,
     "colorfulness": 0.911,
-    "warmth": -0.82
+    "warmth": -0.82,
+    "shares": {
+     "yellow": 0.007,
+     "green": 0.15,
+     "blue": 0.722,
+     "black": 0.014,
+     "gray": 0.082,
+     "white": 0.025
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.15,
+     0.024,
+     0.001,
+     0.0,
+     0.001,
+     0.333,
+     0.49,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.885,
+    "value": {
+     "dark": 0.162,
+     "mid": 0.654,
+     "light": 0.184
+    }
    },
    "composition": {
     "busyness": 0.267,
@@ -18966,7 +22790,35 @@
     "contrast": 0.449,
     "saturation": 0.432,
     "colorfulness": 0.284,
-    "warmth": 0.051
+    "warmth": 0.051,
+    "shares": {
+     "orange": 0.007,
+     "yellow": 0.039,
+     "brown": 0.033,
+     "green": 0.76,
+     "black": 0.077,
+     "gray": 0.084
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.01,
+     0.552,
+     0.438,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.873,
+    "value": {
+     "dark": 0.314,
+     "mid": 0.633,
+     "light": 0.054
+    }
    },
    "composition": {
     "busyness": 0.312,
@@ -19099,7 +22951,35 @@
     "contrast": 0.61,
     "saturation": 0.475,
     "colorfulness": 0.509,
-    "warmth": 0.126
+    "warmth": 0.126,
+    "shares": {
+     "yellow": 0.2,
+     "brown": 0.021,
+     "green": 0.463,
+     "black": 0.051,
+     "gray": 0.141,
+     "white": 0.124
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.043,
+     0.878,
+     0.075,
+     0.001,
+     0.001,
+     0.001,
+     0.001,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.706,
+    "value": {
+     "dark": 0.159,
+     "mid": 0.628,
+     "light": 0.213
+    }
    },
    "composition": {
     "busyness": 0.377,
@@ -19223,7 +23103,35 @@
     "contrast": 0.547,
     "saturation": 0.495,
     "colorfulness": 0.476,
-    "warmth": 0.057
+    "warmth": 0.057,
+    "shares": {
+     "orange": 0.007,
+     "yellow": 0.071,
+     "brown": 0.154,
+     "green": 0.492,
+     "black": 0.263,
+     "gray": 0.013
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.053,
+     0.835,
+     0.098,
+     0.008,
+     0.0,
+     0.0,
+     0.006,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.811,
+    "value": {
+     "dark": 0.547,
+     "mid": 0.441,
+     "light": 0.012
+    }
    },
    "composition": {
     "busyness": 0.314,
@@ -19358,7 +23266,36 @@
     "contrast": 0.596,
     "saturation": 0.426,
     "colorfulness": 0.417,
-    "warmth": 0.264
+    "warmth": 0.264,
+    "shares": {
+     "orange": 0.033,
+     "yellow": 0.238,
+     "brown": 0.057,
+     "green": 0.443,
+     "black": 0.089,
+     "gray": 0.127,
+     "white": 0.014
+    },
+    "hues": [
+     0.0,
+     0.002,
+     0.151,
+     0.672,
+     0.175,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.771,
+    "value": {
+     "dark": 0.329,
+     "mid": 0.511,
+     "light": 0.16
+    }
    },
    "composition": {
     "busyness": 0.348,
@@ -19480,7 +23417,38 @@
     "contrast": 0.61,
     "saturation": 0.422,
     "colorfulness": 0.521,
-    "warmth": 0.89
+    "warmth": 0.89,
+    "shares": {
+     "red": 0.099,
+     "pink": 0.023,
+     "orange": 0.249,
+     "yellow": 0.121,
+     "brown": 0.281,
+     "green": 0.023,
+     "purple": 0.011,
+     "black": 0.102,
+     "gray": 0.089
+    },
+    "hues": [
+     0.057,
+     0.419,
+     0.339,
+     0.103,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.011,
+     0.018,
+     0.052
+    ],
+    "chromatic": 0.854,
+    "value": {
+     "dark": 0.245,
+     "mid": 0.568,
+     "light": 0.187
+    }
    },
    "composition": {
     "busyness": 0.607,
@@ -19630,7 +23598,37 @@
     "contrast": 0.784,
     "saturation": 0.34,
     "colorfulness": 0.517,
-    "warmth": 0.893
+    "warmth": 0.893,
+    "shares": {
+     "red": 0.057,
+     "orange": 0.109,
+     "yellow": 0.159,
+     "brown": 0.216,
+     "green": 0.039,
+     "black": 0.181,
+     "gray": 0.154,
+     "white": 0.085
+    },
+    "hues": [
+     0.045,
+     0.335,
+     0.475,
+     0.101,
+     0.041,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.627,
+    "value": {
+     "dark": 0.372,
+     "mid": 0.357,
+     "light": 0.271
+    }
    },
    "composition": {
     "busyness": 0.64,
@@ -19763,7 +23761,39 @@
     "contrast": 0.819,
     "saturation": 0.46,
     "colorfulness": 0.704,
-    "warmth": 0.7
+    "warmth": 0.7,
+    "shares": {
+     "red": 0.164,
+     "pink": 0.038,
+     "orange": 0.049,
+     "yellow": 0.109,
+     "brown": 0.107,
+     "green": 0.23,
+     "blue": 0.006,
+     "black": 0.185,
+     "gray": 0.079,
+     "white": 0.031
+    },
+    "hues": [
+     0.163,
+     0.306,
+     0.149,
+     0.327,
+     0.022,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.011,
+     0.021
+    ],
+    "chromatic": 0.766,
+    "value": {
+     "dark": 0.319,
+     "mid": 0.35,
+     "light": 0.331
+    }
    },
    "composition": {
     "busyness": 0.607,
@@ -19896,7 +23926,36 @@
     "contrast": 0.66,
     "saturation": 0.395,
     "colorfulness": 0.458,
-    "warmth": 0.984
+    "warmth": 0.984,
+    "shares": {
+     "red": 0.27,
+     "pink": 0.022,
+     "orange": 0.06,
+     "yellow": 0.144,
+     "brown": 0.243,
+     "black": 0.18,
+     "gray": 0.08
+    },
+    "hues": [
+     0.172,
+     0.49,
+     0.215,
+     0.086,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.036
+    ],
+    "chromatic": 0.812,
+    "value": {
+     "dark": 0.333,
+     "mid": 0.515,
+     "light": 0.152
+    }
    },
    "composition": {
     "busyness": 0.505,
@@ -20029,7 +24088,39 @@
     "contrast": 0.76,
     "saturation": 0.338,
     "colorfulness": 0.529,
-    "warmth": 0.613
+    "warmth": 0.613,
+    "shares": {
+     "red": 0.131,
+     "pink": 0.087,
+     "orange": 0.029,
+     "yellow": 0.075,
+     "brown": 0.063,
+     "green": 0.182,
+     "purple": 0.016,
+     "black": 0.139,
+     "gray": 0.227,
+     "white": 0.052
+    },
+    "hues": [
+     0.25,
+     0.127,
+     0.055,
+     0.244,
+     0.16,
+     0.057,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.104
+    ],
+    "chromatic": 0.603,
+    "value": {
+     "dark": 0.311,
+     "mid": 0.369,
+     "light": 0.321
+    }
    },
    "composition": {
     "busyness": 0.646,
@@ -20143,7 +24234,34 @@
     "contrast": 0.266,
     "saturation": 0.251,
     "colorfulness": 0.178,
-    "warmth": 0.752
+    "warmth": 0.752,
+    "shares": {
+     "orange": 0.007,
+     "yellow": 0.858,
+     "brown": 0.02,
+     "gray": 0.033,
+     "white": 0.082
+    },
+    "hues": [
+     0.0,
+     0.015,
+     0.985,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.885,
+    "value": {
+     "dark": 0.012,
+     "mid": 0.03,
+     "light": 0.957
+    }
    },
    "composition": {
     "busyness": 0.03,
@@ -20267,7 +24385,34 @@
     "contrast": 0.309,
     "saturation": 0.105,
     "colorfulness": 0.18,
-    "warmth": -0.215
+    "warmth": -0.215,
+    "shares": {
+     "orange": 0.011,
+     "brown": 0.02,
+     "teal": 0.007,
+     "gray": 0.648,
+     "white": 0.314
+    },
+    "hues": [
+     0.0,
+     0.483,
+     0.4,
+     0.0,
+     0.0,
+     0.0,
+     0.081,
+     0.036,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.043,
+    "value": {
+     "dark": 0.014,
+     "mid": 0.049,
+     "light": 0.937
+    }
    },
    "composition": {
     "busyness": 0.047,
@@ -20376,7 +24521,32 @@
     "contrast": 0.366,
     "saturation": 0.014,
     "colorfulness": 0.032,
-    "warmth": -0.027
+    "warmth": -0.027,
+    "shares": {
+     "black": 0.015,
+     "gray": 0.016,
+     "white": 0.969
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.964,
+     0.016,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.019,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.003,
+    "value": {
+     "dark": 0.018,
+     "mid": 0.008,
+     "light": 0.975
+    }
    },
    "composition": {
     "busyness": 0.023,
@@ -20496,7 +24666,32 @@
     "contrast": 1.0,
     "saturation": 0.003,
     "colorfulness": 0.045,
-    "warmth": 0.009
+    "warmth": 0.009,
+    "shares": {
+     "black": 0.482,
+     "gray": 0.118,
+     "white": 0.4
+    },
+    "hues": [
+     0.469,
+     0.419,
+     0.113,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.006,
+    "value": {
+     "dark": 0.487,
+     "mid": 0.011,
+     "light": 0.502
+    }
    },
    "composition": {
     "busyness": 0.037,
@@ -20632,7 +24827,31 @@
     "contrast": 0.351,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.516,
+     "gray": 0.484
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.956,
+     "mid": 0.033,
+     "light": 0.011
+    }
    },
    "composition": {
     "busyness": 0.061,
@@ -20768,7 +24987,34 @@
     "contrast": 0.553,
     "saturation": 0.046,
     "colorfulness": 0.208,
-    "warmth": 0.05
+    "warmth": 0.05,
+    "shares": {
+     "orange": 0.021,
+     "brown": 0.014,
+     "black": 0.045,
+     "gray": 0.164,
+     "white": 0.755
+    },
+    "hues": [
+     0.0,
+     0.173,
+     0.655,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.058,
+     0.114,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.063,
+    "value": {
+     "dark": 0.056,
+     "mid": 0.042,
+     "light": 0.902
+    }
    },
    "composition": {
     "busyness": 0.062,
@@ -20914,7 +25160,34 @@
     "contrast": 1.0,
     "saturation": 0.046,
     "colorfulness": 0.091,
-    "warmth": 0.097
+    "warmth": 0.097,
+    "shares": {
+     "yellow": 0.016,
+     "brown": 0.007,
+     "black": 0.542,
+     "gray": 0.068,
+     "white": 0.367
+    },
+    "hues": [
+     0.002,
+     0.306,
+     0.692,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.03,
+    "value": {
+     "dark": 0.564,
+     "mid": 0.043,
+     "light": 0.393
+    }
    },
    "composition": {
     "busyness": 0.083,
@@ -21047,7 +25320,36 @@
     "contrast": 0.589,
     "saturation": 0.106,
     "colorfulness": 0.327,
-    "warmth": 0.296
+    "warmth": 0.296,
+    "shares": {
+     "red": 0.029,
+     "orange": 0.018,
+     "yellow": 0.012,
+     "brown": 0.043,
+     "black": 0.828,
+     "gray": 0.052,
+     "white": 0.018
+    },
+    "hues": [
+     0.08,
+     0.728,
+     0.181,
+     0.011,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.148,
+    "value": {
+     "dark": 0.909,
+     "mid": 0.051,
+     "light": 0.041
+    }
    },
    "composition": {
     "busyness": 0.19,
@@ -21183,7 +25485,34 @@
     "contrast": 0.842,
     "saturation": 0.139,
     "colorfulness": 0.278,
-    "warmth": 0.319
+    "warmth": 0.319,
+    "shares": {
+     "orange": 0.044,
+     "yellow": 0.071,
+     "brown": 0.051,
+     "black": 0.444,
+     "gray": 0.389
+    },
+    "hues": [
+     0.0,
+     0.007,
+     0.877,
+     0.116,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.166,
+    "value": {
+     "dark": 0.552,
+     "mid": 0.301,
+     "light": 0.147
+    }
    },
    "composition": {
     "busyness": 0.099,
@@ -21315,7 +25644,37 @@
     "contrast": 0.828,
     "saturation": 0.159,
     "colorfulness": 0.227,
-    "warmth": -0.13
+    "warmth": -0.13,
+    "shares": {
+     "orange": 0.038,
+     "yellow": 0.027,
+     "brown": 0.013,
+     "green": 0.161,
+     "blue": 0.071,
+     "black": 0.131,
+     "gray": 0.251,
+     "white": 0.308
+    },
+    "hues": [
+     0.004,
+     0.045,
+     0.16,
+     0.075,
+     0.501,
+     0.028,
+     0.0,
+     0.0,
+     0.036,
+     0.15,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.311,
+    "value": {
+     "dark": 0.19,
+     "mid": 0.21,
+     "light": 0.6
+    }
    },
    "composition": {
     "busyness": 0.269,
@@ -21448,7 +25807,35 @@
     "contrast": 0.641,
     "saturation": 0.234,
     "colorfulness": 0.617,
-    "warmth": 0.638
+    "warmth": 0.638,
+    "shares": {
+     "red": 0.164,
+     "pink": 0.008,
+     "orange": 0.028,
+     "black": 0.006,
+     "gray": 0.008,
+     "white": 0.786
+    },
+    "hues": [
+     0.039,
+     0.943,
+     0.018,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.211,
+    "value": {
+     "dark": 0.071,
+     "mid": 0.102,
+     "light": 0.827
+    }
    },
    "composition": {
     "busyness": 0.14,
@@ -21581,7 +25968,32 @@
     "contrast": 0.79,
     "saturation": 0.021,
     "colorfulness": 0.024,
-    "warmth": -0.06
+    "warmth": -0.06,
+    "shares": {
+     "black": 0.058,
+     "gray": 0.679,
+     "white": 0.263
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.218,
+     "mid": 0.364,
+     "light": 0.418
+    }
    },
    "composition": {
     "busyness": 0.109,
@@ -21710,7 +26122,33 @@
     "contrast": 0.411,
     "saturation": 0.076,
     "colorfulness": 0.392,
-    "warmth": 0.214
+    "warmth": 0.214,
+    "shares": {
+     "red": 0.061,
+     "brown": 0.008,
+     "green": 0.007,
+     "white": 0.924
+    },
+    "hues": [
+     0.578,
+     0.347,
+     0.014,
+     0.061,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.084,
+    "value": {
+     "dark": 0.009,
+     "mid": 0.062,
+     "light": 0.93
+    }
    },
    "composition": {
     "busyness": 0.054,
@@ -21837,7 +26275,32 @@
     "contrast": 0.337,
     "saturation": 0.361,
     "colorfulness": 0.548,
-    "warmth": -0.691
+    "warmth": -0.691,
+    "shares": {
+     "red": 0.043,
+     "green": 0.01,
+     "teal": 0.947
+    },
+    "hues": [
+     0.021,
+     0.121,
+     0.001,
+     0.011,
+     0.004,
+     0.837,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.996,
+    "value": {
+     "dark": 0.021,
+     "mid": 0.059,
+     "light": 0.919
+    }
    },
    "composition": {
     "busyness": 0.031,
@@ -21982,7 +26445,35 @@
     "contrast": 0.54,
     "saturation": 0.371,
     "colorfulness": 0.535,
-    "warmth": 0.956
+    "warmth": 0.956,
+    "shares": {
+     "red": 0.145,
+     "brown": 0.054,
+     "green": 0.024,
+     "black": 0.738,
+     "gray": 0.023,
+     "white": 0.015
+    },
+    "hues": [
+     0.315,
+     0.626,
+     0.015,
+     0.024,
+     0.02,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.599,
+    "value": {
+     "dark": 0.902,
+     "mid": 0.063,
+     "light": 0.035
+    }
    },
    "composition": {
     "busyness": 0.275,
@@ -22110,7 +26601,35 @@
     "contrast": 0.46,
     "saturation": 0.069,
     "colorfulness": 0.33,
-    "warmth": 0.186
+    "warmth": 0.186,
+    "shares": {
+     "red": 0.052,
+     "yellow": 0.005,
+     "brown": 0.016,
+     "green": 0.007,
+     "gray": 0.01,
+     "white": 0.91
+    },
+    "hues": [
+     0.648,
+     0.244,
+     0.029,
+     0.079,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.085,
+    "value": {
+     "dark": 0.031,
+     "mid": 0.04,
+     "light": 0.928
+    }
    },
    "composition": {
     "busyness": 0.064,
@@ -22242,7 +26761,35 @@
     "contrast": 0.529,
     "saturation": 0.401,
     "colorfulness": 0.427,
-    "warmth": 0.123
+    "warmth": 0.123,
+    "shares": {
+     "red": 0.02,
+     "brown": 0.021,
+     "green": 0.419,
+     "black": 0.521,
+     "gray": 0.011,
+     "white": 0.008
+    },
+    "hues": [
+     0.001,
+     0.121,
+     0.003,
+     0.012,
+     0.858,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.726,
+    "value": {
+     "dark": 0.819,
+     "mid": 0.137,
+     "light": 0.044
+    }
    },
    "composition": {
     "busyness": 0.391,
@@ -22390,7 +26937,35 @@
     "contrast": 0.304,
     "saturation": 0.13,
     "colorfulness": 0.329,
-    "warmth": 0.219
+    "warmth": 0.219,
+    "shares": {
+     "red": 0.05,
+     "pink": 0.134,
+     "orange": 0.01,
+     "brown": 0.006,
+     "gray": 0.051,
+     "white": 0.748
+    },
+    "hues": [
+     0.729,
+     0.238,
+     0.031,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.202,
+    "value": {
+     "dark": 0.005,
+     "mid": 0.048,
+     "light": 0.947
+    }
    },
    "composition": {
     "busyness": 0.138,
@@ -22525,7 +27100,37 @@
     "contrast": 0.364,
     "saturation": 0.303,
     "colorfulness": 0.483,
-    "warmth": 0.552
+    "warmth": 0.552,
+    "shares": {
+     "red": 0.283,
+     "pink": 0.331,
+     "brown": 0.025,
+     "teal": 0.012,
+     "blue": 0.207,
+     "purple": 0.011,
+     "gray": 0.055,
+     "white": 0.076
+    },
+    "hues": [
+     0.604,
+     0.099,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.153,
+     0.014,
+     0.002,
+     0.02,
+     0.105
+    ],
+    "chromatic": 0.869,
+    "value": {
+     "dark": 0.006,
+     "mid": 0.29,
+     "light": 0.704
+    }
    },
    "composition": {
     "busyness": 0.312,
@@ -22659,7 +27264,36 @@
     "contrast": 0.532,
     "saturation": 0.459,
     "colorfulness": 0.716,
-    "warmth": 0.872
+    "warmth": 0.872,
+    "shares": {
+     "red": 0.221,
+     "orange": 0.025,
+     "yellow": 0.007,
+     "brown": 0.151,
+     "green": 0.017,
+     "black": 0.353,
+     "gray": 0.225
+    },
+    "hues": [
+     0.182,
+     0.711,
+     0.047,
+     0.032,
+     0.007,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.022
+    ],
+    "chromatic": 0.573,
+    "value": {
+     "dark": 0.611,
+     "mid": 0.383,
+     "light": 0.005
+    }
    },
    "composition": {
     "busyness": 0.17,
@@ -22793,7 +27427,35 @@
     "contrast": 0.51,
     "saturation": 0.368,
     "colorfulness": 0.556,
-    "warmth": 0.858
+    "warmth": 0.858,
+    "shares": {
+     "red": 0.077,
+     "orange": 0.043,
+     "yellow": 0.023,
+     "brown": 0.247,
+     "black": 0.59,
+     "gray": 0.02
+    },
+    "hues": [
+     0.344,
+     0.478,
+     0.149,
+     0.01,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.019
+    ],
+    "chromatic": 0.584,
+    "value": {
+     "dark": 0.804,
+     "mid": 0.181,
+     "light": 0.015
+    }
    },
    "composition": {
     "busyness": 0.197,
@@ -22927,7 +27589,35 @@
     "contrast": 0.627,
     "saturation": 0.266,
     "colorfulness": 0.473,
-    "warmth": 0.621
+    "warmth": 0.621,
+    "shares": {
+     "red": 0.125,
+     "orange": 0.018,
+     "yellow": 0.009,
+     "brown": 0.064,
+     "gray": 0.632,
+     "white": 0.152
+    },
+    "hues": [
+     0.164,
+     0.795,
+     0.025,
+     0.016,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.219,
+    "value": {
+     "dark": 0.186,
+     "mid": 0.309,
+     "light": 0.505
+    }
    },
    "composition": {
     "busyness": 0.112,
@@ -23060,7 +27750,33 @@
     "contrast": 0.436,
     "saturation": 0.244,
     "colorfulness": 0.606,
-    "warmth": 0.714
+    "warmth": 0.714,
+    "shares": {
+     "red": 0.146,
+     "brown": 0.013,
+     "green": 0.006,
+     "black": 0.835
+    },
+    "hues": [
+     0.067,
+     0.893,
+     0.009,
+     0.024,
+     0.007,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.253,
+    "value": {
+     "dark": 0.898,
+     "mid": 0.098,
+     "light": 0.004
+    }
    },
    "composition": {
     "busyness": 0.056,
@@ -23209,7 +27925,37 @@
     "contrast": 0.627,
     "saturation": 0.367,
     "colorfulness": 0.828,
-    "warmth": 0.756
+    "warmth": 0.756,
+    "shares": {
+     "red": 0.181,
+     "orange": 0.05,
+     "yellow": 0.009,
+     "brown": 0.023,
+     "green": 0.033,
+     "black": 0.041,
+     "gray": 0.495,
+     "white": 0.167
+    },
+    "hues": [
+     0.009,
+     0.902,
+     0.029,
+     0.048,
+     0.012,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.317,
+    "value": {
+     "dark": 0.133,
+     "mid": 0.507,
+     "light": 0.36
+    }
    },
    "composition": {
     "busyness": 0.124,
@@ -23343,7 +28089,31 @@
     "contrast": 0.581,
     "saturation": 0.022,
     "colorfulness": 0.073,
-    "warmth": -0.064
+    "warmth": -0.064,
+    "shares": {
+     "black": 0.671,
+     "gray": 0.329
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.787,
+     "mid": 0.17,
+     "light": 0.043
+    }
    },
    "composition": {
     "busyness": 0.158,
@@ -23469,7 +28239,34 @@
     "contrast": 0.716,
     "saturation": 0.52,
     "colorfulness": 0.655,
-    "warmth": 0.981
+    "warmth": 0.981,
+    "shares": {
+     "red": 0.436,
+     "brown": 0.035,
+     "black": 0.189,
+     "gray": 0.319,
+     "white": 0.021
+    },
+    "hues": [
+     0.082,
+     0.906,
+     0.011,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.658,
+    "value": {
+     "dark": 0.675,
+     "mid": 0.145,
+     "light": 0.18
+    }
    },
    "composition": {
     "busyness": 0.143,
@@ -23592,7 +28389,31 @@
     "contrast": 0.47,
     "saturation": 0.037,
     "colorfulness": 0.068,
-    "warmth": -0.083
+    "warmth": -0.083,
+    "shares": {
+     "gray": 0.348,
+     "white": 0.652
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.635,
+     0.365,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.008,
+    "value": {
+     "dark": 0.019,
+     "mid": 0.154,
+     "light": 0.826
+    }
    },
    "composition": {
     "busyness": 0.128,
@@ -23739,7 +28560,33 @@
     "contrast": 0.278,
     "saturation": 0.142,
     "colorfulness": 0.131,
-    "warmth": 0.403
+    "warmth": 0.403,
+    "shares": {
+     "yellow": 0.093,
+     "brown": 0.029,
+     "gray": 0.852,
+     "white": 0.026
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.99,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.122,
+    "value": {
+     "dark": 0.01,
+     "mid": 0.887,
+     "light": 0.102
+    }
    },
    "composition": {
     "busyness": 0.054,
@@ -23874,7 +28721,33 @@
     "contrast": 0.365,
     "saturation": 0.165,
     "colorfulness": 0.151,
-    "warmth": 0.255
+    "warmth": 0.255,
+    "shares": {
+     "yellow": 0.08,
+     "brown": 0.046,
+     "black": 0.006,
+     "gray": 0.868
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.809,
+     0.19,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.131,
+    "value": {
+     "dark": 0.049,
+     "mid": 0.694,
+     "light": 0.257
+    }
    },
    "composition": {
     "busyness": 0.053,
@@ -24005,7 +28878,32 @@
     "contrast": 0.18,
     "saturation": 0.163,
     "colorfulness": 0.17,
-    "warmth": 0.485
+    "warmth": 0.485,
+    "shares": {
+     "yellow": 0.194,
+     "brown": 0.012,
+     "gray": 0.794
+    },
+    "hues": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.206,
+    "value": {
+     "dark": 0.002,
+     "mid": 0.551,
+     "light": 0.447
+    }
    },
    "composition": {
     "busyness": 0.023,
@@ -24156,7 +29054,36 @@
     "contrast": 0.723,
     "saturation": 0.177,
     "colorfulness": 0.242,
-    "warmth": -0.126
+    "warmth": -0.126,
+    "shares": {
+     "yellow": 0.024,
+     "brown": 0.06,
+     "green": 0.17,
+     "teal": 0.099,
+     "black": 0.089,
+     "gray": 0.439,
+     "white": 0.118
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.072,
+     0.488,
+     0.192,
+     0.051,
+     0.189,
+     0.003,
+     0.002,
+     0.003,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.361,
+    "value": {
+     "dark": 0.271,
+     "mid": 0.435,
+     "light": 0.294
+    }
    },
    "composition": {
     "busyness": 0.373,
@@ -24271,7 +29198,33 @@
     "contrast": 0.409,
     "saturation": 0.008,
     "colorfulness": 0.068,
-    "warmth": -0.025
+    "warmth": -0.025,
+    "shares": {
+     "blue": 0.016,
+     "black": 0.013,
+     "gray": 0.027,
+     "white": 0.944
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.101,
+     0.875,
+     0.024,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.017,
+    "value": {
+     "dark": 0.033,
+     "mid": 0.013,
+     "light": 0.954
+    }
    },
    "composition": {
     "busyness": 0.035,
@@ -24418,7 +29371,34 @@
     "contrast": 0.415,
     "saturation": 0.015,
     "colorfulness": 0.095,
-    "warmth": 0.043
+    "warmth": 0.043,
+    "shares": {
+     "red": 0.006,
+     "brown": 0.023,
+     "black": 0.011,
+     "gray": 0.059,
+     "white": 0.901
+    },
+    "hues": [
+     0.993,
+     0.007,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.032,
+    "value": {
+     "dark": 0.036,
+     "mid": 0.02,
+     "light": 0.944
+    }
    },
    "composition": {
     "busyness": 0.044,
@@ -24554,7 +29534,37 @@
     "contrast": 0.398,
     "saturation": 0.808,
     "colorfulness": 1.0,
-    "warmth": 0.785
+    "warmth": 0.785,
+    "shares": {
+     "red": 0.441,
+     "orange": 0.032,
+     "yellow": 0.159,
+     "brown": 0.096,
+     "green": 0.063,
+     "teal": 0.178,
+     "black": 0.01,
+     "gray": 0.02
+    },
+    "hues": [
+     0.003,
+     0.654,
+     0.202,
+     0.038,
+     0.007,
+     0.062,
+     0.035,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.976,
+    "value": {
+     "dark": 0.513,
+     "mid": 0.434,
+     "light": 0.054
+    }
    },
    "composition": {
     "busyness": 0.126,
@@ -24690,7 +29700,33 @@
     "contrast": 0.507,
     "saturation": 0.3,
     "colorfulness": 0.188,
-    "warmth": 0.899
+    "warmth": 0.899,
+    "shares": {
+     "yellow": 0.724,
+     "brown": 0.21,
+     "black": 0.005,
+     "gray": 0.061
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.978,
+     0.022,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.934,
+    "value": {
+     "dark": 0.046,
+     "mid": 0.448,
+     "light": 0.506
+    }
    },
    "composition": {
     "busyness": 0.081,
@@ -24826,7 +29862,34 @@
     "contrast": 0.581,
     "saturation": 0.158,
     "colorfulness": 0.251,
-    "warmth": 0.329
+    "warmth": 0.329,
+    "shares": {
+     "orange": 0.057,
+     "brown": 0.179,
+     "blue": 0.058,
+     "black": 0.097,
+     "gray": 0.608
+    },
+    "hues": [
+     0.004,
+     0.112,
+     0.699,
+     0.003,
+     0.0,
+     0.0,
+     0.0,
+     0.073,
+     0.109,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.296,
+    "value": {
+     "dark": 0.511,
+     "mid": 0.359,
+     "light": 0.13
+    }
    },
    "composition": {
     "busyness": 0.366,
@@ -24961,7 +30024,35 @@
     "contrast": 0.649,
     "saturation": 0.192,
     "colorfulness": 0.347,
-    "warmth": 0.394
+    "warmth": 0.394,
+    "shares": {
+     "orange": 0.2,
+     "yellow": 0.019,
+     "brown": 0.11,
+     "black": 0.042,
+     "gray": 0.432,
+     "white": 0.197
+    },
+    "hues": [
+     0.001,
+     0.071,
+     0.908,
+     0.01,
+     0.002,
+     0.0,
+     0.0,
+     0.001,
+     0.007,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.338,
+    "value": {
+     "dark": 0.119,
+     "mid": 0.399,
+     "light": 0.482
+    }
    },
    "composition": {
     "busyness": 0.44,
@@ -25112,7 +30203,36 @@
     "contrast": 0.68,
     "saturation": 0.16,
     "colorfulness": 0.249,
-    "warmth": 0.037
+    "warmth": 0.037,
+    "shares": {
+     "yellow": 0.114,
+     "brown": 0.026,
+     "green": 0.047,
+     "teal": 0.067,
+     "blue": 0.014,
+     "black": 0.174,
+     "gray": 0.558
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.385,
+     0.217,
+     0.145,
+     0.0,
+     0.0,
+     0.251,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.275,
+    "value": {
+     "dark": 0.382,
+     "mid": 0.439,
+     "light": 0.179
+    }
    },
    "composition": {
     "busyness": 0.366,
@@ -25262,7 +30382,34 @@
     "contrast": 0.92,
     "saturation": 0.07,
     "colorfulness": 0.127,
-    "warmth": 0.022
+    "warmth": 0.022,
+    "shares": {
+     "orange": 0.007,
+     "brown": 0.034,
+     "black": 0.102,
+     "gray": 0.345,
+     "white": 0.512
+    },
+    "hues": [
+     0.0,
+     0.221,
+     0.763,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.016,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.044,
+    "value": {
+     "dark": 0.248,
+     "mid": 0.223,
+     "light": 0.529
+    }
    },
    "composition": {
     "busyness": 0.311,
@@ -25396,7 +30543,38 @@
     "contrast": 0.587,
     "saturation": 0.163,
     "colorfulness": 0.341,
-    "warmth": 0.066
+    "warmth": 0.066,
+    "shares": {
+     "red": 0.005,
+     "orange": 0.041,
+     "yellow": 0.014,
+     "brown": 0.068,
+     "green": 0.028,
+     "blue": 0.007,
+     "black": 0.048,
+     "gray": 0.76,
+     "white": 0.028
+    },
+    "hues": [
+     0.016,
+     0.444,
+     0.337,
+     0.156,
+     0.013,
+     0.001,
+     0.001,
+     0.004,
+     0.011,
+     0.016,
+     0.001,
+     0.001
+    ],
+    "chromatic": 0.17,
+    "value": {
+     "dark": 0.198,
+     "mid": 0.483,
+     "light": 0.319
+    }
    },
    "composition": {
     "busyness": 0.505,
@@ -25530,7 +30708,35 @@
     "contrast": 0.624,
     "saturation": 0.198,
     "colorfulness": 0.264,
-    "warmth": 0.414
+    "warmth": 0.414,
+    "shares": {
+     "orange": 0.189,
+     "yellow": 0.057,
+     "brown": 0.082,
+     "green": 0.069,
+     "gray": 0.451,
+     "white": 0.151
+    },
+    "hues": [
+     0.0,
+     0.009,
+     0.645,
+     0.306,
+     0.038,
+     0.0,
+     0.0,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.399,
+    "value": {
+     "dark": 0.153,
+     "mid": 0.382,
+     "light": 0.466
+    }
    },
    "composition": {
     "busyness": 0.411,
@@ -25664,7 +30870,35 @@
     "contrast": 0.743,
     "saturation": 0.313,
     "colorfulness": 0.547,
-    "warmth": 0.577
+    "warmth": 0.577,
+    "shares": {
+     "orange": 0.072,
+     "yellow": 0.103,
+     "brown": 0.207,
+     "blue": 0.154,
+     "black": 0.181,
+     "gray": 0.284
+    },
+    "hues": [
+     0.0,
+     0.231,
+     0.535,
+     0.085,
+     0.0,
+     0.0,
+     0.0,
+     0.107,
+     0.042,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.594,
+    "value": {
+     "dark": 0.346,
+     "mid": 0.423,
+     "light": 0.231
+    }
    },
    "composition": {
     "busyness": 0.226,
@@ -25787,7 +31021,37 @@
     "contrast": 0.845,
     "saturation": 0.145,
     "colorfulness": 0.284,
-    "warmth": 0.079
+    "warmth": 0.079,
+    "shares": {
+     "red": 0.05,
+     "pink": 0.059,
+     "brown": 0.013,
+     "blue": 0.102,
+     "purple": 0.007,
+     "black": 0.448,
+     "gray": 0.26,
+     "white": 0.061
+    },
+    "hues": [
+     0.567,
+     0.031,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.185,
+     0.068,
+     0.022,
+     0.036,
+     0.09
+    ],
+    "chromatic": 0.238,
+    "value": {
+     "dark": 0.631,
+     "mid": 0.178,
+     "light": 0.19
+    }
    },
    "composition": {
     "busyness": 0.168,
@@ -25921,7 +31185,31 @@
     "contrast": 0.621,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.158,
+     "gray": 0.842
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.294,
+     "mid": 0.624,
+     "light": 0.083
+    }
    },
    "composition": {
     "busyness": 0.236,
@@ -26067,7 +31355,35 @@
     "contrast": 0.883,
     "saturation": 0.227,
     "colorfulness": 0.419,
-    "warmth": 0.602
+    "warmth": 0.602,
+    "shares": {
+     "orange": 0.098,
+     "yellow": 0.274,
+     "brown": 0.06,
+     "green": 0.019,
+     "black": 0.435,
+     "gray": 0.114
+    },
+    "hues": [
+     0.001,
+     0.145,
+     0.704,
+     0.15,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.455,
+    "value": {
+     "dark": 0.549,
+     "mid": 0.177,
+     "light": 0.274
+    }
    },
    "composition": {
     "busyness": 0.075,
@@ -26201,7 +31517,32 @@
     "contrast": 0.793,
     "saturation": 0.037,
     "colorfulness": 0.045,
-    "warmth": 0.047
+    "warmth": 0.047,
+    "shares": {
+     "black": 0.149,
+     "gray": 0.702,
+     "white": 0.149
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.469,
+     "mid": 0.248,
+     "light": 0.284
+    }
    },
    "composition": {
     "busyness": 0.202,
@@ -26332,7 +31673,36 @@
     "contrast": 0.449,
     "saturation": 0.209,
     "colorfulness": 0.451,
-    "warmth": 0.573
+    "warmth": 0.573,
+    "shares": {
+     "red": 0.038,
+     "yellow": 0.015,
+     "brown": 0.147,
+     "green": 0.005,
+     "black": 0.739,
+     "gray": 0.048,
+     "white": 0.007
+    },
+    "hues": [
+     0.068,
+     0.577,
+     0.267,
+     0.061,
+     0.005,
+     0.022,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.33,
+    "value": {
+     "dark": 0.903,
+     "mid": 0.074,
+     "light": 0.023
+    }
    },
    "composition": {
     "busyness": 0.228,
@@ -26483,7 +31853,33 @@
     "contrast": 0.911,
     "saturation": 0.059,
     "colorfulness": 0.108,
-    "warmth": -0.008
+    "warmth": -0.008,
+    "shares": {
+     "brown": 0.013,
+     "black": 0.296,
+     "gray": 0.541,
+     "white": 0.15
+    },
+    "hues": [
+     0.148,
+     0.412,
+     0.191,
+     0.228,
+     0.016,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.003
+    ],
+    "chromatic": 0.03,
+    "value": {
+     "dark": 0.504,
+     "mid": 0.256,
+     "light": 0.24
+    }
    },
    "composition": {
     "busyness": 0.465,
@@ -26618,7 +32014,38 @@
     "contrast": 0.609,
     "saturation": 0.236,
     "colorfulness": 0.427,
-    "warmth": 0.003
+    "warmth": 0.003,
+    "shares": {
+     "red": 0.005,
+     "orange": 0.015,
+     "yellow": 0.09,
+     "brown": 0.068,
+     "green": 0.056,
+     "teal": 0.065,
+     "blue": 0.053,
+     "black": 0.154,
+     "gray": 0.492
+    },
+    "hues": [
+     0.022,
+     0.138,
+     0.263,
+     0.22,
+     0.084,
+     0.086,
+     0.056,
+     0.034,
+     0.09,
+     0.004,
+     0.001,
+     0.002
+    ],
+    "chromatic": 0.377,
+    "value": {
+     "dark": 0.55,
+     "mid": 0.349,
+     "light": 0.101
+    }
    },
    "composition": {
     "busyness": 0.368,
@@ -26752,7 +32179,34 @@
     "contrast": 0.512,
     "saturation": 0.175,
     "colorfulness": 0.239,
-    "warmth": 0.251
+    "warmth": 0.251,
+    "shares": {
+     "orange": 0.006,
+     "yellow": 0.036,
+     "brown": 0.129,
+     "black": 0.131,
+     "gray": 0.697
+    },
+    "hues": [
+     0.0,
+     0.243,
+     0.658,
+     0.088,
+     0.009,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.175,
+    "value": {
+     "dark": 0.353,
+     "mid": 0.626,
+     "light": 0.022
+    }
    },
    "composition": {
     "busyness": 0.326,
@@ -26902,7 +32356,37 @@
     "contrast": 0.668,
     "saturation": 0.148,
     "colorfulness": 0.332,
-    "warmth": 0.33
+    "warmth": 0.33,
+    "shares": {
+     "red": 0.041,
+     "orange": 0.046,
+     "yellow": 0.007,
+     "brown": 0.082,
+     "green": 0.009,
+     "black": 0.028,
+     "gray": 0.632,
+     "white": 0.154
+    },
+    "hues": [
+     0.156,
+     0.534,
+     0.273,
+     0.006,
+     0.014,
+     0.008,
+     0.0,
+     0.0,
+     0.007,
+     0.001,
+     0.0,
+     0.002
+    ],
+    "chromatic": 0.192,
+    "value": {
+     "dark": 0.191,
+     "mid": 0.422,
+     "light": 0.387
+    }
    },
    "composition": {
     "busyness": 0.551,
@@ -27036,7 +32520,34 @@
     "contrast": 0.762,
     "saturation": 0.278,
     "colorfulness": 0.5,
-    "warmth": -0.834
+    "warmth": -0.834,
+    "shares": {
+     "teal": 0.13,
+     "blue": 0.335,
+     "black": 0.321,
+     "gray": 0.192,
+     "white": 0.022
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.008,
+     0.342,
+     0.65,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.733,
+    "value": {
+     "dark": 0.512,
+     "mid": 0.306,
+     "light": 0.183
+    }
    },
    "composition": {
     "busyness": 0.144,
@@ -27181,7 +32692,33 @@
     "contrast": 0.277,
     "saturation": 0.146,
     "colorfulness": 0.16,
-    "warmth": -0.326
+    "warmth": -0.326,
+    "shares": {
+     "green": 0.015,
+     "teal": 0.09,
+     "gray": 0.669,
+     "white": 0.226
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.015,
+     0.026,
+     0.238,
+     0.581,
+     0.132,
+     0.008,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.109,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.128,
+     "light": 0.872
+    }
    },
    "composition": {
     "busyness": 0.109,
@@ -27313,7 +32850,31 @@
     "contrast": 0.427,
     "saturation": 0.22,
     "colorfulness": 0.301,
-    "warmth": -0.66
+    "warmth": -0.66,
+    "shares": {
+     "blue": 0.473,
+     "black": 0.527
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.002,
+     0.997,
+     0.001,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.578,
+    "value": {
+     "dark": 0.771,
+     "mid": 0.229,
+     "light": 0.0
+    }
    },
    "composition": {
     "busyness": 0.133,
@@ -27446,7 +33007,33 @@
     "contrast": 0.45,
     "saturation": 0.254,
     "colorfulness": 0.4,
-    "warmth": -0.757
+    "warmth": -0.757,
+    "shares": {
+     "teal": 0.217,
+     "blue": 0.439,
+     "gray": 0.27,
+     "white": 0.074
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.024,
+     0.764,
+     0.211,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.657,
+    "value": {
+     "dark": 0.034,
+     "mid": 0.457,
+     "light": 0.509
+    }
    },
    "composition": {
     "busyness": 0.366,
@@ -27580,7 +33167,31 @@
     "contrast": 0.403,
     "saturation": 0.437,
     "colorfulness": 0.431,
-    "warmth": -1.0
+    "warmth": -1.0,
+    "shares": {
+     "teal": 0.087,
+     "blue": 0.913
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.021,
+     0.304,
+     0.673,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 1.0,
+    "value": {
+     "dark": 0.397,
+     "mid": 0.543,
+     "light": 0.06
+    }
    },
    "composition": {
     "busyness": 0.437,
@@ -27730,7 +33341,33 @@
     "contrast": 0.4,
     "saturation": 0.34,
     "colorfulness": 0.464,
-    "warmth": -1.0
+    "warmth": -1.0,
+    "shares": {
+     "teal": 0.157,
+     "blue": 0.767,
+     "black": 0.007,
+     "gray": 0.069
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.974,
+     0.026,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.931,
+    "value": {
+     "dark": 0.23,
+     "mid": 0.717,
+     "light": 0.054
+    }
    },
    "composition": {
     "busyness": 0.265,
@@ -27853,7 +33490,33 @@
     "contrast": 0.167,
     "saturation": 0.28,
     "colorfulness": 0.326,
-    "warmth": -0.841
+    "warmth": -0.841,
+    "shares": {
+     "teal": 0.855,
+     "blue": 0.01,
+     "gray": 0.124,
+     "white": 0.011
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.012,
+     0.988,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.866,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.227,
+     "light": 0.773
+    }
    },
    "composition": {
     "busyness": 0.145,
@@ -28002,7 +33665,32 @@
     "contrast": 0.409,
     "saturation": 0.278,
     "colorfulness": 0.299,
-    "warmth": -0.834
+    "warmth": -0.834,
+    "shares": {
+     "blue": 0.811,
+     "black": 0.057,
+     "gray": 0.132
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.334,
+     0.666,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.811,
+    "value": {
+     "dark": 0.596,
+     "mid": 0.373,
+     "light": 0.031
+    }
    },
    "composition": {
     "busyness": 0.194,
@@ -28130,7 +33818,32 @@
     "contrast": 0.125,
     "saturation": 0.321,
     "colorfulness": 0.561,
-    "warmth": -0.962
+    "warmth": -0.962,
+    "shares": {
+     "blue": 0.656,
+     "gray": 0.337,
+     "white": 0.007
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.997,
+     0.003,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.655,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.034,
+     "light": 0.966
+    }
    },
    "composition": {
     "busyness": 0.007,
@@ -28264,7 +33977,32 @@
     "contrast": 0.675,
     "saturation": 0.477,
     "colorfulness": 0.576,
-    "warmth": -0.948
+    "warmth": -0.948,
+    "shares": {
+     "blue": 0.65,
+     "gray": 0.307,
+     "white": 0.043
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.072,
+     0.927,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.65,
+    "value": {
+     "dark": 0.529,
+     "mid": 0.198,
+     "light": 0.273
+    }
    },
    "composition": {
     "busyness": 0.05,
@@ -28386,7 +34124,31 @@
     "contrast": 0.136,
     "saturation": 0.442,
     "colorfulness": 0.394,
-    "warmth": 1.0
+    "warmth": 1.0,
+    "shares": {
+     "pink": 0.938,
+     "white": 0.062
+    },
+    "hues": [
+     0.993,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.007
+    ],
+    "chromatic": 0.935,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.0,
+     "light": 1.0
+    }
    },
    "composition": {
     "busyness": 0.004,
@@ -28520,7 +34282,31 @@
     "contrast": 0.164,
     "saturation": 0.046,
     "colorfulness": 0.075,
-    "warmth": -0.138
+    "warmth": -0.138,
+    "shares": {
+     "gray": 0.681,
+     "white": 0.319
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.0,
+     "light": 1.0
+    }
    },
    "composition": {
     "busyness": 0.003,
@@ -28655,7 +34441,32 @@
     "contrast": 0.223,
     "saturation": 0.294,
     "colorfulness": 0.55,
-    "warmth": -0.681
+    "warmth": -0.681,
+    "shares": {
+     "orange": 0.092,
+     "teal": 0.718,
+     "gray": 0.19
+    },
+    "hues": [
+     0.0,
+     0.032,
+     0.056,
+     0.0,
+     0.0,
+     0.0,
+     0.127,
+     0.784,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.811,
+    "value": {
+     "dark": 0.003,
+     "mid": 0.932,
+     "light": 0.065
+    }
    },
    "composition": {
     "busyness": 0.047,
@@ -28774,7 +34585,31 @@
     "contrast": 0.143,
     "saturation": 0.299,
     "colorfulness": 0.281,
-    "warmth": -0.896
+    "warmth": -0.896,
+    "shares": {
+     "teal": 0.92,
+     "gray": 0.08
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.923,
+     0.077,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.92,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.929,
+     "light": 0.071
+    }
    },
    "composition": {
     "busyness": 0.01,
@@ -28887,7 +34722,32 @@
     "contrast": 0.291,
     "saturation": 0.304,
     "colorfulness": 0.43,
-    "warmth": -0.889
+    "warmth": -0.889,
+    "shares": {
+     "blue": 0.759,
+     "gray": 0.207,
+     "white": 0.034
+    },
+    "hues": [
+     0.0,
+     0.008,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.009,
+     0.983,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.76,
+    "value": {
+     "dark": 0.003,
+     "mid": 0.712,
+     "light": 0.285
+    }
    },
    "composition": {
     "busyness": 0.058,
@@ -29020,7 +34880,31 @@
     "contrast": 0.794,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.666,
+     "gray": 0.334
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.674,
+     "mid": 0.276,
+     "light": 0.05
+    }
    },
    "composition": {
     "busyness": 0.11,
@@ -29146,7 +35030,31 @@
     "contrast": 0.178,
     "saturation": 0.0,
     "colorfulness": 0.002,
-    "warmth": -0.0
+    "warmth": -0.0,
+    "shares": {
+     "black": 0.988,
+     "gray": 0.012
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.99,
+     "mid": 0.007,
+     "light": 0.004
+    }
    },
    "composition": {
     "busyness": 0.018,
@@ -29282,7 +35190,32 @@
     "contrast": 0.763,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.672,
+     "gray": 0.318,
+     "white": 0.01
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.724,
+     "mid": 0.225,
+     "light": 0.052
+    }
    },
    "composition": {
     "busyness": 0.12,
@@ -29425,7 +35358,33 @@
     "contrast": 0.329,
     "saturation": 0.086,
     "colorfulness": 0.186,
-    "warmth": 0.257
+    "warmth": 0.257,
+    "shares": {
+     "orange": 0.012,
+     "yellow": 0.009,
+     "brown": 0.046,
+     "black": 0.933
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.988,
+     0.012,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.075,
+    "value": {
+     "dark": 0.958,
+     "mid": 0.031,
+     "light": 0.011
+    }
    },
    "composition": {
     "busyness": 0.106,
@@ -29559,7 +35518,33 @@
     "contrast": 0.401,
     "saturation": 0.07,
     "colorfulness": 0.209,
-    "warmth": 0.169
+    "warmth": 0.169,
+    "shares": {
+     "orange": 0.025,
+     "yellow": 0.007,
+     "brown": 0.028,
+     "black": 0.94
+    },
+    "hues": [
+     0.0,
+     0.065,
+     0.929,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.111,
+    "value": {
+     "dark": 0.964,
+     "mid": 0.009,
+     "light": 0.027
+    }
    },
    "composition": {
     "busyness": 0.041,
@@ -29664,7 +35649,33 @@
     "contrast": 0.327,
     "saturation": 0.07,
     "colorfulness": 0.14,
-    "warmth": -0.123
+    "warmth": -0.123,
+    "shares": {
+     "orange": 0.016,
+     "brown": 0.027,
+     "black": 0.945,
+     "gray": 0.012
+    },
+    "hues": [
+     0.0,
+     0.886,
+     0.114,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.046,
+    "value": {
+     "dark": 0.953,
+     "mid": 0.042,
+     "light": 0.005
+    }
    },
    "composition": {
     "busyness": 0.07,
@@ -29784,7 +35795,33 @@
     "contrast": 0.378,
     "saturation": 0.307,
     "colorfulness": 0.312,
-    "warmth": -0.908
+    "warmth": -0.908,
+    "shares": {
+     "teal": 0.161,
+     "blue": 0.637,
+     "black": 0.189,
+     "gray": 0.013
+    },
+    "hues": [
+     0.001,
+     0.004,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.013,
+     0.307,
+     0.671,
+     0.002,
+     0.001,
+     0.0
+    ],
+    "chromatic": 0.933,
+    "value": {
+     "dark": 0.467,
+     "mid": 0.532,
+     "light": 0.001
+    }
    },
    "composition": {
     "busyness": 0.05,
@@ -29909,7 +35946,31 @@
     "contrast": 0.346,
     "saturation": 0.052,
     "colorfulness": 0.081,
-    "warmth": -0.126
+    "warmth": -0.126,
+    "shares": {
+     "gray": 0.778,
+     "white": 0.222
+    },
+    "hues": [
+     0.0,
+     0.272,
+     0.163,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.006,
+     0.139,
+     0.421,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.007,
+    "value": {
+     "dark": 0.006,
+     "mid": 0.095,
+     "light": 0.899
+    }
    },
    "composition": {
     "busyness": 0.197,
@@ -30062,7 +36123,37 @@
     "contrast": 0.716,
     "saturation": 0.283,
     "colorfulness": 0.405,
-    "warmth": -0.038
+    "warmth": -0.038,
+    "shares": {
+     "yellow": 0.225,
+     "brown": 0.071,
+     "green": 0.151,
+     "teal": 0.032,
+     "blue": 0.307,
+     "black": 0.085,
+     "gray": 0.102,
+     "white": 0.026
+    },
+    "hues": [
+     0.0,
+     0.021,
+     0.082,
+     0.441,
+     0.073,
+     0.0,
+     0.004,
+     0.135,
+     0.244,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.794,
+    "value": {
+     "dark": 0.445,
+     "mid": 0.321,
+     "light": 0.234
+    }
    },
    "composition": {
     "busyness": 0.234,
@@ -30187,7 +36278,31 @@
     "contrast": 0.379,
     "saturation": 0.061,
     "colorfulness": 0.106,
-    "warmth": -0.181
+    "warmth": -0.181,
+    "shares": {
+     "gray": 0.79,
+     "white": 0.21
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.032,
+     0.521,
+     0.447,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.003,
+    "value": {
+     "dark": 0.012,
+     "mid": 0.368,
+     "light": 0.621
+    }
    },
    "composition": {
     "busyness": 0.107,
@@ -30336,7 +36451,31 @@
     "contrast": 0.511,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.604,
+     "gray": 0.396
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.821,
+     "mid": 0.162,
+     "light": 0.018
+    }
    },
    "composition": {
     "busyness": 0.167,
@@ -30475,7 +36614,31 @@
     "contrast": 0.28,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "gray": 0.963,
+     "white": 0.037
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.522,
+     "light": 0.478
+    }
    },
    "composition": {
     "busyness": 0.037,
@@ -30611,7 +36774,32 @@
     "contrast": 1.0,
     "saturation": 0.903,
     "colorfulness": 0.814,
-    "warmth": -0.037
+    "warmth": -0.037,
+    "shares": {
+     "blue": 0.278,
+     "black": 0.422,
+     "white": 0.3
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.036,
+     0.964,
+     0.0
+    ],
+    "chromatic": 0.7,
+    "value": {
+     "dark": 0.446,
+     "mid": 0.236,
+     "light": 0.317
+    }
    },
    "composition": {
     "busyness": 0.194,
@@ -30746,7 +36934,32 @@
     "contrast": 0.958,
     "saturation": 0.983,
     "colorfulness": 0.944,
-    "warmth": -0.052
+    "warmth": -0.052,
+    "shares": {
+     "blue": 0.474,
+     "black": 0.205,
+     "white": 0.321
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.05,
+     0.95,
+     0.0
+    ],
+    "chromatic": 0.679,
+    "value": {
+     "dark": 0.228,
+     "mid": 0.439,
+     "light": 0.333
+    }
    },
    "composition": {
     "busyness": 0.233,
@@ -30897,7 +37110,32 @@
     "contrast": 0.859,
     "saturation": 0.049,
     "colorfulness": 0.02,
-    "warmth": 0.002
+    "warmth": 0.002,
+    "shares": {
+     "black": 0.16,
+     "gray": 0.584,
+     "white": 0.256
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.309,
+     "mid": 0.295,
+     "light": 0.396
+    }
    },
    "composition": {
     "busyness": 0.086,
@@ -31031,7 +37269,35 @@
     "contrast": 0.464,
     "saturation": 0.281,
     "colorfulness": 0.325,
-    "warmth": 0.831
+    "warmth": 0.831,
+    "shares": {
+     "orange": 0.673,
+     "yellow": 0.02,
+     "brown": 0.074,
+     "black": 0.043,
+     "gray": 0.163,
+     "white": 0.027
+    },
+    "hues": [
+     0.0,
+     0.184,
+     0.816,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.767,
+    "value": {
+     "dark": 0.1,
+     "mid": 0.603,
+     "light": 0.297
+    }
    },
    "composition": {
     "busyness": 0.056,
@@ -31166,7 +37432,32 @@
     "contrast": 0.948,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.25,
+     "gray": 0.617,
+     "white": 0.133
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.37,
+     "mid": 0.246,
+     "light": 0.385
+    }
    },
    "composition": {
     "busyness": 0.832,
@@ -31296,7 +37587,35 @@
     "contrast": 0.875,
     "saturation": 0.064,
     "colorfulness": 0.167,
-    "warmth": -0.018
+    "warmth": -0.018,
+    "shares": {
+     "brown": 0.015,
+     "teal": 0.02,
+     "blue": 0.02,
+     "black": 0.153,
+     "gray": 0.62,
+     "white": 0.172
+    },
+    "hues": [
+     0.001,
+     0.213,
+     0.223,
+     0.004,
+     0.0,
+     0.0,
+     0.004,
+     0.537,
+     0.019,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.06,
+    "value": {
+     "dark": 0.26,
+     "mid": 0.115,
+     "light": 0.625
+    }
    },
    "composition": {
     "busyness": 0.217,
@@ -31447,7 +37766,36 @@
     "contrast": 0.472,
     "saturation": 0.372,
     "colorfulness": 0.511,
-    "warmth": 0.168
+    "warmth": 0.168,
+    "shares": {
+     "red": 0.009,
+     "yellow": 0.247,
+     "brown": 0.214,
+     "green": 0.006,
+     "blue": 0.391,
+     "black": 0.077,
+     "gray": 0.056
+    },
+    "hues": [
+     0.015,
+     0.001,
+     0.477,
+     0.1,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.299,
+     0.109,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.909,
+    "value": {
+     "dark": 0.26,
+     "mid": 0.66,
+     "light": 0.08
+    }
    },
    "composition": {
     "busyness": 0.191,
@@ -31598,7 +37946,32 @@
     "contrast": 0.514,
     "saturation": 0.051,
     "colorfulness": 0.115,
-    "warmth": 0.039
+    "warmth": 0.039,
+    "shares": {
+     "brown": 0.07,
+     "black": 0.008,
+     "gray": 0.922
+    },
+    "hues": [
+     0.001,
+     0.022,
+     0.977,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.07,
+    "value": {
+     "dark": 0.088,
+     "mid": 0.195,
+     "light": 0.717
+    }
    },
    "composition": {
     "busyness": 0.121,
@@ -31732,7 +38105,33 @@
     "contrast": 0.581,
     "saturation": 0.742,
     "colorfulness": 1.0,
-    "warmth": 0.931
+    "warmth": 0.931,
+    "shares": {
+     "red": 0.493,
+     "brown": 0.011,
+     "black": 0.341,
+     "gray": 0.155
+    },
+    "hues": [
+     0.004,
+     0.992,
+     0.002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.002,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.515,
+    "value": {
+     "dark": 0.449,
+     "mid": 0.507,
+     "light": 0.043
+    }
    },
    "composition": {
     "busyness": 0.19,
@@ -31884,7 +38283,32 @@
     "contrast": 1.0,
     "saturation": 0.0,
     "colorfulness": 0.0,
-    "warmth": 0.0
+    "warmth": 0.0,
+    "shares": {
+     "black": 0.227,
+     "gray": 0.365,
+     "white": 0.407
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.369,
+     "mid": 0.08,
+     "light": 0.552
+    }
    },
    "composition": {
     "busyness": 0.188,
@@ -32031,7 +38455,36 @@
     "contrast": 0.362,
     "saturation": 0.163,
     "colorfulness": 0.239,
-    "warmth": 0.44
+    "warmth": 0.44,
+    "shares": {
+     "red": 0.04,
+     "pink": 0.088,
+     "orange": 0.054,
+     "yellow": 0.029,
+     "brown": 0.042,
+     "black": 0.015,
+     "gray": 0.732
+    },
+    "hues": [
+     0.038,
+     0.031,
+     0.59,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.341
+    ],
+    "chromatic": 0.255,
+    "value": {
+     "dark": 0.027,
+     "mid": 0.262,
+     "light": 0.711
+    }
    },
    "composition": {
     "busyness": 0.1,
@@ -32166,7 +38619,36 @@
     "contrast": 0.539,
     "saturation": 0.867,
     "colorfulness": 1.0,
-    "warmth": 0.959
+    "warmth": 0.959,
+    "shares": {
+     "red": 0.013,
+     "orange": 0.098,
+     "yellow": 0.638,
+     "brown": 0.124,
+     "blue": 0.022,
+     "black": 0.062,
+     "gray": 0.042
+    },
+    "hues": [
+     0.006,
+     0.035,
+     0.94,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.018,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.923,
+    "value": {
+     "dark": 0.133,
+     "mid": 0.431,
+     "light": 0.435
+    }
    },
    "composition": {
     "busyness": 0.171,
@@ -32320,7 +38802,34 @@
     "contrast": 0.464,
     "saturation": 0.104,
     "colorfulness": 0.198,
-    "warmth": 0.226
+    "warmth": 0.226,
+    "shares": {
+     "orange": 0.048,
+     "yellow": 0.008,
+     "brown": 0.06,
+     "black": 0.519,
+     "gray": 0.365
+    },
+    "hues": [
+     0.0,
+     0.029,
+     0.971,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.119,
+    "value": {
+     "dark": 0.891,
+     "mid": 0.078,
+     "light": 0.031
+    }
    },
    "composition": {
     "busyness": 0.142,
@@ -32460,7 +38969,34 @@
     "contrast": 0.397,
     "saturation": 0.144,
     "colorfulness": 0.258,
-    "warmth": -0.129
+    "warmth": -0.129,
+    "shares": {
+     "yellow": 0.084,
+     "green": 0.076,
+     "teal": 0.097,
+     "blue": 0.015,
+     "gray": 0.729
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.045,
+     0.333,
+     0.148,
+     0.057,
+     0.012,
+     0.39,
+     0.016,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.271,
+    "value": {
+     "dark": 0.018,
+     "mid": 0.355,
+     "light": 0.627
+    }
    },
    "composition": {
     "busyness": 0.206,
@@ -32593,7 +39129,34 @@
     "contrast": 0.453,
     "saturation": 0.197,
     "colorfulness": 0.296,
-    "warmth": 0.145
+    "warmth": 0.145,
+    "shares": {
+     "yellow": 0.288,
+     "brown": 0.047,
+     "green": 0.085,
+     "teal": 0.085,
+     "gray": 0.494
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.636,
+     0.207,
+     0.006,
+     0.019,
+     0.132,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.506,
+    "value": {
+     "dark": 0.119,
+     "mid": 0.501,
+     "light": 0.38
+    }
    },
    "composition": {
     "busyness": 0.103,
@@ -32727,7 +39290,37 @@
     "contrast": 0.669,
     "saturation": 0.236,
     "colorfulness": 0.374,
-    "warmth": 0.028
+    "warmth": 0.028,
+    "shares": {
+     "yellow": 0.076,
+     "brown": 0.102,
+     "green": 0.038,
+     "teal": 0.155,
+     "blue": 0.029,
+     "black": 0.096,
+     "gray": 0.447,
+     "white": 0.056
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.38,
+     0.263,
+     0.088,
+     0.015,
+     0.0,
+     0.254,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.479,
+    "value": {
+     "dark": 0.152,
+     "mid": 0.355,
+     "light": 0.493
+    }
    },
    "composition": {
     "busyness": 0.145,
@@ -32860,7 +39453,37 @@
     "contrast": 0.309,
     "saturation": 0.161,
     "colorfulness": 0.328,
-    "warmth": -0.051
+    "warmth": -0.051,
+    "shares": {
+     "orange": 0.007,
+     "yellow": 0.142,
+     "brown": 0.009,
+     "green": 0.011,
+     "teal": 0.038,
+     "blue": 0.104,
+     "gray": 0.481,
+     "white": 0.207
+    },
+    "hues": [
+     0.0,
+     0.019,
+     0.421,
+     0.17,
+     0.023,
+     0.002,
+     0.014,
+     0.218,
+     0.133,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.311,
+    "value": {
+     "dark": 0.008,
+     "mid": 0.127,
+     "light": 0.865
+    }
    },
    "composition": {
     "busyness": 0.133,
@@ -32995,7 +39618,33 @@
     "contrast": 0.449,
     "saturation": 0.185,
     "colorfulness": 0.238,
-    "warmth": 0.186
+    "warmth": 0.186,
+    "shares": {
+     "yellow": 0.152,
+     "brown": 0.084,
+     "green": 0.21,
+     "gray": 0.554
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.095,
+     0.895,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.445,
+    "value": {
+     "dark": 0.042,
+     "mid": 0.414,
+     "light": 0.544
+    }
    },
    "composition": {
     "busyness": 0.065,
@@ -33130,7 +39779,35 @@
     "contrast": 0.423,
     "saturation": 0.308,
     "colorfulness": 0.296,
-    "warmth": 0.923
+    "warmth": 0.923,
+    "shares": {
+     "red": 0.144,
+     "pink": 0.307,
+     "orange": 0.278,
+     "brown": 0.087,
+     "gray": 0.015,
+     "white": 0.168
+    },
+    "hues": [
+     0.037,
+     0.92,
+     0.043,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.816,
+    "value": {
+     "dark": 0.015,
+     "mid": 0.329,
+     "light": 0.656
+    }
    },
    "composition": {
     "busyness": 0.196,
@@ -33265,7 +39942,32 @@
     "contrast": 0.596,
     "saturation": 0.084,
     "colorfulness": 0.124,
-    "warmth": -0.048
+    "warmth": -0.048,
+    "shares": {
+     "black": 0.024,
+     "gray": 0.873,
+     "white": 0.103
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.0,
+    "value": {
+     "dark": 0.124,
+     "mid": 0.428,
+     "light": 0.448
+    }
    },
    "composition": {
     "busyness": 0.214,
@@ -33400,7 +40102,34 @@
     "contrast": 0.168,
     "saturation": 0.182,
     "colorfulness": 0.35,
-    "warmth": -0.189
+    "warmth": -0.189,
+    "shares": {
+     "red": 0.015,
+     "orange": 0.138,
+     "teal": 0.035,
+     "blue": 0.22,
+     "gray": 0.592
+    },
+    "hues": [
+     0.0,
+     0.356,
+     0.053,
+     0.001,
+     0.0,
+     0.001,
+     0.021,
+     0.067,
+     0.502,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.409,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.318,
+     "light": 0.682
+    }
    },
    "composition": {
     "busyness": 0.017,
@@ -33542,7 +40271,33 @@
     "contrast": 0.621,
     "saturation": 0.225,
     "colorfulness": 0.405,
-    "warmth": -0.623
+    "warmth": -0.623,
+    "shares": {
+     "blue": 0.466,
+     "black": 0.014,
+     "gray": 0.363,
+     "white": 0.157
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.009,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.023,
+     0.874,
+     0.094,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.469,
+    "value": {
+     "dark": 0.124,
+     "mid": 0.458,
+     "light": 0.418
+    }
    },
    "composition": {
     "busyness": 0.132,
@@ -33675,7 +40430,38 @@
     "contrast": 0.656,
     "saturation": 0.279,
     "colorfulness": 0.62,
-    "warmth": 0.093
+    "warmth": 0.093,
+    "shares": {
+     "orange": 0.039,
+     "yellow": 0.145,
+     "brown": 0.134,
+     "green": 0.03,
+     "teal": 0.098,
+     "blue": 0.142,
+     "black": 0.011,
+     "gray": 0.245,
+     "white": 0.156
+    },
+    "hues": [
+     0.0,
+     0.063,
+     0.384,
+     0.145,
+     0.01,
+     0.002,
+     0.076,
+     0.32,
+     0.001,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.59,
+    "value": {
+     "dark": 0.171,
+     "mid": 0.409,
+     "light": 0.42
+    }
    },
    "composition": {
     "busyness": 0.47,
@@ -33811,7 +40597,36 @@
     "contrast": 0.667,
     "saturation": 0.428,
     "colorfulness": 1.0,
-    "warmth": -0.749
+    "warmth": -0.749,
+    "shares": {
+     "orange": 0.009,
+     "yellow": 0.006,
+     "brown": 0.027,
+     "teal": 0.582,
+     "black": 0.074,
+     "gray": 0.151,
+     "white": 0.152
+    },
+    "hues": [
+     0.002,
+     0.036,
+     0.014,
+     0.002,
+     0.0,
+     0.005,
+     0.91,
+     0.031,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.629,
+    "value": {
+     "dark": 0.132,
+     "mid": 0.078,
+     "light": 0.79
+    }
    },
    "composition": {
     "busyness": 0.128,
@@ -33960,7 +40775,37 @@
     "contrast": 0.707,
     "saturation": 0.3,
     "colorfulness": 0.668,
-    "warmth": -0.066
+    "warmth": -0.066,
+    "shares": {
+     "orange": 0.182,
+     "yellow": 0.024,
+     "brown": 0.025,
+     "teal": 0.349,
+     "blue": 0.005,
+     "black": 0.084,
+     "gray": 0.247,
+     "white": 0.083
+    },
+    "hues": [
+     0.0,
+     0.151,
+     0.328,
+     0.001,
+     0.001,
+     0.009,
+     0.483,
+     0.012,
+     0.015,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.606,
+    "value": {
+     "dark": 0.152,
+     "mid": 0.28,
+     "light": 0.568
+    }
    },
    "composition": {
     "busyness": 0.251,
@@ -34097,7 +40942,36 @@
     "contrast": 0.543,
     "saturation": 0.454,
     "colorfulness": 0.438,
-    "warmth": 0.069
+    "warmth": 0.069,
+    "shares": {
+     "yellow": 0.058,
+     "brown": 0.032,
+     "green": 0.754,
+     "teal": 0.006,
+     "black": 0.021,
+     "gray": 0.08,
+     "white": 0.048
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.037,
+     0.367,
+     0.492,
+     0.104,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.866,
+    "value": {
+     "dark": 0.102,
+     "mid": 0.438,
+     "light": 0.46
+    }
    },
    "composition": {
     "busyness": 0.379,
@@ -34233,7 +41107,37 @@
     "contrast": 0.438,
     "saturation": 0.225,
     "colorfulness": 0.404,
-    "warmth": 0.329
+    "warmth": 0.329,
+    "shares": {
+     "orange": 0.019,
+     "yellow": 0.238,
+     "brown": 0.051,
+     "green": 0.015,
+     "teal": 0.062,
+     "blue": 0.022,
+     "black": 0.012,
+     "gray": 0.581
+    },
+    "hues": [
+     0.001,
+     0.075,
+     0.358,
+     0.444,
+     0.0,
+     0.0,
+     0.004,
+     0.116,
+     0.002,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.413,
+    "value": {
+     "dark": 0.04,
+     "mid": 0.43,
+     "light": 0.53
+    }
    },
    "composition": {
     "busyness": 0.264,
@@ -34369,7 +41273,38 @@
     "contrast": 0.596,
     "saturation": 0.363,
     "colorfulness": 0.734,
-    "warmth": -0.352
+    "warmth": -0.352,
+    "shares": {
+     "orange": 0.006,
+     "yellow": 0.041,
+     "brown": 0.031,
+     "green": 0.298,
+     "teal": 0.036,
+     "blue": 0.278,
+     "black": 0.104,
+     "gray": 0.191,
+     "white": 0.015
+    },
+    "hues": [
+     0.0,
+     0.015,
+     0.021,
+     0.277,
+     0.218,
+     0.006,
+     0.01,
+     0.152,
+     0.301,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.744,
+    "value": {
+     "dark": 0.386,
+     "mid": 0.498,
+     "light": 0.116
+    }
    },
    "composition": {
     "busyness": 0.426,
@@ -34504,7 +41439,33 @@
     "contrast": 0.284,
     "saturation": 0.786,
     "colorfulness": 1.0,
-    "warmth": 0.651
+    "warmth": 0.651,
+    "shares": {
+     "orange": 0.541,
+     "yellow": 0.017,
+     "brown": 0.02,
+     "blue": 0.422
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.826,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.174,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.996,
+    "value": {
+     "dark": 0.005,
+     "mid": 0.722,
+     "light": 0.273
+    }
    },
    "composition": {
     "busyness": 0.07,
@@ -34650,7 +41611,34 @@
     "contrast": 0.66,
     "saturation": 0.331,
     "colorfulness": 0.792,
-    "warmth": -0.876
+    "warmth": -0.876,
+    "shares": {
+     "green": 0.007,
+     "teal": 0.585,
+     "blue": 0.123,
+     "gray": 0.066,
+     "white": 0.22
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.007,
+     0.001,
+     0.0,
+     0.047,
+     0.438,
+     0.502,
+     0.005,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.714,
+    "value": {
+     "dark": 0.114,
+     "mid": 0.373,
+     "light": 0.513
+    }
    },
    "composition": {
     "busyness": 0.155,
@@ -34787,7 +41775,34 @@
     "contrast": 0.725,
     "saturation": 0.205,
     "colorfulness": 0.273,
-    "warmth": -0.218
+    "warmth": -0.218,
+    "shares": {
+     "green": 0.287,
+     "teal": 0.214,
+     "black": 0.106,
+     "gray": 0.163,
+     "white": 0.23
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.103,
+     0.412,
+     0.14,
+     0.294,
+     0.048,
+     0.003,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.547,
+    "value": {
+     "dark": 0.161,
+     "mid": 0.349,
+     "light": 0.491
+    }
    },
    "composition": {
     "busyness": 0.196,
@@ -34928,7 +41943,32 @@
     "contrast": 0.347,
     "saturation": 0.348,
     "colorfulness": 0.795,
-    "warmth": -1.0
+    "warmth": -1.0,
+    "shares": {
+     "teal": 0.528,
+     "gray": 0.229,
+     "white": 0.244
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.529,
+    "value": {
+     "dark": 0.0,
+     "mid": 0.519,
+     "light": 0.481
+    }
    },
    "composition": {
     "busyness": 0.012,
@@ -35065,7 +42105,37 @@
     "contrast": 0.731,
     "saturation": 0.21,
     "colorfulness": 0.305,
-    "warmth": 0.32
+    "warmth": 0.32,
+    "shares": {
+     "orange": 0.089,
+     "yellow": 0.149,
+     "brown": 0.139,
+     "green": 0.021,
+     "teal": 0.022,
+     "black": 0.071,
+     "gray": 0.361,
+     "white": 0.146
+    },
+    "hues": [
+     0.0,
+     0.142,
+     0.652,
+     0.156,
+     0.006,
+     0.002,
+     0.039,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.424,
+    "value": {
+     "dark": 0.186,
+     "mid": 0.253,
+     "light": 0.561
+    }
    },
    "composition": {
     "busyness": 0.253,
@@ -35188,7 +42258,37 @@
     "contrast": 0.641,
     "saturation": 0.313,
     "colorfulness": 0.524,
-    "warmth": -0.649
+    "warmth": -0.649,
+    "shares": {
+     "yellow": 0.007,
+     "brown": 0.006,
+     "green": 0.15,
+     "teal": 0.018,
+     "blue": 0.45,
+     "black": 0.111,
+     "gray": 0.225,
+     "white": 0.033
+    },
+    "hues": [
+     0.0,
+     0.002,
+     0.01,
+     0.172,
+     0.087,
+     0.014,
+     0.009,
+     0.028,
+     0.522,
+     0.156,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.668,
+    "value": {
+     "dark": 0.369,
+     "mid": 0.469,
+     "light": 0.162
+    }
    },
    "composition": {
     "busyness": 0.411,
@@ -35312,7 +42412,36 @@
     "contrast": 0.509,
     "saturation": 0.181,
     "colorfulness": 0.29,
-    "warmth": 0.021
+    "warmth": 0.021,
+    "shares": {
+     "yellow": 0.132,
+     "brown": 0.056,
+     "green": 0.015,
+     "teal": 0.094,
+     "blue": 0.065,
+     "black": 0.08,
+     "gray": 0.557
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.481,
+     0.121,
+     0.006,
+     0.001,
+     0.232,
+     0.152,
+     0.005,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.365,
+    "value": {
+     "dark": 0.237,
+     "mid": 0.652,
+     "light": 0.111
+    }
    },
    "composition": {
     "busyness": 0.273,
@@ -35446,7 +42575,36 @@
     "contrast": 0.807,
     "saturation": 0.216,
     "colorfulness": 0.414,
-    "warmth": -0.241
+    "warmth": -0.241,
+    "shares": {
+     "orange": 0.028,
+     "yellow": 0.006,
+     "brown": 0.046,
+     "blue": 0.247,
+     "black": 0.155,
+     "gray": 0.388,
+     "white": 0.129
+    },
+    "hues": [
+     0.005,
+     0.112,
+     0.099,
+     0.0,
+     0.0,
+     0.0,
+     0.001,
+     0.015,
+     0.154,
+     0.612,
+     0.0,
+     0.001
+    ],
+    "chromatic": 0.368,
+    "value": {
+     "dark": 0.316,
+     "mid": 0.379,
+     "light": 0.305
+    }
    },
    "composition": {
     "busyness": 0.802,
@@ -35579,7 +42737,39 @@
     "contrast": 0.661,
     "saturation": 0.203,
     "colorfulness": 0.385,
-    "warmth": 0.152
+    "warmth": 0.152,
+    "shares": {
+     "red": 0.03,
+     "orange": 0.066,
+     "yellow": 0.025,
+     "brown": 0.076,
+     "green": 0.066,
+     "teal": 0.006,
+     "blue": 0.033,
+     "black": 0.054,
+     "gray": 0.462,
+     "white": 0.181
+    },
+    "hues": [
+     0.011,
+     0.581,
+     0.104,
+     0.199,
+     0.026,
+     0.0,
+     0.005,
+     0.022,
+     0.046,
+     0.004,
+     0.001,
+     0.001
+    ],
+    "chromatic": 0.306,
+    "value": {
+     "dark": 0.158,
+     "mid": 0.522,
+     "light": 0.319
+    }
    },
    "composition": {
     "busyness": 0.56,
@@ -35708,7 +42898,34 @@
     "contrast": 0.498,
     "saturation": 0.304,
     "colorfulness": 0.38,
-    "warmth": -0.856
+    "warmth": -0.856,
+    "shares": {
+     "orange": 0.007,
+     "blue": 0.889,
+     "black": 0.038,
+     "gray": 0.043,
+     "white": 0.022
+    },
+    "hues": [
+     0.0,
+     0.007,
+     0.009,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.027,
+     0.956,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.899,
+    "value": {
+     "dark": 0.198,
+     "mid": 0.716,
+     "light": 0.086
+    }
    },
    "composition": {
     "busyness": 0.282,
@@ -35853,7 +43070,38 @@
     "contrast": 0.632,
     "saturation": 0.343,
     "colorfulness": 0.679,
-    "warmth": -0.617
+    "warmth": -0.617,
+    "shares": {
+     "orange": 0.007,
+     "yellow": 0.024,
+     "brown": 0.062,
+     "green": 0.114,
+     "teal": 0.053,
+     "blue": 0.47,
+     "black": 0.088,
+     "gray": 0.17,
+     "white": 0.012
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.052,
+     0.166,
+     0.031,
+     0.017,
+     0.018,
+     0.105,
+     0.608,
+     0.002,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.74,
+    "value": {
+     "dark": 0.242,
+     "mid": 0.52,
+     "light": 0.238
+    }
    },
    "composition": {
     "busyness": 0.347,
@@ -35976,7 +43224,38 @@
     "contrast": 0.501,
     "saturation": 0.426,
     "colorfulness": 0.936,
-    "warmth": -0.39
+    "warmth": -0.39,
+    "shares": {
+     "orange": 0.133,
+     "yellow": 0.145,
+     "brown": 0.024,
+     "green": 0.091,
+     "teal": 0.016,
+     "blue": 0.466,
+     "black": 0.015,
+     "gray": 0.103,
+     "white": 0.008
+    },
+    "hues": [
+     0.0,
+     0.006,
+     0.212,
+     0.116,
+     0.02,
+     0.007,
+     0.006,
+     0.015,
+     0.609,
+     0.01,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.878,
+    "value": {
+     "dark": 0.119,
+     "mid": 0.597,
+     "light": 0.284
+    }
    },
    "composition": {
     "busyness": 0.378,
@@ -36110,7 +43389,35 @@
     "contrast": 0.726,
     "saturation": 0.276,
     "colorfulness": 0.363,
-    "warmth": 0.783
+    "warmth": 0.783,
+    "shares": {
+     "orange": 0.206,
+     "yellow": 0.061,
+     "brown": 0.314,
+     "black": 0.064,
+     "gray": 0.227,
+     "white": 0.128
+    },
+    "hues": [
+     0.001,
+     0.119,
+     0.868,
+     0.012,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.584,
+    "value": {
+     "dark": 0.254,
+     "mid": 0.457,
+     "light": 0.289
+    }
    },
    "composition": {
     "busyness": 0.5,
@@ -36245,7 +43552,34 @@
     "contrast": 0.437,
     "saturation": 0.309,
     "colorfulness": 0.495,
-    "warmth": -0.176
+    "warmth": -0.176,
+    "shares": {
+     "orange": 0.135,
+     "yellow": 0.149,
+     "blue": 0.586,
+     "gray": 0.093,
+     "white": 0.036
+    },
+    "hues": [
+     0.0,
+     0.001,
+     0.391,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.458,
+     0.15,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.868,
+    "value": {
+     "dark": 0.084,
+     "mid": 0.577,
+     "light": 0.339
+    }
    },
    "composition": {
     "busyness": 0.039,
@@ -36396,7 +43730,33 @@
     "contrast": 0.531,
     "saturation": 0.226,
     "colorfulness": 0.279,
-    "warmth": 0.677
+    "warmth": 0.677,
+    "shares": {
+     "orange": 0.13,
+     "brown": 0.38,
+     "black": 0.013,
+     "gray": 0.477
+    },
+    "hues": [
+     0.0,
+     0.127,
+     0.873,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.52,
+    "value": {
+     "dark": 0.191,
+     "mid": 0.528,
+     "light": 0.281
+    }
    },
    "composition": {
     "busyness": 0.133,
@@ -36531,7 +43891,36 @@
     "contrast": 0.497,
     "saturation": 0.371,
     "colorfulness": 0.932,
-    "warmth": -0.068
+    "warmth": -0.068,
+    "shares": {
+     "red": 0.006,
+     "orange": 0.088,
+     "yellow": 0.012,
+     "brown": 0.098,
+     "blue": 0.383,
+     "black": 0.039,
+     "gray": 0.373
+    },
+    "hues": [
+     0.0,
+     0.131,
+     0.228,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.454,
+     0.186,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.59,
+    "value": {
+     "dark": 0.359,
+     "mid": 0.59,
+     "light": 0.052
+    }
    },
    "composition": {
     "busyness": 0.114,
@@ -36666,7 +44055,33 @@
     "contrast": 0.653,
     "saturation": 0.128,
     "colorfulness": 0.28,
-    "warmth": 0.166
+    "warmth": 0.166,
+    "shares": {
+     "red": 0.04,
+     "brown": 0.159,
+     "black": 0.144,
+     "gray": 0.658
+    },
+    "hues": [
+     0.003,
+     0.954,
+     0.042,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.202,
+    "value": {
+     "dark": 0.514,
+     "mid": 0.295,
+     "light": 0.191
+    }
    },
    "composition": {
     "busyness": 0.209,
@@ -36801,7 +44216,37 @@
     "contrast": 0.413,
     "saturation": 0.5,
     "colorfulness": 0.655,
-    "warmth": 0.826
+    "warmth": 0.826,
+    "shares": {
+     "red": 0.103,
+     "orange": 0.202,
+     "yellow": 0.008,
+     "brown": 0.421,
+     "blue": 0.151,
+     "purple": 0.061,
+     "black": 0.037,
+     "gray": 0.017
+    },
+    "hues": [
+     0.029,
+     0.533,
+     0.302,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.05,
+     0.075,
+     0.013
+    ],
+    "chromatic": 0.983,
+    "value": {
+     "dark": 0.378,
+     "mid": 0.604,
+     "light": 0.018
+    }
    },
    "composition": {
     "busyness": 0.151,
@@ -36947,7 +44392,34 @@
     "contrast": 0.535,
     "saturation": 0.237,
     "colorfulness": 0.252,
-    "warmth": 0.702
+    "warmth": 0.702,
+    "shares": {
+     "orange": 0.2,
+     "yellow": 0.163,
+     "brown": 0.085,
+     "gray": 0.434,
+     "white": 0.118
+    },
+    "hues": [
+     0.0,
+     0.0,
+     0.989,
+     0.011,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.448,
+    "value": {
+     "dark": 0.018,
+     "mid": 0.611,
+     "light": 0.371
+    }
    },
    "composition": {
     "busyness": 0.112,
@@ -37097,7 +44569,34 @@
     "contrast": 0.633,
     "saturation": 0.413,
     "colorfulness": 0.874,
-    "warmth": 0.176
+    "warmth": 0.176,
+    "shares": {
+     "orange": 0.048,
+     "brown": 0.333,
+     "teal": 0.361,
+     "black": 0.196,
+     "gray": 0.062
+    },
+    "hues": [
+     0.0,
+     0.29,
+     0.293,
+     0.0,
+     0.0,
+     0.0,
+     0.414,
+     0.003,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.853,
+    "value": {
+     "dark": 0.425,
+     "mid": 0.434,
+     "light": 0.141
+    }
    },
    "composition": {
     "busyness": 0.102,
@@ -37231,7 +44730,35 @@
     "contrast": 0.568,
     "saturation": 0.34,
     "colorfulness": 0.501,
-    "warmth": 0.967
+    "warmth": 0.967,
+    "shares": {
+     "red": 0.015,
+     "orange": 0.239,
+     "brown": 0.326,
+     "black": 0.01,
+     "gray": 0.392,
+     "white": 0.018
+    },
+    "hues": [
+     0.0,
+     0.875,
+     0.125,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "chromatic": 0.582,
+    "value": {
+     "dark": 0.212,
+     "mid": 0.565,
+     "light": 0.223
+    }
    },
    "composition": {
     "busyness": 0.171,

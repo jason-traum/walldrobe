@@ -29,7 +29,9 @@ test('living room: over the couch, about two thirds its width, 6 to 10 in above 
   for (const L of run(livingRoom).layouts) {
     assert.equal(L.anchor.id, 'couch');
     const ratio = L.group.w / 84;
-    assert.ok(ratio >= 0.5 && ratio <= 0.8, `width ratio ${ratio}`);
+    // One piece alone may be narrower, since frames stop at 40 in (RULES.soloMinRatio).
+    const lo = L.variant === 'solo' ? RULES.soloMinRatio : 0.5;
+    assert.ok(ratio >= lo && ratio <= 0.8, `width ratio ${ratio}`);
     const c = L.group.y - 32;
     assert.ok(c >= RULES.clearanceMin && c <= RULES.clearanceMax, `clearance ${c}`);
     assert.ok(Math.abs(L.group.x + L.group.w / 2 - 66) <= 1, 'centered on the couch');
@@ -204,7 +206,8 @@ test('positions and gaps land exactly on the quarter inch', () => {
 test('group width stays in the allowed window over furniture', () => {
   for (const L of run(livingRoom, { count: 12 }).layouts) {
     const ratio = L.group.w / 84;
-    assert.ok(ratio >= 0.5 - 1e-9 && ratio <= 0.8 + 1e-9, `${L.family} ratio ${ratio}`);
+    const lo = L.variant === 'solo' ? RULES.soloMinRatio : 0.5;
+    assert.ok(ratio >= lo - 1e-9 && ratio <= 0.8 + 1e-9, `${L.family} ratio ${ratio}`);
   }
 });
 

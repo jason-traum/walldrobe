@@ -89,6 +89,60 @@ def lab_to_hex(L, a, b):
     r, g, bb = (int(round(v)) for v in np.clip(srgb * 255, 0, 255))
     return "#%02X%02X%02X" % (r, g, bb)
 
+# ---------- How much of each color ----------
+
+FAMILIES = ["red", "pink", "orange", "yellow", "brown", "green", "teal", "blue", "purple", "black", "gray", "white"]
+
+def families(L, A, B):
+    """Per-pixel color family, the same thresholds as color_name, folded into 12 families."""
+    C = np.hypot(A, B)
+    h = np.degrees(np.arctan2(B, A)) % 360
+    f = {n: i for i, n in enumerate(FAMILIES)}
+    conds = [
+        L < 18,
+        C < 12,
+        (h >= 345) | (h < 15),
+        h < 50,
+        h < 75,
+        h < 105,
+        h < 170,
+        h < 225,
+        h < 315,
+    ]
+    picks = [
+        np.full(L.shape, f["black"]),
+        np.where(L > 88, f["white"], f["gray"]),
+        np.where(L > 70, f["pink"], f["red"]),
+        np.where((L < 50) & (C < 45), f["brown"], np.where(L > 72, f["pink"], f["red"])),
+        np.where((L < 55) & (C < 55), f["brown"], f["orange"]),
+        np.where(L < 45, f["brown"], f["yellow"]),
+        np.full(L.shape, f["green"]),
+        np.full(L.shape, f["teal"]),
+        np.full(L.shape, f["blue"]),
+    ]
+    return np.select(conds, picks, default=np.where(L > 72, f["pink"], f["purple"]))
+
+def color_amounts(L, A, B):
+    fam = families(L, A, B)
+    counts = np.bincount(fam.ravel(), minlength=len(FAMILIES)) / fam.size
+    shares = {n: round(float(c), 3) for n, c in zip(FAMILIES, counts) if c >= 0.005}
+    tot = sum(shares.values())
+    shares = {n: round(v / tot, 3) for n, v in shares.items()}
+    C = np.hypot(A, B)
+    h = np.degrees(np.arctan2(B, A)) % 360
+    chromatic = C >= 12
+    hist = np.zeros(12)
+    if chromatic.any():
+        np.add.at(hist, (h[chromatic] // 30).astype(int) % 12, C[chromatic])
+        hist = hist / hist.sum()
+    value = {"dark": float(np.mean(L < 35)), "mid": float(np.mean((L >= 35) & (L <= 70))), "light": float(np.mean(L > 70))}
+    return {
+        "shares": shares,
+        "hues": [round(float(v), 3) for v in hist],
+        "chromatic": round(float(chromatic.mean()), 3),
+        "value": {k: round(v, 3) for k, v in value.items()},
+    }
+
 # ---------- Measurements ----------
 
 def measure(img):
@@ -191,7 +245,7 @@ def measure(img):
     r = lambda v: round(float(v), 3)
     return {
         "color": {"palette": palette, "dominant": dominant, "bw": bw, "brightness": r(brightness), "contrast": r(contrast),
-                  "saturation": r(saturation), "colorfulness": r(colorfulness), "warmth": r(warmth)},
+                  "saturation": r(saturation), "colorfulness": r(colorfulness), "warmth": r(warmth), **color_amounts(L, A, B)},
         "composition": {"busyness": r(busy), "negativeSpace": r(negative), "focal": {"x": r(fx), "y": r(fy)},
                         "symmetry": r(np.clip(symmetry, 0, 1)), "weight": r(weight)},
     }

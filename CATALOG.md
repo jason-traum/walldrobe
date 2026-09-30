@@ -39,7 +39,11 @@ Each record keeps `provenance`, a map from field group to who set it, so a later
     "contrast": 0.35,
     "saturation": 0.44,
     "colorfulness": 0.51,
-    "warmth": -0.38
+    "warmth": -0.38,
+    "shares": { "teal": 0.727, "white": 0.117, "gray": 0.088, "blue": 0.067 },
+    "hues": [0, 0, 0.001, 0, 0, 0.002, 0.353, 0.629, 0.016, 0, 0, 0],
+    "chromatic": 0.794,
+    "value": { "dark": 0.029, "mid": 0.603, "light": 0.367 }
   },
   "composition": {
     "busyness": 0.22,
@@ -85,6 +89,10 @@ Each record keeps `provenance`, a map from field group to who set it, so a later
 | `color.contrast` | Spread of lightness, 0 flat to 1 punchy | measured | taste |
 | `color.saturation` | Mean chroma, 0 gray to 1 vivid | measured | taste |
 | `color.colorfulness` | How many strong colors (Hasler and Süsstrunk), 0 to 1 | measured | taste |
+| `color.shares` | How much of the image is each color family: red, pink, orange, yellow, brown, green, teal, blue, purple, black, gray, white. Shares over 0.5% only, summing to 1. Each pixel is named with the same thresholds as the palette | measured | wall color proportions, repetition |
+| `color.hues` | The color wheel in 12 slices of 30 degrees (slice 0 is red at 0 to 30 degrees in Lab), weighted by how colorful each pixel is, summing to 1. All zeros when the image has no real color | measured | harmony schemes |
+| `color.chromatic` | Share of pixels with real color, 0 to 1 | measured | how much a piece counts toward the wall's color scheme |
+| `color.value` | Share of dark (L under 35), mid and light (L over 70) pixels | measured | value balance, black and white walls |
 | `color.warmth` | -1 cool (blues, teals) to 1 warm (reds, oranges, yellows), weighted by how colorful each pixel is; greens and grays count as neither | measured | taste, harmony |
 | `composition.busyness` | Edge density, 0 calm to 1 busy | measured | taste, layout balance |
 | `composition.negativeSpace` | Share of the image that's quiet, 0 to 1 | measured | taste, reasons |

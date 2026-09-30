@@ -55,8 +55,11 @@ Obstacle kinds fall into these groups:
 ```js
 {
   layouts: [{
-    rank: 1, family: 'salon', score: 0.81,
-    parts: { fit: 0.90, taste: 0.78, harmony: 0.72, balance: 0.85 },
+    rank: 1, key: 'salon||56x33|...', family: 'salon', score: 0.81,  // key names the arrangement
+    parts: { fit: 0.90, taste: 0.78, color: 0.84, design: 0.88 },
+    checks: { harmony, proportion, repetition, temperature, saturation, value, room, balance, focal, rhythm, variety, flow, mirror },
+    color: { scheme: 'analogous', colors: ['blue', 'teal'], shares: { blue: 0.55, white: 0.2 }, lean: 'cool', repeated: ['teal'] },
+    notes: ['The blue and teal sit on the same side of the color wheel, so the wall reads as one mood.', 'Worth knowing: ...'],
     anchor: { id: 'couch', kind: 'couch' },          // or { kind: 'wall' }
     group: { x, y, w, h },
     pieces: [{
@@ -65,6 +68,9 @@ Obstacle kinds fall into these groups:
       nail: { x, y },                                // where the nail goes
       nailNote,                                      // only when the wire drop was guessed
       price, role: 'center',                         // center, flank, fill, pinned
+      shares: { blue: 0.8, white: 0.2 },             // how much of the piece is each color
+      kept,                                          // true for a catalog piece passed in keep
+      slot,                                          // the frame slot, only when a piece you own is off a standard size
       reason: 'Your blue print stays, in the middle over the couch, because it's the one you said you'd keep.',
     }],
     left: [{ id: 'pink', reason: 'Left off this wall so the blue print has room. It would work on a narrower wall.' }],
@@ -142,3 +148,53 @@ The engine only reads `taste[id]`, clamped to 0 to 1. The taste model is separat
 ## Tuning later
 
 Weights and rule numbers are v1 guesses. They change only from evidence: real walls people hung, and the offline review pipeline (build order step 8), where a cheaper model reviews sample layouts and tags catalog art. Every change gets a DECISIONS line.
+
+## v2: judging the whole wall
+
+v1 scored pieces mostly one at a time. v2 judges the finished wall the way a designer would: what colors it's made of and in what amounts, whether they follow a known harmony, whether accents repeat, and whether the arrangement has balance, a clear focal piece, rhythm and the right amount of variety. The search then improves the wall against that judgment, not just piece by piece.
+
+Every piece has a color profile. Catalog records carry a measured one (`color.shares`, `color.hues`, `color.chromatic`, `color.value`, warmth, saturation, brightness, and busyness, empty space, focal point and visual weight from `composition`; see CATALOG.md). Owned pieces and the room get an estimated profile from their palette.
+
+The wall's colors are the area-weighted sum of its pieces' profiles: a 24 x 36 piece counts nine times as much as an 8 x 12.
+
+### Color (engine/theory.js)
+
+| Check | What it looks at | Good means |
+|---|---|---|
+| Harmony scheme | The wall's color wheel (12 slices), smoothed | Most of the colorful area falls inside one scheme: monochromatic (one hue, 90 degrees wide), analogous (neighbors, 150 degrees), complementary (two opposite hues), split complementary (one hue and the two beside its opposite), triadic (three hues 120 degrees apart). Simpler schemes win ties. A wall that's under 12% colorful is neutral, which always works. |
+| Proportion | Area share of each color family, neutrals counted together | Close to 60/30/10: one main color, one second, a small accent. A black and white wall is judged on its dark, mid and light split instead. |
+| Repetition | Every color that's at least 4% of the wall | It appears in at least two pieces (or in a piece you own, or in the room), so it reads as a choice. One single-appearance accent is allowed if it's in the focal piece. |
+| Temperature | Each piece's warmth, by area | Warm and cool don't fight. Mixing is fine with enough neutral between them. |
+| Saturation | How vivid each colorful piece is | Similar across the wall; only the focal piece may be louder. |
+| Value | Brightness of each piece | Some light and dark variation, not all the same and not all extremes. |
+| Room | The wall's colors against the room's palette | They share colors. |
+
+Schemes are judged on the painter's color wheel (red 0, orange 60, yellow 120, green 180, blue 240, violet 300), not on raw Lab hue, where blue sits only 120 degrees from orange. `theory.js` maps Lab hue onto it with fixed anchors taken from typical colors, and scheme colors are named from the art's own color amounts, never the room's.
+
+Color score = 0.3 harmony + 0.15 proportion + 0.2 repetition + 0.1 temperature + 0.1 saturation + 0.05 value + 0.1 room (spread over the others when there's no room palette).
+
+### Design (engine/design.js)
+
+| Check | What it looks at | Good means |
+|---|---|---|
+| Balance | Visual weight (measured weight x area) | Even left and right, centered, not top heavy |
+| Focal piece | The heaviest piece (area x weight) | It's near the middle. In a center-and-sides layout, the center is the heaviest. Grids don't need one. |
+| Rhythm | Pieces that touch (side by side or above and below) | Two busy pieces don't sit next to each other; busy and quiet alternate |
+| Variety | Categories, themes, black and white | Grids and rows read as a series (same theme, all color or all black and white, one exception allowed in the middle). Two-row hangs and center layouts mix subjects, with no subject over half the wall and no two of the same subject side by side. |
+| Flow | Focal points of the pieces on each side | Side pieces look inward: the subject of a left piece sits right of its center, and the reverse |
+| Mirror | Mirrored slots in symmetric layouts | Mirrored pieces carry similar weight |
+
+Design score = 0.3 balance + 0.2 focal piece + 0.15 rhythm + 0.15 variety + 0.1 flow + 0.1 mirror.
+
+### Total and search
+
+Total = 0.25 fit + 0.25 taste + 0.25 color + 0.25 design, plus the reuse bonus. The beam search fills slots with a fast pick value (taste, color match with what's chosen so far, owned-piece bonus). The best structures then get an improvement pass: for each open slot, the dozen best alternatives are tried in place and kept when the whole-wall score goes up. Two passes.
+
+Each layout returns `notes`: up to four plain sentences on why the wall works (its scheme and proportions, the repeated accent, balance, rhythm), plus one honest caveat when a check scored low.
+
+### Keep, swap, refresh, try another
+
+- `layout({ ..., keep: [{ id, w, h }] })`: catalog pieces the person wants to keep go on every layout, like pieces they own and must keep.
+- `layout({ ..., exclude: [ids] })`: never use these.
+- `layout({ ..., avoid: [keys] })`: skip layouts already shown (every layout has a `key`), for "try a new layout".
+- `refill(input, layout, { keep: [ids], swap: id })`: same frames in the same places. With `swap`, only that piece changes; otherwise every piece not kept (and not owned) changes. Pieces it replaces are never picked again for their slot in the same call.
