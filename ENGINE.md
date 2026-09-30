@@ -183,8 +183,9 @@ Color score = 0.3 harmony + 0.15 proportion + 0.2 repetition + 0.1 temperature +
 | Variety | Categories, themes, black and white | Grids and rows read as a series (same theme, all color or all black and white, one exception allowed in the middle). Two-row hangs and center layouts mix subjects, with no subject over half the wall and no two of the same subject side by side. |
 | Flow | Focal points of the pieces on each side | Side pieces look inward: the subject of a left piece sits right of its center, and the reverse |
 | Mirror | Mirrored slots in symmetric layouts | Mirrored pieces carry similar weight |
+| Distinct | Every pair of pieces: same subject, same colors (the colorful part counts more than the white and gray around it), same light, busyness and empty space, same style | No two look almost the same. A set can share a theme or a color, but three nearly identical water photos is one idea three times. At 0.88 or more a pair counts as look-alikes: 0.04 off the total per pair, a caveat naming them, and the fast pick steers away from them |
 
-Design score = 0.3 balance + 0.2 focal piece + 0.15 rhythm + 0.15 variety + 0.1 flow + 0.1 mirror.
+Design score = 0.25 balance + 0.15 focal piece + 0.15 rhythm + 0.15 variety + 0.1 flow + 0.05 mirror + 0.15 distinct.
 
 ### Total and search
 

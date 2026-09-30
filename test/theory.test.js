@@ -180,3 +180,17 @@ test('pieces with unknown subjects are not called a set', () => {
   const ps = [0, 12.5, 25].map((x) => piece(p, x, 0, 10, 10));
   assert.ok(variety(ps, neighbors(ps), 'line', G(35, 10)).score < 0.95);
 });
+
+test('look-alikes: two moon photos are the same idea, a blue vase and a red vase are a pair', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { profileFromRecord } = await import('../engine/theory.js');
+  const { lookalike, LOOKALIKE, distinct } = await import('../engine/design.js');
+  const items = JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url))).items;
+  const get = (t) => profileFromRecord(items.find((r) => r.title === t));
+  assert.ok(lookalike(get('Full moon'), get('Lunar surface')) >= LOOKALIKE);
+  assert.ok(lookalike(get('Blue ceramic vase'), get('Red ceramic vase')) < LOOKALIKE);
+  assert.ok(lookalike(get('Full moon'), get('Blue pool')) < 0.4);
+  const moons = [piece(get('Full moon'), 0, 0, 10, 10), piece(get('Lunar surface'), 12, 0, 10, 10)];
+  assert.equal(distinct(moons).alike.length, 1);
+  assert.ok(distinct(moons).score < 0.5);
+});

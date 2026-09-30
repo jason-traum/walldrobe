@@ -156,3 +156,19 @@ test('a piece you own in an odd size can be swapped for art in its frame slot', 
   assert.ok(put && put.w === slot.w && put.h === slot.h && put.ref.id !== 'mine');
   assertLayoutValid(input, R);
 });
+
+test('no two pieces on a wall look almost the same, even for a taste that loves one subject', async () => {
+  const { lookalike, LOOKALIKE } = await import('../engine/design.js');
+  const { fitTaste, scoreTaste } = await import('../engine/taste.js');
+  const byId = new Map(real.map((c) => [c.id, c]));
+  for (const fav of ['moon', 'pool', 'architecture', 'sailing']) {
+    const picks = real.filter((c) => c.record.category === fav).slice(0, 4).map((w, i) => ({ winner: w, loser: real[(i * 37) % real.length] }));
+    const taste = scoreTaste(fitTaste(picks), real);
+    for (const w of [livingRoom, hallway]) {
+      for (const L of layout(inputFor(w, real, { taste })).layouts) {
+        const ps = L.pieces.filter((p) => byId.has(p.ref.id)).map((p) => byId.get(p.ref.id).profile);
+        for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) assert.ok(lookalike(ps[i], ps[j]) < LOOKALIKE, `${fav} ${w.name} ${L.family}`);
+      }
+    }
+  }
+});
