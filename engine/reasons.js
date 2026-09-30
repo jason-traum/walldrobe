@@ -199,8 +199,12 @@ function caveat(c, d, checks, family, pieces) {
     ['variety', () => (d.variety.kind === 'series' ? "Worth knowing: the pieces don't quite read as one set."
       : d.variety.topCategory ? `Worth knowing: more than half the wall is ${d.variety.topCategory}.` : 'Worth knowing: two pieces with the same subject sit side by side.')],
     ['saturation', () => 'Worth knowing: one piece is much more vivid than the rest.'],
+    ['distinct', () => {
+      const pair = d.alike && d.alike[0];
+      return pair ? `Worth knowing: the ${shortTitle(pieces[pair[0]].title)} and the ${shortTitle(pieces[pair[1]].title)} look a lot alike. Swap one for more contrast.` : null;
+    }],
   ];
-  const limit = { harmony: 0.4 };
+  const limit = { harmony: 0.4, distinct: 0.99 };
   const low = order.filter(([k]) => checks[k] < (limit[k] ?? 0.5)).sort((a, b) => checks[a[0]] - checks[b[0]]);
   for (const [, say] of low) { const s = say(); if (s) return s; }
   return null;

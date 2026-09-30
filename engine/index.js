@@ -13,7 +13,7 @@ import { blockedRegions, findZone, placeGroup, checkPieces, clamp01, cmpStr, q, 
 import { salonStructures, lineStructures, gridStructures, statementStructures } from './structures.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
-import { designScore } from './design.js';
+import { designScore, lookalike, lookPenalty } from './design.js';
 
 export { RULES, WEIGHTS } from './constants.js';
 export const VERSION = '0.2.0';
@@ -21,6 +21,8 @@ export const VERSION = '0.2.0';
 const KEEPS = new Set(['must', 'happy', 'dontcare']);
 const REUSE_BONUS = 0.04;
 const SAME_ARTIST = 0.02;
+const LOOKALIKE_PAIR = 0.04; // off the total for each pair of pieces that look almost the same
+const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-alikes
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
 const ROOM = '\u0000room';
 const sizeKey = (w, h) => `${w}x${h}`;
@@ -143,6 +145,7 @@ function prepare(input) {
     pinned, loose, regions, zone, palettes, hasRoom, pairSim, profiles,
     roomProfile: hasRoom ? profileFromPalette(room) : null,
     catalogCands, ownedById: new Map(owned.map((p) => [p.id, p])), catalogById: byId, tasteOf,
+    look: lookFactory(profiles),
   };
 }
 
@@ -162,6 +165,19 @@ function pairSimFactory(palettes) {
       if (SIM_CACHE.size >= SIM_CACHE_MAX) SIM_CACHE.clear();
       SIM_CACHE.set(k, v);
     }
+    return v;
+  };
+}
+
+// Look-alike penalty between two pieces by id (the room and unknown ids are never look-alikes).
+function lookFactory(profiles) {
+  const memo = new Map();
+  return (a, b) => {
+    const pa = profiles.get(a), pb = profiles.get(b);
+    if (!pa || !pb) return 0;
+    const k = a < b ? `${a}\u0001${b}` : `${b}\u0001${a}`;
+    let v = memo.get(k);
+    if (v === undefined) { v = lookPenalty(lookalike(pa, pb)); memo.set(k, v); }
     return v;
   };
 }
@@ -203,15 +219,17 @@ function optionsFor(index, slot) {
 
 // How good a pick is before the whole wall is judged: 0.6 x taste + 0.4 x how well
 // its colors sit with the other pieces, plus an edge for pieces the person owns.
-function pickValue(cand, ctxIds, pairSim) {
+// Pieces that look almost the same as one already chosen are pushed down.
+function pickValue(cand, ctxIds, pairSim, look) {
   const h = ctxIds.length ? ctxIds.reduce((s, id) => s + pairSim(cand.id, id), 0) / ctxIds.length : 0.5;
   let v = 0.6 * cand.taste + 0.4 * h;
+  if (look) v -= LOOK_PICK * ctxIds.reduce((m, id) => Math.max(m, look(cand.id, id)), 0);
   if (cand.source === 'owned') v += OWNED_PICK_BONUS[cand.item.keep] || 0;
   return v;
 }
 
 // A small beam search over the open slots, biggest first.
-function fill(struct, index, pairSim, hasRoom, banned) {
+function fill(struct, index, pairSim, hasRoom, banned, look) {
   const open = struct.slots
     .map((s, i) => ({ ...s, i }))
     .filter((s) => !s.fixed)
@@ -229,7 +247,7 @@ function fill(struct, index, pairSim, hasRoom, banned) {
       if (hasRoom) ctx.push(ROOM);
       for (const { cand, size } of opts) {
         if (st.used.has(cand.id)) continue;
-        let v = pickValue(cand, ctx, pairSim);
+        let v = pickValue(cand, ctx, pairSim, look);
         if (cand.artist && st.artists.has(cand.artist)) v -= 0.1;
         next.push({ parent: st, pick: { slot, cand, size }, value: st.value + v, key: `${st.key},${cand.id}` });
       }
@@ -332,7 +350,7 @@ function judge(L, ctx) {
   const happyUsed = L.pieces.filter((p) => p.keep === 'happy').length;
   const reuse = L.happyTotal ? REUSE_BONUS * (happyUsed / L.happyTotal) : 0;
   const parts = { fit, taste, color: c.score, design: d.score };
-  const score = WEIGHTS.fit * fit + WEIGHTS.taste * taste + WEIGHTS.color * c.score + WEIGHTS.design * d.score + reuse - SAME_ARTIST * dupArtists;
+  const score = WEIGHTS.fit * fit + WEIGHTS.taste * taste + WEIGHTS.color * c.score + WEIGHTS.design * d.score + reuse - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
   return { score, parts, checks: { ...c.checks, ...d.checks }, color: c, design: d };
 }
 
@@ -351,7 +369,7 @@ function improve(R, ctx, banned) {
       if (ctx.hasRoom) others.push(ROOM);
       const alts = optionsFor(R.index, s)
         .filter((o) => !onWall.has(o.cand.id) && !(banned && banned.has(o.cand.id)))
-        .map((o) => ({ o, v: pickValue(o.cand, others, ctx.pairSim) }))
+        .map((o) => ({ o, v: pickValue(o.cand, others, ctx.pairSim, ctx.look) }))
         .sort((a, b) => b.v - a.v || cmpStr(a.o.cand.id, b.o.cand.id))
         .slice(0, SEARCH.alternatives);
       for (const { o } of alts) {
@@ -370,7 +388,7 @@ function improve(R, ctx, banned) {
 
 // The same arrangement, filled again without some pieces.
 function redo(L, banned, ctx) {
-  const picked = fill(L.st, L.index, ctx.pairSim, ctx.hasRoom, banned);
+  const picked = fill(L.st, L.index, ctx.pairSim, ctx.hasRoom, banned, ctx.look);
   if (!picked) return null;
   const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
   const done = place(L.st, bySlot, L.group, ctx);
@@ -448,7 +466,7 @@ export function layout(input) {
     }
 
     for (const st of structs) {
-      const picked = fill(st, index, ctx.pairSim, ctx.hasRoom);
+      const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look);
       if (!picked) continue;
       const base = placeGroup(zone, st.W, st.H, ctx.regions, ctx.wall);
       if (!base) continue;
@@ -578,7 +596,7 @@ export function refill(input, prev, opts = {}) {
   ];
   const index = indexCandidates(cands);
   const where = { x: g.x, y: g.y, w: g.w, h: g.h, shift: Math.abs(g.x + g.w / 2 - ctx.zone.cx) };
-  const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, replaced);
+  const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, replaced, ctx.look);
   if (!picked) {
     const stuck = hung.find((p) => !stays(p) && !optionsFor(index, p.slot || p).some((o) => !replaced.has(o.cand.id)));
     return {

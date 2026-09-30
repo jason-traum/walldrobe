@@ -5,7 +5,7 @@
 import { RULES } from './constants.js';
 import { clamp01, EPS } from './geometry.js';
 
-export const DESIGN_WEIGHTS = Object.freeze({ balance: 0.3, focal: 0.2, rhythm: 0.15, variety: 0.15, flow: 0.1, mirror: 0.1 });
+export const DESIGN_WEIGHTS = Object.freeze({ balance: 0.25, focal: 0.15, rhythm: 0.15, variety: 0.15, flow: 0.1, mirror: 0.05, distinct: 0.15 });
 export const BUSY = 0.3; // busyness at or above this reads busy (about the top quarter of the catalog)
 
 // How heavy a piece looks: its area times how heavy it looks per square inch.
@@ -162,6 +162,52 @@ export function mirror(pieces, g) {
   return { score: ratios.length ? ratios.reduce((x, y) => x + y, 0) / ratios.length : 1, pairs: ratios.length };
 }
 
+// ---------- Look-alikes ----------
+
+const NEUTRAL = new Set(['black', 'gray', 'white']);
+function overlap(a, b, keep) {
+  const A = Object.entries(a).filter(([f]) => keep(f));
+  const ta = A.reduce((x, [, v]) => x + v, 0);
+  const tb = Object.entries(b).filter(([f]) => keep(f)).reduce((x, [, v]) => x + v, 0);
+  if (!ta || !tb) return null;
+  return A.reduce((x, [f, v]) => x + Math.min(v / ta, (b[f] || 0) / tb), 0);
+}
+
+// How much two pieces look like the same picture, 0 to 1: the same subject, the
+// same colors (the colorful part counts more than the white and gray around it),
+// the same light, busyness and empty space, and the same style. A set can share a
+// theme or a color; above about 0.85 it's two copies of one idea.
+export function lookalike(a, b) {
+  const cat = a.category && a.category === b.category ? 1 : a.theme && a.theme === b.theme ? 0.4 : 0;
+  const all = overlap(a.shares, b.shares, () => true) ?? 0;
+  const ca = a.chromatic > 0.02, cb = b.chromatic > 0.02;
+  const hue = ca && cb ? overlap(a.shares, b.shares, (f) => !NEUTRAL.has(f)) : null;
+  const color = hue !== null ? 0.6 * hue + 0.4 * all : ca !== cb ? 0.3 * all : all;
+  const d = [Math.abs(a.busy - b.busy) * 2, Math.abs(a.negativeSpace - b.negativeSpace), Math.abs(a.brightness - b.brightness), Math.abs(a.saturation - b.saturation) * 1.5, Math.abs(a.contrast - b.contrast)];
+  const comp = clamp01(1 - (d.reduce((x, y) => x + y, 0) / d.length) * 2);
+  const sa = new Set(a.styles || []), sb = new Set(b.styles || []);
+  const uni = new Set([...sa, ...sb]).size;
+  const style = uni ? [...sa].filter((x) => sb.has(x)).length / uni : 0;
+  return 0.4 * cat + 0.3 * color + 0.2 * comp + 0.1 * style;
+}
+export const LOOKALIKE = 0.88; // at or above this, two pieces read as the same picture
+export const lookPenalty = (s) => clamp01((s - 0.8) / 0.15);
+
+// No two pieces should look almost the same, anywhere on the wall.
+export function distinct(pieces) {
+  if (pieces.length < 2) return { score: 1, alike: [] };
+  let pen = 0;
+  const alike = [];
+  for (let i = 0; i < pieces.length; i++) {
+    for (let j = i + 1; j < pieces.length; j++) {
+      const s = lookalike(pieces[i].profile, pieces[j].profile);
+      pen += lookPenalty(s);
+      if (s >= LOOKALIKE) alike.push([i, j]);
+    }
+  }
+  return { score: clamp01(1 - pen / Math.max(1, pieces.length / 2)), alike };
+}
+
 export function designScore(pieces, g, family) {
   const pairs = neighbors(pieces);
   const fi = focalIndex(pieces);
@@ -171,8 +217,9 @@ export function designScore(pieces, g, family) {
   const v = variety(pieces, pairs, family, g);
   const fl = flow(pieces, g);
   const m = mirror(pieces, g);
-  const checks = { balance: b.score, focal: f.score, rhythm: r.score, variety: v.score, flow: fl.score, mirror: m.score };
+  const dz = distinct(pieces);
+  const checks = { balance: b.score, focal: f.score, rhythm: r.score, variety: v.score, flow: fl.score, mirror: m.score, distinct: dz.score };
   const W = DESIGN_WEIGHTS;
   const score = Object.keys(W).reduce((a, k) => a + W[k] * checks[k], 0);
-  return { score, checks, focalIdx: fi, heavier: b.heavier, topHeavy: b.topHeavy, busyPairs: r.busyPairs, busyCount: r.busyCount, variety: v, inward: fl.inward, mirrorPairs: m.pairs, pairs };
+  return { score, checks, focalIdx: fi, heavier: b.heavier, topHeavy: b.topHeavy, busyPairs: r.busyPairs, busyCount: r.busyCount, variety: v, inward: fl.inward, mirrorPairs: m.pairs, pairs, alike: dz.alike };
 }
