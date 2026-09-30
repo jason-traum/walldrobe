@@ -62,7 +62,7 @@ Avoid in the interface: curate, elevate, AI, algorithm, SKU, inventory, "gallery
 4. Mark the art you already own on that wall: must keep, happy to move or don't care. A separate "pin where it is" toggle is for a piece that can't move.
 5. Taste quiz: pairwise "which one do you like more."
 6. Get ranked layouts on your own wall, each with specific pieces, sizes, positions and one sentence on why each piece is there.
-7. Buy: link out to each piece's product page. No shipping and no payments in v1.
+7. Buy: link out to each piece's product page. No shipping and no payments in v1. For now: the photo on Unsplash and a store search for the frame size, plus a printable hanging guide.
 
 ## Not in v1
 
@@ -93,7 +93,7 @@ Shipping, payments, the printable hanging template, print swaps, renting origina
 
 1. Layout engine: a pure module with tests and no UI. Spec in ENGINE.md. Done (v0.1).
 2. Demo UI: three sample walls, free-to-show modern art, embeddable at jason-traum.github.io/projects/walldrobe.html. First version done: `npm run demo` builds `out/index.html`.
-3. Wall geometry from a photo: corner taps, one known measurement, perspective correction, obstacle marking.
+3. Wall geometry from a photo: corner taps, one known measurement, perspective correction, obstacle marking. Done in `web/` (the site on GitHub Pages).
 4. Taste: the pairwise quiz, image embeddings and palettes precomputed for the catalog, and a small preference model that runs in the browser.
 5. Preview: warp each chosen piece onto the original photo at true scale.
 6. Accounts and storage: Supabase auth, a private photo bucket, write functions.

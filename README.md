@@ -6,18 +6,20 @@ You show it one wall and the art you already own. It gives you a finished wall, 
 
 This repo holds the layout engine and a demo with three sample walls and 275 modern photos from Unsplash.
 
-**Live demo: [jason-traum.github.io/walldrobe](https://jason-traum.github.io/walldrobe/)**. Take the taste test, pick fewer and bigger or more and smaller pieces, then keep the ones you like, swap one, refresh the rest, or try a new layout. Nothing is saved.
+**Live: [jason-traum.github.io/walldrobe](https://jason-traum.github.io/walldrobe/)**. Photograph a wall, drag its four corners, give one measurement, mark the couch and the art you already own, take the taste test, and get three layouts on your own photo with the frame sizes, where to get each piece and where every nail goes. Walls save on your device; photos never leave it.
 
-## The demo
+## The site
 
-`docs/` is the built demo that GitHub Pages serves. Rebuild it after changing the engine or the demo:
+`web/` is the app: `photo.js` (corners, flattening a photo to true scale, painting out a piece, palettes), `draw.js` (walls drawn to scale), `store.js` (saving on the device) and `main.js` (the screens). Build it into `docs/`, which GitHub Pages serves:
 
 ```sh
 npm install --no-save esbuild
-npm run demo -- node_modules/.bin/esbuild   # writes docs/ and out/
+npm run site -- node_modules/.bin/esbuild   # writes docs/
 ```
 
-Photos are from Unsplash, credited to each photographer and shown under the [Unsplash License](https://unsplash.com/license). They are samples, not for sale.
+`npm run demo` builds the older one-page explainer into `out/`.
+
+Photos are from Unsplash, credited to each photographer and shown under the [Unsplash License](https://unsplash.com/license). Walldrobe doesn't sell them.
 
 ## The layout engine
 
@@ -38,7 +40,7 @@ const { layouts, problems } = layout({
 Each layout lists every piece with its position in inches, where the nail goes, and one sentence on why it's there. Every wall is judged whole: fit, taste, color (the scheme on the color wheel, how much of each color, whether accents repeat) and design (balance, a focal piece, busy next to quiet). `refill(input, layout, { keep, swap })` keeps the frames where they are and changes the art in them. The rules (57 in to center, 2 to 3 in gaps, about two thirds the width of the couch, 8 in above it) and the scoring are in [ENGINE.md](ENGINE.md).
 
 ```sh
-npm test               # 101 tests, including 300 random walls
+npm test               # 107 tests, including 300 random walls
 npm run elevations     # draws the sample walls' top layouts as SVG in out/
 ```
 

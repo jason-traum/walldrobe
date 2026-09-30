@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test",
     "elevations": "node tools/elevation.js",
-    "demo": "node tools/build_demo.mjs"
+    "demo": "node tools/build_demo.mjs",
+    "site": "node tools/build_site.mjs"
   }
 }
