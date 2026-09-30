@@ -6,6 +6,19 @@ You show it one wall and the art you already own. It gives you a finished wall, 
 
 This repo holds the layout engine and a demo with three sample walls and 275 modern photos from Unsplash.
 
+**Live demo: [jason-traum.github.io/walldrobe](https://jason-traum.github.io/walldrobe/)**. Take the taste test, then keep the pieces you like, swap one, refresh the rest, or try a new layout. Nothing is saved.
+
+## The demo
+
+`docs/` is the built demo that GitHub Pages serves. Rebuild it after changing the engine or the demo:
+
+```sh
+npm install --no-save esbuild
+npm run demo -- node_modules/.bin/esbuild   # writes docs/ and out/
+```
+
+Photos are from Unsplash, credited to each photographer and shown under the [Unsplash License](https://unsplash.com/license). They are samples, not for sale.
+
 ## The layout engine
 
 `engine/` is a pure JavaScript module with no dependencies. It runs in the browser and in Node.

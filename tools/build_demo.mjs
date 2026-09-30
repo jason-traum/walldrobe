@@ -1,8 +1,9 @@
-// Build the demo into one self-contained HTML file: the engine and app bundled,
-// the catalog and every image inlined. Usage: node tools/build_demo.mjs [esbuild path]
-// Writes out/walldrobe.html (page body, for embedding) and out/index.html (full page).
+// Build the demo. Usage: node tools/build_demo.mjs [esbuild path]
+// Writes out/walldrobe.html (page body, everything inlined, for embedding),
+// out/index.html (the same as a full page), and docs/ for GitHub Pages: a full
+// page with the catalog inlined and the images as files in docs/art/.
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,19 +17,17 @@ const app = execFileSync(esbuild, [join(root, 'demo/app.js'), '--bundle', '--for
 const catalog = JSON.parse(readFileSync(join(root, 'demo/catalog.json'), 'utf8'));
 const errors = validateCatalog(catalog.items);
 if (errors.length) { console.error(errors.slice(0, 20).join('\n')); process.exit(1); }
-for (const it of catalog.items) {
-  const b64 = readFileSync(join(root, 'demo', it.image.src)).toString('base64');
-  it.image.data = `data:image/jpeg;base64,${b64}`;
+const template = readFileSync(join(root, 'demo/template.html'), 'utf8');
+
+// Image data: inlined as data URIs, or a relative path to a file next to the page.
+function bodyWith(imageData) {
+  const cat = { ...catalog, items: catalog.items.map((it) => ({ ...it, image: { ...it.image, data: imageData(it) } })) };
+  const json = JSON.stringify(cat).replace(/</g, '\\u003c');
+  return template
+    .replace('{{CATALOG}}', () => json)
+    .replace('{{APP}}', () => app.replace(/<\/script/gi, '<\\/script'));
 }
-const json = JSON.stringify(catalog).replace(/</g, '\\u003c');
-
-const body = readFileSync(join(root, 'demo/template.html'), 'utf8')
-  .replace('{{CATALOG}}', () => json)
-  .replace('{{APP}}', () => app.replace(/<\/script/gi, '<\\/script'));
-
-mkdirSync(join(root, 'out'), { recursive: true });
-writeFileSync(join(root, 'out/walldrobe.html'), body);
-writeFileSync(join(root, 'out/index.html'), `<!doctype html>
+const page = (body) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -39,5 +38,17 @@ ${body.slice(0, body.indexOf('<div class="page">'))}
 ${body.slice(body.indexOf('<div class="page">'))}
 </body>
 </html>
-`);
-console.log(`out/walldrobe.html ${(body.length / 1e6).toFixed(2)} MB`);
+`;
+
+const inlined = bodyWith((it) => `data:image/jpeg;base64,${readFileSync(join(root, 'demo', it.image.src)).toString('base64')}`);
+mkdirSync(join(root, 'out'), { recursive: true });
+writeFileSync(join(root, 'out/walldrobe.html'), inlined);
+writeFileSync(join(root, 'out/index.html'), page(inlined));
+
+const site = bodyWith((it) => it.image.src);
+rmSync(join(root, 'docs'), { recursive: true, force: true });
+mkdirSync(join(root, 'docs'), { recursive: true });
+cpSync(join(root, 'demo/art'), join(root, 'docs/art'), { recursive: true });
+writeFileSync(join(root, 'docs/index.html'), page(site));
+writeFileSync(join(root, 'docs/.nojekyll'), '');
+console.log(`out/walldrobe.html ${(inlined.length / 1e6).toFixed(2)} MB, docs/index.html ${(site.length / 1e6).toFixed(2)} MB`);
