@@ -27,7 +27,7 @@ test('every layout explains itself: key, parts, checks, colors and notes', () =>
       assert.ok(L.notes.length >= 1 && L.notes.length <= 5, `${L.notes.length} notes`);
       for (const n of L.notes) {
         assert.ok(n.length <= 160 && /^[A-Z].*\.$/.test(n), n);
-        assert.ok(!/[—–]/.test(n), `no dash in: ${n}`);
+        assert.ok(!/[\u2014\u2013]/.test(n), `no dash in: ${n}`);
       }
       assert.ok(L.notes.filter((n) => n.startsWith('Worth knowing')).length <= 1);
       for (const p of L.pieces) {
