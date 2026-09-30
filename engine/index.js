@@ -150,7 +150,7 @@ function fill(struct, index, pairSim, hasRoom) {
 
 // ---------- Scoring ----------
 
-function scoreLayout(L, zone, palettes, pairSim, hasRoom) {
+function scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight) {
   const g = L.group;
   const ids = L.pieces.map((p) => p.ref.id);
 
@@ -207,8 +207,10 @@ function scoreLayout(L, zone, palettes, pairSim, hasRoom) {
   // Balance
   let wsum = 0, wx = 0, wy = 0, left = 0, right = 0;
   for (const p of L.pieces) {
+    // Measured visual weight when the catalog has it, otherwise estimated from the palette.
     const t = tone(palettes.get(p.ref.id) || []);
-    const wgt = p.w * p.h * (0.3 + 0.7 * t.dark) * (1 + 0.5 * t.sat);
+    const perArea = vweight.has(p.ref.id) ? 0.3 + 1.2 * vweight.get(p.ref.id) : (0.3 + 0.7 * t.dark) * (1 + 0.5 * t.sat);
+    const wgt = p.w * p.h * perArea;
     wsum += wgt; wx += wgt * p.cx; wy += wgt * p.cy;
     if (p.cx < gcx - EPS) left += wgt; else if (p.cx > gcx + EPS) right += wgt; else { left += wgt / 2; right += wgt / 2; }
   }
@@ -266,6 +268,7 @@ export function layout(input) {
   const room = normalizePalette(input.room && input.room.palette);
   if (room.length) palettes.set(ROOM, room);
   const hasRoom = room.length > 0;
+  const vweight = new Map(catalog.filter((c) => num(c.weight) && c.weight >= 0 && c.weight <= 1).map((c) => [c.id, c.weight]));
   const pairSim = pairSimFactory(palettes, paletteSimilarity);
 
   const catalogCands = catalog.map((c) => ({
@@ -336,7 +339,7 @@ export function layout(input) {
       }
       if (checkPieces(pieces, regions, wall).length) continue;
       const L = { family: st.family, variant: st.variant || null, meta: st.meta, group: place, shift: place.shift, pieces, happyTotal: happy.length };
-      const { score, parts } = scoreLayout(L, zone, palettes, pairSim, hasRoom);
+      const { score, parts } = scoreLayout(L, zone, palettes, pairSim, hasRoom, vweight);
       results.push({ ...L, score, parts });
     }
   }

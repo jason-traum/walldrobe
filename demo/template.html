@@ -112,7 +112,15 @@ button { font: inherit; color: inherit; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; min-height: 44px; cursor: pointer; }
 .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
-.taste-line { font-size: 15px; color: var(--ink-2); }
+.taste { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+.taste > div { display: grid; gap: 2px; min-width: 0; flex: 1 1 280px; }
+.taste-title { font-weight: 700; font-size: 17px; }
+.taste .muted { font-size: 15px; }
+.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: var(--r); padding: 10px 16px; min-height: 44px; font-weight: 600; cursor: pointer; }
+.btn:active { transform: scale(0.98); }
+.btn-quiet { background: none; color: var(--ink); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 16px; min-height: 44px; font-weight: 600; cursor: pointer; }
+.quiz-bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.quiz-bar span { display: block; height: 100%; background: var(--accent); transition: width 200ms ease-out; }
 .linklike { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
 .summary { font-size: 18px; font-weight: 600; line-height: 1.35; }
 
@@ -176,6 +184,7 @@ button { font: inherit; color: inherit; }
   <nav class="walls" id="walls" aria-label="Sample walls"></nav>
   <p class="wall-note" id="wall-note"></p>
 
+  <section class="taste" id="taste" aria-label="Your taste"></section>
   <section class="quiz" id="quiz" hidden aria-live="polite"></section>
 
   <div class="main">
@@ -184,7 +193,7 @@ button { font: inherit; color: inherit; }
       <div class="drawing" id="drawing"></div>
       <div class="controls">
         <label class="toggle"><input type="checkbox" id="measure" checked> Show measurements and nails</label>
-        <p class="taste-line" id="taste-line"></p>
+
       </div>
       <p class="summary" id="summary"></p>
     </section>
@@ -200,7 +209,7 @@ button { font: inherit; color: inherit; }
 
   <footer class="foot">
     <p>Walls are drawn to scale from sample measurements. Tap a piece to see where its nail goes.</p>
-    <p>Photos from Unsplash, credited to each photographer and shown under the Unsplash License. They are samples, not for sale here.</p>
+    <p>275 pieces from Unsplash, credited to each photographer and shown under the Unsplash License. They are samples, not for sale here. Each one is measured for color, brightness, contrast, busyness and empty space, and that's what the taste test learns from.</p>
     <p>Layouts come from the Walldrobe engine: hanging rules for size, height and spacing, then a score for fit, taste, color and balance.</p>
   </footer>
 </div>
