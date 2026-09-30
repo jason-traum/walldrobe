@@ -1,7 +1,7 @@
 // One plain sentence per piece, built from facts recorded while placing it.
 // No em dashes, under 140 characters, no jargon.
 
-import { colorName, dominant, deltaE2000 } from './color.js';
+import { colorName, dominant, deltaE2000, lch } from './color.js';
 
 const MAX = 140;
 
@@ -35,6 +35,15 @@ function fit(options) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// The color a person would name for a whole piece: "black and white" when it has
+// no real color, otherwise its dominant color.
+export function colorWord(pal) {
+  if (!pal || !pal.length) return null;
+  if (pal.every((c) => lch(c.lab)[1] < 12)) return 'black and white';
+  const d = dominant(pal);
+  return d ? colorName(d.lab) : null;
+}
+
 // facts: { piece, group, anchorKind, family, ownedInLayout: [{ title, pal }], pal, taste }
 export function pieceReason(f) {
   const { piece, group, anchorKind, family } = f;
@@ -55,13 +64,17 @@ export function pieceReason(f) {
   }
 
   const dom = dominant(f.pal);
-  const color = dom ? colorName(dom.lab) : null;
+  const color = colorWord(f.pal);
   const liked = f.taste >= 0.7;
-  const match = color && f.ownedInLayout
+  const match = color && color !== 'black and white' && f.ownedInLayout
     .map((o) => ({ o, d: dominant(o.pal) }))
-    .find(({ d }) => d && colorName(d.lab) === color && deltaE2000(d.lab, dom.lab) < 22);
-
-  const why = liked ? 'close to what you picked in the quiz' : color ? `its ${color} ties in with the rest` : 'it sits well with the rest';
+    .find(({ o, d }) => d && colorWord(o.pal) === color && deltaE2000(d.lab, dom.lab) < 22);
+  // How many other pieces on this wall share its color: the fact that makes each reason specific.
+  const same = color ? (f.othersPal || []).filter((p) => colorWord(p) === color).length : 0;
+  const tie = !color ? 'it sits well with the rest'
+    : same ? `its ${color} repeats in ${same} other piece${same === 1 ? '' : 's'}`
+    : `the one ${color} piece, for contrast`;
+  const why = liked ? 'close to what you picked in the quiz' : tie;
   const a = /^(8|11|18)$/.test(String(piece.w)) || String(piece.w).startsWith('8') ? 'An' : 'A';
 
   if (piece.role === 'center') {
@@ -71,18 +84,15 @@ export function pieceReason(f) {
     ]);
   }
   if (piece.role === 'flank') {
-    return fit([`Same size as the piece across from it, so both sides balance; ${why}.`, 'Same size as the piece across from it, so both sides balance.']);
+    return fit([`Same size as the piece across from it, so both sides balance; ${tie}.`, 'Same size as the piece across from it, so both sides balance.']);
   }
   if (match) {
     const t = shortTitle(match.o.title);
     return fit([`Its ${color} picks up the ${color} in your ${t}, ${place}.`, `Its ${color} picks up the ${color} in your ${t}.`]);
   }
-  if (family === 'grid') return fit([`Same frame as the rest of the grid; ${why}.`]);
-  if (liked) return fit([`Close to what you picked in the quiz, ${place}.`, 'Close to what you picked in the quiz.']);
-  return fit([
-    cap(`${color ? `its ${color}` : 'its colors'} sit${color ? 's' : ''} well with the rest of the wall, ${place}.`),
-    cap(`${color ? `its ${color}` : 'its colors'} sit${color ? 's' : ''} well with the rest of the wall.`),
-  ]);
+  if (family === 'grid') return fit([`Same frame as the rest of the grid; ${tie}.`]);
+  if (liked) return fit([`Close to what you picked in the quiz; ${tie}.`, 'Close to what you picked in the quiz.']);
+  return fit([cap(`${tie}, ${place}.`), cap(`${tie}.`)]);
 }
 
 export function leftReason(p) {

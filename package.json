@@ -6,6 +6,7 @@
   "description": "Walldrobe: a wardrobe for your walls. Layout engine and demo.",
   "scripts": {
     "test": "node --test",
-    "elevations": "node tools/elevation.js"
+    "elevations": "node tools/elevation.js",
+    "demo": "node tools/build_demo.mjs"
   }
 }

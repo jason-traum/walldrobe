@@ -1,0 +1,209 @@
+<title>Walldrobe</title>
+<meta name="description" content="A wardrobe for your walls. Sample walls laid out by the Walldrobe engine.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600&display=swap">
+<style>
+/* Layout: a framer's measured drawing of the wall comes first, at true scale,
+   with the pieces and the reasons beside it. Tape-measure red marks every
+   measurement and every action; everything else stays out of the art's way. */
+:root {
+  --bg: #F1F2F2;
+  --surface: #FFFFFF;
+  --ink: #16181A;
+  --ink-2: #43484D;
+  --muted: #62686E;
+  --line: #D5D8DA;
+  --accent: #B53A22;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F6E3DE;
+  --measure: #B0371F;   /* marks on the wall drawing; the wall stays light in both themes */
+  --wall: #E7E6E2;
+  --wall-edge: #C9C7C1;
+  --furn: #BDBCB7;
+  --furn-dark: #A3A29D;
+  --bedding: #8C6B5D;
+  --glass: #D5DFE3;
+  --frame: #1B1B1B;
+  --mat: #FBFBF9;
+  --font: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-measure: "Archivo Narrow", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121415; --surface: #1B1E20; --ink: #ECEDEE; --ink-2: #C3C7CA; --muted: #9AA0A5; --line: #2F3336;
+    --accent: #F08A6E; --accent-ink: #1B0E0A; --accent-soft: #3A221C;
+    --wall: #D6D5D1; --wall-edge: #B3B1AB; --furn: #ABAAA5; --furn-dark: #93928D; --bedding: #7A5D51; --glass: #C2CDD2;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121415; --surface: #1B1E20; --ink: #ECEDEE; --ink-2: #C3C7CA; --muted: #9AA0A5; --line: #2F3336;
+  --accent: #F08A6E; --accent-ink: #1B0E0A; --accent-soft: #3A221C;
+  --wall: #D6D5D1; --wall-edge: #B3B1AB; --furn: #ABAAA5; --furn-dark: #93928D; --bedding: #7A5D51; --glass: #C2CDD2;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--font); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.page { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: grid; gap: 20px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; text-wrap: pretty; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.brand p { color: var(--ink-2); font-size: 15px; }
+.sample-label { font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+
+/* Wall picker */
+.walls { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.wall-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 12px; min-height: 44px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.wall-tab[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.wall-note { color: var(--ink-2); font-size: 15px; }
+
+/* Main grid */
+.main { display: grid; gap: 20px; }
+@media (min-width: 900px) {
+  .main { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); align-items: start; }
+  .stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+}
+.stage { display: grid; gap: 12px; min-width: 0; }
+.layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.layout-tab { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; min-height: 44px; cursor: pointer; }
+.layout-tab .rank { grid-row: span 2; font-family: var(--font-measure); font-weight: 600; font-size: 20px; line-height: 1.1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.layout-tab .lt-name { font-weight: 600; font-size: 14px; line-height: 1.25; }
+.layout-tab .lt-count { font-size: 13px; color: var(--muted); }
+.layout-tab[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.layout-tab[aria-pressed="true"] .rank { color: var(--accent); }
+
+.drawing { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; }
+.drawing svg { display: block; width: 100%; height: auto; max-height: 70svh; margin-inline: auto; font-family: var(--font-measure); }
+.wall { fill: var(--wall); stroke: var(--wall-edge); stroke-width: 0.3; }
+.baseboard { fill: var(--wall-edge); }
+.furn rect, .furn path, rect.furn { fill: var(--furn); stroke: var(--furn-dark); stroke-width: 0.3; }
+.furn .furn-dark { fill: var(--furn-dark); }
+.furn .bedding { fill: var(--bedding); stroke: none; }
+.furn .pillow { fill: var(--mat); stroke: var(--furn-dark); stroke-width: 0.3; }
+.furn .seam { stroke: var(--furn-dark); stroke-width: 0.4; }
+.furn .pole { stroke: var(--furn-dark); stroke-width: 0.8; }
+.furn .shade { fill: var(--mat); }
+.window rect { fill: var(--glass); stroke: var(--mat); stroke-width: 1.2; }
+.window line { stroke: var(--mat); stroke-width: 0.8; }
+.fixture { fill: var(--mat); stroke: var(--furn-dark); stroke-width: 0.3; }
+.wall-size { fill: var(--muted); }
+.art { cursor: pointer; }
+.art .frame { fill: var(--frame); }
+.art .mat { fill: var(--mat); }
+.art .select-ring { fill: none; stroke: var(--measure); stroke-width: 0.8; opacity: 0; }
+.art.is-selected .select-ring, .art:focus-visible .select-ring { opacity: 1; }
+.art:focus { outline: none; }
+.owned-label { fill: #FFFFFF; text-anchor: middle; dominant-baseline: middle; font-weight: 600; }
+.measure line { stroke: var(--measure); stroke-width: 0.35; }
+.measure .centerline { stroke-dasharray: 1.6 1.2; stroke-width: 0.25; }
+.measure text { fill: var(--measure); font-weight: 600; paint-order: stroke; stroke: var(--wall); stroke-width: 0.5; }
+.measure .nail { fill: var(--measure); stroke: var(--mat); stroke-width: 0.15; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; min-height: 44px; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.taste-line { font-size: 15px; color: var(--ink-2); }
+.linklike { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
+.summary { font-size: 18px; font-weight: 600; line-height: 1.35; }
+
+/* List */
+.list { display: grid; gap: 16px; min-width: 0; }
+.list h2 { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+.owned { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
+.owned-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.owned-list li { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
+.owned-list .seg { grid-column: 1 / -1; }
+.owned-name { font-weight: 600; }
+.swatch { display: inline-block; width: 28px; height: 36px; border: 3px solid var(--frame); outline: 2px solid var(--mat); outline-offset: -5px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; flex-wrap: wrap; }
+.seg button { background: var(--surface); border: 0; border-right: 1px solid var(--line); padding: 8px 12px; min-height: 40px; font-size: 14px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.pieces { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.piece { padding: 12px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.piece:first-child { border-top: 0; }
+.piece.is-selected { background: var(--accent-soft); }
+.piece-hit { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+.thumb { width: 64px; height: 64px; display: grid; place-items: center; }
+.thumb img { display: block; max-width: 64px; max-height: 64px; border: 2px solid var(--frame); }
+.piece-text { display: grid; min-width: 0; }
+.piece-title { font-weight: 600; }
+.piece-meta { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.reason { font-size: 15px; }
+.nail-line { font-family: var(--font-measure); font-size: 14px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.nail-line .muted { font-family: var(--font); color: var(--muted); }
+.piece-meta a { color: inherit; text-underline-offset: 3px; }
+.nail-note { font-size: 14px; color: var(--muted); }
+.left h3 { font-size: 15px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+.left ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; }
+
+/* Quiz */
+.quiz { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 14px; }
+.quiz-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.quiz-head h2 { font-size: 22px; font-weight: 700; }
+.quiz-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.quiz-card { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; justify-items: center; cursor: pointer; }
+.quiz-card img { display: block; width: 100%; max-height: 46svh; object-fit: contain; border: 3px solid var(--frame); background: var(--mat); padding: 6px; box-sizing: border-box; }
+.quiz-card span { font-size: 14px; color: var(--ink-2); }
+.quiz-card:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) { .quiz-card:hover { border-color: var(--accent); } .layout-tab:hover { border-color: var(--ink-2); } }
+.quiz-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+
+.foot { border-top: 1px solid var(--line); padding-top: 16px; font-size: 14px; color: var(--muted); display: grid; gap: 6px; max-width: 70ch; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } .quiz-card:active { transform: none; } }
+</style>
+
+<div class="page">
+  <header class="top">
+    <div class="brand">
+      <h1>Walldrobe</h1>
+      <p>A wardrobe for your walls. Rent the Runway, for art.</p>
+    </div>
+    <span class="sample-label">Sample walls. Nothing is saved.</span>
+  </header>
+
+  <nav class="walls" id="walls" aria-label="Sample walls"></nav>
+  <p class="wall-note" id="wall-note"></p>
+
+  <section class="quiz" id="quiz" hidden aria-live="polite"></section>
+
+  <div class="main">
+    <section class="stage" id="stage" aria-label="Layouts for this wall">
+      <div class="layouts" id="layouts"></div>
+      <div class="drawing" id="drawing"></div>
+      <div class="controls">
+        <label class="toggle"><input type="checkbox" id="measure" checked> Show measurements and nails</label>
+        <p class="taste-line" id="taste-line"></p>
+      </div>
+      <p class="summary" id="summary"></p>
+    </section>
+
+    <section class="list" id="list" aria-label="Pieces">
+      <div class="owned" id="owned" hidden></div>
+      <h2 id="pieces-head"></h2>
+      <p class="nail-note" id="nail-note" hidden></p>
+      <ul class="pieces" id="pieces"></ul>
+      <div class="left" id="left" hidden></div>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <p>Walls are drawn to scale from sample measurements. Tap a piece to see where its nail goes.</p>
+    <p>Photos from Unsplash, credited to each photographer and shown under the Unsplash License. They are samples, not for sale here.</p>
+    <p>Layouts come from the Walldrobe engine: hanging rules for size, height and spacing, then a score for fit, taste, color and balance.</p>
+  </footer>
+</div>
+
+<script>window.WALLDROBE_CATALOG = {{CATALOG}};</script>
+<script>{{APP}}</script>
