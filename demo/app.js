@@ -1,7 +1,7 @@
 // Walldrobe demo. Sample walls, Unsplash photos, and the real layout engine,
 // all in the browser. Nothing is saved and nothing is sent anywhere.
 
-import { layout } from '../engine/index.js';
+import { layout, refill } from '../engine/index.js';
 import { fitTaste, scoreTaste, nextPair, describeTaste } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS, SAMPLE_PICKS } from './samples.js';
@@ -19,6 +19,12 @@ const state = {
   selected: null,
   measure: true,
   quiz: null, // { picks, shown, pair, n }
+  view: null, // { key, layouts, problems } what's on screen, after any refresh or swap
+  kept: new Map(), // catalog id -> { id, w, h }, pieces the person chose to keep
+  avoid: [], // layout keys already shown on this wall, for "Try a new layout"
+  seen: new Map(), // layout key -> ids already shown in it, so a refresh brings new art
+  flash: null, // a one-time message under the drawing
+  busy: null, // which action is running
 };
 
 // ---------- Taste ----------
@@ -31,18 +37,88 @@ state.weights = fitTaste(samplePicks());
 
 // ---------- Engine ----------
 
-const cache = new Map();
 function currentWall() { return WALLS.find((w) => w.key === state.wall); }
 
-function run() {
+function baseInput() {
   const w = currentWall();
   const owned = w.owned.map((p) => ({ ...p, keep: state.keeps[p.id] }));
-  const key = JSON.stringify([w.key, owned.map((p) => p.keep), state.tasteSource, state.weights]);
-  if (cache.has(key)) return cache.get(key);
   const taste = scoreTaste(state.weights, CATALOG);
-  const result = layout({ wall: w.wall, obstacles: w.obstacles, owned, catalog: CATALOG, taste, room: w.room, count: 3 });
-  cache.set(key, result);
-  return result;
+  return { wall: w.wall, obstacles: w.obstacles, owned, catalog: CATALOG, taste, room: w.room, count: 3 };
+}
+const viewKey = () => JSON.stringify([state.wall, state.keeps, state.tasteSource, state.weights, [...state.kept.keys()]]);
+const keepList = () => [...state.kept.values()];
+
+function remember(layouts) {
+  for (const L of layouts) {
+    if (!state.avoid.includes(L.key)) state.avoid.push(L.key);
+    const seen = state.seen.get(L.key) || new Set();
+    for (const p of L.pieces) if (p.ref.source === 'catalog') seen.add(p.ref.id);
+    state.seen.set(L.key, seen);
+  }
+}
+
+// What's on screen. Recomputed when the wall, the keep settings, the taste or the kept pieces change.
+function run() {
+  const key = viewKey();
+  if (state.view && state.view.key === key) return state.view;
+  const r = layout({ ...baseInput(), keep: keepList() });
+  state.view = { key, layouts: r.layouts, problems: r.problems };
+  remember(r.layouts);
+  return state.view;
+}
+
+function shownLayout() { return run().layouts.find((x) => x.rank === state.rank); }
+
+// Same frames, new art: every piece that isn't kept or yours, or just one.
+function refreshShown(swapId) {
+  const L = shownLayout();
+  if (!L) return;
+  const input = baseInput();
+  const keep = L.pieces.filter((p) => state.kept.has(p.ref.id)).map((p) => p.ref.id);
+  const exclude = [...(state.seen.get(L.key) || [])].filter((id) => !keep.includes(id));
+  const opts = swapId ? { swap: swapId } : { keep };
+  let r = refill({ ...input, keep: keepList().filter((k) => keep.includes(k.id)), exclude }, L, opts);
+  // Seen everything in these sizes: start over, but never bring back the pieces just replaced.
+  if (!r.layouts.length) r = refill({ ...input, keep: keepList().filter((k) => keep.includes(k.id)) }, L, opts);
+  if (!r.layouts.length) { state.flash = r.problems[0] ? r.problems[0].message : 'No other art fits these frames.'; return; }
+  const next = { ...r.layouts[0], rank: L.rank };
+  state.view.layouts = state.view.layouts.map((x) => (x.rank === L.rank ? next : x));
+  remember([next]);
+  if (r.problems.some((p) => p.code === 'NOTHING_TO_CHANGE')) state.flash = 'Every piece here is kept or yours. Unkeep one to refresh it.';
+  if (swapId && state.selected === swapId) state.selected = next.pieces[L.pieces.findIndex((p) => p.ref.id === swapId)]?.ref.id || null;
+}
+
+// After a keep or unkeep, the layout on screen stays as it is and the other tabs
+// are rebuilt around what's kept now.
+function rebuildOthers() {
+  const L = shownLayout();
+  const r = layout({ ...baseInput(), keep: keepList(), count: 6 });
+  const others = r.layouts.filter((x) => x.key !== L.key).slice(0, 2);
+  const layouts = [{ ...L, rank: 1 }, ...others.map((x, i) => ({ ...x, rank: i + 2 }))];
+  state.view = { key: viewKey(), layouts, problems: r.problems };
+  state.rank = 1;
+  remember(others);
+}
+
+// New arrangements, skipping the ones already shown on this wall.
+function newLayouts() {
+  const r = layout({ ...baseInput(), keep: keepList(), avoid: state.avoid });
+  if (r.problems.some((p) => p.code === 'ALL_SHOWN')) {
+    state.flash = "That's every arrangement that fits this wall, so these start again from the best.";
+    state.avoid = [];
+  }
+  state.view = { key: viewKey(), layouts: r.layouts, problems: r.problems };
+  remember(r.layouts);
+  state.rank = 1;
+  state.selected = null;
+}
+
+// Engine calls take a moment on a phone, so show the button working first.
+function act(name, fn) {
+  if (state.busy) return;
+  state.busy = name;
+  render();
+  setTimeout(() => { try { fn(); } finally { state.busy = null; render(); } }, 30);
 }
 
 // ---------- Formatting ----------
@@ -58,6 +134,22 @@ function feet(v) {
   const ft = Math.floor(v / 12), inch = Math.round(v - ft * 12);
   return inch ? `${ft} ft ${inch} in` : `${ft} ft`;
 }
+// Swatches for the color families the engine measures.
+const SWATCH = {
+  red: '#C0392B', pink: '#E9A3B6', orange: '#E07B22', yellow: '#E6C33A', brown: '#8B5A2B', green: '#3F7F4A',
+  teal: '#1B7F86', blue: '#2F55B5', purple: '#7A4A9E', black: '#1A1A1A', gray: '#9A9A9A', white: '#F6F6F3',
+};
+const SCHEME = {
+  neutral: 'Neutral', monochromatic: 'Monochromatic', analogous: 'Analogous', complementary: 'Complementary',
+  'split complementary': 'Split complementary', triadic: 'Triadic', mixed: 'Mixed',
+};
+const pct = (v) => `${Math.round(v * 100)}%`;
+function colorBar(shares, cls = '') {
+  const parts = Object.entries(shares).filter(([, v]) => v >= 0.01);
+  const total = parts.reduce((a, [, v]) => a + v, 0) || 1;
+  return `<span class="cbar ${cls}" role="img" aria-label="${esc(parts.map(([k, v]) => `${pct(v / total)} ${k}`).join(', '))}">${parts.map(([k, v]) => `<span style="flex-grow:${(v / total).toFixed(4)};background:${SWATCH[k] || '#999'}" class="cseg${k === 'white' ? ' is-white' : ''}"></span>`).join('')}</span>`;
+}
+
 const FAMILY = {
   salon: 'Two rows',
   grid: 'Grid',
@@ -228,10 +320,31 @@ function pieceRow(p, L) {
         <span class="piece-meta">${p.w} x ${p.h} in frame${tags ? `. ${esc(tags.charAt(0).toUpperCase() + tags.slice(1))}.` : ''}</span>
       </span>
     </button>
+    ${colorBar(p.shares || {}, 'cbar-piece')}
     <p class="piece-meta">${item ? `Photo: ${credit}` : 'Already yours'}</p>
     <p class="reason">${esc(reason)}</p>
     <p class="nail-line">${nail}</p>
+    ${item ? `<div class="piece-acts">
+      <button type="button" class="chip" data-act="keep" data-id="${esc(p.ref.id)}" aria-pressed="${state.kept.has(p.ref.id)}">${state.kept.has(p.ref.id) ? 'Kept' : 'Keep'}</button>
+      <button type="button" class="chip" data-act="swap" data-id="${esc(p.ref.id)}"${state.kept.has(p.ref.id) || state.busy ? ' disabled' : ''}>${state.busy === `swap:${p.ref.id}` ? 'Swapping…' : 'Swap this one'}</button>
+    </div>` : ''}
   </li>`;
+}
+
+function whyPanel(L) {
+  const c = L.color;
+  const scheme = SCHEME[c.scheme] || c.scheme;
+  const colors = c.colors && c.colors.length ? `: ${c.colors.join(', ')}` : '';
+  const legend = Object.entries(c.shares).filter(([, v]) => v >= 0.03).slice(0, 6)
+    .map(([k, v]) => `<li><span class="dot${k === 'white' ? ' is-white' : ''}" style="background:${SWATCH[k] || '#999'}"></span>${esc(k)} <span class="muted">${pct(v)}</span></li>`).join('');
+  const meters = [['Fit', L.parts.fit], ['Taste', L.parts.taste], ['Color', L.parts.color], ['Design', L.parts.design]]
+    .map(([k, v]) => `<li><span class="m-label">${k}</span><span class="meter"><span style="width:${Math.round(v * 100)}%"></span></span><span class="m-val">${Math.round(v * 100)}</span></li>`).join('');
+  const notes = L.notes.map((n) => `<li${n.startsWith('Worth knowing') ? ' class="caveat"' : ''}>${esc(n)}</li>`).join('');
+  return `<div class="why-head"><h2>Why it works</h2><span class="scheme">${esc(scheme)}${esc(colors)}</span></div>
+    ${colorBar(c.shares, 'cbar-wall')}
+    <ul class="legend">${legend}</ul>
+    <ul class="notes">${notes}</ul>
+    <ul class="meters" aria-label="Scores out of 100">${meters}</ul>`;
 }
 
 function renderOwned(w) {
@@ -285,9 +398,13 @@ function render() {
   const problems = result.problems.filter((p) => p.code !== 'FAMILY_SKIPPED');
   if (!result.layouts.length) {
     $('#layouts').innerHTML = '';
+    $('#flash').hidden = true;
+    $('#nail-note').hidden = true;
+    $('#pieces-head').textContent = '';
     $('#drawing').innerHTML = wallSvg(w, null);
     $('#summary').textContent = problems[0] ? problems[0].message : 'No layout fits this wall.';
     $('#pieces').innerHTML = '';
+    $('#why').innerHTML = '';
     $('#left').hidden = true;
     return;
   }
@@ -297,6 +414,13 @@ function render() {
   renderLayoutTabs(result);
   $('#drawing').innerHTML = wallSvg(w, L);
   $('#summary').textContent = L.summary;
+  $('#why').innerHTML = whyPanel(L);
+  $('#flash').hidden = !state.flash;
+  $('#flash').textContent = state.flash || '';
+  const keptHere = L.pieces.filter((p) => state.kept.has(p.ref.id)).length;
+  $('#refresh').textContent = state.busy === 'refresh' ? 'Picking new art…' : keptHere ? `Refresh all but the ${keptHere} kept` : 'Refresh the art';
+  $('#another').textContent = state.busy === 'another' ? 'Finding layouts…' : 'Try a new layout';
+  $('#refresh').disabled = $('#another').disabled = !!state.busy;
   $('#taste').innerHTML = tastePanel();
   $('#measure').checked = state.measure;
   const newCount = L.pieces.filter((p) => p.ref.source === 'catalog').length;
@@ -326,9 +450,12 @@ function select(id) {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .art');
   if (!t) return;
-  if (t.dataset.wall) { state.wall = t.dataset.wall; state.rank = 1; state.selected = null; render(); return; }
-  if (t.dataset.rank) { state.rank = Number(t.dataset.rank); state.selected = null; render(); return; }
-  if (t.dataset.keep) { state.keeps[t.dataset.owned] = t.dataset.keep; state.rank = 1; render(); return; }
+  if (t.dataset.wall) {
+    if (t.dataset.wall !== state.wall) { state.kept = new Map(); state.avoid = []; state.seen = new Map(); state.view = null; }
+    state.wall = t.dataset.wall; state.rank = 1; state.selected = null; state.flash = null; render(); return;
+  }
+  if (t.dataset.rank) { state.rank = Number(t.dataset.rank); state.selected = null; state.flash = null; render(); return; }
+  if (t.dataset.keep) { state.keeps[t.dataset.owned] = t.dataset.keep; state.rank = 1; state.flash = null; render(); return; }
   if (t.classList.contains('art') || t.classList.contains('piece-hit')) { select(t.dataset.id); return; }
   if (t.dataset.pick) {
     const q = state.quiz;
@@ -338,15 +465,28 @@ document.addEventListener('click', (e) => {
     advanceQuiz(true);
     return;
   }
-  const act = t.dataset.act;
-  if (act === 'quiz') {
+  const a = t.dataset.act;
+  if (a === 'keep') {
+    const L = shownLayout();
+    const p = L && L.pieces.find((x) => x.ref.id === t.dataset.id);
+    if (state.kept.has(t.dataset.id)) state.kept.delete(t.dataset.id);
+    else if (p) state.kept.set(p.ref.id, { id: p.ref.id, w: p.w, h: p.h });
+    state.flash = null;
+    act('keep', rebuildOthers);
+    return;
+  }
+  if (a === 'swap') { state.flash = null; act(`swap:${t.dataset.id}`, () => refreshShown(t.dataset.id)); return; }
+  if (a === 'refresh') { state.flash = null; act('refresh', () => refreshShown(null)); return; }
+  if (a === 'another') { state.flash = null; act('another', newLayouts); return; }
+  const act0 = a;
+  if (act0 === 'quiz') {
     const shown = new Set();
     state.quiz = { picks: [], shown, n: 0, pair: nextPair(CATALOG, [], shown) };
     render();
     $('#quiz').scrollIntoView({ block: 'start' });
   }
-  if (act === 'quiz-skip') advanceQuiz(false);
-  if (act === 'quiz-cancel') { state.quiz = null; render(); }
+  if (act0 === 'quiz-skip') advanceQuiz(false);
+  if (act0 === 'quiz-cancel') { state.quiz = null; render(); }
 });
 
 document.addEventListener('keydown', (e) => {

@@ -4,7 +4,7 @@ Rent the Runway, for art: a wardrobe for your walls.
 
 You show it one wall and the art you already own. It gives you a finished wall, with specific pieces, sizes, positions and spacing for that wall, and you can change it later.
 
-This repo holds the layout engine, and soon a demo with sample walls and open-access art.
+This repo holds the layout engine and a demo with three sample walls and 275 modern photos from Unsplash.
 
 ## The layout engine
 
@@ -22,10 +22,10 @@ const { layouts, problems } = layout({
 });
 ```
 
-Each layout lists every piece with its position in inches, where the nail goes, and one sentence on why it's there. The rules (57 in to center, 2 to 3 in gaps, about two thirds the width of the couch, 8 in above it) and the scoring are in [ENGINE.md](ENGINE.md).
+Each layout lists every piece with its position in inches, where the nail goes, and one sentence on why it's there. Every wall is judged whole: fit, taste, color (the scheme on the color wheel, how much of each color, whether accents repeat) and design (balance, a focal piece, busy next to quiet). `refill(input, layout, { keep, swap })` keeps the frames where they are and changes the art in them. The rules (57 in to center, 2 to 3 in gaps, about two thirds the width of the couch, 8 in above it) and the scoring are in [ENGINE.md](ENGINE.md).
 
 ```sh
-npm test               # 40 tests, including 300 random walls
+npm test               # 98 tests, including 300 random walls
 npm run elevations     # draws the sample walls' top layouts as SVG in out/
 ```
 

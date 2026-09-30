@@ -124,6 +124,36 @@ button { font: inherit; color: inherit; }
 .linklike { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
 .summary { font-size: 18px; font-weight: 600; line-height: 1.35; }
 
+.acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn:disabled, .btn-quiet:disabled, .chip:disabled { opacity: 0.55; cursor: default; }
+.flash { font-size: 15px; color: var(--ink-2); border-left: 3px solid var(--accent); padding-left: 10px; }
+
+/* Why it works */
+.why { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+.why:empty { display: none; }
+.why-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.why-head h2 { font-size: 17px; font-weight: 700; }
+.scheme { font-family: var(--font-measure); font-weight: 600; font-size: 15px; color: var(--accent); }
+.cbar { display: flex; width: 100%; overflow: hidden; border-radius: 3px; }
+.cbar-wall { height: 16px; }
+.cbar-piece { height: 6px; }
+.cseg { display: block; min-width: 1px; }
+.cseg.is-white, .dot.is-white { box-shadow: inset 0 0 0 1px var(--line); }
+.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; }
+.notes .caveat { color: var(--ink-2); list-style: none; margin-left: -18px; padding-left: 10px; border-left: 3px solid var(--accent); }
+.meters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; font-size: 14px; }
+.meters li { display: grid; grid-template-columns: 52px 1fr 28px; align-items: center; gap: 8px; }
+.m-label { color: var(--ink-2); }
+.m-val { font-family: var(--font-measure); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.meter { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.meter span { display: block; height: 100%; background: var(--ink-2); }
+.piece-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; min-height: 36px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
 /* List */
 .list { display: grid; gap: 16px; min-width: 0; }
 .list h2 { font-size: 15px; font-weight: 600; color: var(--ink-2); }
@@ -190,16 +220,21 @@ button { font: inherit; color: inherit; }
   <div class="main">
     <section class="stage" id="stage" aria-label="Layouts for this wall">
       <div class="layouts" id="layouts"></div>
-      <div class="drawing" id="drawing"></div>
       <div class="controls">
+        <div class="acts">
+          <button type="button" class="btn" id="refresh" data-act="refresh">Refresh the art</button>
+          <button type="button" class="btn-quiet" id="another" data-act="another">Try a new layout</button>
+        </div>
         <label class="toggle"><input type="checkbox" id="measure" checked> Show measurements and nails</label>
-
       </div>
+      <div class="drawing" id="drawing"></div>
+      <p class="flash" id="flash" hidden role="status"></p>
       <p class="summary" id="summary"></p>
     </section>
 
     <section class="list" id="list" aria-label="Pieces">
       <div class="owned" id="owned" hidden></div>
+      <div class="why" id="why"></div>
       <h2 id="pieces-head"></h2>
       <p class="nail-note" id="nail-note" hidden></p>
       <ul class="pieces" id="pieces"></ul>
@@ -210,7 +245,7 @@ button { font: inherit; color: inherit; }
   <footer class="foot">
     <p>Walls are drawn to scale from sample measurements. Tap a piece to see where its nail goes.</p>
     <p>275 pieces from Unsplash, credited to each photographer and shown under the Unsplash License. They are samples, not for sale here. Each one is measured for color, brightness, contrast, busyness and empty space, and that's what the taste test learns from.</p>
-    <p>Layouts come from the Walldrobe engine: hanging rules for size, height and spacing, then a score for fit, taste, color and balance.</p>
+    <p>Layouts come from the Walldrobe engine: hanging rules for size, height and spacing, then every wall is judged whole: how well it fits, your taste, its colors (the scheme on the color wheel, how much of each color, whether accents repeat) and its design (balance, a clear focal piece, busy next to quiet, side pieces facing in). Keep the pieces you like and refresh the rest.</p>
   </footer>
 </div>
 

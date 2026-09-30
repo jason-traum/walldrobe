@@ -1,6 +1,8 @@
 // Catalog records: the shape CATALOG.md describes, a validator that the build
 // and the tests run, and the adapter that turns a record into what layout() reads.
 
+import { profileFromRecord } from './theory.js';
+
 export const CATEGORIES = [
   'abstract', 'aerial', 'architecture', 'beach', 'black and white', 'cars', 'city', 'coast', 'coffee', 'desert', 'dogs', 'drinks',
   'film', 'flowers', 'food', 'golf', 'graphic', 'horses', 'lines', 'moon', 'objects', 'palm springs', 'pool', 'sailing',
@@ -17,6 +19,7 @@ export const THEME_OF = {
   dogs: 'animals', horses: 'animals', western: 'animals',
   'black and white': 'mono',
 };
+export const SHARE_FAMILIES = ['red', 'pink', 'orange', 'yellow', 'brown', 'green', 'teal', 'blue', 'purple', 'black', 'gray', 'white'];
 export const COLOR_NAMES = ['black', 'white', 'light gray', 'gray', 'pink', 'red', 'brown', 'peach', 'orange', 'ochre', 'yellow', 'green', 'teal', 'navy', 'light blue', 'blue', 'purple'];
 const PROVENANCE_KEYS = ['source', 'image', 'color', 'composition', 'tags', 'sizes', 'quality'];
 export const MOODS = ['sunny', 'calm', 'moody', 'bold', 'playful', 'elegant'];
@@ -68,6 +71,17 @@ export function validateRecord(r) {
   if (c.bw !== (c.dominant === 'black and white')) at('color.bw and color.dominant disagree');
   for (const k of ['brightness', 'contrast', 'saturation', 'colorfulness']) if (!isNum01(c[k])) at(`color.${k} must be 0 to 1`);
   if (!(typeof c.warmth === 'number' && c.warmth >= -1 && c.warmth <= 1)) at('color.warmth must be -1 to 1');
+  const near1 = (xs) => Math.abs(xs.reduce((a, b) => a + b, 0) - 1) <= 0.02;
+  if (!c.shares || typeof c.shares !== 'object' || !Object.keys(c.shares).length) at('color.shares missing');
+  else {
+    if (!Object.keys(c.shares).every((f) => SHARE_FAMILIES.includes(f))) at(`color.shares has a family that isn't one of ${SHARE_FAMILIES.join(', ')}`);
+    if (!Object.values(c.shares).every(isNum01) || !near1(Object.values(c.shares))) at('color.shares must be 0 to 1 and sum to 1');
+  }
+  if (!Array.isArray(c.hues) || c.hues.length !== 12 || !c.hues.every(isNum01)) at('color.hues needs 12 numbers from 0 to 1');
+  else if (!near1(c.hues) && c.hues.some((v) => v > 0)) at('color.hues must sum to 1, or be all zeros');
+  if (!isNum01(c.chromatic)) at('color.chromatic must be 0 to 1');
+  const v = c.value || {};
+  if (!['dark', 'mid', 'light'].every((key) => isNum01(v[key])) || !near1([v.dark, v.mid, v.light])) at('color.value needs dark, mid and light summing to 1');
 
   const k = r.composition || {};
   for (const f of ['busyness', 'negativeSpace', 'symmetry', 'weight']) if (!isNum01(k[f])) at(`composition.${f} must be 0 to 1`);
@@ -112,6 +126,7 @@ export function toCandidate(r) {
     sizes: r.sizes.map(({ w, h, price }) => (price == null ? { w, h } : { w, h, price })),
     bw: r.color.bw,
     weight: r.composition.weight,
+    profile: profileFromRecord(r),
     record: r,
   };
 }
