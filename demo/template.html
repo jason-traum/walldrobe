@@ -125,6 +125,8 @@ button { font: inherit; color: inherit; }
 .summary { font-size: 18px; font-weight: 600; line-height: 1.35; }
 
 .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lever { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.lever-label { font-size: 15px; font-weight: 600; color: var(--ink-2); }
 .btn:disabled, .btn-quiet:disabled, .chip:disabled { opacity: 0.55; cursor: default; }
 .flash { font-size: 15px; color: var(--ink-2); border-left: 3px solid var(--accent); padding-left: 10px; }
 
@@ -226,6 +228,14 @@ button { font: inherit; color: inherit; }
           <button type="button" class="btn-quiet" id="another" data-act="another">Try a new layout</button>
         </div>
         <label class="toggle"><input type="checkbox" id="measure" checked> Show measurements and nails</label>
+      </div>
+      <div class="lever">
+        <span class="lever-label" id="scale-label">Pieces</span>
+        <span class="seg" role="group" aria-labelledby="scale-label">
+          <button type="button" data-scale="-1" aria-pressed="false">Fewer, bigger</button>
+          <button type="button" data-scale="0" aria-pressed="true">Balanced</button>
+          <button type="button" data-scale="1" aria-pressed="false">More, smaller</button>
+        </span>
       </div>
       <div class="drawing" id="drawing"></div>
       <p class="flash" id="flash" hidden role="status"></p>

@@ -25,6 +25,7 @@ const state = {
   seen: new Map(), // layout key -> ids already shown in it, so a refresh brings new art
   flash: null, // a one-time message under the drawing
   busy: null, // which action is running
+  scale: 0, // the size lever: -1 fewer, bigger; 0 balanced; 1 more, smaller
 };
 
 // ---------- Taste ----------
@@ -43,9 +44,9 @@ function baseInput() {
   const w = currentWall();
   const owned = w.owned.map((p) => ({ ...p, keep: state.keeps[p.id] }));
   const taste = scoreTaste(state.weights, CATALOG);
-  return { wall: w.wall, obstacles: w.obstacles, owned, catalog: CATALOG, taste, room: w.room, count: 3 };
+  return { wall: w.wall, obstacles: w.obstacles, owned, catalog: CATALOG, taste, room: w.room, count: 3, prefs: { scale: state.scale } };
 }
-const viewKey = () => JSON.stringify([state.wall, state.keeps, state.tasteSource, state.weights, [...state.kept.keys()]]);
+const viewKey = () => JSON.stringify([state.wall, state.keeps, state.tasteSource, state.weights, [...state.kept.keys()], state.scale]);
 const keepList = () => [...state.kept.values()];
 
 function remember(layouts) {
@@ -422,6 +423,7 @@ function render() {
   $('#another').textContent = state.busy === 'another' ? 'Finding layouts…' : 'Try a new layout';
   $('#refresh').disabled = $('#another').disabled = !!state.busy;
   $('#taste').innerHTML = tastePanel();
+  for (const b of document.querySelectorAll('[data-scale]')) b.setAttribute('aria-pressed', String(Number(b.dataset.scale) === state.scale));
   $('#measure').checked = state.measure;
   const newCount = L.pieces.filter((p) => p.ref.source === 'catalog').length;
   const n = L.pieces.length;
@@ -455,6 +457,7 @@ document.addEventListener('click', (e) => {
     state.wall = t.dataset.wall; state.rank = 1; state.selected = null; state.flash = null; render(); return;
   }
   if (t.dataset.rank) { state.rank = Number(t.dataset.rank); state.selected = null; state.flash = null; render(); return; }
+  if (t.dataset.scale !== undefined) { state.scale = Number(t.dataset.scale); state.rank = 1; state.selected = null; state.flash = null; act('scale', () => run()); return; }
   if (t.dataset.keep) { state.keeps[t.dataset.owned] = t.dataset.keep; state.rank = 1; state.flash = null; render(); return; }
   if (t.classList.contains('art') || t.classList.contains('piece-hit')) { select(t.dataset.id); return; }
   if (t.dataset.pick) {
