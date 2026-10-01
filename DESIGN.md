@@ -1,6 +1,6 @@
 # DESIGN.md
 
-Status: demo direction picked on 2026-09-30 (see DECISIONS): wall first, hanging-diagram look. Tokens live at the top of demo/template.html. The rules below are fixed.
+Status: demo direction picked on 2026-09-30 (see DECISIONS): wall first, hanging-diagram look. Tokens live at the top of web/site.css. The rules below are fixed.
 
 ## What the design is for
 
@@ -47,7 +47,7 @@ Each starts from something in the subject's own world:
 
 ## Tokens
 
-In `demo/template.html` `:root`, light and dark: bg, surface, ink, ink-2, muted, line, accent (tape-measure red, #B53A22 light, #F08A6E dark), measure (#B0371F in both themes, because the wall drawing stays light), wall, furniture, frame, mat. Type: Archivo 400 to 700 for text, Archivo Narrow 500 to 600 for measurements and nail lines. Radius 6 px. Art sits in a black frame with a white mat on a light neutral wall in both themes.
+In `web/site.css` `:root`, light and dark: bg, surface, ink, ink-2, muted, line, field-line (input borders, 3:1 on both grounds), wall-ink (wall size label), accent (tape-measure red, #B53A22 light, #F08A6E dark), measure (#B0371F in both themes, because the wall drawing stays light), wall, furniture, frame, mat. Type: Archivo 400 to 700 for text, Archivo Narrow 500 to 600 for measurements and nail lines. Radius 6 px. Art sits in a black frame with a white mat on a light neutral wall in both themes. Dark mode never redefines the wall, furniture or glass tokens: the drawing stays light. Status notes use a fill, not a colored left border. Inputs and buttons are at least 44 px tall.
 
 ## Reference screens
 

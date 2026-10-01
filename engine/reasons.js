@@ -122,7 +122,9 @@ export function summary(layout, mustTitles, newCount, keptTitles = []) {
     : keptTitles.length === 1 ? `, built around the ${shortTitle(keptTitles[0])} you kept`
     : keptTitles.length > 1 ? `, built around the ${keptTitles.length} pieces you kept`
     : newCount ? `, with ${newCount} new piece${newCount === 1 ? '' : 's'}` : '';
-  return `${shape}${where}, ${Math.round(group.w)} in wide${built}.`;
+  // Same quarter-inch rounding as the drawing's dimension line, so the two always agree.
+  const q = Math.round(group.w * 4) / 4, whole = Math.floor(q), f = ['', '¼', '½', '¾'][Math.round((q - whole) * 4)];
+  return `${shape}${where}, ${whole}${f} in wide${built}.`;
 }
 
 // ---------- Notes on the whole wall ----------
