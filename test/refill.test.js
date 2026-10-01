@@ -147,8 +147,10 @@ test('a kept piece cannot be swapped out, and refill respects the budget', () =>
 test('a piece you own in an odd size can be swapped for art in its frame slot', () => {
   const mine = { id: 'mine', title: 'my print', w: 15, h: 19, keep: 'happy', palette: [{ hex: '#1F2FA8', weight: 1 }] };
   const input = inputFor(livingRoom, real, { owned: [mine] });
-  const L = layout(input).layouts.find((x) => x.pieces.some((p) => p.ref.id === 'mine'));
-  assert.ok(L, 'your piece is used somewhere');
+  // A layout where your piece sits in a standard frame slot (a statement layout
+  // can also size its side frames to your piece, and then there's no slot to refill).
+  const L = layout(input).layouts.find((x) => x.pieces.some((p) => p.ref.id === 'mine' && p.slot));
+  assert.ok(L, 'your piece is used in a frame slot somewhere');
   const R = refill(input, L, { swap: 'mine' }).layouts[0];
   assert.ok(R, 'swapped');
   const slot = L.pieces.find((p) => p.ref.id === 'mine').slot;

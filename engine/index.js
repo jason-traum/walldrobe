@@ -7,10 +7,10 @@
 // frames where they are and changes the art in them. Pure: no DOM, no network,
 // no clock. Same input, same output. Spec: ENGINE.md.
 
-import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD } from './constants.js';
+import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZone, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
-import { salonStructures, lineStructures, gridStructures, statementStructures } from './structures.js';
+import { salonStructures, lineStructures, gridStructures, statementStructures, offeredSizes } from './structures.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
 import { designScore, lookalike, lookPenalty } from './design.js';
@@ -90,7 +90,10 @@ function readPrefs(raw = {}) {
   return {
     budget: num(raw.budget) && raw.budget >= 0 ? raw.budget : null,
     maxPieces: num(raw.maxPieces) && raw.maxPieces >= 1 ? Math.floor(raw.maxPieces) : 9,
-    families: Array.isArray(raw.families) ? raw.families.filter((f) => FAMILIES.includes(f)) : [...FAMILIES],
+    families: STYLES[raw.style] ? [...STYLES[raw.style]] : Array.isArray(raw.families) ? raw.families.filter((f) => FAMILIES.includes(f)) : [...FAMILIES],
+    style: STYLES[raw.style] ? raw.style : null,
+    // An exact number of pieces, when the person picks one.
+    pieces: num(raw.pieces) && raw.pieces >= 1 ? Math.min(RULES.maxCount, Math.floor(raw.pieces)) : null,
     // The size lever: -1 fewer, bigger pieces; 1 more, smaller ones; null leaves it to the other scores.
     scale: num(raw.scale) && raw.scale !== 0 ? Math.max(-1, Math.min(1, raw.scale)) : null,
   };
@@ -439,6 +442,13 @@ function place(st, pickedBySlot, base, ctx) {
 
 // ---------- Main ----------
 
+function structuresFor(fam, sctx) {
+  if (fam === 'salon') return { structures: salonStructures(sctx) };
+  if (fam === 'line') return { structures: lineStructures(sctx) };
+  if (fam === 'grid') return gridStructures(sctx);
+  return statementStructures(sctx);
+}
+
 /**
  * @param {object} input see ENGINE.md
  * @returns {{ layouts: object[], problems: {code: string, message: string}[], zone: object|null }}
@@ -458,10 +468,11 @@ export function layout(input) {
       code: 'NO_OPEN_SPACE',
       message: short ? 'This wall is too short to hang art at eye level.' : "There's no stretch of wall wide enough to hang on.",
     });
-    return { layouts: [], problems, zone: null };
+    return { layouts: [], problems, zone: null, counts: [] };
   }
 
   const variants = happy.length ? [[...must, ...happy], must] : [must];
+  const counts = new Set();
   const mismatch = new Map(); // family -> number of variants it was skipped in, with its message
   const results = [];
 
@@ -474,15 +485,21 @@ export function layout(input) {
     for (const c of index.owned) for (const [w, h] of STANDARD) {
       if (Math.abs(c.sizes[0].w - w) <= 1 && Math.abs(c.sizes[0].h - h) <= 1) avail.set(sizeKey(w, h), (avail.get(sizeKey(w, h)) || 0) + 1);
     }
-    const sctx = { fixed, zone, avail, maxPieces: prefs.maxPieces, scale: prefs.scale || 0 };
+    const sctx = { fixed, zone, avail, maxPieces: prefs.maxPieces, scale: prefs.pieces ? 0 : prefs.scale || 0, pieces: prefs.pieces, sizes: offeredSizes(avail) };
+    // Which piece counts this style can make on this wall, for the count control.
+    if (fixed === variants[variants.length - 1]) {
+      // Two-row hangs report every count they can make in one pass; the rest are quick to try.
+      if (prefs.families.includes('salon')) salonStructures({ ...sctx, scale: 0, pieces: null, collect: counts });
+      for (let n = 1; n <= RULES.maxCount; n++) {
+        if (counts.has(n)) continue;
+        const c = { ...sctx, scale: 0, pieces: n };
+        if (prefs.families.some((fam) => fam !== 'salon' && structuresFor(fam, c).structures.length)) counts.add(n);
+      }
+    }
 
     const structs = [];
     for (const fam of prefs.families) {
-      let r;
-      if (fam === 'salon') r = { structures: salonStructures(sctx) };
-      if (fam === 'line') r = { structures: lineStructures(sctx) };
-      if (fam === 'grid') r = gridStructures(sctx);
-      if (fam === 'statement') r = statementStructures(sctx);
+      const r = structuresFor(fam, sctx);
       structs.push(...r.structures);
       if (r.skipped) mismatch.set(fam, { n: (mismatch.get(fam)?.n || 0) + 1, message: r.skipped });
     }
@@ -530,7 +547,7 @@ export function layout(input) {
   }
 
   // With the size lever set, drop walls far from it, as long as enough others are left.
-  if (prefs.scale !== null) {
+  if (prefs.scale !== null && !prefs.pieces) {
     const near = valid.filter((L) => L.checks.size >= 0.35);
     if (near.length >= Math.min(count, valid.length)) valid = near;
   }
@@ -541,6 +558,10 @@ export function layout(input) {
   const order = [];
   const famsSeen = new Set();
   for (const L of valid) if (!famsSeen.has(L.family)) { famsSeen.add(L.family); order.push(L); }
+  // Then a different arrangement before the same one with other art.
+  const shapeOf = (L) => `${L.family}|${L.st.slots.map((sl) => `${q(sl.dx)},${q(sl.dy)},${sl.w}x${sl.h}`).sort().join(';')}`;
+  const shapes = new Set(order.map(shapeOf));
+  for (const L of valid) if (!order.includes(L) && !shapes.has(shapeOf(L))) { shapes.add(shapeOf(L)); order.push(L); }
   for (const L of valid) if (!order.includes(L)) order.push(L);
   const chosen = [];
   const used = new Set();
@@ -570,10 +591,15 @@ export function layout(input) {
     problems.push({ code: 'FAMILY_SKIPPED', family: fam, message });
   }
 
-  if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) problems.unshift(whyNothing(must, zone, ctx.catalogCands, loose));
+  const fits = [...counts].sort((a, b) => a - b);
+  if (!chosen.length && prefs.pieces) {
+    const near = fits.length ? fits.reduce((b, n) => (Math.abs(n - prefs.pieces) < Math.abs(b - prefs.pieces) ? n : b), fits[0]) : null;
+    const style = { structured: 'a structured layout', gallery: 'a gallery wall' }[prefs.style] || 'a layout';
+    problems.unshift({ code: 'COUNT_DOESNT_FIT', pieces: prefs.pieces, near, message: near ? `${prefs.pieces} pieces don't make ${style} here. ${near} do.` : `${prefs.pieces} pieces don't fit here.` });
+  } else if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) problems.unshift(whyNothing(must, zone, ctx.catalogCands, loose));
 
   const layouts = chosen.map((L, i) => finish(L, i + 1, ctx));
-  return { layouts, problems, zone: zoneOut(zone) };
+  return { layouts, problems, zone: zoneOut(zone), counts: fits };
 }
 
 /**

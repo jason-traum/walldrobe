@@ -53,11 +53,31 @@ function fitsAvail(fills, avail) {
 }
 
 // Widths a family may generate. Scoring pulls toward the target inside this window.
-function widthWindow(zone) {
-  const lo = Math.max(RULES.minOpenWidth, zone.refW * (zone.range[0] - 0.05));
-  const hi = Math.min(zone.refW * zone.range[1], zone.interval.w);
+// When the person asks for an exact number of pieces, the window opens up
+// (RULES.countRange), so a count they pick fits more often.
+function widthWindow(zone, pieces = null) {
+  const [a, b] = pieces ? RULES.countRange : [zone.range[0] - 0.05, zone.range[1]];
+  const lo = Math.max(RULES.minOpenWidth, zone.refW * a);
+  const hi = Math.min(zone.refW * b, zone.interval.w);
   return [lo, hi];
 }
+// The frame sizes each family builds with: the sizes the art on offer actually
+// comes in (so a shop's own framed sizes work), grouped by how big they are.
+// The fixed lists in SIZES are the fallback when nothing is offered.
+export function offeredSizes(avail) {
+  const all = [...avail.keys()].map((k) => k.split('x').map(Number)).sort((a, b) => a[0] * a[1] - b[0] * b[1] || a[0] - b[0]);
+  const long = ([w, h]) => Math.max(w, h);
+  const pick = (f, fallback) => { const l = all.filter(f); return l.length ? l : fallback; };
+  return {
+    salon: pick((s) => long(s) >= 8 && long(s) <= 27, SIZES.salon),
+    grid: pick((s) => long(s) >= 8 && long(s) <= 27, SIZES.grid),
+    flank: pick((s) => long(s) >= 8 && long(s) <= 27, SIZES.flank),
+    large: pick((s) => long(s) >= 24 && long(s) <= 60, SIZES.large),
+  };
+}
+
+// With an exact count, only structures with that many pieces.
+const countOk = (n, pieces) => !pieces || n === pieces;
 
 // The size lever: -1 leans to fewer, bigger pieces, 1 to more, smaller ones.
 // Used only to order structures before the cut, so the ones asked for survive it.
@@ -67,7 +87,7 @@ const sameSize = (a, b) => Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1;
 
 // ---------- Two-row hang around a horizontal axis ----------
 
-function rowOptions(fixed, sizes, lo, hi, target) {
+function rowOptions(fixed, sizes, lo, hi, target, maxRowH = Infinity) {
   const base = fixed.map(fixedUnit);
   const out = [];
   for (let k = 0; k <= 4; k++) {
@@ -78,13 +98,17 @@ function rowOptions(fixed, sizes, lo, hi, target) {
       if (n === 1 && !units[0].fixed) continue;
       const width = sum(units.map((u) => u.w)) + (n - 1) * G;
       if (width < lo * 0.85 || width > hi) continue;
+      // A row too tall to fit with any row under it never makes the cut.
+      if (Math.max(...units.map((u) => u.h)) > maxRowH) continue;
       const kinds = new Set(units.map((u) => sizeKey(u.w, u.h))).size;
       const rank = Math.abs(width - target) / target + (n > 1 && kinds === 1 ? 0.08 : 0);
       out.push({ units, width, maxH: Math.max(...units.map((u) => u.h)), fills: ms, rank });
     }
   }
   out.sort((a, b) => a.rank - b.rank || a.units.length - b.units.length);
-  return out.slice(0, SEARCH.rowOptions);
+  // The best few of each length, so every piece count stays possible.
+  const per = new Map();
+  return out.filter((o) => { const k = o.units.length, c = per.get(k) || 0; per.set(k, c + 1); return c < Math.ceil(SEARCH.rowOptions / 4); });
 }
 
 function equalizeGaps(topN, botN, wT, wB) {
@@ -122,25 +146,29 @@ function buildSalon(t, b) {
   return { family: 'salon', W, H, slots, meta: { ragged, gaps: [gT, gB], axis: bH + G / 2, rows: 2 } };
 }
 
-export function salonStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
+export function salonStructures({ fixed, zone, avail, maxPieces, scale = 0, pieces = null, sizes: offered = SIZES, collect = null }) {
   if (fixed.length > SEARCH.maxFixed) return [];
-  const sizes = SIZES.salon.filter(([w, h]) => avail.has(sizeKey(w, h)));
-  const [lo, hi] = widthWindow(zone);
+  const sizes = offered.salon.filter(([w, h]) => avail.has(sizeKey(w, h)));
+  const [lo, hi] = widthWindow(zone, pieces || collect);
   const target = Math.min(Math.max(zone.target, lo), hi);
   const ideal = Math.max(4, Math.min(9, Math.round(target / 9) + Math.round(2 * scale)));
   const found = [];
   for (let mask = 0; mask < 1 << fixed.length; mask++) {
     const topFixed = fixed.filter((_, i) => mask & (1 << i));
     const botFixed = fixed.filter((_, i) => !(mask & (1 << i)));
-    const tops = rowOptions(topFixed, sizes, lo, hi, target);
-    const bots = rowOptions(botFixed, sizes, lo, hi, target);
+    const minH = sizes.length ? Math.min(...sizes.map(([, h]) => h)) : 8;
+    const tops = rowOptions(topFixed, sizes, lo, hi, target, zone.maxH - G - minH);
+    const bots = rowOptions(botFixed, sizes, lo, hi, target, zone.maxH - G - minH);
     for (const t of tops) {
       for (const b of bots) {
         const n = t.units.length + b.units.length;
-        if (n < 4 || n > maxPieces) continue;
+        if (n < (pieces || collect ? 3 : 4) || n > (collect ? 12 : Math.max(maxPieces, pieces || 0)) || !countOk(n, pieces)) continue;
         if (Math.max(t.width, b.width) < lo) continue;
         if (t.maxH + G + b.maxH > zone.maxH) continue;
         if (!fitsAvail([...t.fills, ...b.fills], avail)) continue;
+        // One frame size throughout is a grid, not a loose gallery wall.
+        if (new Set([...t.units, ...b.units].map((u) => sizeKey(u.w, u.h))).size < 2) continue;
+        if (collect) { collect.add(n); continue; }
         const avgW = Math.max(t.width, b.width);
         const imbalance = Math.abs(t.maxH - b.maxH) / Math.max(t.maxH, b.maxH);
         const kinds = new Set([...t.units, ...b.units].map((u) => sizeKey(u.w, u.h))).size;
@@ -158,6 +186,7 @@ export function salonStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
       }
     }
   }
+  if (collect) return [];
   found.sort((a, b) => b.pre - a.pre);
   const out = [];
   const seen = new Set();
@@ -175,18 +204,18 @@ export function salonStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
 
 // ---------- One row, centers on one line ----------
 
-export function lineStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
-  const [lo, hi] = widthWindow(zone);
+export function lineStructures({ fixed, zone, avail, maxPieces, scale = 0, pieces = null, sizes: offered = SIZES }) {
+  const [lo, hi] = widthWindow(zone, pieces);
   const base = fixed.map(fixedUnit);
   const heights = base.map((u) => u.h).sort((a, b) => a - b);
   const medH = heights.length ? heights[Math.floor(heights.length / 2)] : null;
   const out = [];
   const seen = new Set();
-  for (const [sw, sh] of SIZES.grid) {
+  for (const [sw, sh] of offered.grid) {
     if (medH && (sh < 0.6 * medH || sh > 1.3 * medH)) continue;
-    for (let nFill = 0; nFill + base.length <= Math.min(5, maxPieces); nFill++) {
+    for (let nFill = 0; nFill + base.length <= (pieces ? Math.min(7, pieces) : Math.min(5, maxPieces)); nFill++) {
       const n = base.length + nFill;
-      if (n < 3) continue;
+      if (n < (pieces ? 2 : 3) || !countOk(n, pieces)) continue;
       const fills = Array.from({ length: nFill }, () => [sw, sh]);
       if (nFill && !fitsAvail(fills, avail)) continue;
       const units = [...base, ...fills.map(fillUnit)];
@@ -209,17 +238,17 @@ export function lineStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
 
 // ---------- Grid of one frame size ----------
 
-export function gridStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
-  const [lo, hi] = widthWindow(zone);
+export function gridStructures({ fixed, zone, avail, maxPieces, scale = 0, pieces = null, sizes: offered = SIZES }) {
+  const [lo, hi] = widthWindow(zone, pieces);
   const out = [];
   let mismatch = fixed.length > 0;
-  for (const [sw, sh] of SIZES.grid) {
+  for (const [sw, sh] of offered.grid) {
     if (!fixed.every((p) => sameSize(p, { w: sw, h: sh }))) continue;
     mismatch = false;
     for (const r of [2, 3]) {
       for (const c of [2, 3, 4]) {
         const n = r * c;
-        if (n > maxPieces || n < fixed.length) continue;
+        if (n > Math.max(maxPieces, pieces || 0) || n < fixed.length || !countOk(n, pieces)) continue;
         const W = c * sw + (c - 1) * G;
         const H = r * sh + (r - 1) * G;
         if (W < lo || W > hi || H > zone.maxH) continue;
@@ -246,8 +275,8 @@ export function gridStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
 
 // ---------- One statement piece, alone or with matching pieces on each side ----------
 
-export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0 }) {
-  const [lo, hi] = widthWindow(zone);
+export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0, pieces = null, sizes: offered = SIZES }) {
+  const [lo, hi] = widthWindow(zone, pieces);
   // Frames stop at 40 in, so one piece alone may be as narrow as 0.35 of the
   // furniture; the fit score still marks it down for being narrow.
   const soloLo = Math.max(RULES.minOpenWidth, zone.refW * RULES.soloMinRatio);
@@ -258,12 +287,12 @@ export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0 }
   const others = sorted.slice(1);
   const centers = center
     ? [fixedUnit(center)]
-    : SIZES.large.filter(([w, h]) => avail.has(sizeKey(w, h))).map(fillUnit);
+    : offered.large.filter(([w, h]) => avail.has(sizeKey(w, h))).map(fillUnit);
 
   let flankSizes = [];
   let flankFixed = [];
   let skipped = null;
-  if (!others.length) flankSizes = SIZES.flank.filter(([w, h]) => avail.has(sizeKey(w, h)));
+  if (!others.length) flankSizes = offered.flank.filter(([w, h]) => avail.has(sizeKey(w, h)));
   else if (others.length === 1 || (others.length === 2 && sameSize(others[0], others[1]))) {
     flankSizes = [[others[0].w, others[0].h]];
     flankFixed = others;
@@ -272,7 +301,7 @@ export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0 }
   }
 
   const out = [];
-  if (!others.length) {
+  if (!others.length && countOk(1, pieces)) {
     for (const c of centers) {
       if (c.w < soloLo || c.w > hi || c.h > zone.maxH) continue;
       out.push({
@@ -294,7 +323,7 @@ export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0 }
       for (const mode of modes) {
         const H = mode === 'stack' ? Math.max(c.h, stackH) : c.h;
         const n = 1 + (mode === 'stack' ? 4 : 2);
-        if (H > zone.maxH || n > maxPieces || flankFixed.length > n - 1) continue;
+        if (H > zone.maxH || n > Math.max(maxPieces, pieces || 0) || flankFixed.length > n - 1 || !countOk(n, pieces)) continue;
         const cy = H / 2; // positions quantized below
         const slots = [{ w: c.w, h: c.h, dx: fw + G, dy: cy - c.h / 2, fixed: c.fixed, row: null, role: 'center' }];
         const flankSlots = [];
@@ -310,7 +339,7 @@ export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0 }
         flankFixed.forEach((p, i) => { flankSlots[i].fixed = p; });
         for (const sl of [...slots, ...flankSlots]) { sl.dx = q(sl.dx); sl.dy = q(sl.dy); }
         const fills = [...(c.fixed ? [] : [[c.w, c.h]]), ...flankSlots.filter((s) => !s.fixed).map((s) => [s.w, s.h])];
-        if (!fitsAvail(fills.filter(([w, h]) => SIZES.flank.concat(SIZES.large).some(([a, b]) => a === w && b === h)), avail)) continue;
+        if (!fitsAvail(fills.filter(([w, h]) => offered.flank.concat(offered.large).some(([a, b]) => a === w && b === h)), avail)) continue;
         out.push({
           family: 'statement', variant: mode, W, H, slots: [...slots, ...flankSlots],
           meta: { ragged: 0, gaps: [G], rows: 1 }, pre: -Math.abs(W - zone.target) / zone.target + lean(n, scale),
