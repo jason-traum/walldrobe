@@ -27,7 +27,12 @@ export const RULES = Object.freeze({
   soloMinRatio: 0.35,    // one piece alone may be this narrow, since frames stop at 40 in
   anchorShift: 0.15,     // a group may slide at most this share of the furniture's width off center
   centerlineSoftMax: 66, // over tall furniture the center may rise; above this it's marked down
+  countRange: [0.35, 0.9], // with an exact piece count asked for, widths generated over this share of the furniture or open span
+  maxCount: 12,          // the most pieces a person can ask for
 });
+
+// The two styles a person picks between.
+export const STYLES = Object.freeze({ structured: ['statement', 'line', 'grid'], gallery: ['salon'] });
 
 export const WEIGHTS = Object.freeze({ fit: 0.25, taste: 0.25, color: 0.25, design: 0.25 });
 

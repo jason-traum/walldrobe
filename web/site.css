@@ -234,6 +234,13 @@ input[type="number"], input[type="text"] { font-size: 16px; }
 .main { display: grid; gap: 20px; }
 @media (min-width: 900px) { .main { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); align-items: start; } }
 .stage { display: grid; gap: 12px; min-width: 0; }
+.shape { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.stepper button { width: 44px; min-height: 44px; border: 0; background: transparent; font-size: 20px; line-height: 1; color: var(--ink); cursor: pointer; }
+.stepper button:disabled { color: var(--muted); opacity: 0.45; cursor: default; }
+.stepper .count { min-width: 76px; text-align: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.shape .seg button { min-height: 44px; }
+.shape-hint { margin-top: -4px; }
 .layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .layout-tab { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; min-height: 44px; cursor: pointer; }
 .layout-tab .rank { grid-row: span 2; font-family: var(--font-measure); font-weight: 600; font-size: 20px; line-height: 1.1; color: var(--muted); }

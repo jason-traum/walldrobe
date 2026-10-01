@@ -228,7 +228,8 @@ test('a must-keep taller than the wall allows is named as too tall', () => {
 });
 
 test('a catalog with no usable sizes says so, not "fewer must-keeps"', () => {
-  const odd = catalog.slice(0, 10).map((c) => ({ ...c, sizes: [{ w: 7, h: 9, price: 20 }] }));
+  // Frames are built in the sizes the art comes in, from 8 in on the long side, so 5 x 7 is too small for any.
+  const odd = catalog.slice(0, 10).map((c) => ({ ...c, sizes: [{ w: 5, h: 7, price: 20 }] }));
   const r = layout({ ...livingRoom, catalog: odd });
   assert.equal(r.problems[0].code, 'TOO_FEW_CANDIDATES');
 });

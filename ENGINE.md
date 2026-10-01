@@ -34,7 +34,8 @@ layout({
   ],
   taste: { 'aic-27992': 0.82 },        // 0 to 1 from the taste model; missing = 0.5
   room: { palette: [{ hex, weight }] },// optional, sampled from the photo
-  prefs: { budget: null, maxPieces: 9, families: null },
+  prefs: { budget: null, maxPieces: 9, families: null, style: null, pieces: null },
+  // style: 'structured' (statement, line, grid) or 'gallery' (salon); pieces: an exact count, 1 to 12
   count: 3,
 })
 ```
@@ -78,6 +79,7 @@ Obstacle kinds fall into these groups:
     summary: 'A two-row hang over the couch, 56 in wide, built around your blue print.',
   }],
   problems: [{ code: 'FAMILY_SKIPPED', message: 'No grid: your pieces are different sizes.' }],
+  counts: [2, 3, 4, 5, 6, 8, 9],   // the piece counts the style can make on this wall
 }
 ```
 
@@ -130,6 +132,7 @@ The nail point is the top center of the piece minus its hanger drop. If the drop
 | `BUDGET_TOO_LOW` | Nothing fits the budget (optional; prices are set aside for now) | "The cheapest layout that fits is $180." |
 | `NO_LAYOUT` | Anything else that leaves no layout | "We couldn't fit a layout here. Try marking fewer pieces as must keep." |
 | `FAMILY_SKIPPED` | A family can't be built | Info only, with the reason. |
+| `COUNT_DOESNT_FIT` | `prefs.pieces` asks for a count the style can't make here | "6 pieces don't make a structured layout here. 5 do." (`near` carries the closest count that does) |
 
 ## Taste interface (built in step 4 of the build order)
 
@@ -192,6 +195,14 @@ Design score = 0.25 balance + 0.15 focal piece + 0.15 rhythm + 0.15 variety + 0.
 Total = 0.25 fit + 0.25 taste + 0.25 color + 0.25 design, plus the reuse bonus. The beam search fills slots with a fast pick value (taste, color match with what's chosen so far, owned-piece bonus). The best structures then get an improvement pass: for each open slot, the dozen best alternatives are tried in place and kept when the whole-wall score goes up. Two passes.
 
 Each layout returns `notes`: up to four plain sentences on why the wall works (its scheme and proportions, the repeated accent, balance, rhythm), plus one honest caveat when a check scored low.
+
+### Frame sizes
+
+Frames are built in the sizes the art passed in actually comes in: for two-row hangs, grids, rows and the sides of a statement, every offered size from 8 to 27 in on its long side; for a statement piece, 24 to 60 in. The lists in `SIZES` are used only when nothing is offered.
+
+### Style and count
+
+`prefs.style` picks the families: `structured` is statement, line and grid; `gallery` is salon (with at least two frame sizes). `prefs.pieces` asks for an exact count: only structures with that many pieces are built, widths may run over `RULES.countRange` (0.35 to 0.9 of the reference width), and the size lever is ignored. `counts` in the output lists every count the chosen families can make on the wall, so a control can step through only those. Returned layouts show a different arrangement before the same arrangement with other art.
 
 ### The size lever
 
