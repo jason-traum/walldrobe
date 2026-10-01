@@ -139,16 +139,75 @@ function engineInput() {
   const mode = artMode();
   const keptIds = new Set(keepList().map((k) => k.id));
   const isShop = (c) => c.offers && c.offers.length > 0;
-  const catalog = mode === 'both' ? CATALOG : CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'prints' ? isShop(c) : !isShop(c)));
+  const byMode = mode === 'both' ? CATALOG : CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'prints' ? isShop(c) : !isShop(c)));
+  const catalog = applyFilters(byMode, keptIds);
   const taste = scoreTaste(d.taste.weights, catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
   return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: 3, prefs: { scale: d.scale || 0 } };
 }
 const keepList = () => S.draft.kept || [];
+
+// ---------- Filters ----------
+// Take art out the way a shop's filters do: color, people, price, subjects, shops.
+const NO_FILTERS = { color: 'any', people: 'any', maxPrice: null, skip: [], shops: [] };
+const filters = () => ({ ...NO_FILTERS, ...((S.draft && S.draft.filters) || {}) });
+const filterCount = (f = filters()) => (f.color !== 'any') + (f.people !== 'any') + (f.maxPrice != null) + f.skip.length + f.shops.length;
+const SHOP_OF = (c) => (c.offers && c.offers.length ? c.record.source.provider : 'free');
+const SHOPS = [['desenio', 'Desenio'], ['houseofspoils', 'House of Spoils'], ['free', 'Free photos']];
+const PRICES = [[null, 'Any price'], [50, 'Under $50'], [100, 'Under $100'], [250, 'Under $250'], [500, 'Under $500']];
+const CAT_NAME = (c) => c[0].toUpperCase() + c.slice(1);
+function passes(c, f) {
+  const r = c.record;
+  if (f.color === 'color' && r.color.bw) return false;
+  if (f.color === 'bw' && !r.color.bw) return false;
+  if (f.people === 'none' && r.tags.people) return false;
+  if (f.skip.includes(r.category)) return false;
+  if (f.shops.includes(SHOP_OF(c))) return false;
+  return true;
+}
+function applyFilters(list, keptIds = new Set()) {
+  const f = filters();
+  if (!filterCount(f)) return list;
+  const out = [];
+  for (const c of list) {
+    if (keptIds.has(c.id)) { out.push(c); continue; }
+    if (!passes(c, f)) continue;
+    if (f.maxPrice != null && c.offers && c.offers.length) {
+      const sizes = c.sizes.filter((z) => z.price == null || z.price <= f.maxPrice);
+      if (!sizes.length) continue;
+      out.push(sizes.length === c.sizes.length ? c : { ...c, sizes });
+    } else out.push(c);
+  }
+  return out;
+}
+function setFilter(fn) {
+  const f = filters(); fn(f);
+  S.draft.filters = { ...f, skip: [...f.skip], shops: [...f.shops] };
+  S.rank = 1; S.selected = null; S.flash = null; persist();
+}
+function filterPanel() {
+  const f = filters();
+  const mode = artMode();
+  const isShop = (c) => c.offers && c.offers.length > 0;
+  const base = mode === 'both' ? CATALOG : CATALOG.filter((c) => (mode === 'prints' ? isShop(c) : !isShop(c)));
+  const matching = applyFilters(base).length;
+  const cats = {};
+  for (const c of base) if (passes(c, { ...f, skip: [] })) cats[c.record.category] = (cats[c.record.category] || 0) + 1;
+  const catList = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+  const seg = (key, opts, cur) => `<span class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-filter="${key}" data-v="${v}" aria-pressed="${cur === v}">${l}</button>`).join('')}</span>`;
+  return `<div class="filters" id="filters">
+    <div class="filter-row"><span class="lever-label">Color</span>${seg('color', [['any', 'Any'], ['color', 'Color only'], ['bw', 'Black and white only']], f.color)}</div>
+    <div class="filter-row"><span class="lever-label">People</span>${seg('people', [['any', 'Any'], ['none', 'No people']], f.people)}</div>
+    <div class="filter-row"><span class="lever-label">Price</span><span class="seg" role="group">${PRICES.map(([v, l]) => `<button type="button" data-filter="price" data-v="${v == null ? '' : v}" aria-pressed="${f.maxPrice === v}">${l}</button>`).join('')}</span></div>
+    ${mode !== 'photos' ? `<div class="filter-row"><span class="lever-label">From</span><span class="chips">${SHOPS.filter(([k]) => mode === 'both' || k !== 'free').map(([k, l]) => `<button type="button" class="fchip" data-filter="shop" data-v="${k}" aria-pressed="${!f.shops.includes(k)}">${l}</button>`).join('')}</span></div>` : ''}
+    <div class="filter-row filter-cats"><span class="lever-label">Subjects</span><span class="chips">${catList.map(([k, n]) => `<button type="button" class="fchip" data-filter="skip" data-v="${esc(k)}" aria-pressed="${!f.skip.includes(k)}">${esc(CAT_NAME(k))} <span class="muted">${n}</span></button>`).join('')}</span></div>
+    <p class="filter-sum"><strong>${matching.toLocaleString()} pieces match.</strong> Tap a subject or shop to take it out.${filterCount(f) ? ' <button type="button" class="btn-quiet small-btn" data-filter="clear">Clear filters</button>' : ''}</p>
+  </div>`;
+}
 const ART_MODES = ['prints', 'both', 'photos'];
 const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.scale, artMode()]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.scale, artMode(), filters()]);
 
 function remember(layouts) {
   for (const L of layouts) {
@@ -870,6 +929,13 @@ function layoutsScreen() {
   const result = run();
   const problems = result.problems.filter((p) => p.code !== 'FAMILY_SKIPPED' && p.code !== 'ALL_SHOWN');
   const sample = d.sample ? '<span class="sample-tag">Sample wall</span>' : '';
+  if (!result.layouts.length && filterCount()) {
+    S.ui.filters = true;
+    return `${header()}${steps('layouts')}<main class="flow wide"><h1>${esc(d.name)} ${sample}</h1>
+      <p class="note"><strong>Nothing fits with these filters.</strong> Take one off and the layouts come back.</p>
+      ${filterPanel()}
+      <div class="drawing">${drawLayout(null, 700)}</div></main>${footer()}`;
+  }
   if (!result.layouts.length) {
     return `${header()}${steps('layouts')}<main class="flow"><h1>Your wall ${sample}</h1>
       <div class="drawing">${drawLayout(null, 700)}</div>
@@ -906,6 +972,8 @@ function layoutsScreen() {
           <span class="seg" role="group" aria-labelledby="art-label">${[['prints', 'Prints'], ['both', 'Both'], ['photos', 'Photos']].map(([v, l]) => `<button type="button" data-art="${v}" aria-pressed="${artMode() === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
         <div class="lever"><span class="lever-label" id="scale-label">Pieces</span>
           <span class="seg" role="group" aria-labelledby="scale-label">${[[-1, 'Fewer, bigger'], [0, 'Balanced'], [1, 'More, smaller']].map(([v, l]) => `<button type="button" data-scale="${v}" aria-pressed="${(d.scale || 0) === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
+        <div class="lever"><button type="button" class="btn-quiet small-btn" data-act="filters" aria-expanded="${!!S.ui.filters}" aria-controls="filters">Filters${filterCount() ? ` (${filterCount()})` : ''}</button>${filterCount() && !S.ui.filters ? ' <button type="button" class="btn-quiet small-btn" data-filter="clear">Clear</button>' : ''}</div>
+        ${S.ui.filters ? filterPanel() : ''}
         <div class="drawing-wrap" id="drawing-wrap">
           <div class="drawing" id="drawing">${drawLayout(L, ($('#drawing') && $('#drawing').clientWidth) || 700)}</div>
           ${order.map(peekCard).join('')}
@@ -1059,7 +1127,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1329,6 +1397,17 @@ document.addEventListener('click', (e) => {
   if (t.dataset.removeOwned) { forgetAuto(t.dataset.removeOwned); S.draft.owned = S.draft.owned.filter((o) => o.id !== t.dataset.removeOwned); S.mem.clean = null; resetLayouts(); persist(); render(); return; }
   if (t.dataset.keep && t.dataset.oid) { const o = S.draft.owned.find((x) => x.id === t.dataset.oid); if (o) { o.keep = t.dataset.keep; resetLayouts(); persist(); render(); } return; }
   if (t.dataset.rank) { S.rank = Number(t.dataset.rank); S.selected = null; S.flash = null; render(); return; }
+  if (t.dataset.filter) {
+    const k = t.dataset.filter, v = t.dataset.v;
+    setFilter((f) => {
+      if (k === 'clear') Object.assign(f, NO_FILTERS, { skip: [], shops: [] });
+      else if (k === 'color' || k === 'people') f[k] = v;
+      else if (k === 'price') f.maxPrice = v === '' ? null : Number(v);
+      else if (k === 'skip') f.skip = f.skip.includes(v) ? f.skip.filter((x) => x !== v) : [...f.skip, v];
+      else if (k === 'shop') f.shops = f.shops.includes(v) ? f.shops.filter((x) => x !== v) : [...f.shops, v];
+    });
+    act('scale', () => run()); return;
+  }
   if (t.dataset.art) { S.draft.art = t.dataset.art; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.scale !== undefined) { S.draft.scale = Number(t.dataset.scale); S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.pick) {
@@ -1369,6 +1448,7 @@ document.addEventListener('click', (e) => {
       persist(); S.flash = null; act('keep', () => rebuildOthers(L)); break;
     }
     case 'unpin': S.selected = null; render(); break;
+    case 'filters': S.ui.filters = !S.ui.filters; render(); break;
     case 'swap': S.flash = null; act(`swap:${t.dataset.id}`, () => refreshShown(t.dataset.id)); break;
     case 'refresh': S.flash = null; act('refresh', () => refreshShown(null)); break;
     case 'another': S.flash = null; act('another', newLayouts); break;

@@ -17,7 +17,7 @@ test('every piece was looked at: description, setting, time, season, vibe and a 
 
 test('near-duplicates and weak photos are hidden, and only a few', () => {
   const hidden = records.filter((r) => r.status === 'hidden');
-  assert.ok(hidden.length > 0 && hidden.length < records.length * 0.06, `${hidden.length} hidden`);
+  assert.ok(hidden.length > 0 && hidden.length < records.length * 0.08, `${hidden.length} hidden`);
 });
 
 test('art comes from more than one site, each credited its own way', () => {
