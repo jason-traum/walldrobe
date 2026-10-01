@@ -502,6 +502,14 @@ export function readWall(img, opts = {}) {
   for (let y = hy; y < h; y++) for (let x = 0; x < w; x++) solid[y * w + x] = solid[(hy - 1) * w + x];
   const { comps, label } = components(solid, w, h);
 
+  // How much of the strip just under a box is something standing on the floor
+  // (a stand, a soundbar on one), not wall and not a print hanging under it.
+  const grounded = new Set(comps.filter((c) => c.y1 >= floorY - Math.max(2, h * 0.03)).map((c) => c.id));
+  const standsOn = (q) => {
+    let n = 0, k = 0;
+    for (let y = q.y1 + 1; y <= Math.min(floorY, q.y1 + Math.max(2, Math.round(h * 0.03))); y++) for (let x = q.x0; x <= q.x1; x++) { n++; if (solid[y * w + x] && grounded.has(label[y * w + x])) k++; }
+    return n ? k / n : 0;
+  };
   // A TV is the biggest very dark rectangle about 16:9. Its stand is often dark
   // too and joined to it; the rectangle stops where the screen does.
   const darkRaw = new Uint8Array(w * h);
@@ -527,15 +535,41 @@ export function readWall(img, opts = {}) {
     // a soundbar (the top edge, against the wall, is the one to trust).
     const clearTop = (() => { let n = 0; for (let x = x0; x <= x1; x++) n += darkRaw[Math.max(0, y0 - 3) * w + x]; return n / (x1 - x0 + 1) < 0.35; })();
     if (clearTop && (x1 - x0 + 1) / (y1 - y0 + 1) < 1.6) y1 = Math.min(y1, y0 + Math.round((x1 - x0 + 1) / 1.74));
+    // Wider than a screen and standing on something: a TV that's on, where only
+    // the dark part of its picture reads as dark. Its full height is 16:9 from its width,
+    // as long as what's above is the picture (not wall).
+    let shows = false;
+    if ((x1 - x0 + 1) / (y1 - y0 + 1) > 2.05 && standsOn({ x0, x1, y1 }) > 0.5) {
+      const top = Math.max(0, y1 - Math.round((x1 - x0 + 1) / 1.74));
+      let n = 0, k = 0;
+      for (let y = top; y < y0; y++) for (let x = x0; x <= x1; x++) { n++; if (solid[y * w + x]) k++; }
+      if (!n || k / n > 0.7) { y0 = top; shows = true; }
+    }
     const ar = (x1 - x0 + 1) / (y1 - y0 + 1);
     // A plant or a speaker touching one side doesn't change the screen's width.
-    const alone = (clear(side(x0 - 2)) > 0.8 || clear(side(x1 + 2)) > 0.8) && clearTop && ar > 1.5 && ar < 2.05;
-    tv = { x0, y0, x1, y1, alone };
+    const alone = (clear(side(x0 - 2)) > 0.8 || clear(side(x1 + 2)) > 0.8) && (clearTop || shows) && ar > 1.5 && ar < 2.05;
+    tv = { x0, y0, x1, y1, alone, shows };
+  }
+  // A TV that's on: its bezel is a dark outline around a bright picture, like a
+  // framed print, but a print hangs with wall under it and a TV stands on
+  // something (a stand, a soundbar). And a print usually has a light mat inside its frame.
+  if (!tv) {
+    const sits = standsOn;
+    const matLight = (q) => {
+      const t = Math.max(1, Math.round((q.x1 - q.x0) * 0.04));
+      let n = 0, sL = 0;
+      for (let y = q.y0 + t; y <= q.y1 - t; y++) for (const x of [q.x0 + t, q.x0 + t + 1, q.x1 - t, q.x1 - t - 1]) { n++; sL += lab[(y * w + x) * 3]; }
+      return n ? sL / n : 0;
+    };
+    const o = bestRect(dark, w, h, 1.5, 2.1, w * h * 0.02);
+    if (o && o.x1 - o.x0 + 1 >= w * 0.2 && o.y1 < floorY - 2 && sits(o) > 0.5 && matLight(o) < 85) {
+      tv = { ...o, alone: true, shows: true };
+    }
   }
 
   const items = [];
   const area = w * h;
-  const tvItem = tv ? { kind: 'tv', box: [tv.x0, tv.y0, tv.x1, tv.y1], confidence: tv.alone ? 0.85 : 0.6, alone: tv.alone, onStand: false } : null;
+  const tvItem = tv ? { kind: 'tv', box: [tv.x0, tv.y0, tv.x1, tv.y1], confidence: tv.alone ? 0.85 : 0.6, alone: tv.alone, onStand: false, shows: !!tv.shows } : null;
   if (tvItem) items.push(tvItem);
   // What hangs on the wall: blobs that don't reach the floor, solid and roughly rectangular.
   for (const c of comps) {
@@ -673,7 +707,8 @@ export function readWall(img, opts = {}) {
 
   // With the image model's labels: it says what each thing is; the pixels above
   // say exactly where its edges are.
-  const final = opts.labels ? semanticItems() : items;
+  // Without the model, a TV that's on can't be told from dark wood under a print: leave it out.
+  const final = opts.labels ? semanticItems() : items.filter((i) => !(i.kind === 'tv' && i.shows));
   function semanticItems() {
     const { seg, toPhoto, photoW, photoH } = opts.labels;
     const raw = new Uint8Array(w * h), Gs = new Uint8Array(w * h);
@@ -698,11 +733,14 @@ export function readWall(img, opts = {}) {
     let onTv = null;
     for (const c of compsOf([G.ART, G.TV]).comps.filter((x) => x.x1 - x.x0 + 1 >= w * 0.22).sort((a, b) => b.n - a.n)) {
       const cw = c.x1 - c.x0 + 1;
-      const f = furnAll.find((g) => Math.min(g.x1, c.x1) - Math.max(g.x0, c.x0) > cw * 0.5 && g.y0 >= c.y0 + (c.y1 - c.y0) * 0.35 && g.y0 <= c.y1 + h * 0.04);
+      // It stands right on the furniture (a print over a couch has wall between them).
+      const f = furnAll.find((g) => Math.min(g.x1, c.x1) - Math.max(g.x0, c.x0) > cw * 0.5 && g.y0 >= c.y0 + (c.y1 - c.y0) * 0.5 && g.y0 <= c.y1 + h * 0.015);
       if (!f) continue;
       const y1 = Math.min(c.y1, f.y0);
       const ar = cw / (y1 - c.y0 + 1);
       if (ar < 1.4 || ar > 2.3) continue;
+      // One solid screen, not a cluster of frames with wall between them.
+      if (share([c.x0, c.y0, c.x1, y1], [G.ART, G.TV]) < 0.85) continue;
       onTv = { kind: 'tv', box: [c.x0, c.y0, c.x1, y1], confidence: 0.6, alone: ar > 1.55 && ar < 2.05, onStand: true };
       break;
     }
@@ -710,7 +748,8 @@ export function readWall(img, opts = {}) {
     const inside = (a, b) => (Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]) + 1) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]) + 1)) / area4(a);
     // A dark 16:9 rectangle is a screen unless the model says it's a print or a window.
     // (The model sometimes calls a TV on a stand a cabinet: then the stand under it decides.)
-    const classicOk = classicTv && (share(classicTv.box, [G.TV]) > 0.4 || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15));
+    // A TV that's on (found from its dark part) only if the model sees a screen or a picture there.
+    const classicOk = classicTv && (classicTv.shows ? share(classicTv.box, [G.ART, G.TV]) > 0.5 : share(classicTv.box, [G.TV]) > 0.4 || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15));
     if (onTv && (!classicOk || (inside(classicTv.box, onTv.box) > 0.8 && area4(onTv.box) > area4(classicTv.box) * 1.3))) { out.push(onTv); tvBox = onTv.box; }
     else if (classicOk) { out.push(classicTv); tvBox = classicTv.box; }
     else if (tvs.length) {

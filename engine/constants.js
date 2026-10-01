@@ -29,10 +29,16 @@ export const RULES = Object.freeze({
   centerlineSoftMax: 66, // over tall furniture the center may rise; above this it's marked down
   countRange: [0.35, 0.9], // with an exact piece count asked for, widths generated over this share of the furniture or open span
   maxCount: 12,          // the most pieces a person can ask for
+  minSideWidth: 20,      // an open stretch beside the TV or furniture narrower than this isn't offered
+  sideRatio: 0.75,       // group width in a stretch beside the TV or furniture, share of the stretch
+  sideRange: [0.5, 0.95],
+  sideLow: 20,           // beside the TV or furniture, a group's bottom no lower than this from the floor
+  slideMax: 6,           // on open wall, how far a group may move up or down from eye level to clear furniture
+  columnMaxOpen: 48,     // an open wall narrower than this may take a stack of pieces
 });
 
 // The two styles a person picks between.
-export const STYLES = Object.freeze({ structured: ['statement', 'line', 'grid'], gallery: ['salon'] });
+export const STYLES = Object.freeze({ structured: ['statement', 'line', 'grid', 'column'], gallery: ['salon'] });
 
 export const WEIGHTS = Object.freeze({ fit: 0.25, taste: 0.25, color: 0.25, design: 0.25 });
 
@@ -59,4 +65,4 @@ export const SEARCH = Object.freeze({
   passes: 2,
 });
 
-export const FAMILIES = Object.freeze(['statement', 'line', 'grid', 'salon']);
+export const FAMILIES = Object.freeze(['statement', 'line', 'grid', 'column', 'salon']);

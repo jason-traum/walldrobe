@@ -277,14 +277,48 @@ test('one must-keep that cannot fit gets advice about that piece', () => {
 test('a TV wall: art goes above the TV, centered on it and clear of it', () => {
   const wall = { width: 120, height: 108 };
   const obstacles = [{ id: 'stand', kind: 'furniture', x: 30, y: 0, w: 60, h: 22 }, { id: 'tv', kind: 'tv', x: 36, y: 26, w: 48, h: 28 }];
-  const r = layout({ wall, obstacles, catalog, taste });
+  const r = layout({ wall, obstacles, catalog, taste, prefs: { place: 'over' } });
   assert.ok(r.layouts.length > 0, JSON.stringify(r.problems));
   for (const L of r.layouts) {
+    assert.equal(L.place, 'over');
     assert.equal(L.anchor.id, 'tv');
     assert.ok(L.group.y >= 26 + 28 + RULES.blockerClear, `above the TV: ${L.group.y}`);
     assert.ok(Math.abs(L.group.x + L.group.w / 2 - 60) <= 1, 'centered on the TV');
     assertLayoutValid({ wall, obstacles }, L);
   }
+});
+
+test('a TV wall also offers the open wall on each side of it, and a place can be picked', () => {
+  const wall = { width: 120, height: 108 };
+  const obstacles = [{ id: 'stand', kind: 'furniture', x: 30, y: 0, w: 60, h: 22 }, { id: 'tv', kind: 'tv', x: 36, y: 26, w: 48, h: 28 }];
+  const r = layout({ wall, obstacles, catalog, taste });
+  assert.deepEqual(r.zones.map((z) => z.place), ['over', 'left', 'right']);
+  assert.equal(r.layouts[0].place, 'over', 'over the TV still comes first');
+  for (const place of ['left', 'right']) {
+    const s = layout({ wall, obstacles, catalog, taste, prefs: { place } });
+    assert.ok(s.layouts.length > 0, JSON.stringify(s.problems));
+    for (const L of s.layouts) {
+      assert.equal(L.place, place);
+      const g = L.group;
+      assert.ok(place === 'left' ? g.x + g.w <= 36 - RULES.blockerClear + 0.01 : g.x >= 84 + RULES.blockerClear - 0.01, `${place} of the TV: ${JSON.stringify(g)}`);
+      assertLayoutValid({ wall, obstacles }, L);
+    }
+  }
+});
+
+test('prints that are too tall for the space above the TV are hung beside it instead of left off', () => {
+  // Jason's living room: a 55 in TV on a stand, two of his prints on the left.
+  const wall = { width: 120, height: 91 };
+  const obstacles = [{ id: 'stand', kind: 'furniture', x: 28, y: 0, w: 86, h: 20 }, { id: 'tv', kind: 'tv', x: 41, y: 24, w: 54, h: 29 }, { id: 'lamp', kind: 'lamp', x: 104, y: 0, w: 16, h: 68 }];
+  const owned = [{ id: 'klein', title: 'blue print', w: 23, h: 34, keep: 'happy' }, { id: 'smiley', title: 'smiley print', w: 26, h: 19, keep: 'happy' }];
+  const r = layout({ wall, obstacles, owned, catalog, taste });
+  assert.ok(r.zones.some((z) => z.place === 'left'), JSON.stringify(r.zones));
+  const left = r.layouts.filter((L) => L.place === 'left');
+  assert.ok(left.length, `a layout on the left among ${r.layouts.map((L) => L.place)}`);
+  assert.ok(left.some((L) => L.left.length < 2), 'the left side uses at least one of the prints');
+  const s = layout({ wall, obstacles, owned, catalog, taste, prefs: { place: 'left' } });
+  assert.ok(s.layouts.some((L) => L.left.length === 0), `both prints on the left: ${s.layouts.map((L) => L.left.map((x) => x.id))}`);
+  for (const L of s.layouts) assertLayoutValid({ wall, obstacles }, L);
 });
 
 test('a TV with no room above it falls back to the open wall beside it', () => {
