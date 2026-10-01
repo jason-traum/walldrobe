@@ -645,7 +645,7 @@ function check() {
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const from = auto && p.auto.guess ? p.auto.guess.from : null;
   const why = { low: ' A 55 in one would put the ceiling under 7 ft.', high: ' A 55 in one would put the ceiling over 11 ft.' }[p.auto.tvWhy] || '';
-  const guess = from === 'tv' ? `Worked out from your TV, taken as a ${p.auto.tvInches} in TV${p.auto.tvPx ? ' standing a little out from the wall' : ''}.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
+  const guess = NO_TAPE[from] ? `${NO_TAPE[from].why} Measure the wall to be exact.` : from === 'tv' ? `Worked out from your TV, taken as a ${p.auto.tvInches} in TV${p.auto.tvPx ? ' standing a little out from the wall' : ''}.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
   const tvPick = from === 'tv' ? `<label class="tv-size">Your TV <select id="tv-size" aria-label="Your TV's size">${TV_SIZES.map(([dg]) => `<option value="${dg}"${dg === p.auto.tvInches ? ' selected' : ''}>${dg} in</option>`).join('')}</select></label>` : '';
   const opts = [['must', 'Must keep'], ['happy', 'Happy to move'], ['dontcare', "Don't care"]];
   const rows = [
@@ -727,6 +727,31 @@ function corners() {
 
 // ---------- One measurement ----------
 
+// No tape measure: something in the photo with a standard size sets the scale
+// instead. Each is a guess, said as one, and the check screen says which.
+const NO_TAPE = {
+  door: { label: 'Use the door', why: 'Worked out from the door, taken as a standard 6 ft 8 in door.' },
+  bed: { label: 'The bed is a queen', why: 'Worked out from the bed, taken as a queen (5 ft 4 in wide with its frame).' },
+  couch: { label: 'Use the couch', why: 'Worked out from the couch, taken as about 7 ft wide.' },
+  ceiling: { label: 'The ceiling is about 8 ft', why: 'Worked out from a standard 8 ft ceiling.' },
+  guess: { label: 'Just guess', why: 'A rough guess of about 10 ft wide.' },
+};
+function noTapeOptions(p) {
+  const a = p.auto;
+  if (!a || !a.rw) return [];
+  const out = [];
+  const biggest = (k, dim) => a.items.filter((i) => i.kind === k && !i.removed).sort((x, y) => y[dim] - x[dim])[0];
+  const door = biggest('door', 'h');
+  if (door && door.h > a.rh * 0.4) out.push(['door', Math.round((a.rw * 80) / door.h)]);
+  const bed = biggest('headboard', 'w');
+  if (bed && bed.w > a.rw * 0.15) out.push(['bed', Math.round((a.rw * 64) / bed.w)]);
+  const couch = biggest('couch', 'w');
+  if (couch && couch.w > a.rw * 0.2) out.push(['couch', Math.round((a.rw * 84) / couch.w)]);
+  if (p.seen && p.seen.ceiling !== false && !p.seen.soffit) out.push(['ceiling', Math.round((96 * a.rw) / a.rh)]);
+  out.push(['guess', 120]);
+  return out.filter(([, W]) => W >= 36 && W <= 480);
+}
+
 function sizeScreen() {
   const p = S.draft && S.draft.photo;
   if (!p) { go('#/start'); return ''; }
@@ -745,7 +770,7 @@ function sizeScreen() {
   return `${header()}${steps('wall')}
   <main class="flow">
     <h1>Give us one real measurement</h1>
-    <p class="lede">${widthOnly ? "There's no TV in the photo clear enough to size the wall from. Measure the wall's width; you'll set the ceiling height next." : "There's no TV in the photo clear enough to size the wall from. Measure the wall's width, or its height from the floor to the ceiling, and we work out the other one."}</p>
+    <p class="lede">${widthOnly ? "There's no TV in the photo clear enough to size the wall from. Measure the wall's width; you'll set the ceiling height next." : "There's no TV in the photo clear enough to size the wall from. Measure the wall's width, or its height from the floor to the ceiling, and we work out the other one."} Just the one number.</p>
     <form id="measure-form" class="size-form">
       ${widthOnly ? '' : `<div class="seg" role="group" aria-label="What you measured">
         <button type="button" data-which="width" aria-pressed="${m.which === 'width'}">Width</button>
@@ -766,6 +791,11 @@ function sizeScreen() {
         <a class="btn-quiet" href="#/corners">Back to the corners</a>
       </div>
     </form>
+    ${noTapeOptions(p).length ? `<section class="no-tape" aria-labelledby="no-tape-h">
+      <h2 id="no-tape-h">No tape measure?</h2>
+      <p class="muted">Pick something standard in the photo instead. It's a guess, so you can fix the size on the next screen.</p>
+      <div class="acts">${noTapeOptions(p).map(([k]) => `<button type="button" class="btn-quiet" data-notape="${k}">${esc(NO_TAPE[k].label)}</button>`).join('')}</div>
+    </section>` : ''}
   </main>${footer()}`;
 }
 
@@ -1561,6 +1591,18 @@ document.addEventListener('click', (e) => {
     const W = S.draft.width;
     const o = clampOb({ id: `${t.dataset.add}${Date.now().toString(36)}`, kind: t.dataset.add, ...DEFAULTS[t.dataset.add](W) });
     S.draft.obstacles.push(o); resetLayouts(); persist(); render(); return;
+  }
+  if (t.dataset.notape) {
+    const p = S.draft.photo, opt = noTapeOptions(p).find(([k]) => k === t.dataset.notape);
+    if (!opt || S.busy) return;
+    S.busy = 'flatten';
+    ensurePixels().then(() => {
+      setScale(opt[1]);
+      p.auto.guess = { from: opt[0], inches: opt[1] };
+      applyAuto(); flattenAuto(); resetLayouts(); persist();
+      S.busy = null; go('#/check');
+    }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });
+    return;
   }
   if (t.dataset.isArt) {
     const a = S.draft.photo && S.draft.photo.auto;
