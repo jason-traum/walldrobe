@@ -4,6 +4,8 @@
 // a blob, and its shape and position say what it is. Pure: pixels in, boxes out,
 // so it runs in Node tests. Everything is in photo pixels, top-left origin.
 
+import { flatten, aspectFromCorners, homography, apply } from './photo.js';
+
 const SMALL = 220; // detection runs on a copy about this wide
 
 function toLab(r, g, b) {
@@ -341,16 +343,20 @@ export function findWall(img, opts = {}) {
   const lows = [];
   for (let x = 0; x < w; x++) { for (let y = h - 1; y >= 0; y--) if (M[y * w + x]) { lows.push([x, y]); break; } }
   const atBottom = lows.filter(([, y]) => y >= by1 - 1).length;
-  const floor = atBottom < lows.length * 0.3;
-  let bottom = { a: by1, b: 0 };
-  if (floor && lows.length) {
+  const reaches = atBottom < lows.length * 0.3;
+  let bottom = { a: by1, b: 0 }, floor = false;
+  if (reaches && lows.length) {
     // The lowest stretch of wall, kept about as level as the top edge.
     const rel = lows.map(([x, y]) => y - top.b * x).sort((p, q) => q - p);
     const env = { a: rel[Math.min(rel.length - 1, Math.floor(rel.length * 0.02))], b: top.b };
     // A floor line in the photo close to that is better than the estimate.
     const envAt = env.a + env.b * cx;
     const snap = floorLines.filter((c) => Math.abs(c.b - top.b) < 0.025 && c.a + c.b * cx >= envAt - 2 && c.a + c.b * cx - envAt < h * 0.035 && c.votes >= w * 0.03).sort((p, q) => q.votes - p.votes)[0];
+    // Only a line where the wall stops and the floor or a baseboard starts counts
+    // as seeing the floor. Without one, the lowest wall we saw may just be where a
+    // table or a couch starts hiding it.
     bottom = snap || env;
+    floor = !!snap;
   }
   const up = (p) => [Math.max(0, Math.min(img.width, p[0] / s)), Math.max(0, Math.min(img.height, p[1] / s))];
   const corners = [meet(top, left), meet(top, right), meet(bottom, right), meet(bottom, left)].map(up);
@@ -418,6 +424,10 @@ export function readWall(img, opts = {}) {
   // corners were set a little wide, from joining everything up.
   for (let y = 0; y < h; y++) for (const x of [0, w - 1]) solid[y * w + x] = 0;
   for (let x = 0; x < w; x++) solid[x] = 0;
+  // Below `hiddenFrom` the wall is hidden (by a table in front, say) down to the
+  // floor: what stands there is taken to run straight down to it.
+  const hy = opts.hiddenFrom ? Math.max(1, Math.min(h, Math.floor(opts.hiddenFrom * s))) : h;
+  for (let y = hy; y < h; y++) for (let x = 0; x < w; x++) solid[y * w + x] = solid[(hy - 1) * w + x];
   const { comps, label } = components(solid, w, h);
 
   // A TV is the biggest very dark rectangle about 16:9. Its stand is often dark
@@ -453,7 +463,8 @@ export function readWall(img, opts = {}) {
 
   const items = [];
   const area = w * h;
-  if (tv) items.push({ kind: 'tv', box: [tv.x0, tv.y0, tv.x1, tv.y1], confidence: tv.alone ? 0.85 : 0.6, alone: tv.alone });
+  const tvItem = tv ? { kind: 'tv', box: [tv.x0, tv.y0, tv.x1, tv.y1], confidence: tv.alone ? 0.85 : 0.6, alone: tv.alone, onStand: false } : null;
+  if (tvItem) items.push(tvItem);
   // What hangs on the wall: blobs that don't reach the floor, solid and roughly rectangular.
   for (const c of comps) {
     const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1;
@@ -552,13 +563,15 @@ export function readWall(img, opts = {}) {
     while (f.x1 < w - 2 && solidNear(f.x1 + 1) && solidNear(Math.min(w - 1, f.x1 + 2))) f.x1++;
     while (f.x0 > 1 && solidNear(f.x0 - 1) && solidNear(Math.max(0, f.x0 - 2))) f.x0--;
   }
+  // A TV with furniture right under it stands on it, a little out from the wall.
+  if (tvItem) tvItem.onStand = floorItems.some((f) => f.kind === 'furniture' && f.x0 < tv.x1 && f.x1 > tv.x0 && Math.abs(floorY - f.top - tv.y1) <= Math.max(3, h * 0.03));
   for (const it of floorItems) {
     const box = [it.x0, floorY - it.top, it.x1, floorY];
     if (it.kind === 'lamp') {
       // The shade: often close to the wall's color, so look a little harder near
       // the top of the pole for the patch that isn't quite wall.
       const pw = it.x1 - it.x0 + 1, reach = Math.round(pw * 2.5 + w * 0.05);
-      const X0 = Math.max(0, it.x0 - reach), X1 = Math.min(w - 1, it.x1 + reach), Y1 = Math.min(floorY, Math.round(box[1] + it.top * 0.45));
+      const X0 = Math.max(0, it.x0 - reach), X1 = Math.min(w - 1, it.x1 + reach), Y1 = Math.min(floorY, Math.round(box[1] + it.top * 0.3));
       const Y0 = Math.max(0, Math.round(box[1] - it.top * 0.4)); // a shade is never more than about a third of the lamp
       const seen = new Uint8Array(w * h), q = [];
       for (let x = it.x0; x <= it.x1; x++) for (let y = box[1]; y <= Math.min(floorY, box[1] + 3); y++) if (solid[y * w + x]) { seen[y * w + x] = 1; q.push(y * w + x); }
@@ -571,7 +584,7 @@ export function readWall(img, opts = {}) {
       }
       // A shade is a wide band; a thin strip running on up (a shadow in the corner) isn't part of it.
       // Only the lamp's upper part counts, so furniture next to its foot doesn't widen it.
-      const headEnd = Math.min(floorY, Math.round(box[1] + it.top * 0.35));
+      const headEnd = Y1;
       const rows = new Map();
       for (const j of q) { const y = (j / w) | 0; if (y <= headEnd && y >= 3) rows.set(y, (rows.get(y) || 0) + 1); } // not the photo's top edge
       const widest = Math.max(0, ...rows.values());
@@ -590,7 +603,7 @@ export function readWall(img, opts = {}) {
   if (opts.debug) opts.debug.out = { w, h, wallLike: fg.map((v) => 1 - v), solid, dark, floorY, seed: model.seed };
   return {
     wallColor: model.at(w / 2, h * 0.3),
-    items: items.map((it) => ({ kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone } : {}), x: up(it.box[0]), y: up(it.box[1]), w: up(it.box[2] - it.box[0] + 1), h: up(it.box[3] - it.box[1] + 1) })),
+    items: items.map((it) => ({ kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: up(it.box[0]), y: up(it.box[1]), w: up(it.box[2] - it.box[0] + 1), h: up(it.box[3] - it.box[1] + 1) })),
   };
 }
 
@@ -608,14 +621,63 @@ export function labToRgb([L, a, b]) {
 
 // TV sizes (the diagonal, in inches) and how wide each set is, bezel included.
 export const TV_SIZES = [[43, 38], [50, 44], [55, 48.5], [65, 57.25], [75, 66]];
+const setWidth = (tvInches) => (TV_SIZES.find(([d]) => d === tvInches) || TV_SIZES[2])[1];
+
+// A TV on a stand is about a foot out from the wall, so it looks bigger than it
+// would hanging on it: by (its distance + 12 in) over its distance. Its distance
+// comes from how wide it looks, with a phone's usual lens (about 0.62 of the
+// photo's diagonal) unless the photo said otherwise.
+export function tvDepthFactor(tvPhotoWidthPx, photoDiagPx, tvInches = 55, focalPx = null) {
+  if (!(tvPhotoWidthPx > 0)) return 1;
+  const dist = ((focalPx || 0.62 * photoDiagPx) * setWidth(tvInches)) / tvPhotoWidthPx;
+  return (dist + 12) / dist;
+}
 
 // A first guess at the wall's width, in inches, from a TV found on its own: its
-// width against the wall's. A 55 in set unless the person says otherwise. With
-// no TV clear of everything else there is no honest guess, so it's null and the
-// person gives one measurement.
-export function guessWidth(items, wallWidthPx, tvInches = 55) {
+// width against the wall's, times `depth` when it stands out from the wall.
+// A 55 in set unless the person says otherwise. With no TV clear of everything
+// else there is no honest guess, so it's null and the person gives one measurement.
+export function guessWidth(items, wallWidthPx, tvInches = 55, depth = 1) {
   const tv = items.find((i) => i.kind === 'tv' && i.alone);
   if (!tv) return null;
-  const set = TV_SIZES.find(([d]) => d === tvInches) || TV_SIZES[2];
-  return { inches: Math.round((wallWidthPx / tv.w) * set[1]), from: 'tv', tvInches: set[0] };
+  const d = (TV_SIZES.find(([dg]) => dg === tvInches) || TV_SIZES[2])[0];
+  return { inches: Math.round((wallWidthPx / tv.w) * setWidth(d) * depth), from: 'tv', tvInches: d };
+}
+
+// TV stands are mostly 20 to 24 in tall. When the floor is hidden but a TV
+// stands on one, the floor is about that far below the TV's bottom edge. Returns
+// the floor's y in the read wall's pixels, or null.
+export const STAND_HEIGHT = 21;
+export function standFloor(items, tvInches = 55) {
+  const tv = items.find((i) => i.kind === 'tv' && i.alone && i.onStand);
+  if (!tv) return null;
+  return tv.y + tv.h + STAND_HEIGHT * (tv.w / setWidth(tvInches));
+}
+
+// Where the wall that was seen stops, as a y in a W x H read of the wall inside
+// `corners`: the line between the two `seenBottom` points, put into that read.
+export function hiddenFromFor(corners, seenBottom, W, H) {
+  if (!seenBottom) return null;
+  const toRead = homography(corners, [[0, 0], [W, 0], [W, H], [0, H]]);
+  const y = (apply(toRead, ...seenBottom[0])[1] + apply(toRead, ...seenBottom[1])[1]) / 2;
+  return y < H * 0.98 && y > H * 0.3 ? y : null;
+}
+
+/**
+ * The corners to suggest for a photo: the wall's edges as found, and when the
+ * floor is hidden behind furniture but a TV stands on it, the bottom corners
+ * moved down to where the floor would be under the stand.
+ * Returns findWall's result, with floorFrom 'photo', 'stand' or null.
+ */
+export function suggestWall(img) {
+  const f = findWall(img);
+  if (f.floor) return { ...f, floorFrom: 'photo' };
+  const { aspect } = aspectFromCorners(f.corners, img.width, img.height);
+  const W = 600, H = Math.max(40, Math.round(W / aspect));
+  const yF = standFloor(readWall(flatten(img, f.corners, W, H)).items);
+  if (!yF || yF <= H + 2) return { ...f, floorFrom: null };
+  const Hm = homography([[0, 0], [W, 0], [W, H], [0, H]], f.corners);
+  const clampPt = ([x, y]) => [Math.max(0, Math.min(img.width, x)), Math.max(0, Math.min(img.height, y))];
+  const corners = [f.corners[0], f.corners[1], clampPt(apply(Hm, W, yF)), clampPt(apply(Hm, 0, yF))];
+  return { ...f, corners, floorFrom: 'stand', seenBottom: [f.corners[3], f.corners[2]] };
 }

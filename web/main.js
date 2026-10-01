@@ -9,7 +9,7 @@ import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
-import { readWall, guessWidth, labToRgb, findWall, TV_SIZES } from './detect.js';
+import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
 
 const QUIZ_LENGTH = 10;
@@ -397,10 +397,10 @@ async function onPhoto(file) {
     S.draft = { ...blankDraft(), taste: S.draft && S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste : { source: 'none', weights: null } };
     // Find the wall in the photo: its four corners, for the person to check.
     // Nothing is read off the photo until they say the corners are right.
-    const found = findWall(img);
+    const found = suggestWall(img);
     S.draft.photo = {
       src: img.url, w: img.width, h: img.height,
-      corners: found.corners, seen: { ceiling: found.ceiling, floor: found.floor, sides: found.sides },
+      corners: found.corners, seen: { ceiling: found.ceiling, floor: found.floor, floorFrom: found.floorFrom, seenBottom: found.seenBottom || null, sides: found.sides },
       flat: null, ppi: null, measure: { which: 'width', value: null }, mode: 'auto',
     };
     S.mem = { photo: img, flat: null, clean: null, cleanKey: null };
@@ -446,19 +446,29 @@ async function readPhoto() {
   const d = S.draft, p = d.photo;
   await ensurePixels();
   const img = regionImg();
-  const found = readWall(img);
+  // Where a table or a couch in front hides the bottom of the wall, what stands there runs down to the floor.
+  const found = readWall(img, { hiddenFrom: hiddenFromFor(p.corners, p.seen && p.seen.seenBottom, img.width, img.height) });
   const items = found.items.map((it, i) => ({ ...it, id: `auto${i}`, removed: false }));
   for (const it of items) if (it.kind === 'art') Object.assign(it, thumbAndPalette(img, it));
+  // A TV on a stand sits out from the wall and looks bigger than it would on it.
+  const tv = items.find((i) => i.kind === 'tv' && i.alone);
+  let tvPx = 0;
+  if (tv && tv.onStand) {
+    const Hm = homography([[0, 0], [img.width, 0], [img.width, img.height], [0, img.height]], p.corners);
+    const a = apply(Hm, tv.x, tv.y + tv.h / 2), b = apply(Hm, tv.x + tv.w, tv.y + tv.h / 2);
+    tvPx = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  const depth = (dg) => (tvPx ? tvDepthFactor(tvPx, Math.hypot(p.w, p.h), dg) : 1);
   // A 55 in TV unless that makes a ceiling the photo shows lower than 7 ft or
   // higher than 11 ft; then the next size that doesn't.
   let tvInches = (p.auto && p.auto.tvInches) || 55, tvWhy = null;
   if (!(p.auto && p.auto.tvInches) && !(p.seen && p.seen.ceiling === false)) {
-    const ceil = (dg) => { const g = guessWidth(items, img.width, dg); return g ? (g.inches * img.height) / img.width : null; };
+    const ceil = (dg) => { const g = guessWidth(items, img.width, dg, depth(dg)); return g ? (g.inches * img.height) / img.width : null; };
     const c55 = ceil(55);
     if (c55 && c55 < 84) { tvInches = [65, 75].find((dg) => ceil(dg) >= 84) || 75; tvWhy = 'low'; }
     if (c55 && c55 > 132) { tvInches = [50, 43].find((dg) => ceil(dg) <= 132) || 43; tvWhy = 'high'; }
   }
-  p.auto = { items, rw: img.width, rh: img.height, wallRgb: labToRgb(found.wallColor), tvInches, tvWhy, guess: guessWidth(items, img.width, tvInches) };
+  p.auto = { items, rw: img.width, rh: img.height, wallRgb: labToRgb(found.wallColor), tvInches, tvWhy, tvPx, depth: depth(tvInches), guess: guessWidth(items, img.width, tvInches, depth(tvInches)) };
   d.obstacles = d.obstacles.filter((o) => !o.autoId);
   d.owned = d.owned.filter((o) => !o.autoId);
   p.lastW = null; p.lastH = null;
@@ -488,9 +498,11 @@ function applyAuto() {
   const rw = a.rw || p.w, rh = a.rh || a.floorPx;
   const s = d.width / rw;
   const inch = (it) => {
-    const w = r2(it.w * s);
-    const h = it.kind === 'tv' ? Math.max(r2(it.h * s), r2(w * 9 / 16)) : r2(it.h * s);
-    return { x: r2(it.x * s), y: Math.max(0, r2((rh - it.y - it.h) * s)), w, h };
+    // A TV out on its stand looks bigger than it is: back to its real size, still sitting on the stand.
+    const k = it.kind === 'tv' && a.depth ? 1 / a.depth : 1;
+    const w = r2(it.w * s * k);
+    const h = it.kind === 'tv' ? Math.max(r2(it.h * s * k), r2(w * 9 / 16)) : r2(it.h * s);
+    return { x: r2((it.x + (it.w * (1 - k)) / 2) * s), y: Math.max(0, r2((rh - it.y - it.h) * s)), w, h };
   };
   const live = a.items.filter((i) => !i.removed);
   d.obstacles = [
@@ -598,7 +610,7 @@ function check() {
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const from = auto && p.auto.guess ? p.auto.guess.from : null;
   const why = { low: ' A 55 in one would put the ceiling under 7 ft.', high: ' A 55 in one would put the ceiling over 11 ft.' }[p.auto.tvWhy] || '';
-  const guess = from === 'tv' ? `Worked out from your TV, taken as a ${p.auto.tvInches} in TV.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
+  const guess = from === 'tv' ? `Worked out from your TV, taken as a ${p.auto.tvInches} in TV${p.auto.tvPx ? ' standing a little out from the wall' : ''}.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
   const tvPick = from === 'tv' ? `<label class="tv-size">Your TV <select id="tv-size" aria-label="Your TV's size">${TV_SIZES.map(([dg]) => `<option value="${dg}"${dg === p.auto.tvInches ? ' selected' : ''}>${dg} in</option>`).join('')}</select></label>` : '';
   const opts = [['must', 'Must keep'], ['happy', 'Happy to move'], ['dontcare', "Don't care"]];
   const rows = [
@@ -652,7 +664,7 @@ function corners() {
   const seen = p.seen || {};
   const misses = [
     seen.ceiling === false ? "We couldn't see the ceiling, so the top dots are at the top of the photo. You'll set the ceiling height next." : null,
-    seen.floor === false ? "We couldn't see the floor. Drag the bottom dots to where the wall meets it." : null,
+    seen.floorFrom === 'stand' ? "The floor is hidden behind the furniture, so the bottom dots are a guess from your TV stand. Drag them if they're off." : seen.floor === false ? "We couldn't see where the wall meets the floor. Drag the bottom dots down to it, guessing behind furniture." : null,
   ].filter(Boolean);
   return `${header()}${steps('wall')}
   <main class="flow">
@@ -1477,7 +1489,8 @@ document.addEventListener('change', (e) => {
     // A different TV size changes the scale of the whole wall.
     const p = S.draft.photo, a = p.auto;
     a.tvInches = Number(t.value); a.tvWhy = null;
-    a.guess = guessWidth(a.items, a.rw, a.tvInches);
+    a.depth = a.tvPx ? tvDepthFactor(a.tvPx, Math.hypot(p.w, p.h), a.tvInches) : 1;
+    a.guess = guessWidth(a.items, a.rw, a.tvInches, a.depth);
     if (a.guess) ensurePixels().then(() => { setScale(a.guess.inches); applyAuto(); flattenAuto(); resetLayouts(); persist(); render(); });
     return;
   }

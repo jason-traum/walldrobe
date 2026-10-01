@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readWall, guessWidth, findWall } from '../web/detect.js';
+import { readWall, guessWidth, suggestWall, tvDepthFactor, hiddenFromFor } from '../web/detect.js';
 import { flatten, aspectFromCorners, homography, apply } from '../web/photo.js';
 import { readPng } from './png.js';
 
@@ -59,58 +59,75 @@ test('a bare wall finds nothing and makes no width guess', () => {
 
 // ---------- The living room photo ----------
 
-// Set by hand on the fixture (450 x 600): where the wall meets the ceiling's
-// soffit, the side walls and the floor (the bottom left is behind a basket).
-const HAND = [[28.5, 172], [373, 161], [387, 411], [36, 421]];
-// What's on that wall, as fractions of the wall seen straight on (x of its
-// width, y of its height from the top): measured on the hand-flattened wall.
+// Set by hand on the fixture (450 x 600). REAL is the wall: under the soffit,
+// between the side walls, down to the floor at the bottom of the baseboard. The
+// floor shows only at the right corner; on the left it's behind the basket and
+// the table, so it's taken along the slope of the TV's bottom edge.
+const REAL = [[28.5, 172], [373, 161], [388, 422], [36, 438]];
+// FRAME is where the boxes below were measured: the same wall down to the top
+// of the baseboard. Boxes are compared in it, as fractions of its width (x) and
+// height from the top (y); what stands on the floor runs to its bottom or past.
+const FRAME = [[28.5, 172], [373, 161], [387, 411], [36, 421]];
 const EXPECT = {
   art: [[0.053, 0.128, 0.243, 0.506], [0.047, 0.543, 0.267, 0.752]], // Yves Klein print, smiley print
   tv: [0.345, 0.422, 0.795, 0.794],
   furniture: [0.235, 0.777, 0.952, 1], // the TV stand
   lamp: [0.867, 0.232, 1, 1], // floor lamp, shade included (it runs past the wall's right edge)
 };
+const living = () => readPng(new URL('./fixtures/living_room.png', import.meta.url));
 
-test('living room: the suggested corners are close to the real ones', () => {
-  const img = readPng(new URL('./fixtures/living_room.png', import.meta.url));
-  const f = findWall(img);
-  assert.ok(f.ceiling && f.floor && f.sides[0] && f.sides[1], JSON.stringify(f));
+test('living room: the suggested corners are close to the real ones, with the hidden floor found from the TV stand', () => {
+  const img = living();
+  const f = suggestWall(img);
+  assert.ok(f.ceiling && f.sides[0] && f.sides[1], JSON.stringify(f));
+  assert.equal(f.floor, false, 'the floor is behind the table, so it was not seen');
+  assert.equal(f.floorFrom, 'stand');
   f.corners.forEach(([x, y], i) => {
-    assert.ok(Math.abs(x - HAND[i][0]) < 0.04 * img.width && Math.abs(y - HAND[i][1]) < 0.04 * img.height, `corner ${i}: ${Math.round(x)}, ${Math.round(y)} vs ${HAND[i]}`);
+    assert.ok(Math.abs(x - REAL[i][0]) < 0.03 * img.width && Math.abs(y - REAL[i][1]) < 0.03 * img.height, `corner ${i}: ${Math.round(x)}, ${Math.round(y)} vs ${REAL[i]}`);
   });
 });
 
-test('living room: reading the flattened wall finds two prints, the TV, its stand and the lamp', () => {
-  const img = readPng(new URL('./fixtures/living_room.png', import.meta.url));
-  const { corners } = findWall(img);
+function readLiving() {
+  const img = living();
+  const { corners, seenBottom } = suggestWall(img);
   const { aspect } = aspectFromCorners(corners, img.width, img.height);
   const W = 600, H = Math.round(W / aspect);
-  const r = readWall(flatten(img, corners, W, H));
-  // Detected boxes go back into the photo, then into the hand-set wall, so the
+  return { img, corners, W, H, aspect, r: readWall(flatten(img, corners, W, H), { hiddenFrom: hiddenFromFor(corners, seenBottom, W, H) }) };
+}
+
+test('living room: reading the flattened wall finds two prints, the TV, its stand and the lamp', () => {
+  const { corners, W, H, r } = readLiving();
+  // Detected boxes go back into the photo, then into the hand-set frame, so the
   // check doesn't depend on exactly where the suggested corners landed.
   const toPhoto = homography([[0, 0], [W, 0], [W, H], [0, H]], corners);
-  const toHand = homography(HAND, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  const toFrame = homography(FRAME, [[0, 0], [1, 0], [1, 1], [0, 1]]);
   const box = (it) => {
-    const pts = [[it.x, it.y], [it.x + it.w, it.y], [it.x + it.w, it.y + it.h], [it.x, it.y + it.h]].map(([x, y]) => apply(toHand, ...apply(toPhoto, x, y)));
+    const pts = [[it.x, it.y], [it.x + it.w, it.y], [it.x + it.w, it.y + it.h], [it.x, it.y + it.h]].map(([x, y]) => apply(toFrame, ...apply(toPhoto, x, y)));
     return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
   };
   const kinds = r.items.map((i) => i.kind).sort();
   assert.deepEqual(kinds, ['art', 'art', 'furniture', 'lamp', 'tv'], kinds.join());
-  // Each edge within 5% of the wall. The bottom of what stands on the floor is
-  // the suggested floor line, hidden here behind the basket and the stand; its
-  // corners are checked above, so it gets a little more room.
-  const near = (got, want, what) => got.forEach((v, k) => {
-    const tol = k === 3 && want[3] === 1 ? 0.08 : 0.05;
-    assert.ok(Math.abs(Math.min(1, Math.max(0, v)) - want[k]) < tol, `${what} edge ${k}: ${v.toFixed(3)} vs ${want[k]}`);
-  });
+  // Each edge within 5% of the wall.
+  const near = (got, want, what) => got.forEach((v, k) => assert.ok(Math.abs(Math.min(1, Math.max(0, v)) - want[k]) < 0.05, `${what} edge ${k}: ${v.toFixed(3)} vs ${want[k]}`));
   const arts = r.items.filter((i) => i.kind === 'art').map(box).sort((a, b) => a[1] - b[1]);
   near(arts[0], EXPECT.art[0], 'Yves Klein print');
   near(arts[1], EXPECT.art[1], 'smiley print');
   near(box(r.items.find((i) => i.kind === 'tv')), EXPECT.tv, 'TV');
   near(box(r.items.find((i) => i.kind === 'furniture')), EXPECT.furniture, 'TV stand');
   near(box(r.items.find((i) => i.kind === 'lamp')), EXPECT.lamp, 'lamp');
-  // The TV is clear of the stand and the plant, so it can set the scale: a 55 in
-  // set makes this wall about 9 ft wide.
-  const g = guessWidth(r.items, W);
-  assert.ok(g && g.inches > 95 && g.inches < 125, JSON.stringify(g));
+});
+
+test('living room: the 55 in TV on its stand sizes the wall at about 10 ft by 7 ft 6 in', () => {
+  const { img, corners, W, H, aspect, r } = readLiving();
+  const tv = r.items.find((i) => i.kind === 'tv');
+  assert.ok(tv.alone && tv.onStand, JSON.stringify(tv));
+  // How wide the TV is in the photo, for how far away it is.
+  const toPhoto = homography([[0, 0], [W, 0], [W, H], [0, H]], corners);
+  const a = apply(toPhoto, tv.x, tv.y + tv.h / 2), b = apply(toPhoto, tv.x + tv.w, tv.y + tv.h / 2);
+  const depth = tvDepthFactor(Math.hypot(b[0] - a[0], b[1] - a[1]), Math.hypot(img.width, img.height), 55);
+  assert.ok(depth > 1.05 && depth < 1.12, `a TV about 12 ft away and a foot out from the wall: ${depth}`);
+  const g = guessWidth(r.items, W, 55, depth);
+  const tall = g.inches / aspect;
+  assert.ok(g.inches >= 112 && g.inches <= 126, `width ${g.inches} in`);
+  assert.ok(tall >= 84 && tall <= 96, `height ${tall.toFixed(0)} in`);
 });
