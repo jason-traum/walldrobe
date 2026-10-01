@@ -48,7 +48,7 @@ States that apply everywhere:
 | Reading | "Reading your wall…" on the button while the wall inside the corners is flattened and read | Wait |
 | Corners crossed or off photo | Handles turn to the error style, "Corners should go clockwise from top left." | Fix |
 | Sized from a TV | On the check screen: "Worked out from your TV, taken as a 55 in TV." with the TV size to change | Change the TV size, type the width |
-| Measurement empty | Only when no TV is clear of everything else: "Give us one real measurement." Wall width, or its height when the ceiling is in the photo | Enter feet and inches |
+| Measurement empty | Only when no TV is clear of everything else: "Give us one real measurement." Wall width, or its height when the ceiling is in the photo. Under it, "No tape measure?" with what's in the photo: the door (6 ft 8 in), a queen bed, the couch (about 7 ft), an 8 ft ceiling, or just guess | Enter feet and inches, or pick one |
 | Measurement doesn't add up | "That makes the wall 31 ft tall. Check the number." | Edit |
 | Done | The flattened wall with its size: "11 ft 0 in wide, 8 ft 0 in tall" | Next |
 
