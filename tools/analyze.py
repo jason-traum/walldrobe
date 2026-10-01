@@ -423,6 +423,9 @@ def main():
         tags = tags_for(p["category"], p["title"], p["medium"], m)
         seen_by = "rule"
         look = looked.get(p["id"])
+        if look and look.get("category") and look["category"] != p["category"]:
+            p["category"] = look["category"]  # set by looking at the image
+            tags = tags_for(p["category"], p["title"], p["medium"], m)
         if look:
             tags = merge_tags(tags, look)
             seen_by = "model"

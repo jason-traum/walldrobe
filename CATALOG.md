@@ -141,6 +141,8 @@ When a shop approves Walldrobe as an affiliate, its network (Impact, CJ, Awin or
 3. `python3 tools/analyze.py <cache>` measures each image (colors, shape, weight) from a cached copy that never ships. The record shows the shop's own image link, its real sizes and prices, and `offers` for the buy buttons.
 4. Every new piece stays `hidden` until it has a line in `tools/tags.json`. Look at each one (contact sheets, same as the photos), tag it, and hide anything weak or a near-duplicate.
 
+For the beta, `tools/feeds/desenio.tsv` was read from Desenio's product pages (each page carries its sizes and prices as schema.org data) in a real browser, not from an affiliate feed. Same file format, same rules.
+
 Credit reads "Art by {artist}, sold by {shop}". `rights.sell` stays false: the shop sells, Walldrobe links.
 
 ## Rules for adding art
