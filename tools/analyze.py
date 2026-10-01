@@ -1,11 +1,14 @@
 """Build the demo catalog: one record per piece, in the shape CATALOG.md describes.
 
-For every line in tools/picks.tsv:
+For every line in tools/picks.tsv (Unsplash), tools/picks_pexels.tsv and tools/picks_pixabay.tsv:
   - fetch the image from Unsplash (or reuse a cached copy),
   - measure color and composition (palette by k-means in Lab, brightness,
     contrast, saturation, colorfulness, warmth, busyness, negative space,
     focal point, symmetry, visual weight),
-  - set first tags by rule (theme, style, rooms, people, mood),
+  - set first tags by rule (theme, style, rooms, people, mood), then lay over
+    the tags written by looking at each image (tools/tags.json): a one-line
+    description, subjects, mood, style, rooms, people, setting, time of day,
+    season, vibe words, a 1 to 5 quality score, and hide for near-duplicates,
   - write a small image for the demo.
 
 Usage: python3 tools/analyze.py [cache_dir]
@@ -310,53 +313,105 @@ def tags_for(category, title, medium, m):
 
 # ---------- Main ----------
 
-def fetch(pid):
+PROVIDERS = {
+    # name: (license, license page, credit suffix, file of picks)
+    "unsplash": ("Unsplash License", "https://unsplash.com/license", "on Unsplash", "picks.tsv"),
+    "pexels": ("Pexels License", "https://www.pexels.com/license/", "on Pexels", "picks_pexels.tsv"),
+    "pixabay": ("Pixabay Content License", "https://pixabay.com/service/license-summary/", "on Pixabay", "picks_pixabay.tsv"),
+}
+
+def fetch(key, url):
     os.makedirs(CACHE, exist_ok=True)
-    fn = os.path.join(CACHE, pid.split("/")[-1] + ".jpg")
+    fn = os.path.join(CACHE, key + ".jpg")
     if not os.path.exists(fn):
-        req = urllib.request.Request(f"https://images.unsplash.com/{pid}?w=640&q=80&fm=jpg", headers={"User-Agent": "Walldrobe demo"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Walldrobe demo"})
         with urllib.request.urlopen(req, timeout=40) as r, open(fn, "wb") as f:
             f.write(r.read())
     return Image.open(fn).convert("RGB")
 
+def picks():
+    """Every pick from every provider, as dicts."""
+    for provider, (_, _, _, fname) in PROVIDERS.items():
+        path = os.path.join(ROOT, "tools", fname)
+        if not os.path.exists(path): continue
+        for line in open(path):
+            if line.startswith("#") or not line.strip(): continue
+            f = line.rstrip("\n").split("\t")
+            if provider == "unsplash":
+                pid, who, slug, title, medium, category = f
+                yield {"provider": provider, "imageId": pid, "key": pid.split("/")[-1], "id": "u-" + pid.split("photo-")[-1][:13],
+                       "who": who, "page": f"https://unsplash.com/photos/{slug}", "title": title, "medium": medium, "category": category,
+                       "url": f"https://images.unsplash.com/{pid}?w=640&q=80&fm=jpg"}
+            else:
+                pid, who, page, title, medium, category, url = f
+                tag = provider[:2]
+                yield {"provider": provider, "imageId": pid, "key": f"{tag}-{pid}", "id": f"{tag}-{pid}", "who": who, "page": page,
+                       "title": title, "medium": medium, "category": category, "url": url}
+
+def merge_tags(rule, seen):
+    """Tags from looking win over tags from rules; rules fill any gap."""
+    out = dict(rule)
+    for k in ("subjects", "mood", "style", "rooms", "people", "setting", "time", "season", "vibe"):
+        if k in seen and seen[k] not in (None, [], ""):
+            out[k] = seen[k]
+    return out
+
+def load_tags():
+    """Tags written by looking at each image (tools/tags.json), keyed by record id."""
+    path = os.path.join(ROOT, "tools", "tags.json")
+    return json.load(open(path))["items"] if os.path.exists(path) else {}
+
 def main():
     os.makedirs(os.path.join(OUT, "art"), exist_ok=True)
+    looked = load_tags()
     records, seen = [], set()
-    for line in open(os.path.join(ROOT, "tools", "picks.tsv")):
-        if line.startswith("#") or not line.strip(): continue
-        pid, who, slug, title, medium, category = line.rstrip("\n").split("\t")
-        if pid in seen: continue
-        seen.add(pid)
-        img = fetch(pid)
+    for p in picks():
+        if p["id"] in seen: continue
+        seen.add(p["id"])
+        try:
+            img = fetch(p["key"], p["url"])
+        except Exception as e:
+            print("SKIP", p["provider"], p["id"], p["title"], e, file=sys.stderr)
+            continue
         m = measure(img)
         aspect = img.width / img.height
-        name = pid.split("/")[-1] + ".jpg"
+        name = p["key"] + ".jpg"
         thumb = img.copy()
         thumb.thumbnail((360, 360), Image.LANCZOS)
         thumb.save(os.path.join(OUT, "art", name), quality=74, optimize=True, progressive=True)
-        records.append({
-            "id": "u-" + pid.split("photo-")[-1][:13],
-            "status": "active",
-            "title": title,
-            "medium": medium,
-            "category": category,
+        lic, lic_url, suffix, _ = PROVIDERS[p["provider"]]
+        who = p["who"]
+        tags = tags_for(p["category"], p["title"], p["medium"], m)
+        seen_by = "rule"
+        look = looked.get(p["id"])
+        if look:
+            tags = merge_tags(tags, look)
+            seen_by = "model"
+        rec = {
+            "id": p["id"],
+            "status": "hidden" if look and look.get("hide") else "active",
+            "title": p["title"],
+            "medium": p["medium"],
+            "category": p["category"],
             "artist": {"name": who},
-            "source": {"provider": "unsplash", "page": f"https://unsplash.com/photos/{slug}", "imageId": pid,
-                       "license": "Unsplash License", "licenseUrl": "https://unsplash.com/license"},
-            "rights": {"show": True, "sell": False, "credit": f"Photo by {who} on Unsplash"},
+            "source": {"provider": p["provider"], "page": p["page"], "imageId": p["imageId"], "license": lic, "licenseUrl": lic_url},
+            "rights": {"show": True, "sell": False, "credit": f"Photo by {who} {suffix}"},
             "image": {"src": f"art/{name}", "width": img.width, "height": img.height, "aspect": round(aspect, 4),
                       "orientation": "square" if 0.9 <= aspect <= 1.1 else "portrait" if aspect < 1 else "landscape"},
             **m,
-            "tags": tags_for(category, title, medium, m),
+            "tags": tags,
             "sizes": sizes_for(aspect),
             "offers": [],
-            "quality": {"score": None, "by": None},
+            "quality": {"score": round((look["quality"] - 1) / 4, 2), "by": "model"} if look else {"score": None, "by": None},
             "provenance": {"source": "source", "image": "measured", "color": "measured", "composition": "measured",
-                           "tags": "rule", "sizes": "rule", "quality": None, "title": "human", "category": "human"},
-        })
-        print(len(records), category, title, file=sys.stderr)
+                           "tags": seen_by, "sizes": "rule", "quality": "model" if look else None, "title": "human", "category": "human"},
+        }
+        if look and look.get("description"):
+            rec["description"] = look["description"]
+        records.append(rec)
+        print(len(records), p["provider"], p["category"], p["title"], file=sys.stderr)
     with open(os.path.join(OUT, "catalog.json"), "w") as f:
-        json.dump({"schema": "walldrobe.catalog/1", "source": "Unsplash (Unsplash License)", "items": records}, f, indent=1)
+        json.dump({"schema": "walldrobe.catalog/1", "source": "Unsplash, Pexels and Pixabay (each under its own license)", "items": records}, f, indent=1)
 
 if __name__ == "__main__":
     main()

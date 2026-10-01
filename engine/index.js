@@ -23,6 +23,7 @@ const REUSE_BONUS = 0.04;
 const SAME_ARTIST = 0.02;
 const LOOKALIKE_PAIR = 0.04; // off the total for each pair of pieces that look almost the same
 const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-alikes
+const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans the pick toward stronger photos
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
 const ROOM = '\u0000room';
 const sizeKey = (w, h) => `${w}x${h}`;
@@ -139,7 +140,7 @@ function prepare(input) {
   const catalogCands = catalog.filter((c) => !exclude.has(c.id) && !keptIds.has(c.id)).map((c) => ({
     id: c.id, source: 'catalog', title: c.title, artist: c.artist || null, item: c,
     sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0),
-    taste: tasteOf(c.id),
+    taste: num(c.quality) ? (1 - QUALITY_PICK) * tasteOf(c.id) + QUALITY_PICK * clamp01(c.quality) : tasteOf(c.id),
   }));
 
   return {

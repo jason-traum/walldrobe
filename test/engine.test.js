@@ -272,3 +272,23 @@ test('one must-keep that cannot fit gets advice about that piece', () => {
   const p = r.problems[0];
   assert.doesNotMatch(p.message, /fewer pieces as must keep/);
 });
+
+test('a TV wall: art goes above the TV, centered on it and clear of it', () => {
+  const wall = { width: 120, height: 108 };
+  const obstacles = [{ id: 'stand', kind: 'furniture', x: 30, y: 0, w: 60, h: 22 }, { id: 'tv', kind: 'tv', x: 36, y: 26, w: 48, h: 28 }];
+  const r = layout({ wall, obstacles, catalog, taste });
+  assert.ok(r.layouts.length > 0, JSON.stringify(r.problems));
+  for (const L of r.layouts) {
+    assert.equal(L.anchor.id, 'tv');
+    assert.ok(L.group.y >= 26 + 28 + RULES.blockerClear, `above the TV: ${L.group.y}`);
+    assert.ok(Math.abs(L.group.x + L.group.w / 2 - 60) <= 1, 'centered on the TV');
+    assertLayoutValid({ wall, obstacles }, L);
+  }
+});
+
+test('a TV with no room above it falls back to the open wall beside it', () => {
+  const wall = { width: 140, height: 84 };
+  const obstacles = [{ id: 'tv', kind: 'tv', x: 46, y: 30, w: 48, h: 40 }];
+  const r = layout({ wall, obstacles, catalog, taste });
+  for (const L of r.layouts) { assert.notEqual(L.anchor.id, 'tv'); assertLayoutValid({ wall, obstacles }, L); }
+});

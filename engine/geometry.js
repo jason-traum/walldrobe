@@ -3,8 +3,10 @@
 import { RULES } from './constants.js';
 
 export const ANCHORS = new Set([
-  'couch', 'sofa', 'bed', 'headboard', 'console', 'dresser', 'sideboard', 'credenza', 'desk', 'bench', 'table',
+  'couch', 'sofa', 'bed', 'headboard', 'console', 'dresser', 'sideboard', 'credenza', 'desk', 'bench', 'table', 'furniture',
 ]);
+// A TV is a blocker, but art over a TV wall goes above it, so it also anchors.
+export const SCREENS = new Set(['tv']);
 export const FURNITURE = new Set([...ANCHORS, 'radiator', 'furniture']);
 export const FIXTURES = new Set(['outlet', 'switch']);
 
@@ -64,23 +66,29 @@ const mid = (r) => r.x + r.w / 2;
 // otherwise centered on the widest open stretch at eye level. Returns null when
 // nothing is wide enough to hang on.
 export function findZone(wall, obstacles, regions) {
-  const anchors = obstacles
+  // A TV comes first: the art goes above it, centered on it, clear of it.
+  const screens = obstacles.filter((o) => SCREENS.has(o.kind) && o.w >= 20)
+    .sort((a, b) => b.w - a.w || cmpStr(a.id, b.id));
+  const anchors = [...screens, ...obstacles
     .filter((o) => ANCHORS.has(o.kind) && o.w >= RULES.minAnchorWidth)
     .sort((a, b) => b.w - a.w
       || Math.abs(mid(a) - wall.width / 2) - Math.abs(mid(b) - wall.width / 2)
-      || cmpStr(a.id, b.id));
+      || cmpStr(a.id, b.id))];
 
   for (const a of anchors) {
+    const screen = SCREENS.has(a.kind);
     const base = a.y + a.h;
     const cx = mid(a);
-    const y0 = base + RULES.clearanceMin;
+    // Over a TV the art clears its blocker margin as well as the usual gap.
+    const y0 = base + (screen ? Math.max(RULES.clearanceMin, RULES.blockerClear + 3) : RULES.clearanceMin);
     const y1 = Math.min(wall.height - RULES.ceilingHard, base + 30);
     if (y1 - y0 < 8) continue;
     const iv = freeIntervals(wall.width, regions, y0, y1).find((i) => i.x0 <= cx && i.x1 >= cx);
     if (!iv || iv.w < RULES.minOpenWidth) continue;
     const maxH = wall.height - RULES.ceilingHard - y0;
+    if (screen && maxH < 10) continue; // not enough wall above the TV for art
     return {
-      type: 'anchor', anchor: a, base, cx, refW: a.w,
+      type: 'anchor', anchor: a, base: screen ? y0 - RULES.clearanceMin : base, cx, refW: a.w,
       target: a.w * RULES.anchorRatio, range: RULES.anchorRange, interval: iv, maxH,
     };
   }

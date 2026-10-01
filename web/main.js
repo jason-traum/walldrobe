@@ -7,8 +7,9 @@ import { layout, refill } from '../engine/index.js';
 import { fitTaste, scoreTaste, nextPair, describeTaste } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
-import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, labelSize } from './draw.js';
+import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl } from './photo.js';
+import { readWall, guessWidth, labToRgb } from './detect.js';
 import * as store from './store.js';
 
 const QUIZ_LENGTH = 10;
@@ -84,13 +85,11 @@ function loadSample(key) {
 // ---------- Router ----------
 
 const FLOW = [
-  ['wall', 'Wall', '#/start'],
-  ['things', 'In the way', '#/things'],
-  ['pieces', 'Your art', '#/pieces'],
-  ['taste', 'Taste', '#/taste'],
+  ['wall', 'Your wall', '#/check'],
   ['layouts', 'Layouts', '#/layouts'],
   ['get', 'Get it', '#/get'],
 ];
+const STEP_OF = { things: 'wall', pieces: 'wall', check: 'wall', taste: 'layouts' };
 const route = () => (location.hash.replace(/^#\/?/, '') || '').split('/');
 function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
 window.addEventListener('hashchange', () => { S.flash = null; S.ui.cornerErr = null; S.ui.sizeErr = null; render(); window.scrollTo(0, 0); });
@@ -111,17 +110,18 @@ function header() {
   ${S.saveFailed ? `<div class="save-failed" role="alert"><p>Didn't save on this device. It may be full; deleting an old wall under Your walls frees space. Your wall is still here until you close the page.</p><button type="button" class="btn-quiet small-btn" data-act="retry-save">Try again</button></div>` : ''}`;
 }
 function steps(current) {
-  const idx = FLOW.findIndex(([k]) => k === current);
+  const idx = FLOW.findIndex(([k]) => k === (STEP_OF[current] || current));
   return `<ol class="steps" aria-label="Steps">${FLOW.map(([k, label, href], i) => {
     const state = i < idx ? 'done' : i === idx ? 'now' : 'next';
     const inner = `<span class="step-n">${i + 1}</span><span class="step-l">${label}</span>`;
-    return `<li class="step is-${state}"${i === idx ? ' aria-current="step"' : ''}>${state === 'done' && hasWall() ? `<a href="${href}">${inner}</a>` : `<span class="step-in">${inner}</span>`}</li>`;
+    const to = k === 'wall' && S.draft && !S.draft.photo ? '#/things' : href;
+    return `<li class="step is-${state}"${i === idx ? ' aria-current="step"' : ''}>${state === 'done' && hasWall() ? `<a href="${to}">${inner}</a>` : `<span class="step-in">${inner}</span>`}</li>`;
   }).join('')}</ol>`;
 }
 function footer() {
   return `<footer class="site-foot">
     <p>Walldrobe: a wardrobe for your walls. Rent the Runway, for art.</p>
-    <p>Photos shown here are from Unsplash, credited to each photographer and shown under the Unsplash License. Walldrobe doesn't sell them; each one links to where you can get it. Your wall photos stay on your device.</p>
+    <p>Photos shown here are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's own license. Walldrobe doesn't sell them; each one links to where you can get it. Your wall photos stay on your device.</p>
   </footer>`;
 }
 const flashHtml = () => (S.flash ? `<p class="flash" role="status">${esc(S.flash)}</p>` : '');
@@ -250,7 +250,7 @@ function home() {
       <div class="hero-wall">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, measure: true, pxWide: 900, still: true, label: 'A finished living room wall' })}</div>
       <div class="hero-copy">
         <h1>A wardrobe for your walls.</h1>
-        <p class="lede">Show us one wall and the art you already own. You get a finished wall, sized and spaced for that wall, down to where each nail goes. The frames stay; change the art whenever you like.</p>
+        <p class="lede">Take one photo of a wall. You get a finished wall, sized and spaced for it and the art you already own, down to where each nail goes. The frames stay; change the art whenever you like.</p>
         <div class="acts">
           <a class="btn" href="#/new">${resume ? 'Start a new wall' : 'Start with your wall'}</a>
           ${resume ? '<a class="btn-quiet" href="#/resume">Back to your wall</a>' : '<a class="btn-quiet" href="#/sample/living">See a sample wall</a>'}
@@ -261,10 +261,9 @@ function home() {
     <section class="how" aria-labelledby="how-h">
       <h2 id="how-h">How it works</h2>
       <ol class="how-list">
-        <li><strong>Photograph one wall.</strong> Drag the four corners, give one measurement, and we flatten it to true scale.</li>
-        <li><strong>Mark what's there.</strong> The couch, the window, the outlets, and the art you already own: must keep, happy to move or don't care.</li>
-        <li><strong>Pick what you like.</strong> Ten quick "which one" picks teach it your taste.</li>
-        <li><strong>Get a finished wall.</strong> Three layouts on your own photo, each piece's size and frame, where it goes and why. Keep what you like, swap the rest.</li>
+        <li><strong>Take a photo of one wall.</strong> It finds the floor, the TV, the furniture and the art you already have, and sizes the wall from them.</li>
+        <li><strong>Check what it found.</strong> Fix the width if you know it, and say which of your pieces you'd keep.</li>
+        <li><strong>Get your wall.</strong> Three layouts on your own photo, each piece's size and frame, where it goes and why. Keep what you like, swap the rest, and get a hanging guide.</li>
       </ol>
     </section>
     <section class="why-home">
@@ -283,18 +282,18 @@ function start() {
   const ft = (v) => (v ? Math.floor(v / 12) : ''), inch = (v) => (v ? Math.round(v % 12) : '');
   return `${header()}${steps('wall')}
   <main class="flow">
-    <h1>Your wall</h1>
-    <p class="lede">One wall at a time. The best photo is taken standing back, straight on, floor to ceiling if you can. People in the photo aren't needed.</p>
+    <h1>Take a photo of one wall</h1>
+    <p class="lede">Stand back and face it straight on, with the floor in the picture. People in the photo aren't needed.</p>
     ${flashHtml()}
     <section class="card">
-      <h2>Take or upload a photo</h2>
+      <h2>Your photo</h2>
       <label class="upload">
         <input type="file" accept="image/*" id="photo-input">
-        <span class="btn">Choose a photo</span>
+        <span class="btn">${S.busy === 'photo' ? 'Reading your wall…' : 'Take or choose a photo'}</span>
         <span class="muted small">Only you can see it. It stays on this device.</span>
       </label>
       ${S.ui.photoErr ? `<p class="error">${esc(S.ui.photoErr)}</p>` : ''}
-      ${d && d.photo ? '<p class="small"><a href="#/corners">Keep using the photo you added</a></p>' : ''}
+      ${d && d.photo ? '<p class="small"><a href="#/check">Keep using the photo you added</a></p>' : ''}
     </section>
     <section class="card">
       <h2>No photo? Type the size</h2>
@@ -332,19 +331,172 @@ async function onPhoto(file) {
     S.draft.photo = {
       src: img.url, w: img.width, h: img.height,
       corners: [[img.width * inset, img.height * inset], [img.width * (1 - inset), img.height * inset], [img.width * (1 - inset), img.height * (1 - inset)], [img.width * inset, img.height * (1 - inset)]],
-      flat: null, ppi: null, measure: { which: 'width', value: null },
+      flat: null, ppi: null, measure: { which: 'width', value: null }, mode: 'auto',
     };
     S.mem = { photo: img, flat: null, clean: null, cleanKey: null };
-    S.ui.quality = q.brightness < 0.15 || q.sharpness < 0.012 ? 'Hard to see the corners. More light helps, but you can use it anyway.' : null;
+    S.ui.quality = q.brightness < 0.15 || q.sharpness < 0.012 ? 'The photo is dark or blurry, so the guesses may be off. Check them below.' : null;
+    // Read the photo: the floor, the wall's color, what's in front of it and what hangs on it.
+    const found = readWall(img);
+    const items = found.items.map((it, i) => ({ ...it, id: `auto${i}`, removed: false }));
+    for (const it of items) if (it.kind === 'art') Object.assign(it, thumbAndPalette(img, it));
+    S.draft.photo.auto = { floorPx: found.floorY, items, guess: guessWidth(found.items, img.width), wallRgb: labToRgb(found.wallColor) };
+    S.draft.width = S.draft.photo.auto.guess.inches;
+    S.draft.height = Math.max(96, Math.ceil((found.floorY * S.draft.width) / img.width));
+    applyAuto();
+    flattenAuto();
     resetLayouts();
     persist();
     S.busy = null;
-    go('#/corners');
+    go('#/check');
   } catch (e) {
     S.busy = null;
     S.ui.photoErr = e.message || "That file won't open. Use a JPG, PNG or HEIC under 20 MB.";
     render();
   }
+}
+
+// ---------- Reading the photo ----------
+
+// A thumbnail and a palette for a box of pixels.
+function thumbAndPalette(img, r) {
+  const part = crop(img, r);
+  const pal = palette(part, 5);
+  const sc = Math.min(1, 240 / Math.max(part.width, part.height));
+  const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(part.width * sc)); cv.height = Math.max(1, Math.round(part.height * sc));
+  const tmp = document.createElement('canvas'); tmp.width = part.width; tmp.height = part.height;
+  tmp.getContext('2d').putImageData(new ImageData(part.data, part.width, part.height), 0, 0);
+  cv.getContext('2d').drawImage(tmp, 0, 0, cv.width, cv.height);
+  return { thumb: cv.toDataURL('image/jpeg', 0.8), palette: pal };
+}
+
+const AUTO_KIND = { tv: 'tv', furniture: 'furniture', lamp: 'lamp' };
+const AUTO_LABEL = { tv: 'TV', furniture: 'Furniture', lamp: 'Lamp or plant' };
+const r2 = (v) => Math.round(v * 2) / 2;
+
+// What was found in the photo, in wall inches. The photo is taken as a straight-on
+// view with its bottom at the floor line; the width sets the scale.
+function applyAuto() {
+  const d = S.draft, p = d.photo, a = p.auto;
+  const s = d.width / p.w;
+  const inch = (it) => ({ x: r2(it.x * s), y: Math.max(0, r2((a.floorPx - it.y - it.h) * s)), w: r2(it.w * s), h: r2(it.h * s) });
+  const live = a.items.filter((i) => !i.removed);
+  d.obstacles = [
+    ...d.obstacles.filter((o) => !o.autoId),
+    ...live.filter((i) => i.kind !== 'art').map((i) => clampOb({ id: i.id, autoId: i.id, kind: AUTO_KIND[i.kind], label: AUTO_LABEL[i.kind], ...inch(i) })),
+  ];
+  const prev = new Map(d.owned.filter((o) => o.autoId).map((o) => [o.autoId, o]));
+  const arts = live.filter((i) => i.kind === 'art');
+  d.owned = [
+    ...d.owned.filter((o) => !o.autoId),
+    ...arts.map((i, n) => {
+      const c = inch(i);
+      const o = prev.get(i.id) || { id: i.id, autoId: i.id, title: n ? `print ${n + 1}` : 'print', keep: 'happy', pinned: false, thumb: i.thumb, palette: i.palette, color: i.palette && i.palette[0] ? i.palette[0].hex : null, fromPhoto: true };
+      return { ...o, at: { x: c.x, y: c.y }, w: c.w, h: c.h };
+    }),
+  ];
+}
+
+// The flattened wall for auto mode: the photo from the floor up, and plain wall
+// color above it when the ceiling is higher than the photo reaches.
+function flattenAuto() {
+  const d = S.draft, p = d.photo, a = p.auto;
+  const s = d.width / p.w;
+  const top = a.floorPx - d.height / s;
+  p.corners = [[0, top], [p.w, top], [p.w, a.floorPx], [0, a.floorPx]];
+  const ppi = Math.min(8, 1600 / Math.max(d.width, d.height));
+  const out = flatten(S.mem.photo, p.corners, Math.round(d.width * ppi), Math.round(d.height * ppi), a.wallRgb);
+  S.mem.flat = out; S.mem.clean = null;
+  p.flat = toDataUrl(out, 0.85); p.ppi = ppi; p.clean = null; p.cleanKey = null;
+  p.lastW = d.width; p.lastH = d.height;
+  for (const o of d.owned) if (o.at) o.rect = { x: o.at.x * ppi, y: (d.height - o.at.y - o.h) * ppi, w: o.w * ppi, h: o.h * ppi };
+  d.room = palette(out, 5);
+}
+
+// ---------- Check what was found ----------
+
+function foundSentence(d) {
+  const n = (k) => d.obstacles.filter((o) => o.kind === k).length;
+  const parts = [];
+  if (n('tv')) parts.push(n('tv') === 1 ? 'a TV' : `${n('tv')} TVs`);
+  if (n('furniture') + n('console') + n('couch') + n('headboard') + n('dresser')) parts.push('furniture');
+  if (n('lamp') + n('plant')) parts.push(n('lamp') + n('plant') === 1 ? 'a lamp or plant' : 'lamps or plants');
+  if (d.owned.length) parts.push(d.owned.length === 1 ? '1 piece of art you already have' : `${d.owned.length} pieces of art you already have`);
+  if (!parts.length) return 'Nothing in the way. A bare wall.';
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return `We found ${list}.`;
+}
+
+// Something found in the photo that the person removed or changed by hand: don't bring it back.
+function forgetAuto(id) {
+  const a = S.draft && S.draft.photo && S.draft.photo.auto;
+  if (!a) return;
+  const it = a.items.find((i) => i.id === id);
+  if (it) it.removed = true;
+  for (const o of [...S.draft.obstacles, ...S.draft.owned]) if (o.autoId === id) delete o.autoId;
+}
+
+async function changeDims(f) {
+  const v = (n) => Number(f.elements[n].value || 0);
+  const W = v('wft') * 12 + v('win'), H = v('hft') * 12 + v('hin');
+  if (W < 24 || W > 600) { S.ui.sizeErr = 'A wall between 2 ft and 50 ft wide works here. Check the width.'; render(); return; }
+  if (H < 72 || H > 240) { S.ui.sizeErr = 'A ceiling between 6 ft and 20 ft works here. Check the height.'; render(); return; }
+  S.ui.sizeErr = null;
+  const d = S.draft;
+  await ensurePixels();
+  d.width = W; d.height = H;
+  applyAuto();
+  flattenAuto();
+  resetLayouts(); persist(); render();
+}
+
+function check() {
+  if (need()) { go(need()); return ''; }
+  const d = S.draft, p = d.photo;
+  if (!p) { go('#/things'); return ''; }
+  const auto = p.mode === 'auto' && p.auto;
+  const H = d.height, s = labelSize(d.width, editPx());
+  const boxes = [
+    ...d.obstacles.map((o) => `<g class="ob"><rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}</g>`),
+    ...d.owned.filter((o) => o.at).map((o) => `<g class="owned-mark"><rect x="${o.at.x}" y="${H - o.at.y - o.h}" width="${o.w}" height="${o.h}" class="owned-box-mark"/><text x="${o.at.x + o.w / 2}" y="${H - o.at.y - o.h - s * 0.4}" font-size="${s * 0.85}" class="ob-label">Your ${esc(o.title)}</text></g>`),
+  ].join('');
+  const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
+  const guess = auto ? { tv: 'Guessed from your TV, taking it as a 55 in TV. Measure the wall to be exact.', furniture: 'Guessed from the furniture. Measure the wall to be exact.', default: 'A guess. Measure the wall to be exact.' }[p.auto.guess.from] : null;
+  const opts = [['must', 'Must keep'], ['happy', 'Happy to move'], ['dontcare', "Don't care"]];
+  const rows = [
+    ...d.owned.map((o) => `<li>
+      <span class="f-thumb">${o.thumb ? `<img src="${o.thumb}" alt="">` : '<span class="f-icon">Art</span>'}</span>
+      <span class="f-main"><span class="f-name">Your ${esc(o.title)}, ${o.w} x ${o.h} in</span>
+        <span class="seg seg-full" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, l]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${o.keep === v}">${l}</button>`).join('')}</span></span>
+      <button type="button" class="linklike" data-remove-owned="${esc(o.id)}" aria-label="Not art, remove your ${esc(o.title)}">Remove</button>
+    </li>`),
+    ...d.obstacles.map((o) => `<li>
+      <span class="f-thumb"><span class="f-icon">${esc(obName(o).split(' ')[0])}</span></span>
+      <span class="f-main"><span class="f-name">${esc(obName(o))}, ${o.w} x ${o.h} in</span></span>
+      <button type="button" class="linklike" data-remove-ob="${esc(o.id)}" aria-label="Remove ${esc(obName(o))}">Remove</button>
+    </li>`),
+  ].join('');
+  return `${header()}${steps('check')}
+  <main class="flow">
+    <h1>Here's your wall</h1>
+    <p class="lede">${esc(foundSentence(d))} Check the size, then we'll lay it out.</p>
+    ${S.ui.quality ? `<p class="note">${esc(S.ui.quality)}</p>` : ''}
+    <div class="wall-edit has-photo check-wall">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened' })}</div>
+    ${auto ? `<form id="dims-form" class="dims">
+      <fieldset class="size-form"><legend>Wall width</legend>
+        <span class="acts"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
+        <span class="guess">${esc(guess)}</span></fieldset>
+      <fieldset class="size-form"><legend>Ceiling height</legend>
+        <span class="acts"><label><input type="number" inputmode="numeric" min="6" max="20" name="hft" value="${ft(H)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="hin" value="${inch(H)}"> in</label></span>
+        <span class="guess">Most ceilings are 8 ft.</span></fieldset>
+    </form>` : `<p class="size-read">${esc(feet(d.width))} wide, ${esc(feet(H))} tall</p>`}
+    ${S.ui.sizeErr ? `<p class="error">${esc(S.ui.sizeErr)}</p>` : ''}
+    ${rows ? `<ul class="found">${rows}</ul>` : ''}
+    ${flashHtml()}
+    <div class="acts">
+      <a class="btn" href="#/layouts">Show me my wall</a>
+    </div>
+    <p class="small muted">Something missed or wrong? <a href="#/things">Move or add things</a>, <a href="#/pieces">add art we missed</a>, or <a href="#/corners">set the corners by hand</a>.</p>
+  </main>${footer()}`;
 }
 
 // ---------- Corners ----------
@@ -446,6 +598,8 @@ async function flattenWall(W, H) {
 
 const DEFAULTS = {
   couch: (W) => ({ w: Math.min(84, W - 12), h: 32, x: (W - Math.min(84, W - 12)) / 2, y: 0 }),
+  lamp: (W) => ({ w: 16, h: 62, x: Math.max(0, W - 22), y: 0 }),
+  plant: () => ({ w: 20, h: 44, x: 4, y: 0 }),
   headboard: (W) => ({ w: Math.min(62, W - 12), h: 40, x: (W - Math.min(62, W - 12)) / 2, y: 0 }),
   dresser: (W) => ({ w: 36, h: 34, x: W - 42, y: 0 }),
   console: (W) => ({ w: Math.min(60, W - 12), h: 30, x: (W - Math.min(60, W - 12)) / 2, y: 0 }),
@@ -470,7 +624,7 @@ function obstacleLayer(showHandles = true) {
   return S.draft.obstacles.map((o) => `
     <g class="ob" data-ob="${esc(o.id)}">
       <rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>
-      ${o.w >= 10 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.9}" class="ob-label">${esc(KIND_NAME[o.kind] || o.kind)}</text>` : ''}
+      ${o.w >= 10 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.9}" class="ob-label">${esc(obName(o))}</text>` : ''}
       ${showHandles && o.w >= 6 ? `<circle cx="${o.x + o.w}" cy="${H - o.y - o.h}" r="${s * 0.55}" class="ob-resize" data-resize="${esc(o.id)}"/>` : ''}
     </g>`).join('');
 }
@@ -479,7 +633,7 @@ function things() {
   if (need()) { go(need()); return ''; }
   const d = S.draft;
   const photo = d.photo && d.photo.flat;
-  const kinds = ['couch', 'headboard', 'dresser', 'console', 'window', 'door', 'tv', 'outlet', 'switch'];
+  const kinds = ['couch', 'headboard', 'dresser', 'console', 'tv', 'lamp', 'plant', 'window', 'door', 'outlet', 'switch'];
   const num = (o, k, label) => `<label class="num"><span>${label}</span><span class="num-in"><input type="number" step="0.5" min="0" data-obk="${k}" data-obid="${esc(o.id)}" value="${o[k]}"> in</span></label>`;
   return `${header()}${steps('things')}
   <main class="flow">
@@ -490,15 +644,15 @@ function things() {
       ${wallSvg({ wall: { width: d.width, height: d.height }, photo, obstacles: [], extra: obstacleLayer(), pxWide: editPx(), label: d.name })}
     </div>
     ${d.obstacles.length ? `<ul class="ob-list">${d.obstacles.map((o) => `<li>
-        <span class="ob-name">${esc(KIND_NAME[o.kind] || o.kind)}</span>
+        <span class="ob-name">${esc(obName(o))}</span>
         <span class="ob-nums">${num(o, 'w', 'Wide')}${num(o, 'h', 'Tall')}${num(o, 'x', 'From left')}${num(o, 'y', 'From floor')}</span>
         ${['couch', 'headboard'].includes(o.kind) ? `<span class="muted small">Tall means the floor to the top of the ${o.kind === 'couch' ? 'back' : 'headboard'}.</span>` : ''}
         <button type="button" class="linklike" data-remove-ob="${esc(o.id)}">Remove</button>
       </li>`).join('')}</ul>` : '<p class="muted">Nothing marked yet. If the wall is bare, skip this.</p>'}
     ${flashHtml()}
     <div class="acts">
-      <a class="btn" href="#/pieces">${d.obstacles.length ? 'Next' : "Nothing's in the way"}</a>
-      <a class="btn-quiet" href="${d.photo ? '#/size' : '#/start'}">Back</a>
+      <a class="btn" href="${d.photo ? '#/check' : '#/pieces'}">${d.photo ? 'Done' : d.obstacles.length ? 'Next' : "Nothing's in the way"}</a>
+      ${d.photo ? '' : '<a class="btn-quiet" href="#/start">Back</a>'}
     </div>
   </main>${footer()}`;
 }
@@ -538,8 +692,8 @@ function pieces() {
     </li>`).join('')}</ul>` : ''}
     ${flashHtml()}
     <div class="acts">
-      <a class="btn" href="${d.taste.source === 'yours' ? '#/layouts' : '#/taste'}">${d.owned.length ? 'Next' : 'Nothing yet'}</a>
-      <a class="btn-quiet" href="#/things">Back</a>
+      <a class="btn" href="${d.photo ? '#/check' : '#/layouts'}">${d.photo ? 'Done' : d.owned.length ? 'Show me my wall' : 'Nothing yet, show me my wall'}</a>
+      ${d.photo ? '' : '<a class="btn-quiet" href="#/things">Back</a>'}
     </div>
   </main>${footer()}`;
 }
@@ -664,29 +818,42 @@ function whyPanel(L) {
     ${colorBar(c.shares, 'cbar-wall')}<ul class="legend">${legend}</ul><ul class="notes">${notes}</ul>`;
 }
 
-function pieceRow(p) {
+// One small card per piece. It pops up over the drawing when you point at
+// or tap a piece, so the screen itself stays short.
+function peekCard(p) {
   const item = byId.get(p.ref.id);
   const own = S.draft.owned.find((o) => o.id === p.ref.id);
   const kept = keepList().some((k) => k.id === p.ref.id);
+  const pinned = p.ref.id === S.selected;
   const thumb = item
-    ? `<img src="${item.imageData}" alt="" width="${Math.round(64 * Math.min(1, item.aspect))}" height="${Math.round(64 / Math.max(1, item.aspect))}">`
-    : own && own.thumb ? `<img src="${own.thumb}" alt="" style="max-width:64px;max-height:64px">` : `<span class="swatch" style="background:${esc((own && own.color) || '#999')}"></span>`;
+    ? `<img src="${item.imageData}" alt="" width="${Math.round(56 * Math.min(1, item.aspect))}" height="${Math.round(56 / Math.max(1, item.aspect))}">`
+    : own && own.thumb ? `<img src="${own.thumb}" alt="" style="max-width:56px;max-height:56px">` : `<span class="swatch" style="background:${esc((own && own.color) || '#999')}"></span>`;
   const reason = S.draft.taste.source === 'yours' ? p.reason.replace('in the quiz', 'in the taste test') : p.reason.replace('close to what you picked in the quiz', 'a good fit for the room').replace('Close to what you picked in the quiz', 'A good fit for the room');
   const nail = p.role === 'pinned' ? 'Stays where it hangs now.' : `Nail ${esc(inches(p.nail.y))} up, ${esc(inches(p.nail.x))} from the left end.`;
-  return `<li class="piece${p.ref.id === S.selected ? ' is-selected' : ''}" data-id="${esc(p.ref.id)}">
-    <button type="button" class="piece-hit" data-id="${esc(p.ref.id)}" aria-pressed="${p.ref.id === S.selected}">
+  const title = item ? item.title : `Your ${p.title}`;
+  return `<div class="peek${pinned ? ' is-pinned' : ''}" data-for="${esc(p.ref.id)}" role="group" aria-label="${esc(title)}"${pinned ? '' : ' hidden'}>
+    <div class="peek-head">
       <span class="thumb">${thumb}</span>
-      <span class="piece-text"><span class="piece-title">${esc(item ? item.title : `Your ${p.title}`)}</span>
-      <span class="piece-meta">${p.w} x ${p.h} in frame${item ? `. Photo by ${esc(item.artist)}` : '. Already yours'}</span></span>
-    </button>
+      <span class="piece-text"><span class="piece-title">${esc(title)}</span>
+      <span class="piece-meta">${p.w} x ${p.h} in frame${item ? `. Photo by ${esc(item.artist)} on ${esc(item.source)}` : '. Already yours'}</span></span>
+      <button type="button" class="peek-x" data-act="unpin" aria-label="Close">×</button>
+    </div>
     ${colorBar(p.shares, 'cbar-piece')}
     <p class="reason">${esc(reason)}</p>
+    ${item && item.record.description ? `<p class="peek-desc muted">${esc(item.record.description)}.</p>` : ''}
     <p class="nail-line">${nail}</p>
     ${item ? `<div class="piece-acts">
       <button type="button" class="chip" data-act="keep" data-id="${esc(p.ref.id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep'}</button>
       <button type="button" class="chip" data-act="swap" data-id="${esc(p.ref.id)}"${kept || S.busy ? ' disabled' : ''}>${S.busy === `swap:${p.ref.id}` ? 'Swapping…' : 'Swap this one'}</button>
     </div>` : ''}
-  </li>`;
+  </div>`;
+}
+
+// Some walls don't have room for much. Say so plainly rather than cram it.
+function tight(L, d) {
+  if (L.parts.fit >= 0.55 && L.pieces.length > 0) return '';
+  const owned = d.owned.length;
+  return `<p class="note"><strong>Not much open wall here.</strong> This is the best that fits${owned ? `. With ${owned === 1 ? 'a piece' : 'pieces'} already up, swapping the art in ${owned === 1 ? 'that frame' : 'those frames'} may do more than adding more` : ', or leave this wall bare and pick another'}.</p>`;
 }
 
 function layoutsScreen() {
@@ -698,8 +865,8 @@ function layoutsScreen() {
   if (!result.layouts.length) {
     return `${header()}${steps('layouts')}<main class="flow"><h1>Your wall ${sample}</h1>
       <div class="drawing">${drawLayout(null, 700)}</div>
-      <p class="error">${esc(problems[0] ? problems[0].message : 'No layout fits this wall.')}</p>
-      <div class="acts"><a class="btn" href="#/things">Change what's in the way</a><a class="btn-quiet" href="#/pieces">Change your pieces</a></div></main>${footer()}`;
+      <p class="note"><strong>There isn't room for art on this wall.</strong> ${esc(problems[0] ? problems[0].message : '')} Not every wall needs art. ${d.owned.length ? 'You could swap the art in the frames you already have, or try another wall.' : 'Try another wall, or check what you marked.'}</p>
+      <div class="acts"><a class="btn" href="#/new">Try another wall</a><a class="btn-quiet" href="${d.photo ? '#/check' : '#/things'}">Check what's marked</a></div></main>${footer()}`;
   }
   if (!result.layouts.some((L) => L.rank === S.rank)) S.rank = 1;
   const L = shown();
@@ -714,7 +881,9 @@ function layoutsScreen() {
     : d.taste.source === 'sample' ? 'Picked for a sample taste.' : 'Picked to suit the room.';
   return `${header()}${steps('layouts')}
   <main class="flow wide">
-    <div class="layout-head"><h1>${esc(d.name)} ${sample}</h1><p class="muted">${esc(tasteLine)} <a href="#/taste" data-act="retake">${d.taste.source === 'yours' ? 'Retake the taste test' : 'Take the taste test'}</a></p></div>
+    <div class="layout-head"><h1>${esc(d.name)} ${sample}</h1>${d.taste.source === 'yours' ? `<p class="muted">${esc(tasteLine)} <a href="#/taste" data-act="retake">Retake the taste test</a></p>` : ''}</div>
+    ${d.taste.source === 'yours' ? '' : `<div class="taste-card"><p><strong>Make it yours.</strong> ${esc(tasteLine)} Ten quick "which one" picks and every layout re-picks its art for you.</p><a class="btn-quiet small-btn" href="#/taste" data-act="retake">Pick what I like</a></div>`}
+    ${tight(L, d)}
     <div class="main">
       <section class="stage" aria-label="Layouts for this wall">
         <div class="layouts">${result.layouts.map((x, i) => `<button type="button" class="layout-tab" data-rank="${x.rank}" aria-pressed="${x.rank === S.rank}"><span class="rank">${x.rank}</span><span class="lt-name">${esc(names[i])}</span><span class="lt-count">${x.pieces.length} piece${x.pieces.length === 1 ? '' : 's'}</span></button>`).join('')}</div>
@@ -727,7 +896,11 @@ function layoutsScreen() {
         </div>
         <div class="lever"><span class="lever-label" id="scale-label">Pieces</span>
           <span class="seg" role="group" aria-labelledby="scale-label">${[[-1, 'Fewer, bigger'], [0, 'Balanced'], [1, 'More, smaller']].map(([v, l]) => `<button type="button" data-scale="${v}" aria-pressed="${(d.scale || 0) === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
-        <div class="drawing" id="drawing">${drawLayout(L, ($('#drawing') && $('#drawing').clientWidth) || 700)}</div>
+        <div class="drawing-wrap" id="drawing-wrap">
+          <div class="drawing" id="drawing">${drawLayout(L, ($('#drawing') && $('#drawing').clientWidth) || 700)}</div>
+          ${order.map(peekCard).join('')}
+        </div>
+        <p class="hint muted">${S.selected ? 'Tap the piece again, or the x, to close.' : 'Point at or tap any piece to see why it\'s there, keep it or swap it.'}</p>
         ${flashHtml()}
         <p class="summary">${esc(L.summary)}</p>
         <div class="acts">
@@ -737,8 +910,6 @@ function layoutsScreen() {
       </section>
       <section class="list" aria-label="Pieces">
         <div class="why">${whyPanel(L)}</div>
-        <h2>${L.pieces.length} piece${L.pieces.length === 1 ? '' : 's'}${newCount ? `, ${newCount} new` : ''}</h2>
-        <ul class="pieces">${order.map(pieceRow).join('')}</ul>
         ${L.left.length ? `<div class="left"><h3>Left off this wall</h3><ul>${L.left.map((l) => `<li><strong>Your ${esc(l.title)}.</strong> ${esc(l.reason)}</li>`).join('')}</ul></div>` : ''}
       </section>
     </div>
@@ -791,13 +962,13 @@ function getScreen() {
         <img src="${item.imageData}" alt="" class="buy-img">
         <div class="buy-text">
           <p class="piece-title">${esc(item.title)}</p>
-          <p class="piece-meta">Photo by ${esc(item.artist)}</p>
+          <p class="piece-meta">Photo by ${esc(item.artist)} on ${esc(item.source)}</p>
           <p class="buy-size">${ps ? `Print ${ps[0]} x ${ps[1]} in, in a ${p.w} x ${p.h} in frame with a mat` : `${p.w} x ${p.h} in frame`}</p>
           <div class="acts">
-            <a class="btn small-btn" href="${esc(item.url)}" target="_blank" rel="noopener">Get the photo on Unsplash</a>
+            <a class="btn small-btn" href="${esc(item.url)}" target="_blank" rel="noopener">Get the photo on ${esc(item.source)}</a>
             <a class="btn-quiet small-btn" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find a ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>
           </div>
-          <p class="muted small">Free to download and print for your own wall under the Unsplash License. Any print shop can print it at ${ps ? `${ps[0]} x ${ps[1]} in` : 'this size'}.</p>
+          <p class="muted small">Free to download and print for your own wall under the ${esc(item.record.source.license)}. Any print shop can print it at ${ps ? `${ps[0]} x ${ps[1]} in` : 'this size'}.</p>
         </div>
       </li>`;
     }).join('')}</ul>
@@ -863,7 +1034,7 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, start, corners, size: sizeScreen, things, pieces, taste, layouts: layoutsScreen, get: getScreen, walls };
+  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: layoutsScreen, get: getScreen, walls };
   const fn = screens[r0] || home;
   document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', get: 'Get it · Walldrobe', layouts: 'Your wall · Walldrobe' }[r0] || 'Walldrobe';
   // Keep keyboard focus on the same control across a re-render.
@@ -885,6 +1056,48 @@ function wire(r) {
   if (pi) pi.addEventListener('change', (e) => onPhoto(e.target.files[0]));
   const m = $('#measure');
   if (m) m.addEventListener('change', (e) => { S.measure = e.target.checked; render(); });
+  if (r === 'layouts') wirePeek();
+}
+
+// Pointing at a piece shows its card; tapping pins it so the buttons stay put.
+function wirePeek() {
+  const wrap = $('#drawing-wrap');
+  if (!wrap) return;
+  const cards = [...wrap.querySelectorAll('.peek')];
+  const cardFor = (id) => cards.find((c) => c.dataset.for === id);
+  const wide = () => window.matchMedia('(min-width: 640px)').matches;
+  let hideT = null;
+  const place = (card) => {
+    if (!wide()) { card.style.left = ''; card.style.top = ''; return; }
+    const g = wrap.querySelector(`.art[data-id="${CSS.escape(card.dataset.for)}"]`);
+    if (!g) return;
+    const wr = wrap.getBoundingClientRect(); const pr = g.getBoundingClientRect();
+    const cw = card.offsetWidth; const ch = card.offsetHeight;
+    let left = pr.left - wr.left + pr.width / 2 - cw / 2;
+    left = Math.max(8, Math.min(wr.width - cw - 8, left));
+    let top = pr.bottom - wr.top + 8;
+    if (top + ch > wr.height + 40 && pr.top - wr.top - ch - 8 > 0) top = pr.top - wr.top - ch - 8;
+    card.style.left = `${Math.round(left)}px`; card.style.top = `${Math.round(top)}px`;
+  };
+  const show = (id) => {
+    if (S.selected) return;
+    clearTimeout(hideT);
+    for (const c of cards) c.hidden = c.dataset.for !== id;
+    const c = cardFor(id); if (c) place(c);
+  };
+  const hideSoon = () => { if (S.selected) return; clearTimeout(hideT); hideT = setTimeout(() => { for (const c of cards) c.hidden = true; }, 220); };
+  wrap.querySelectorAll('.art').forEach((g) => {
+    g.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && wide()) show(g.dataset.id); });
+    g.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hideSoon(); });
+    g.addEventListener('focus', () => { if (wide()) show(g.dataset.id); });
+    g.addEventListener('blur', hideSoon);
+  });
+  cards.forEach((c) => {
+    c.addEventListener('pointerenter', () => clearTimeout(hideT));
+    c.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hideSoon(); });
+  });
+  const pinned = S.selected && cardFor(S.selected);
+  if (pinned) place(pinned);
 }
 
 function dragOn(svg, onDown, onMove, onUp) {
@@ -961,6 +1174,7 @@ function wireThings() {
     const g = e.target.closest('.ob');
     if (!g) return null;
     const o = find(g.dataset.ob);
+    if (o && o.autoId) forgetAuto(o.autoId);
     const at = wallPoint(svg, e);
     return { o, mode: rz ? 'size' : 'move', start: at, orig: { ...o } };
   }, (ctx, e) => {
@@ -996,6 +1210,7 @@ function wireDraw() {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
+  if (f.id === 'dims-form') { changeDims(f).then(() => go('#/layouts')); return; }
   if (f.id === 'size-form') {
     const v = (n) => Number(f.elements[n].value || 0);
     const W = v('wft') * 12 + v('win'), H = v('hft') * 12 + v('hin');
@@ -1026,7 +1241,7 @@ document.addEventListener('submit', (e) => {
     persist();
     if (e.submitter && e.submitter.value === 'next' && W >= 24 && W <= 600 && H >= 60 && H <= 240) {
       S.busy = 'flatten';
-      flattenWall(W, H).then(() => { S.busy = null; go('#/things'); }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });
+      flattenWall(W, H).then(() => { S.busy = null; go('#/check'); }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });
       return;
     }
     render();
@@ -1035,10 +1250,11 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.form && t.form.id === 'dims-form') { changeDims(t.form); return; }
   if (t.dataset.obk) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
     // Re-render after the browser has moved focus (Tab), so focus lands where it went.
-    if (o) { o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
+    if (o) { if (o.autoId) forgetAuto(o.autoId); o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
   }
   if (t.dataset.ok) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.oid);
@@ -1065,8 +1281,8 @@ document.addEventListener('click', (e) => {
     const o = clampOb({ id: `${t.dataset.add}${Date.now().toString(36)}`, kind: t.dataset.add, ...DEFAULTS[t.dataset.add](W) });
     S.draft.obstacles.push(o); resetLayouts(); persist(); render(); return;
   }
-  if (t.dataset.removeOb) { S.draft.obstacles = S.draft.obstacles.filter((o) => o.id !== t.dataset.removeOb); resetLayouts(); persist(); render(); return; }
-  if (t.dataset.removeOwned) { S.draft.owned = S.draft.owned.filter((o) => o.id !== t.dataset.removeOwned); S.mem.clean = null; resetLayouts(); persist(); render(); return; }
+  if (t.dataset.removeOb) { forgetAuto(t.dataset.removeOb); S.draft.obstacles = S.draft.obstacles.filter((o) => o.id !== t.dataset.removeOb); resetLayouts(); persist(); render(); return; }
+  if (t.dataset.removeOwned) { forgetAuto(t.dataset.removeOwned); S.draft.owned = S.draft.owned.filter((o) => o.id !== t.dataset.removeOwned); S.mem.clean = null; resetLayouts(); persist(); render(); return; }
   if (t.dataset.keep && t.dataset.oid) { const o = S.draft.owned.find((x) => x.id === t.dataset.oid); if (o) { o.keep = t.dataset.keep; resetLayouts(); persist(); render(); } return; }
   if (t.dataset.rank) { S.rank = Number(t.dataset.rank); S.selected = null; S.flash = null; render(); return; }
   if (t.dataset.scale !== undefined) { S.draft.scale = Number(t.dataset.scale); S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
@@ -1087,7 +1303,7 @@ document.addEventListener('click', (e) => {
   }
   if (t.classList.contains('art') || t.classList.contains('piece-hit')) { S.selected = S.selected === t.dataset.id ? null : t.dataset.id; render(); return; }
   switch (a) {
-    case 'corners-ok': go('#/size'); break;
+    case 'corners-ok': if (S.draft.photo) S.draft.photo.mode = 'manual'; persist(); go('#/size'); break;
     case 'add-piece': {
       const n = S.draft.owned.length + 1;
       S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: n === 1 ? 'print' : `print ${n}`, w: 16, h: 20, keep: 'happy', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });
@@ -1107,6 +1323,7 @@ document.addEventListener('click', (e) => {
       if (S.view) S.view.key = viewKey();
       persist(); S.flash = null; act('keep', () => rebuildOthers(L)); break;
     }
+    case 'unpin': S.selected = null; render(); break;
     case 'swap': S.flash = null; act(`swap:${t.dataset.id}`, () => refreshShown(t.dataset.id)); break;
     case 'refresh': S.flash = null; act('refresh', () => refreshShown(null)); break;
     case 'another': S.flash = null; act('another', newLayouts); break;
@@ -1119,6 +1336,7 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && S.selected && route()[0] === 'layouts') { const id = S.selected; S.selected = null; render(); const g = document.querySelector(`.art[data-id="${CSS.escape(id)}"]`); if (g) g.focus({ preventScroll: true }); return; }
   const t = e.target.closest && e.target.closest('.art');
   if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); S.selected = S.selected === t.dataset.id ? null : t.dataset.id; render(); }
 });

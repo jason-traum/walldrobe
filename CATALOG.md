@@ -79,7 +79,7 @@ Each record keeps `provenance`, a map from field group to who set it, so a later
 | `artist` | Name, and profile link when known | source | credit line |
 | `source` | Where it came from: provider, page, image id, license | source | credit, rights |
 | `rights.show` | May we show the image | source | the gate for every screen |
-| `rights.sell` | May we sell prints of it. `false` for all Unsplash art | source | buy flow |
+| `rights.sell` | May we sell prints of it. `false` for all Unsplash, Pexels and Pixabay art | source | buy flow |
 | `rights.credit` | The exact credit line to show | source | screens |
 | `image` | Local file, original pixel size, aspect ratio, orientation | measured | layout, screens |
 | `color.palette` | Up to 6 colors (k-means in Lab), weights sum to 1, each named from its hex exactly as the engine names it. Tiny clusters are dropped unless strongly colored | measured | harmony, reasons |
@@ -100,14 +100,19 @@ Each record keeps `provenance`, a map from field group to who set it, so a later
 | `composition.symmetry` | Left-right mirror match, 0 to 1 | measured | future: center versus flank |
 | `composition.weight` | How heavy it looks per square inch, 0 to 1 (dark, vivid, busy) | measured | layout balance |
 | `tags.theme` | Broad theme: summer, sport, city, nature, still life, art, animals, mono. Must match the category (table below) | rule | taste |
-| `tags.subjects` | What's in it, plain nouns | rule, then model | search, reasons |
+| `description` | One line on what you see, written by looking at the image | model | the piece card |
+| `tags.subjects` | What's in it, plain nouns, up to five | model (rule as fallback) | search, reasons |
 | `tags.mood` | Any of: sunny, calm, moody, bold, playful, elegant | rule from measurements | taste |
 | `tags.style` | Any of: minimal, graphic, aerial, film, documentary, painterly, still life, portrait | rule | taste |
 | `tags.people` | Anyone in it (rule: category, or a word like swimmer or rider in the title) | rule, then human | taste, filters |
-| `tags.rooms` | Where it would sit well: living room, bedroom, kitchen, bathroom, entry, office | rule | filters |
+| `tags.rooms` | Where it would sit well: living room, bedroom, kitchen, bathroom, entry, office | model (rule as fallback) | filters |
+| `tags.setting` | outdoor, indoor, studio or abstract | model | filters |
+| `tags.time` | day, golden hour, night or any | model | filters |
+| `tags.season` | summer, winter, spring, fall or any | model | filters |
+| `tags.vibe` | A few free words: mid century, film, italian summer, brutalist | model | search |
 | `sizes` | Standard outer frame sizes this image fits with a mat (shape within 14%). If none fits, the nearest size with `crop: true` | rule | layout |
 | `offers` | Places to buy a print: vendor, link, size, price. Empty until a partner feed allows it | source | buy flow |
-| `quality.score` | 0 to 1, how good a pick it is. Empty until reviewed | human or model | ranking |
+| `quality.score` | 0 to 1, how good it looks framed (a 1 to 5 review, scaled). Leans the pick 15% toward stronger photos | model | ranking |
 | `provenance` | Who set each group | all | the tagging pipeline |
 
 ## Categories
@@ -129,8 +134,9 @@ Themes group them for taste, so a pick for a tennis court also says something ab
 
 ## Rules for adding art
 
-- `rights.show` must be true, with a license we can point to. Unsplash+ premium photos are not free and never go in.
+- `rights.show` must be true, with a license we can point to. Unsplash+ premium photos are not free and never go in. Pexels and Pixabay are fine under their own licenses; no 3D renders or AI images.
 - No images from museum or library archives in the demo (Jason: modern art and photos only).
 - No logos or readable brand names as the subject, no interiors, no stock-office shots.
-- No more than about ten pieces of one subject (ten horses is a horse store).
+- No more than about 35 pieces of one category, and near-duplicates get `hide` in tools/tags.json so they never show.
+- Every new piece is looked at before it ships: a line in tools/tags.json with description, subjects, mood, style, rooms, people, setting, time, season, vibe and quality.
 - A record that fails `validateRecord` doesn't ship; the build stops.

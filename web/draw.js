@@ -18,8 +18,9 @@ export function feet(v) {
 
 export const KIND_NAME = {
   couch: 'Couch', headboard: 'Bed', dresser: 'Dresser', console: 'Console', window: 'Window', door: 'Door',
-  tv: 'TV', outlet: 'Outlet', switch: 'Switch', lamp: 'Lamp', shelf: 'Shelf',
+  tv: 'TV', outlet: 'Outlet', switch: 'Switch', lamp: 'Lamp', plant: 'Plant', shelf: 'Shelf', furniture: 'Furniture',
 };
+export const obName = (o) => o.label || KIND_NAME[o.kind] || o.kind;
 
 function furniture(o, H) {
   const y = H - o.y - o.h;
@@ -53,6 +54,13 @@ function furniture(o, H) {
       return `<g class="furn">
         <line x1="${cx}" x2="${cx}" y1="${H - 1}" y2="${y + 8}" class="pole"/>
         <path d="M${o.x} ${y + 9} L${o.x + 2.5} ${y} L${o.x + o.w - 2.5} ${y} L${o.x + o.w} ${y + 9} Z" class="shade"/>
+      </g>`;
+    }
+    case 'plant': {
+      const cx = o.x + o.w / 2, pot = Math.min(12, o.h * 0.3);
+      return `<g class="furn plant">
+        <rect x="${cx - o.w * 0.22}" y="${H - pot}" width="${o.w * 0.44}" height="${pot}" rx="1.5" class="furn-dark"/>
+        <ellipse cx="${cx}" cy="${y + (o.h - pot) / 2}" rx="${o.w / 2}" ry="${(o.h - pot) / 2}" class="leaf"/>
       </g>`;
     }
     case 'window':

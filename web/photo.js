@@ -84,13 +84,19 @@ export function aspectFromCorners(c, w, h) {
 
 // Pixels of the wall seen straight on: outW x outH, sampled from the photo with
 // bilinear filtering. src: { data (RGBA), width, height }.
-export function flatten(src, corners, outW, outH) {
+// Parts of the wall outside the photo (above its top edge, say) get `fill`, an RGB triple.
+export function flatten(src, corners, outW, outH, fill = null) {
   const H = homography([[0, 0], [outW, 0], [outW, outH], [0, outH]], corners);
   const out = new Uint8ClampedArray(outW * outH * 4);
   const { data, width: sw, height: sh } = src;
   for (let y = 0; y < outH; y++) {
     for (let x = 0; x < outW; x++) {
       const [u, v] = apply(H, x + 0.5, y + 0.5);
+      if (fill && (u < 0 || v < 0 || u > sw || v > sh)) {
+        const o = (y * outW + x) * 4;
+        out[o] = fill[0]; out[o + 1] = fill[1]; out[o + 2] = fill[2]; out[o + 3] = 255;
+        continue;
+      }
       const x0 = Math.max(0, Math.min(sw - 2, Math.floor(u - 0.5)));
       const y0 = Math.max(0, Math.min(sh - 2, Math.floor(v - 0.5)));
       const fx = Math.max(0, Math.min(1, u - 0.5 - x0)), fy = Math.max(0, Math.min(1, v - 0.5 - y0));
