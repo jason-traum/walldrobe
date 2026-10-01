@@ -132,6 +132,17 @@ Themes group them for taste, so a pick for a tennis court also says something ab
 | animals | dogs, horses, western |
 | mono | black and white |
 
+## Shop feeds (real prints)
+
+When a shop approves Walldrobe as an affiliate, its network (Impact, CJ, Awin or Sovrn) gives a product feed: a CSV or TSV of every product with its link, image, price and size.
+
+1. Download the feed as CSV or TSV.
+2. `node tools/import_feed.mjs feed.csv --merchant minted` writes `tools/feeds/minted.tsv`: one row per artwork, every size and frame option folded in as offers. It drops anything that isn't wall art (mugs, pillows, cards), sold-out pieces, plain http links and pieces with no artist. If a column has an odd name, map it: `--map title=product name,url=buy link`.
+3. `python3 tools/analyze.py <cache>` measures each image (colors, shape, weight) from a cached copy that never ships. The record shows the shop's own image link, its real sizes and prices, and `offers` for the buy buttons.
+4. Every new piece stays `hidden` until it has a line in `tools/tags.json`. Look at each one (contact sheets, same as the photos), tag it, and hide anything weak or a near-duplicate.
+
+Credit reads "Art by {artist}, sold by {shop}". `rights.sell` stays false: the shop sells, Walldrobe links.
+
 ## Rules for adding art
 
 - `rights.show` must be true, with a license we can point to. Unsplash+ premium photos are not free and never go in. Pexels and Pixabay are fine under their own licenses; no 3D renders or AI images.

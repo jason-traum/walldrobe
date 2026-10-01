@@ -5,7 +5,7 @@ import { profileFromRecord } from './theory.js';
 
 export const CATEGORIES = [
   'abstract', 'aerial', 'architecture', 'beach', 'black and white', 'cars', 'city', 'coast', 'coffee', 'desert', 'dogs', 'drinks',
-  'film', 'flowers', 'food', 'golf', 'graphic', 'horses', 'lines', 'moon', 'objects', 'palm springs', 'pool', 'sailing',
+  'figure', 'film', 'flowers', 'food', 'golf', 'graphic', 'horses', 'landscape', 'lines', 'moon', 'objects', 'palm springs', 'pool', 'sailing',
   'sculpture', 'shadows', 'ski', 'sky', 'surf', 'tennis', 'water', 'western',
 ];
 export const THEMES = ['summer', 'sport', 'city', 'nature', 'still life', 'art', 'animals', 'mono'];
@@ -13,9 +13,9 @@ export const THEME_OF = {
   pool: 'summer', coast: 'summer', beach: 'summer', 'palm springs': 'summer', film: 'summer',
   tennis: 'sport', surf: 'sport', sailing: 'sport', golf: 'sport', ski: 'sport',
   city: 'city', architecture: 'city', cars: 'city',
-  aerial: 'nature', desert: 'nature', water: 'nature', sky: 'nature', moon: 'nature', flowers: 'nature', shadows: 'nature',
+  aerial: 'nature', landscape: 'nature', desert: 'nature', water: 'nature', sky: 'nature', moon: 'nature', flowers: 'nature', shadows: 'nature',
   food: 'still life', drinks: 'still life', coffee: 'still life', objects: 'still life', sculpture: 'still life',
-  abstract: 'art', graphic: 'art', lines: 'art',
+  abstract: 'art', graphic: 'art', lines: 'art', figure: 'art',
   dogs: 'animals', horses: 'animals', western: 'animals',
   'black and white': 'mono',
 };
@@ -108,6 +108,7 @@ export function validateRecord(r) {
   if (!Array.isArray(r.sizes) || !r.sizes.length || !r.sizes.every((z) => z.w > 0 && z.h > 0)) at('sizes needs at least one frame size');
   else if (im.aspect && !r.sizes.every((z) => z.crop || Math.abs((z.w / z.h) / im.aspect - 1) <= 0.14 + 1e-9)) at('a frame size is more than 14% off the image shape without crop: true');
   if (!Array.isArray(r.offers)) at('offers must be a list');
+  else if (!r.offers.every((o) => o && isStr(o.vendor) && /^https:\/\//.test(o.url || '') && (o.price == null || (typeof o.price === 'number' && o.price >= 0)) && (o.w == null || (o.w > 0 && o.h > 0)))) at('each offer needs a vendor, an https link, a price of 0 or more (or none) and a size with both sides');
   if (!r.provenance || !PROVENANCE_KEYS.every((key) => key in r.provenance) || !Object.values(r.provenance).every((v) => WHO.includes(v))) at(`provenance needs ${PROVENANCE_KEYS.join(', ')}, each source, measured, rule, model, human or null`);
   return e;
 }
@@ -128,7 +129,8 @@ export function toCandidate(r) {
     id: r.id,
     title: r.title,
     artist: r.artist.name,
-    source: { unsplash: 'Unsplash', pexels: 'Pexels', pixabay: 'Pixabay' }[r.source.provider] || r.source.provider,
+    source: r.source.name || { unsplash: 'Unsplash', pexels: 'Pexels', pixabay: 'Pixabay' }[r.source.provider] || r.source.provider,
+    offers: r.offers || [],
     url: r.source.page,
     image: r.image.src,
     palette: r.color.palette.map(({ hex, weight }) => ({ hex, weight })),

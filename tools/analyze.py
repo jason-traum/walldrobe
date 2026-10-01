@@ -259,9 +259,9 @@ THEMES = {
     "summer": ["pool", "coast", "beach", "palm springs", "film"],
     "sport": ["tennis", "surf", "sailing", "golf", "ski"],
     "city": ["city", "architecture", "cars"],
-    "nature": ["aerial", "desert", "water", "sky", "moon", "flowers", "shadows"],
+    "nature": ["aerial", "landscape", "desert", "water", "sky", "moon", "flowers", "shadows"],
     "still life": ["food", "drinks", "coffee", "objects", "sculpture"],
-    "art": ["abstract", "graphic", "lines"],
+    "art": ["abstract", "graphic", "lines", "figure"],
     "animals": ["dogs", "horses", "western"],
     "mono": ["black and white"],
 }
@@ -281,7 +281,7 @@ STYLE = {
     "graphic": ["graphic"], "shadows": ["graphic", "minimal"], "lines": ["graphic"], "architecture": ["graphic", "minimal"],
     "sky": ["minimal"], "water": ["minimal"], "moon": ["minimal"], "objects": ["still life", "minimal"], "sculpture": ["still life"],
     "food": ["still life"], "drinks": ["still life"], "coffee": ["still life", "minimal"], "dogs": ["portrait"],
-    "abstract": ["painterly"], "city": ["documentary"], "western": ["documentary"], "horses": ["documentary"],
+    "abstract": ["painterly"], "landscape": ["painterly"], "figure": ["portrait"], "city": ["documentary"], "western": ["documentary"], "horses": ["documentary"],
     "cars": ["documentary"], "ski": ["documentary"], "sailing": ["documentary"], "tennis": ["graphic"],
     "coast": ["documentary"], "beach": ["graphic"], "palm springs": ["graphic"], "desert": ["minimal"], "flowers": ["still life"], "black and white": ["film"],
 }
@@ -329,8 +329,42 @@ def fetch(key, url):
             f.write(r.read())
     return Image.open(fn).convert("RGB")
 
+# Shops whose affiliate feeds we import (tools/feeds/<shop>.tsv, written by tools/import_feed.mjs).
+SHOP_NAMES = {"minted": "Minted", "saatchiart": "Saatchi Art", "saatchi": "Saatchi Art", "society6": "Society6", "desenio": "Desenio",
+              "juniqe": "JUNIQE", "artfinder": "Artfinder", "turningart": "TurningArt", "example": "Example Shop"}
+
+def shop_picks():
+    folder = os.path.join(ROOT, "tools", "feeds")
+    if not os.path.isdir(folder): return
+    for fname in sorted(os.listdir(folder)):
+        if not fname.endswith(".tsv"): continue
+        shop = fname[:-4]
+        for line in open(os.path.join(folder, fname)):
+            if line.startswith("#") or not line.strip(): continue
+            pid, who, page, title, medium, category, url, offers = line.rstrip("\n").split("\t")
+            yield {"provider": shop, "shop": SHOP_NAMES.get(shop, shop.title()), "imageId": pid, "key": pid, "id": pid, "who": who,
+                   "page": page, "title": title, "medium": medium, "category": category, "url": url, "offers": json.loads(offers)}
+
+def shop_sizes(offers, aspect):
+    """The sizes the shop actually sells, cheapest price for each, flagged when the shape is off."""
+    best = {}
+    for o in offers:
+        if not o.get("w"): continue
+        w, h = o["w"], o["h"]
+        if (w > h) != (aspect > 1) and abs(aspect - 1) > 0.1: w, h = h, w
+        k = (w, h)
+        if k not in best or (o.get("price") is not None and (best[k] is None or o["price"] < best[k])): best[k] = o.get("price")
+    out = []
+    for (w, h), price in sorted(best.items(), key=lambda x: x[0][0] * x[0][1]):
+        s = {"w": w, "h": h}
+        if price is not None: s["price"] = price
+        if abs((w / h) / aspect - 1) > 0.14: s["crop"] = True
+        out.append(s)
+    return out or sizes_for(aspect)
+
 def picks():
     """Every pick from every provider, as dicts."""
+    yield from shop_picks()
     for provider, (_, _, _, fname) in PROVIDERS.items():
         path = os.path.join(ROOT, "tools", fname)
         if not os.path.exists(path): continue
@@ -376,10 +410,15 @@ def main():
         m = measure(img)
         aspect = img.width / img.height
         name = p["key"] + ".jpg"
-        thumb = img.copy()
-        thumb.thumbnail((360, 360), Image.LANCZOS)
-        thumb.save(os.path.join(OUT, "art", name), quality=74, optimize=True, progressive=True)
-        lic, lic_url, suffix, _ = PROVIDERS[p["provider"]]
+        shop = p.get("shop")
+        if not shop:
+            # Free photo sites allow a small copy; a shop's image is shown from the shop, never re-hosted.
+            thumb = img.copy()
+            thumb.thumbnail((360, 360), Image.LANCZOS)
+            thumb.save(os.path.join(OUT, "art", name), quality=74, optimize=True, progressive=True)
+            lic, lic_url, suffix, _ = PROVIDERS[p["provider"]]
+        else:
+            lic, lic_url = f"{shop} affiliate program", re.sub(r"^(https://[^/]+).*$", r"\1", p["page"])
         who = p["who"]
         tags = tags_for(p["category"], p["title"], p["medium"], m)
         seen_by = "rule"
@@ -389,19 +428,20 @@ def main():
             seen_by = "model"
         rec = {
             "id": p["id"],
-            "status": "hidden" if look and look.get("hide") else "active",
+            # Nothing from a shop shows until someone has looked at it and tagged it.
+            "status": "hidden" if (look and look.get("hide")) or (shop and not look) else "active",
             "title": p["title"],
             "medium": p["medium"],
             "category": p["category"],
             "artist": {"name": who},
-            "source": {"provider": p["provider"], "page": p["page"], "imageId": p["imageId"], "license": lic, "licenseUrl": lic_url},
-            "rights": {"show": True, "sell": False, "credit": f"Photo by {who} {suffix}"},
-            "image": {"src": f"art/{name}", "width": img.width, "height": img.height, "aspect": round(aspect, 4),
+            "source": {"provider": p["provider"], "page": p["page"], "imageId": p["imageId"], "license": lic, "licenseUrl": lic_url, **({"name": shop} if shop else {})},
+            "rights": {"show": True, "sell": False, "credit": f"Art by {who}, sold by {shop}" if shop else f"Photo by {who} {suffix}"},
+            "image": {"src": p["url"] if shop else f"art/{name}", "width": img.width, "height": img.height, "aspect": round(aspect, 4),
                       "orientation": "square" if 0.9 <= aspect <= 1.1 else "portrait" if aspect < 1 else "landscape"},
             **m,
             "tags": tags,
-            "sizes": sizes_for(aspect),
-            "offers": [],
+            "sizes": shop_sizes(p["offers"], aspect) if shop else sizes_for(aspect),
+            "offers": p.get("offers", []),
             "quality": {"score": round((look["quality"] - 1) / 4, 2), "by": "model"} if look else {"score": None, "by": None},
             "provenance": {"source": "source", "image": "measured", "color": "measured", "composition": "measured",
                            "tags": seen_by, "sizes": "rule", "quality": "model" if look else None, "title": "human", "category": "human"},
