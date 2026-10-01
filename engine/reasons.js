@@ -14,6 +14,7 @@ export function anchorWord(kind) {
   if (!kind || kind === 'wall') return null;
   if (kind === 'sofa' || kind === 'couch') return 'couch';
   if (kind === 'headboard' || kind === 'bed') return 'bed';
+  if (kind === 'tv') return 'TV';
   return kind;
 }
 

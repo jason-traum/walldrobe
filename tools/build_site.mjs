@@ -29,3 +29,14 @@ cpSync(join(root, 'demo/art'), join(root, 'docs/art'), { recursive: true });
 writeFileSync(join(root, 'docs/index.html'), html);
 writeFileSync(join(root, 'docs/.nojekyll'), '');
 console.log(`docs/index.html ${(html.length / 1e6).toFixed(2)} MB`);
+
+// A private preview with every image inlined, as one page body: out/site-preview.html.
+if (process.argv.includes('--preview')) {
+  const inl = catalog.items.map((it) => ({ ...it, image: { ...it.image, data: `data:image/jpeg;base64,${readFileSync(join(root, 'demo', it.image.src)).toString('base64')}` } }));
+  const j = JSON.stringify({ ...catalog, items: inl }).replace(/</g, '\\u003c');
+  const head = html.slice(html.indexOf('<title>'), html.indexOf('</head>'));
+  const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>')).replace(json, () => j);
+  mkdirSync(join(root, 'out'), { recursive: true });
+  writeFileSync(join(root, 'out/site-preview.html'), `${head}\n${body}`);
+  console.log(`out/site-preview.html ${((head.length + body.length) / 1e6).toFixed(2)} MB`);
+}

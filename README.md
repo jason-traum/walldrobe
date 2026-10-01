@@ -4,7 +4,7 @@ Rent the Runway, for art: a wardrobe for your walls.
 
 You show it one wall and the art you already own. It gives you a finished wall, with specific pieces, sizes, positions and spacing for that wall, and you can change it later.
 
-This repo holds the layout engine and a demo with three sample walls and 275 modern photos from Unsplash.
+This repo holds the layout engine and a demo with three sample walls and 641 modern photos from Unsplash, Pexels and Pixabay, each one looked at and tagged.
 
 **Live: [jason-traum.github.io/walldrobe](https://jason-traum.github.io/walldrobe/)**. Photograph a wall, drag its four corners, give one measurement, mark the couch and the art you already own, take the taste test, and get three layouts on your own photo with the frame sizes, where to get each piece and where every nail goes. Walls save on your device; photos never leave it.
 
@@ -19,7 +19,7 @@ npm run site -- node_modules/.bin/esbuild   # writes docs/
 
 `npm run demo` builds the older one-page explainer into `out/`.
 
-Photos are from Unsplash, credited to each photographer and shown under the [Unsplash License](https://unsplash.com/license). Walldrobe doesn't sell them.
+Photos are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's license ([Unsplash](https://unsplash.com/license), [Pexels](https://www.pexels.com/license/), [Pixabay](https://pixabay.com/service/license-summary/)). Walldrobe doesn't sell them.
 
 ## The layout engine
 

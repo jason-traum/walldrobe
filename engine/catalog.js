@@ -25,6 +25,9 @@ const PROVENANCE_KEYS = ['source', 'image', 'color', 'composition', 'tags', 'siz
 export const MOODS = ['sunny', 'calm', 'moody', 'bold', 'playful', 'elegant'];
 export const STYLES = ['minimal', 'graphic', 'aerial', 'film', 'documentary', 'painterly', 'still life', 'portrait'];
 export const ROOMS = ['living room', 'bedroom', 'kitchen', 'bathroom', 'entry', 'office'];
+export const SETTINGS = ['outdoor', 'indoor', 'studio', 'abstract'];
+export const TIMES = ['day', 'golden hour', 'night', 'any'];
+export const SEASONS = ['summer', 'winter', 'spring', 'fall', 'any'];
 const MEDIA = ['photo', 'painting', 'illustration', 'print'];
 const STATUS = ['active', 'hidden', 'removed'];
 const WHO = ['source', 'measured', 'rule', 'model', 'human', null];
@@ -50,7 +53,7 @@ export function validateRecord(r) {
   if (!isStr(s.provider) || !isStr(s.page) || !/^https:\/\//.test(s.page) || !isStr(s.license)) at('source needs provider, https page and license');
   const rt = r.rights || {};
   if (typeof rt.show !== 'boolean' || typeof rt.sell !== 'boolean' || !isStr(rt.credit)) at('rights needs show, sell and credit');
-  if (s.provider === 'unsplash' && rt.sell) at('Unsplash art cannot be sold');
+  if (['unsplash', 'pexels', 'pixabay'].includes(s.provider) && rt.sell) at(`${s.provider} art cannot be sold`);
   if (r.status === 'active' && rt.show !== true) at('an active record must be allowed to show');
 
   const im = r.image || {};
@@ -95,6 +98,12 @@ export function validateRecord(r) {
   if (!Array.isArray(t.style) || !t.style.every((m) => STYLES.includes(m))) at('tags.style invalid');
   if (typeof t.people !== 'boolean') at('tags.people missing');
   if (!Array.isArray(t.rooms) || !t.rooms.length || !t.rooms.every((m) => ROOMS.includes(m))) at('tags.rooms invalid');
+  if (t.setting != null && !SETTINGS.includes(t.setting)) at(`tags.setting must be one of ${SETTINGS.join(', ')}`);
+  if (t.time != null && !TIMES.includes(t.time)) at(`tags.time must be one of ${TIMES.join(', ')}`);
+  if (t.season != null && !SEASONS.includes(t.season)) at(`tags.season must be one of ${SEASONS.join(', ')}`);
+  if (t.vibe != null && (!Array.isArray(t.vibe) || !t.vibe.every(isStr))) at('tags.vibe must be a list of words');
+  if (r.description != null && (!isStr(r.description) || r.description.length > 120 || /[\u2014\u2013]/.test(r.description))) at('description must be one line, 120 characters at most, no dashes');
+  if (r.quality && r.quality.score != null && !isNum01(r.quality.score)) at('quality.score must be 0 to 1');
 
   if (!Array.isArray(r.sizes) || !r.sizes.length || !r.sizes.every((z) => z.w > 0 && z.h > 0)) at('sizes needs at least one frame size');
   else if (im.aspect && !r.sizes.every((z) => z.crop || Math.abs((z.w / z.h) / im.aspect - 1) <= 0.14 + 1e-9)) at('a frame size is more than 14% off the image shape without crop: true');
@@ -119,12 +128,13 @@ export function toCandidate(r) {
     id: r.id,
     title: r.title,
     artist: r.artist.name,
-    source: r.source.provider === 'unsplash' ? 'Unsplash' : r.source.provider,
+    source: { unsplash: 'Unsplash', pexels: 'Pexels', pixabay: 'Pixabay' }[r.source.provider] || r.source.provider,
     url: r.source.page,
     image: r.image.src,
     palette: r.color.palette.map(({ hex, weight }) => ({ hex, weight })),
     sizes: r.sizes.map(({ w, h, price }) => (price == null ? { w, h } : { w, h, price })),
     bw: r.color.bw,
+    quality: r.quality && typeof r.quality.score === 'number' ? r.quality.score : null,
     weight: r.composition.weight,
     profile: profileFromRecord(r),
     record: r,
