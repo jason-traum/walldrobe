@@ -692,16 +692,34 @@ export function readWall(img, opts = {}) {
     const tvs = compsOf([G.TV]).comps.filter((c) => c.n >= area * 0.012).sort((a, b) => b.n - a.n);
     let tvBox = null;
     const classicTv = items.find((i) => i.kind === 'tv');
+    // A TV that's on shows a picture, and the model calls it a painting. A big,
+    // wide one standing on furniture is the TV: its top part, down to the furniture.
+    const furnAll = compsOf([G.FURNITURE], 2).comps.filter((c) => c.n >= area * 0.004);
+    let onTv = null;
+    for (const c of compsOf([G.ART, G.TV]).comps.filter((x) => x.x1 - x.x0 + 1 >= w * 0.22).sort((a, b) => b.n - a.n)) {
+      const cw = c.x1 - c.x0 + 1;
+      const f = furnAll.find((g) => Math.min(g.x1, c.x1) - Math.max(g.x0, c.x0) > cw * 0.5 && g.y0 >= c.y0 + (c.y1 - c.y0) * 0.35 && g.y0 <= c.y1 + h * 0.04);
+      if (!f) continue;
+      const y1 = Math.min(c.y1, f.y0);
+      const ar = cw / (y1 - c.y0 + 1);
+      if (ar < 1.4 || ar > 2.3) continue;
+      onTv = { kind: 'tv', box: [c.x0, c.y0, c.x1, y1], confidence: 0.6, alone: ar > 1.55 && ar < 2.05, onStand: true };
+      break;
+    }
+    const area4 = (b) => (b[2] - b[0] + 1) * (b[3] - b[1] + 1);
+    const inside = (a, b) => (Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]) + 1) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]) + 1)) / area4(a);
     // A dark 16:9 rectangle is a screen unless the model says it's a print or a window.
     // (The model sometimes calls a TV on a stand a cabinet: then the stand under it decides.)
-    if (classicTv && (share(classicTv.box, [G.TV]) > 0.4 || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15))) { out.push(classicTv); tvBox = classicTv.box; }
+    const classicOk = classicTv && (share(classicTv.box, [G.TV]) > 0.4 || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15));
+    if (onTv && (!classicOk || (inside(classicTv.box, onTv.box) > 0.8 && area4(onTv.box) > area4(classicTv.box) * 1.3))) { out.push(onTv); tvBox = onTv.box; }
+    else if (classicOk) { out.push(classicTv); tvBox = classicTv.box; }
     else if (tvs.length) {
       const c = tvs[0], b = [c.x0, c.y0, c.x1, c.y1], ar = (c.x1 - c.x0 + 1) / (c.y1 - c.y0 + 1);
       out.push({ kind: 'tv', box: b, confidence: 0.7, alone: ar > 1.5 && ar < 2.05 && c.n / ((c.x1 - c.x0 + 1) * (c.y1 - c.y0 + 1)) > 0.8, onStand: false });
       tvBox = b;
     }
     // Art: the pieces found above that the model calls art, and any it found that they missed.
-    const arts = items.filter((i) => i.kind === 'art' && share(i.box, [G.ART, G.MIRROR]) > 0.4);
+    const arts = items.filter((i) => i.kind === 'art' && share(i.box, [G.ART, G.MIRROR]) > 0.4 && !(tvBox && iou(i.box, tvBox) > 0.3));
     for (const c of compsOf([G.ART], 0).comps) {
       const b = [c.x0, c.y0, c.x1, c.y1];
       // A run of frames the model joined up isn't one piece: split it where the
@@ -711,7 +729,7 @@ export function readWall(img, opts = {}) {
         for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) { const i = y * w + x; sub[i] = loose[i] && Gs[i] === G.ART ? 1 : 0; }
         for (const p of fillHolesComps(sub)) {
           const pb = [p.x0, p.y0, p.x1, p.y1];
-          if (p.n < area * 0.003 || p.n / ((p.x1 - p.x0 + 1) * (p.y1 - p.y0 + 1)) < 0.6 || arts.some((a) => iou(a.box, pb) > 0.25)) continue;
+          if (p.n < area * 0.003 || p.n / ((p.x1 - p.x0 + 1) * (p.y1 - p.y0 + 1)) < 0.6 || arts.some((a) => iou(a.box, pb) > 0.25) || (tvBox && iou(pb, tvBox) > 0.2)) continue;
           arts.push({ kind: 'art', box: pb, confidence: 0.6 });
         }
         continue;
