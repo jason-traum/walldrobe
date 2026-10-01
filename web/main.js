@@ -231,6 +231,16 @@ function run() {
     S.flash = off.message;
     r = layout({ ...engineInput(), keep: keepList() });
   }
+  // Still nothing with a kind or a count picked: show what does fit, and say so.
+  if (!r.layouts.length && (S.draft.pieces || S.draft.style)) {
+    const was = [S.draft.style === 'gallery' ? 'loose' : S.draft.style, S.draft.pieces ? `${S.draft.pieces} pieces` : null].filter(Boolean).join(', ');
+    const r2 = layout({ ...engineInput(), prefs: {}, keep: keepList() });
+    if (r2.layouts.length) {
+      S.draft.style = null; S.draft.pieces = null; persist();
+      S.flash = `Nothing ${was} fits here, so these are what does.`;
+      r = r2;
+    }
+  }
   let layouts = r.layouts;
   // A saved wall opens on the layout you chose, if it still fits.
   const chosen = S.draft.chosen;
@@ -530,6 +540,10 @@ function setScale(W, H) {
 
 // What the photo reader calls things. Without the image model a lamp and a
 // plant look the same, so they're named together.
+// "print", "print 2"... the first name nobody on this wall has yet.
+function freeTitle(taken) {
+  for (let n = 1; ; n++) { const t = n === 1 ? 'print' : `print ${n}`; if (!taken.has(t)) return t; }
+}
 const AUTO_KIND = (k) => (KIND_NAME[k] ? k : 'furniture');
 const AUTO_LABEL = (k, model) => (k === 'lamp' && !model ? 'Lamp or plant' : KIND_NAME[AUTO_KIND(k)]);
 const r2 = (v) => Math.round(v * 2) / 2;
@@ -554,11 +568,14 @@ function applyAuto() {
   ];
   const prev = new Map(d.owned.filter((o) => o.autoId).map((o) => [o.autoId, o]));
   const arts = live.filter((i) => i.kind === 'art');
+  const mine = d.owned.filter((o) => !o.autoId);
+  const taken = new Set(mine.map((o) => o.title));
   d.owned = [
-    ...d.owned.filter((o) => !o.autoId),
-    ...arts.map((i, n) => {
+    ...mine,
+    ...arts.map((i) => {
       const c = inch(i);
-      const o = prev.get(i.id) || { id: i.id, autoId: i.id, title: n ? `print ${n + 1}` : 'print', keep: 'happy', pinned: false, thumb: i.thumb, palette: i.palette, color: i.palette && i.palette[0] ? i.palette[0].hex : null, fromPhoto: true };
+      const o = prev.get(i.id) || { id: i.id, autoId: i.id, title: freeTitle(taken), keep: 'happy', pinned: false, thumb: i.thumb, palette: i.palette, color: i.palette && i.palette[0] ? i.palette[0].hex : null, fromPhoto: true };
+      taken.add(o.title);
       return { ...o, at: { x: c.x, y: c.y }, w: c.w, h: c.h };
     }),
   ];
@@ -668,7 +685,8 @@ function check() {
     ...d.owned.map((o) => `<li>
       <span class="f-thumb">${o.thumb ? `<img src="${o.thumb}" alt="">` : '<span class="f-icon">Art</span>'}</span>
       <span class="f-main"><span class="f-name">Your ${esc(o.title)}, ${o.w} x ${o.h} in</span>
-        <span class="seg seg-full" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, l]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${o.keep === v}">${l}</button>`).join('')}</span></span>
+        <span class="seg seg-full" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, l]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${o.keep === v}">${o.at && v === 'must' ? 'Keep it there' : l}</button>`).join('')}</span>
+        ${o.autoId && o.w / o.h > 1.4 && o.w / o.h < 2.3 && !d.obstacles.some((x) => x.kind === 'tv') ? `<button type="button" class="linklike" data-is-tv="${esc(o.autoId)}" aria-label="Your ${esc(o.title)} is really the TV">It's the TV</button>` : ''}</span>
       <button type="button" class="linklike" data-remove-owned="${esc(o.id)}" aria-label="Not art, remove your ${esc(o.title)}">Remove</button>
     </li>`),
     ...d.obstacles.map((o) => `<li>
@@ -1117,6 +1135,17 @@ function layoutsScreen() {
       ${filterPanel()}
       <div class="drawing">${drawLayout(null, 700)}</div></main>${footer()}`;
   }
+  const stuck = d.owned.filter((o) => o.keep === 'must' && !o.pinned);
+  if (!result.layouts.length && stuck.length) {
+    return `${header()}${steps('layouts')}<main class="flow"><h1>Your wall ${sample}</h1>
+      <div class="drawing">${drawLayout(null, 700)}</div>
+      <p class="note"><strong>Your must-keep pieces don't fit with new art here.</strong> ${esc(problems[0] ? problems[0].message : '')}</p>
+      <div class="acts">
+        ${stuck.some((o) => o.at) ? '<button type="button" class="btn" data-act="pin-musts">Keep them where they hang</button>' : ''}
+        <button type="button" class="btn-quiet" data-act="loosen-musts">Let them move</button>
+        <a class="btn-quiet" href="${d.photo ? '#/check' : '#/things'}">Check what's marked</a>
+      </div></main>${footer()}`;
+  }
   if (!result.layouts.length) {
     return `${header()}${steps('layouts')}<main class="flow"><h1>Your wall ${sample}</h1>
       <div class="drawing">${drawLayout(null, 700)}</div>
@@ -1341,7 +1370,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['isArt', 'style', 'count', 'rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['isArt', 'isTv', 'style', 'count', 'rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1654,6 +1683,32 @@ document.addEventListener('click', (e) => {
     }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });
     return;
   }
+  if (t.dataset.isTv) {
+    const p = S.draft.photo, a = p && p.auto;
+    const it = a && a.items.find((i) => i.id === t.dataset.isTv);
+    if (!it) return;
+    it.kind = 'tv'; it.alone = true;
+    // Standing on something? Then it's a little out from the wall.
+    it.onStand = a.items.some((f) => f !== it && !f.removed && ['console', 'furniture', 'shelf'].includes(f.kind) && f.x < it.x + it.w && f.x + f.w > it.x && Math.abs(f.y - (it.y + it.h)) < a.rh * 0.06);
+    S.draft.owned = S.draft.owned.filter((o) => o.autoId !== it.id);
+    ensurePixels().then(() => {
+      if (!a.guess || a.guess.from !== 'measure') {
+        let px = 0;
+        if (it.onStand) {
+          const Hm = homography([[0, 0], [a.rw, 0], [a.rw, a.rh], [0, a.rh]], p.corners);
+          const q1 = apply(Hm, it.x, it.y + it.h / 2), q2 = apply(Hm, it.x + it.w, it.y + it.h / 2);
+          px = Math.hypot(q2[0] - q1[0], q2[1] - q1[1]);
+        }
+        a.tvPx = px; a.tvInches = a.tvInches || 55; a.tvWhy = null;
+        a.depth = px ? tvDepthFactor(px, Math.hypot(p.w, p.h), a.tvInches) : 1;
+        a.guess = guessWidth(a.items, a.rw, a.tvInches, a.depth);
+        if (a.guess) setScale(a.guess.inches);
+      }
+      applyAuto(); flattenAuto(); resetLayouts(); persist();
+      S.flash = 'Marked as the TV.'; render();
+    });
+    return;
+  }
   if (t.dataset.isArt) {
     const a = S.draft.photo && S.draft.photo.auto;
     const it = a && a.items.find((i) => i.id === t.dataset.isArt);
@@ -1665,7 +1720,16 @@ document.addEventListener('click', (e) => {
   }
   if (t.dataset.removeOb) { forgetAuto(t.dataset.removeOb); S.draft.obstacles = S.draft.obstacles.filter((o) => o.id !== t.dataset.removeOb); resetLayouts(); persist(); render(); return; }
   if (t.dataset.removeOwned) { forgetAuto(t.dataset.removeOwned); S.draft.owned = S.draft.owned.filter((o) => o.id !== t.dataset.removeOwned); S.mem.clean = null; resetLayouts(); persist(); render(); return; }
-  if (t.dataset.keep && t.dataset.oid) { const o = S.draft.owned.find((x) => x.id === t.dataset.oid); if (o) { o.keep = t.dataset.keep; resetLayouts(); persist(); render(); } return; }
+  if (t.dataset.keep && t.dataset.oid) {
+    const o = S.draft.owned.find((x) => x.id === t.dataset.oid);
+    if (o) {
+      o.keep = t.dataset.keep;
+      // A piece already hanging that you must keep stays where it hangs; the new art goes around it.
+      if (o.at) o.pinned = o.keep === 'must';
+      S.mem.clean = null; resetLayouts(); persist(); render();
+    }
+    return;
+  }
   if (t.dataset.rank) { S.rank = Number(t.dataset.rank); S.selected = null; S.flash = null; render(); return; }
   if (t.dataset.filter) {
     const k = t.dataset.filter, v = t.dataset.v;
@@ -1710,9 +1774,11 @@ document.addEventListener('click', (e) => {
         .catch(() => { S.busy = null; S.ui.cornerErr = "Couldn't read the photo. Try again, or use another photo."; render(); }), 30);
       break;
     }
+    case 'pin-musts': for (const o of S.draft.owned) if (o.keep === 'must' && o.at) o.pinned = true; S.mem.clean = null; resetLayouts(); persist(); render(); break;
+    case 'loosen-musts': for (const o of S.draft.owned) if (o.keep === 'must') { o.keep = 'happy'; o.pinned = false; } S.mem.clean = null; resetLayouts(); persist(); render(); break;
     case 'add-piece': {
       const n = S.draft.owned.length + 1;
-      S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: n === 1 ? 'print' : `print ${n}`, w: 16, h: 20, keep: 'happy', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });
+      S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: freeTitle(new Set(S.draft.owned.map((o) => o.title))), w: 16, h: 20, keep: 'happy', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });
       resetLayouts(); persist(); render(); break;
     }
     case 'quiz-skip': advanceQuiz(false); break;

@@ -149,3 +149,20 @@ test(`living room, ${mode}: the 55 in TV on its stand sizes the wall at about 10
   assert.ok(tall >= 84 && tall <= 96, `height ${tall.toFixed(0)} in`);
 });
 }
+
+test('living room with the TV on: a TV showing a picture is still the TV, not a print, and still sizes the wall', () => {
+  // The same photo with a landscape on the screen (from Jason's own photo of it on).
+  const img = readPng(new URL('./fixtures/living_room_tv_on.png', import.meta.url));
+  const seg = unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room_tv_on.labels.json', import.meta.url), 'utf8')));
+  const { corners, seenBottom } = suggestWall(img, seg);
+  const { aspect } = aspectFromCorners(corners, img.width, img.height);
+  const W = 600, H = Math.round(W / aspect);
+  const toPhoto = homography([[0, 0], [W, 0], [W, H], [0, H]], corners);
+  const r = readWall(flatten(img, corners, W, H), { hiddenFrom: hiddenFromFor(corners, seenBottom, W, H), labels: { seg, toPhoto, photoW: img.width, photoH: img.height } });
+  const kinds = r.items.map((i) => (i.kind === 'console' ? 'furniture' : i.kind)).sort();
+  assert.deepEqual(kinds, ['art', 'art', 'furniture', 'lamp', 'tv'], kinds.join());
+  const tv = r.items.find((i) => i.kind === 'tv');
+  assert.ok(tv.alone && tv.onStand, JSON.stringify(tv));
+  const g = guessWidth(r.items, W, 55);
+  assert.ok(g && g.inches >= 96 && g.inches <= 130, JSON.stringify(g));
+});
