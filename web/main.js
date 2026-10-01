@@ -106,7 +106,7 @@ function header() {
       <a class="nav-cta" href="#/new">Start a wall</a>
     </nav>
   </header>
-  ${store.demoMode ? '<p class="demo-label">Sample mode. Nothing is saved.</p>' : ''}
+  ${store.demoMode ? '<p class="demo-label">Sample walls. Nothing is saved.</p>' : ''}
   ${S.saveFailed ? `<div class="save-failed" role="alert"><p>Didn't save on this device. It may be full; deleting an old wall under Your walls frees space. Your wall is still here until you close the page.</p><button type="button" class="btn-quiet small-btn" data-act="retry-save">Try again</button></div>` : ''}`;
 }
 function steps(current) {
@@ -121,7 +121,7 @@ function steps(current) {
 function footer() {
   return `<footer class="site-foot">
     <p>Walldrobe: a wardrobe for your walls. Rent the Runway, for art.</p>
-    <p>Photos shown here are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's own license. Prints from shops are shown as the shop's affiliate partner and link to the shop. Walldrobe doesn't sell them; each one links to where you can get it. Your wall photos stay on your device.</p>
+    <p>Photos shown here are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's own license. Prints from Desenio and House of Spoils link to the shop's own page. Walldrobe doesn't sell anything and isn't paid for these links. Your wall photos stay on your device.</p>
   </footer>`;
 }
 const flashHtml = () => (S.flash ? `<p class="flash" role="status">${esc(S.flash)}</p>` : '');
@@ -193,7 +193,8 @@ function filterPanel() {
   const base = mode === 'both' ? CATALOG : CATALOG.filter((c) => (mode === 'prints' ? isShop(c) : !isShop(c)));
   const matching = applyFilters(base).length;
   const cats = {};
-  for (const c of base) if (passes(c, { ...f, skip: [] })) cats[c.record.category] = (cats[c.record.category] || 0) + 1;
+  // Black and white is a color choice (above), not a subject.
+  for (const c of base) if (c.record.category !== 'black and white' && passes(c, { ...f, skip: [] })) cats[c.record.category] = (cats[c.record.category] || 0) + 1;
   const catList = Object.entries(cats).sort((a, b) => b[1] - a[1]);
   const seg = (key, opts, cur) => `<span class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-filter="${key}" data-v="${v}" aria-pressed="${cur === v}">${l}</button>`).join('')}</span>`;
   return `<div class="filters" id="filters">
@@ -314,7 +315,7 @@ function home() {
   return `${header()}
   <main class="home">
     <section class="hero">
-      <div class="hero-wall">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, measure: true, pxWide: 900, still: true, label: 'A finished living room wall' })}</div>
+      <div class="hero-wall"><span class="sample-tag hero-tag">Sample wall</span>${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, measure: true, pxWide: 900, still: true, label: 'A finished living room wall' })}</div>
       <div class="hero-copy">
         <h1>A wardrobe for your walls.</h1>
         <p class="lede">Take one photo of a wall. You get a finished wall, sized and spaced for it and the art you already own, down to where each nail goes. The frames stay; change the art whenever you like.</p>
@@ -408,7 +409,10 @@ async function onPhoto(file) {
     for (const it of items) if (it.kind === 'art') Object.assign(it, thumbAndPalette(img, it));
     S.draft.photo.auto = { floorPx: found.floorY, items, guess: guessWidth(found.items, img.width), wallRgb: labToRgb(found.wallColor) };
     S.draft.width = S.draft.photo.auto.guess.inches;
-    S.draft.height = Math.max(96, Math.ceil((found.floorY * S.draft.width) / img.width));
+    // The photo shows this much wall above the floor. Don't invent more; the person can raise it.
+    const shown = Math.round((found.floorY * S.draft.width) / img.width);
+    S.draft.photo.auto.shownH = shown;
+    S.draft.height = Math.min(240, Math.max(72, shown));
     applyAuto();
     flattenAuto();
     resetLayouts();
@@ -445,7 +449,11 @@ const r2 = (v) => Math.round(v * 2) / 2;
 function applyAuto() {
   const d = S.draft, p = d.photo, a = p.auto;
   const s = d.width / p.w;
-  const inch = (it) => ({ x: r2(it.x * s), y: Math.max(0, r2((a.floorPx - it.y - it.h) * s)), w: r2(it.w * s), h: r2(it.h * s) });
+  const inch = (it) => {
+    const w = r2(it.w * s);
+    const h = it.kind === 'tv' ? Math.max(r2(it.h * s), r2(w * 9 / 16)) : r2(it.h * s);
+    return { x: r2(it.x * s), y: Math.max(0, r2((a.floorPx - it.y - it.h) * s)), w, h };
+  };
   const live = a.items.filter((i) => !i.removed);
   d.obstacles = [
     ...d.obstacles.filter((o) => !o.autoId),
@@ -516,6 +524,14 @@ async function changeDims(f) {
   resetLayouts(); persist(); render();
 }
 
+// A dashed line where the photo stops, when the wall above it is drawn, not photographed.
+function photoTopLine(d, s) {
+  const a = d.photo && d.photo.mode === 'auto' && d.photo.auto;
+  if (!a || !a.shownH || d.height <= a.shownH + 2) return '';
+  const y = d.height - a.shownH;
+  return `<g class="photo-top"><line x1="0" y1="${y}" x2="${d.width}" y2="${y}"/><text x="${s * 0.6}" y="${y - s * 0.5}" font-size="${s * 0.8}">Above here is drawn, not photographed</text></g>`;
+}
+
 function check() {
   if (need()) { go(need()); return ''; }
   const d = S.draft, p = d.photo;
@@ -525,7 +541,7 @@ function check() {
   const boxes = [
     ...d.obstacles.map((o) => `<g class="ob"><rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}</g>`),
     ...d.owned.filter((o) => o.at).map((o) => `<g class="owned-mark"><rect x="${o.at.x}" y="${H - o.at.y - o.h}" width="${o.w}" height="${o.h}" class="owned-box-mark"/><text x="${o.at.x + o.w / 2}" y="${H - o.at.y - o.h - s * 0.4}" font-size="${s * 0.85}" class="ob-label">Your ${esc(o.title)}</text></g>`),
-  ].join('');
+  ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const guess = auto ? { tv: 'Guessed from your TV, taking it as a 55 in TV. Measure the wall to be exact.', furniture: 'Guessed from the furniture. Measure the wall to be exact.', default: 'A guess. Measure the wall to be exact.' }[p.auto.guess.from] : null;
   const opts = [['must', 'Must keep'], ['happy', 'Happy to move'], ['dontcare', "Don't care"]];
@@ -538,7 +554,8 @@ function check() {
     </li>`),
     ...d.obstacles.map((o) => `<li>
       <span class="f-thumb"><span class="f-icon">${esc(obName(o).split(' ')[0])}</span></span>
-      <span class="f-main"><span class="f-name">${esc(obName(o))}, ${o.w} x ${o.h} in</span></span>
+      <span class="f-main"><span class="f-name">${esc(obName(o))}, ${o.w} x ${o.h} in</span>
+        ${o.autoId && o.kind !== 'tv' ? `<button type="button" class="linklike" data-is-art="${esc(o.autoId)}" aria-label="${esc(obName(o))} is really art">It's art</button>` : ''}</span>
       <button type="button" class="linklike" data-remove-ob="${esc(o.id)}" aria-label="Remove ${esc(obName(o))}">Remove</button>
     </li>`),
   ].join('');
@@ -554,10 +571,11 @@ function check() {
         <span class="guess">${esc(guess)}</span></fieldset>
       <fieldset class="size-form"><legend>Ceiling height</legend>
         <span class="acts"><label><input type="number" inputmode="numeric" min="6" max="20" name="hft" value="${ft(H)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="hin" value="${inch(H)}"> in</label></span>
-        <span class="guess">Most ceilings are 8 ft.</span></fieldset>
+        <span class="guess">${p.auto.shownH && H > p.auto.shownH + 2 ? `Your photo shows the bottom ${esc(feet(p.auto.shownH))}. The rest is drawn as plain wall, so check this.` : `Your photo shows ${esc(feet(p.auto.shownH || H))} of wall. If the ceiling is higher, put it here.`}</span></fieldset>
     </form>` : `<p class="size-read">${esc(feet(d.width))} wide, ${esc(feet(H))} tall</p>`}
     ${S.ui.sizeErr ? `<p class="error">${esc(S.ui.sizeErr)}</p>` : ''}
     ${rows ? `<ul class="found">${rows}</ul>` : ''}
+    ${auto && !d.owned.length ? `<div class="ask-art"><p><strong>Is there art on this wall already?</strong> We didn't find any. If there is, mark it and we'll plan around it, or swap what's in the frame.</p><a class="btn-quiet small-btn" href="#/pieces">Mark my art</a></div>` : ''}
     ${flashHtml()}
     <div class="acts">
       <a class="btn" href="#/layouts">Show me my wall</a>
@@ -872,7 +890,7 @@ function drawLayout(L, pxWide) {
   return wallSvg({
     wall: { width: d.width, height: d.height }, obstacles: d.obstacles, photo: d.photo && d.photo.flat ? cleanWall() : null,
     layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, selected: S.selected, measure: S.measure, pxWide, label: d.name,
-    hideObstacles: !!(d.photo && d.photo.flat),
+    hideObstacles: !!(d.photo && d.photo.flat), extra: photoTopLine(d, labelSize(d.width, pxWide)),
   });
 }
 
@@ -956,34 +974,37 @@ function layoutsScreen() {
   return `${header()}${steps('layouts')}
   <main class="flow wide">
     <div class="layout-head"><h1>${esc(d.name)} ${sample}</h1>${d.taste.source === 'yours' ? `<p class="muted">${esc(tasteLine)} <a href="#/taste" data-act="retake">Retake the taste test</a></p>` : ''}</div>
-    ${d.taste.source === 'yours' ? '' : `<div class="taste-card"><p><strong>Make it yours.</strong> ${esc(tasteLine)} Ten quick "which one" picks and every layout re-picks its art for you.</p><a class="btn-quiet small-btn" href="#/taste" data-act="retake">Pick what I like</a></div>`}
     ${tight(L, d)}
     <div class="main">
       <section class="stage" aria-label="Layouts for this wall">
-        <div class="layouts">${result.layouts.map((x, i) => `<button type="button" class="layout-tab" data-rank="${x.rank}" aria-pressed="${x.rank === S.rank}"><span class="rank">${x.rank}</span><span class="lt-name">${esc(names[i])}</span><span class="lt-count">${x.pieces.length} piece${x.pieces.length === 1 ? '' : 's'}</span></button>`).join('')}</div>
-        <div class="controls">
-          <div class="acts">
-            <button type="button" class="btn" data-act="refresh"${S.busy ? ' disabled' : ''}>${S.busy === 'refresh' ? 'Picking new art…' : keptHere ? `Refresh all but the ${keptHere} kept` : 'Refresh the art'}</button>
-            <button type="button" class="btn-quiet" data-act="another"${S.busy ? ' disabled' : ''}>${S.busy === 'another' ? 'Finding layouts…' : 'Try a new layout'}</button>
-          </div>
-          <label class="toggle"><input type="checkbox" id="measure"${S.measure ? ' checked' : ''}> Measurements and nails</label>
-        </div>
-        <div class="lever"><span class="lever-label" id="art-label">Art</span>
-          <span class="seg" role="group" aria-labelledby="art-label">${[['prints', 'Prints'], ['both', 'Both'], ['photos', 'Photos']].map(([v, l]) => `<button type="button" data-art="${v}" aria-pressed="${artMode() === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
-        <div class="lever"><span class="lever-label" id="scale-label">Pieces</span>
-          <span class="seg" role="group" aria-labelledby="scale-label">${[[-1, 'Fewer, bigger'], [0, 'Balanced'], [1, 'More, smaller']].map(([v, l]) => `<button type="button" data-scale="${v}" aria-pressed="${(d.scale || 0) === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
-        <div class="lever"><button type="button" class="btn-quiet small-btn" data-act="filters" aria-expanded="${!!S.ui.filters}" aria-controls="filters">Filters${filterCount() ? ` (${filterCount()})` : ''}</button>${filterCount() && !S.ui.filters ? ' <button type="button" class="btn-quiet small-btn" data-filter="clear">Clear</button>' : ''}</div>
-        ${S.ui.filters ? filterPanel() : ''}
+        <div class="layouts">${result.layouts.map((x, i) => `<button type="button" class="layout-tab" data-rank="${x.rank}" aria-pressed="${x.rank === S.rank}" aria-label="Layout ${x.rank}: ${esc(names[i])}, ${x.pieces.length} piece${x.pieces.length === 1 ? '' : 's'}"><span class="rank" aria-hidden="true">${x.rank}</span><span class="lt-name" aria-hidden="true">${esc(names[i])}</span><span class="lt-count" aria-hidden="true">${x.pieces.length} piece${x.pieces.length === 1 ? '' : 's'}</span></button>`).join('')}</div>
         <div class="drawing-wrap" id="drawing-wrap">
-          <div class="drawing" id="drawing">${drawLayout(L, ($('#drawing') && $('#drawing').clientWidth) || 700)}</div>
+          <div class="drawing" id="drawing">${drawLayout(L, ($('#drawing') && $('#drawing').clientWidth) || Math.min(700, (window.innerWidth || 700) - 50))}</div>
           ${order.map(peekCard).join('')}
         </div>
         <p class="hint muted">${S.selected ? 'Tap the piece again, or the x, to close.' : 'Point at or tap any piece to see why it\'s there, keep it or swap it.'}</p>
         ${flashHtml()}
         <p class="summary">${esc(L.summary)}</p>
+        ${newCount ? `<p class="cost-line">${esc(costLine(wallCost(L)))}.</p>` : ''}
         <div class="acts">
           <button type="button" class="btn" data-act="get">${newCount ? 'Get this wall' : 'Hang this wall'}</button>
-          <button type="button" class="btn-quiet" data-act="save">${S.ui.saved === d.id ? 'Saved on this device' : 'Save this wall'}</button>
+          <button type="button" class="btn-quiet" data-act="save">${S.ui.saved === d.id && !store.demoMode ? 'Saved on this device' : 'Save this wall'}</button>
+        </div>
+        <div class="change" aria-label="Change this wall" role="group">
+          <div class="controls">
+            <div class="acts">
+              <button type="button" class="btn-quiet" data-act="refresh"${S.busy ? ' disabled' : ''}>${S.busy === 'refresh' ? 'Picking new art…' : keptHere ? `Refresh all but the ${keptHere} kept` : 'Refresh the art'}</button>
+              <button type="button" class="btn-quiet" data-act="another"${S.busy ? ' disabled' : ''}>${S.busy === 'another' ? 'Finding layouts…' : 'Try a new layout'}</button>
+            </div>
+            <label class="toggle"><input type="checkbox" id="measure"${S.measure ? ' checked' : ''}> Measurements and nails</label>
+          </div>
+          <div class="lever"><span class="lever-label" id="art-label">Art</span>
+            <span class="seg" role="group" aria-labelledby="art-label">${[['prints', 'Prints'], ['both', 'Both'], ['photos', 'Photos']].map(([v, l]) => `<button type="button" data-art="${v}" aria-pressed="${artMode() === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
+          <div class="lever"><span class="lever-label" id="scale-label">Pieces</span>
+            <span class="seg" role="group" aria-labelledby="scale-label">${[[-1, 'Fewer, bigger'], [0, 'Balanced'], [1, 'More, smaller']].map(([v, l]) => `<button type="button" data-scale="${v}" aria-pressed="${(d.scale || 0) === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
+          <div class="lever"><button type="button" class="btn-quiet small-btn" data-act="filters" aria-expanded="${!!S.ui.filters}" aria-controls="filters">Filters${filterCount() ? ` (${filterCount()})` : ''}</button>${filterCount() && !S.ui.filters ? ' <button type="button" class="btn-quiet small-btn" data-filter="clear">Clear</button>' : ''}</div>
+          ${S.ui.filters ? filterPanel() : ''}
+          ${d.taste.source === 'yours' ? '' : `<div class="taste-card"><p><strong>Make it yours.</strong> ${esc(tasteLine)} Ten quick "which one" picks and every layout re-picks its art for you.</p><a class="btn-quiet small-btn" href="#/taste" data-act="retake">Pick what I like</a></div>`}
         </div>
       </section>
       <section class="list" aria-label="Pieces">
@@ -1017,7 +1038,7 @@ function printSize(w, h) {
 }
 // "an 11 x 14", "an 8 x 10", "a 16 x 20"
 const aOrAn = (n) => (/^(8|11|18|8\d)(\D|$)/.test(String(n)) ? 'an' : 'a');
-const money = (n, cur = 'USD') => { try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); } catch { return `${n} ${cur}`; } };
+const money = (n, cur = 'USD') => { try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); } catch { return `${n} ${cur}`; } };
 // The shop's offer at this frame size: the plain print first, framed as the other choice.
 function offersAt(item, w, h) {
   const at = (item.offers || []).filter((o) => o.w && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
@@ -1025,6 +1046,28 @@ function offersAt(item, w, h) {
   const framed = at.filter((o) => o.framed).sort((a, b) => (a.price ?? 1e9) - (b.price ?? 1e9))[0];
   const any = (item.offers || [])[0];
   return { main: plain || framed || any || null, framed: plain ? framed : null };
+}
+// What the new pieces on a layout cost: the shop price at each piece's size.
+function wallCost(L) {
+  const out = { total: 0, priced: 0, free: 0, framed: 0, unpriced: 0, shops: new Set(), cur: 'USD' };
+  for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
+    const item = byId.get(p.ref.id);
+    if (!item) continue;
+    if (!(item.offers && item.offers.length)) { out.free++; continue; }
+    const o = offersAt(item, p.w, p.h).main;
+    if (!o || o.price == null) { out.unpriced++; continue; }
+    out.total += o.price; out.priced++; out.shops.add(item.source); out.cur = o.currency || 'USD';
+    if (o.framed) out.framed++;
+  }
+  out.total = Math.round(out.total * 100) / 100;
+  return out;
+}
+function costLine(c, long) {
+  const bits = [];
+  if (c.priced) bits.push(`${long ? 'Prints: ' : ''}${money(c.total, c.cur)} for ${c.priced} print${c.priced === 1 ? '' : 's'}${c.framed === c.priced ? ', framed' : c.framed ? `, ${c.framed} of them framed` : ''}`);
+  if (c.free) bits.push(`${c.free} free photo${c.free === 1 ? '' : 's'} to print yourself`);
+  if (c.unpriced) bits.push(`${c.unpriced} without a listed price`);
+  return bits.join('. ');
 }
 const frameLink = (w, h) => `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} picture frame with mat`)}`;
 
@@ -1056,8 +1099,8 @@ function getScreen() {
           <p class="piece-meta">Art by ${esc(item.artist)}, sold by ${esc(item.source)}</p>
           <p class="buy-size">${o.w ? `${o.w} x ${o.h} in print${o.framed ? ', framed' : `, fits ${aOrAn(o.w)} ${o.w} x ${o.h} in frame`}` : `${p.w} x ${p.h} in frame`}${o.price != null ? `. ${money(o.price, o.currency)}` : ''}</p>
           <div class="acts">
-            <a class="btn small-btn" href="${esc(o.url)}" target="_blank" rel="sponsored noopener">Buy this print at ${esc(item.source)}</a>
-            ${shop.framed ? `<a class="btn-quiet small-btn" href="${esc(shop.framed.url)}" target="_blank" rel="sponsored noopener">Framed${shop.framed.price != null ? `, ${money(shop.framed.price, shop.framed.currency)}` : ''}</a>` : ''}
+            <a class="btn small-btn" href="${esc(o.url)}" target="_blank" rel="noopener">Buy this print at ${esc(item.source)}</a>
+            ${shop.framed ? `<a class="btn-quiet small-btn" href="${esc(shop.framed.url)}" target="_blank" rel="noopener">Framed${shop.framed.price != null ? `, ${money(shop.framed.price, shop.framed.currency)}` : ''}</a>` : ''}
             ${o.framed ? '' : `<a class="btn-quiet small-btn" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>`}
           </div>
         </div>
@@ -1078,8 +1121,9 @@ function getScreen() {
         </div>
       </li>`;
     }).join('')}</ul>
-    <p class="frames-sum"><strong>Frames:</strong> ${[...frames].map(([k, n]) => `${n} x ${k} in`).join(', ')}.</p>
-    ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? `<p class="muted small">Prints from shops link to the shop, which sells and ships them. Walldrobe may earn a small commission when you buy, at no cost to you.</p>` : ''}` : ''}
+    <p class="frames-sum"><strong>${esc(costLine(wallCost(L), true))}.</strong>${wallCost(L).priced > wallCost(L).framed ? ' Frames for the unframed prints are extra.' : ''}</p>
+    <p class="frames-sum"><strong>Frame sizes:</strong> ${[...frames].map(([k, n]) => `${n} at ${k} in`).join(', ')}.</p>
+    ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? `<p class="muted small">Prints from shops link to the shop, which sells and ships them. Prices are the shop's, checked when we added the print, and may have changed. Walldrobe isn't paid for these links.</p>` : ''}` : ''}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <div class="guide-head"><h2 id="guide-h">Hanging guide</h2><button type="button" class="btn-quiet" data-act="print">Print the hanging guide</button></div>
       <p class="muted">${esc(L.summary)} Nail spots are measured from the left end of the wall and up from the floor.</p>
@@ -1127,7 +1171,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['isArt', 'rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1147,10 +1191,30 @@ function render() {
   // Keep keyboard focus on the same control across a re-render.
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
-  const html = fn();
+  let html;
+  try { html = fn(); }
+  catch (e) {
+    console.error(e);
+    S.view = null; S.busy = null;
+    html = brokeScreen(r0);
+  }
   if (html) app().innerHTML = html;
   if (sel) { const again = document.querySelector(sel); if (again) again.focus({ preventScroll: true }); }
   wire(r0);
+}
+
+// Something threw while building a screen. Say so, keep the person's work, offer a way on.
+function brokeScreen(r0) {
+  const hasWall = !!(S.draft && S.draft.width);
+  return `${header()}<main class="flow">
+    <h1>Something broke building your wall</h1>
+    <p class="lede">${hasWall ? 'Your photo and pieces are saved on this device.' : 'Nothing you made was lost.'} Try again, and if it keeps happening, check what's marked on the wall or start a new one.</p>
+    <div class="acts">
+      <button type="button" class="btn" data-act="retry">Try again</button>
+      ${hasWall ? `<a class="btn-quiet" href="${S.draft.photo ? '#/check' : '#/things'}">Check what's marked</a>` : ''}
+      <a class="btn-quiet" href="#/new">Start a new wall</a>
+    </div>
+  </main>${footer()}`;
 }
 
 // ---------- Events ----------
@@ -1393,6 +1457,15 @@ document.addEventListener('click', (e) => {
     const o = clampOb({ id: `${t.dataset.add}${Date.now().toString(36)}`, kind: t.dataset.add, ...DEFAULTS[t.dataset.add](W) });
     S.draft.obstacles.push(o); resetLayouts(); persist(); render(); return;
   }
+  if (t.dataset.isArt) {
+    const a = S.draft.photo && S.draft.photo.auto;
+    const it = a && a.items.find((i) => i.id === t.dataset.isArt);
+    if (it && S.mem.photo) {
+      it.kind = 'art'; Object.assign(it, thumbAndPalette(S.mem.photo, it));
+      applyAuto(); flattenAuto(); resetLayouts(); persist(); S.flash = 'Marked as your art. Set whether to keep it.'; render();
+    } else { S.flash = 'Open the photo again to change this.'; render(); }
+    return;
+  }
   if (t.dataset.removeOb) { forgetAuto(t.dataset.removeOb); S.draft.obstacles = S.draft.obstacles.filter((o) => o.id !== t.dataset.removeOb); resetLayouts(); persist(); render(); return; }
   if (t.dataset.removeOwned) { forgetAuto(t.dataset.removeOwned); S.draft.owned = S.draft.owned.filter((o) => o.id !== t.dataset.removeOwned); S.mem.clean = null; resetLayouts(); persist(); render(); return; }
   if (t.dataset.keep && t.dataset.oid) { const o = S.draft.owned.find((x) => x.id === t.dataset.oid); if (o) { o.keep = t.dataset.keep; resetLayouts(); persist(); render(); } return; }
@@ -1448,6 +1521,7 @@ document.addEventListener('click', (e) => {
       persist(); S.flash = null; act('keep', () => rebuildOthers(L)); break;
     }
     case 'unpin': S.selected = null; render(); break;
+    case 'retry': resetLayouts(); render(); break;
     case 'filters': S.ui.filters = !S.ui.filters; render(); break;
     case 'swap': S.flash = null; act(`swap:${t.dataset.id}`, () => refreshShown(t.dataset.id)); break;
     case 'refresh': S.flash = null; act('refresh', () => refreshShown(null)); break;

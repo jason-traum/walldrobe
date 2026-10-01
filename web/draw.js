@@ -123,7 +123,8 @@ function measures(L, W, H, s) {
 // Label size in inches so text is never under 11 px on screen.
 export function labelSize(W, pxWide) {
   const px = Math.max(240, pxWide || 600) / (W * 1.05);
-  return Math.max(W / 34, 11 / px);
+  // Never smaller than about 13 px on screen: these are the numbers people drill by.
+  return Math.max(W / 34, 13 / px);
 }
 
 /**
