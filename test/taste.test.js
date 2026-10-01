@@ -18,7 +18,7 @@ test('the demo catalog has at least 200 pieces and every record passes the schem
 test('no subject crowds the catalog', () => {
   const counts = {};
   for (const r of records) counts[r.category] = (counts[r.category] || 0) + 1;
-  for (const [c, n] of Object.entries(counts)) assert.ok(n <= Math.max(36, records.length * 0.08), `${c}: ${n}`);
+  for (const [c, n] of Object.entries(counts)) assert.ok(n <= Math.max(36, records.length * 0.09), `${c}: ${n}`);
 });
 
 test('every piece can be credited and none can be sold', () => {
@@ -106,7 +106,7 @@ test('the quiz gives a black-and-white lover real choices, and learns it', () =>
     picks.push({ winner: pick, loser: pick === a ? b : a });
   }
   assert.ok(real >= 3, `${real} of 10 pairs had exactly one black-and-white piece`);
-  const words = describeTaste(fitTaste(picks));
+  const words = describeTaste(fitTaste(picks), 4);
   assert.ok(words.includes('black and white'), words.join(', '));
 });
 

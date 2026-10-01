@@ -331,7 +331,7 @@ def fetch(key, url):
 
 # Shops whose affiliate feeds we import (tools/feeds/<shop>.tsv, written by tools/import_feed.mjs).
 SHOP_NAMES = {"minted": "Minted", "saatchiart": "Saatchi Art", "saatchi": "Saatchi Art", "society6": "Society6", "desenio": "Desenio",
-              "juniqe": "JUNIQE", "artfinder": "Artfinder", "turningart": "TurningArt", "example": "Example Shop"}
+              "juniqe": "JUNIQE", "artfinder": "Artfinder", "turningart": "TurningArt", "houseofspoils": "House of Spoils", "example": "Example Shop"}
 
 def shop_picks():
     folder = os.path.join(ROOT, "tools", "feeds")

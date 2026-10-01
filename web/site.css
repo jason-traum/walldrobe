@@ -252,6 +252,14 @@ input[type="number"], input[type="text"] { font-size: 16px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; }
 .notes .caveat { color: var(--ink-2); list-style: none; margin-left: -18px; padding-left: 10px; border-left: 3px solid var(--accent); }
+.filters { display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.filter-row .lever-label { min-width: 64px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.fchip { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; min-height: 34px; font-size: 14px; cursor: pointer; color: var(--ink); }
+.fchip[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; border-style: dashed; background: transparent; }
+.fchip .muted { font-size: 12px; text-decoration: none; }
+.filter-sum { font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .drawing-wrap { position: relative; display: grid; gap: 12px; }
 .peek { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
 .peek.is-pinned { border-color: var(--accent); }

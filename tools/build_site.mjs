@@ -15,7 +15,12 @@ const css = readFileSync(join(root, 'web/site.css'), 'utf8');
 const catalog = JSON.parse(readFileSync(join(root, 'demo/catalog.json'), 'utf8'));
 const errors = validateCatalog(catalog.items);
 if (errors.length) { console.error(errors.slice(0, 20).join('\n')); process.exit(1); }
-const items = catalog.items.map((it) => ({ ...it, image: { ...it.image, data: it.image.src } }));
+// Only what the site shows: hidden pieces stay out, and fields only the pipeline uses are dropped.
+const items = catalog.items.filter((it) => it.status === 'active').map(({ provenance, quality, ...it }) => ({
+  ...it, quality: { score: quality && quality.score },
+  offers: (it.offers || []).map(({ sku, label, vendor, ...o }) => o),
+  image: { ...it.image, data: it.image.src },
+}));
 const json = JSON.stringify({ ...catalog, items }).replace(/</g, '\\u003c');
 
 const html = readFileSync(join(root, 'web/index.html'), 'utf8')
