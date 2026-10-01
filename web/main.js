@@ -135,12 +135,20 @@ function engineInput() {
     pinned: !!(p.pinned && p.at), at: p.pinned && p.at ? p.at : undefined,
     palette: p.palette && p.palette.length ? p.palette : p.color ? [{ hex: p.color, weight: 1 }] : undefined,
   }));
-  const taste = scoreTaste(d.taste.weights, CATALOG);
+  // Which art to pick from: real prints from shops, photos, or both (prints lean ahead a little).
+  const mode = artMode();
+  const keptIds = new Set(keepList().map((k) => k.id));
+  const isShop = (c) => c.offers && c.offers.length > 0;
+  const catalog = mode === 'both' ? CATALOG : CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'prints' ? isShop(c) : !isShop(c)));
+  const taste = scoreTaste(d.taste.weights, catalog);
+  if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
-  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog: CATALOG, taste, room, count: 3, prefs: { scale: d.scale || 0 } };
+  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: 3, prefs: { scale: d.scale || 0 } };
 }
 const keepList = () => S.draft.kept || [];
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.scale]);
+const ART_MODES = ['prints', 'both', 'photos'];
+const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.scale, artMode()]);
 
 function remember(layouts) {
   for (const L of layouts) {
@@ -894,6 +902,8 @@ function layoutsScreen() {
           </div>
           <label class="toggle"><input type="checkbox" id="measure"${S.measure ? ' checked' : ''}> Measurements and nails</label>
         </div>
+        <div class="lever"><span class="lever-label" id="art-label">Art</span>
+          <span class="seg" role="group" aria-labelledby="art-label">${[['prints', 'Prints'], ['both', 'Both'], ['photos', 'Photos']].map(([v, l]) => `<button type="button" data-art="${v}" aria-pressed="${artMode() === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
         <div class="lever"><span class="lever-label" id="scale-label">Pieces</span>
           <span class="seg" role="group" aria-labelledby="scale-label">${[[-1, 'Fewer, bigger'], [0, 'Balanced'], [1, 'More, smaller']].map(([v, l]) => `<button type="button" data-scale="${v}" aria-pressed="${(d.scale || 0) === v}"${S.busy ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>
         <div class="drawing-wrap" id="drawing-wrap">
@@ -1049,7 +1059,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1100,12 +1110,17 @@ function wirePeek() {
     if (!wide()) { card.style.left = ''; card.style.top = ''; return; }
     const g = wrap.querySelector(`.art[data-id="${CSS.escape(card.dataset.for)}"]`);
     if (!g) return;
+    // Keep the card inside the drawing so it never covers the buttons below it:
+    // under the piece, above it, then beside it, else as close as fits.
     const wr = wrap.getBoundingClientRect(); const pr = g.getBoundingClientRect();
     const cw = card.offsetWidth; const ch = card.offsetHeight;
-    let left = pr.left - wr.left + pr.width / 2 - cw / 2;
-    left = Math.max(8, Math.min(wr.width - cw - 8, left));
-    let top = pr.bottom - wr.top + 8;
-    if (top + ch > wr.height + 40 && pr.top - wr.top - ch - 8 > 0) top = pr.top - wr.top - ch - 8;
+    const px = { l: pr.left - wr.left, r: pr.right - wr.left, t: pr.top - wr.top, b: pr.bottom - wr.top };
+    const cx = px.l + (px.r - px.l) / 2 - cw / 2; const cy = px.t + (px.b - px.t) / 2 - ch / 2;
+    const fits = ([x, y]) => x >= 8 && y >= 8 && x + cw <= wr.width - 8 && y + ch <= wr.height - 8;
+    const clampX = (x) => Math.max(8, Math.min(wr.width - cw - 8, x));
+    const clampY = (y) => Math.max(8, Math.min(wr.height - ch - 8, y));
+    const tries = [[clampX(cx), px.b + 8], [clampX(cx), px.t - ch - 8], [px.r + 8, clampY(cy)], [px.l - cw - 8, clampY(cy)]];
+    const [left, top] = tries.find(fits) || [clampX(cx), clampY(px.b + 8)];
     card.style.left = `${Math.round(left)}px`; card.style.top = `${Math.round(top)}px`;
   };
   const show = (id) => {
@@ -1314,6 +1329,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.removeOwned) { forgetAuto(t.dataset.removeOwned); S.draft.owned = S.draft.owned.filter((o) => o.id !== t.dataset.removeOwned); S.mem.clean = null; resetLayouts(); persist(); render(); return; }
   if (t.dataset.keep && t.dataset.oid) { const o = S.draft.owned.find((x) => x.id === t.dataset.oid); if (o) { o.keep = t.dataset.keep; resetLayouts(); persist(); render(); } return; }
   if (t.dataset.rank) { S.rank = Number(t.dataset.rank); S.selected = null; S.flash = null; render(); return; }
+  if (t.dataset.art) { S.draft.art = t.dataset.art; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.scale !== undefined) { S.draft.scale = Number(t.dataset.scale); S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.pick) {
     const q = S.quiz; const [x, y] = q.pair; const winner = x.id === t.dataset.pick ? x : y;

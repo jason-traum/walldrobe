@@ -21,7 +21,7 @@ npm run site -- node_modules/.bin/esbuild   # writes docs/
 
 Photos are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's license ([Unsplash](https://unsplash.com/license), [Pexels](https://www.pexels.com/license/), [Pixabay](https://pixabay.com/service/license-summary/)). Walldrobe doesn't sell them.
 
-Real prints come from shops' affiliate feeds: `node tools/import_feed.mjs feed.csv --merchant minted`, then `tools/analyze.py`. Each one links to the shop to buy, with its real sizes and prices. See CATALOG.md, Shop feeds.
+The beta shows 229 real prints from Desenio by default. Real prints come from shops' affiliate feeds: `node tools/import_feed.mjs feed.csv --merchant minted`, then `tools/analyze.py`. Each one links to the shop to buy, with its real sizes and prices. See CATALOG.md, Shop feeds.
 
 ## The layout engine
 

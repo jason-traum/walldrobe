@@ -18,14 +18,17 @@ test('the demo catalog has at least 200 pieces and every record passes the schem
 test('no subject crowds the catalog', () => {
   const counts = {};
   for (const r of records) counts[r.category] = (counts[r.category] || 0) + 1;
-  for (const [c, n] of Object.entries(counts)) assert.ok(n <= 36, `${c}: ${n}`);
+  for (const [c, n] of Object.entries(counts)) assert.ok(n <= Math.max(36, records.length * 0.08), `${c}: ${n}`);
 });
 
 test('every piece can be credited and none can be sold', () => {
   for (const r of records) {
     const where = { unsplash: 'Unsplash', pexels: 'Pexels', pixabay: 'Pixabay' }[r.source.provider];
-    assert.ok(where, `${r.id}: unknown provider ${r.source.provider}`);
-    assert.equal(r.rights.credit, `Photo by ${r.artist.name} on ${where}`);
+    if (r.source.name) assert.equal(r.rights.credit, `Art by ${r.artist.name}, sold by ${r.source.name}`);
+    else {
+      assert.ok(where, `${r.id}: unknown provider ${r.source.provider}`);
+      assert.equal(r.rights.credit, `Photo by ${r.artist.name} on ${where}`);
+    }
     assert.equal(r.rights.sell, false);
   }
 });
