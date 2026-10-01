@@ -42,9 +42,11 @@ States that apply everywhere:
 
 | State | What they see | Action |
 |---|---|---|
-| Tapping | The photo with four draggable corner handles, starting at a guess | Drag, "Looks right" |
+| Checking | The photo with a dot on each corner of the wall where we found it. A note when the ceiling or the floor wasn't in the photo | Drag, "Looks right" |
+| Reading | "Reading your wall…" on the button while the wall inside the corners is flattened and read | Wait |
 | Corners crossed or off photo | Handles turn to the error style, "Corners should go clockwise from top left." | Fix |
-| Measurement empty | "Give us one real measurement." Choices: wall width, a door (80 in), an outlet cover | Pick one, enter inches |
+| Sized from a TV | On the check screen: "Worked out from your TV, taken as a 55 in TV." with the TV size to change | Change the TV size, type the width |
+| Measurement empty | Only when no TV is clear of everything else: "Give us one real measurement." Wall width, or its height when the ceiling is in the photo | Enter feet and inches |
 | Measurement doesn't add up | "That makes the wall 31 ft tall. Check the number." | Edit |
 | Done | The flattened wall with its size: "11 ft 0 in wide, 8 ft 0 in tall" | Next |
 

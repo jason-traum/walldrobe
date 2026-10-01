@@ -8,8 +8,8 @@ import { fitTaste, scoreTaste, nextPair, describeTaste } from '../engine/taste.j
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
-import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl } from './photo.js';
-import { readWall, guessWidth, labToRgb } from './detect.js';
+import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
+import { readWall, guessWidth, labToRgb, findWall, TV_SIZES } from './detect.js';
 import * as store from './store.js';
 
 const QUIZ_LENGTH = 10;
@@ -61,7 +61,7 @@ function resumeDraft() {
 function need() {
   const d = S.draft;
   if (!d) return '#/start';
-  if (d.photo && !d.photo.flat) return d.photo.measure && d.photo.measure.value ? '#/size' : '#/corners';
+  if (d.photo && !d.photo.flat) return d.photo.auto && d.photo.auto.rw && !d.photo.auto.guess ? '#/size' : '#/corners';
   if (!d.width || !d.height) return '#/start';
   return null;
 }
@@ -351,7 +351,7 @@ function start() {
   return `${header()}${steps('wall')}
   <main class="flow">
     <h1>Take a photo of one wall</h1>
-    <p class="lede">Stand back and face it straight on, with the floor in the picture. People in the photo aren't needed.</p>
+    <p class="lede">Stand back and take the whole wall, floor to ceiling if you can. People in the photo aren't needed.</p>
     ${flashHtml()}
     <section class="card">
       <h2>Your photo</h2>
@@ -395,30 +395,20 @@ async function onPhoto(file) {
     const img = await loadFile(file, 1400);
     const q = photoQuality(img);
     S.draft = { ...blankDraft(), taste: S.draft && S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste : { source: 'none', weights: null } };
-    const inset = 0.12;
+    // Find the wall in the photo: its four corners, for the person to check.
+    // Nothing is read off the photo until they say the corners are right.
+    const found = findWall(img);
     S.draft.photo = {
       src: img.url, w: img.width, h: img.height,
-      corners: [[img.width * inset, img.height * inset], [img.width * (1 - inset), img.height * inset], [img.width * (1 - inset), img.height * (1 - inset)], [img.width * inset, img.height * (1 - inset)]],
+      corners: found.corners, seen: { ceiling: found.ceiling, floor: found.floor, sides: found.sides },
       flat: null, ppi: null, measure: { which: 'width', value: null }, mode: 'auto',
     };
     S.mem = { photo: img, flat: null, clean: null, cleanKey: null };
     S.ui.quality = q.brightness < 0.15 || q.sharpness < 0.012 ? 'The photo is dark or blurry, so the guesses may be off. Check them below.' : null;
-    // Read the photo: the floor, the wall's color, what's in front of it and what hangs on it.
-    const found = readWall(img);
-    const items = found.items.map((it, i) => ({ ...it, id: `auto${i}`, removed: false }));
-    for (const it of items) if (it.kind === 'art') Object.assign(it, thumbAndPalette(img, it));
-    S.draft.photo.auto = { floorPx: found.floorY, items, guess: guessWidth(found.items, img.width), wallRgb: labToRgb(found.wallColor) };
-    S.draft.width = S.draft.photo.auto.guess.inches;
-    // The photo shows this much wall above the floor. Don't invent more; the person can raise it.
-    const shown = Math.round((found.floorY * S.draft.width) / img.width);
-    S.draft.photo.auto.shownH = shown;
-    S.draft.height = Math.min(240, Math.max(72, shown));
-    applyAuto();
-    flattenAuto();
     resetLayouts();
     persist();
     S.busy = null;
-    go('#/check');
+    go('#/corners');
   } catch (e) {
     S.busy = null;
     S.ui.photoErr = e.message || "That file won't open. Use a JPG, PNG or HEIC under 20 MB.";
@@ -440,19 +430,67 @@ function thumbAndPalette(img, r) {
   return { thumb: cv.toDataURL('image/jpeg', 0.8), palette: pal };
 }
 
+// Read the wall inside the corners: flatten it, then find what hangs on it and
+// what stands in front. The scale comes from a TV found on its own, or else from
+// one measurement the person gives.
+const REGION_W = 600;
+function regionImg() {
+  const p = S.draft.photo, k = JSON.stringify(p.corners);
+  if (S.mem.region && S.mem.regionKey === k) return S.mem.region;
+  const { aspect } = aspectFromCorners(p.corners, p.w, p.h);
+  S.mem.region = flatten(S.mem.photo, p.corners, REGION_W, Math.max(40, Math.round(REGION_W / aspect)));
+  S.mem.regionKey = k;
+  return S.mem.region;
+}
+async function readPhoto() {
+  const d = S.draft, p = d.photo;
+  await ensurePixels();
+  const img = regionImg();
+  const found = readWall(img);
+  const items = found.items.map((it, i) => ({ ...it, id: `auto${i}`, removed: false }));
+  for (const it of items) if (it.kind === 'art') Object.assign(it, thumbAndPalette(img, it));
+  // A 55 in TV unless that makes a ceiling the photo shows lower than 7 ft or
+  // higher than 11 ft; then the next size that doesn't.
+  let tvInches = (p.auto && p.auto.tvInches) || 55, tvWhy = null;
+  if (!(p.auto && p.auto.tvInches) && !(p.seen && p.seen.ceiling === false)) {
+    const ceil = (dg) => { const g = guessWidth(items, img.width, dg); return g ? (g.inches * img.height) / img.width : null; };
+    const c55 = ceil(55);
+    if (c55 && c55 < 84) { tvInches = [65, 75].find((dg) => ceil(dg) >= 84) || 75; tvWhy = 'low'; }
+    if (c55 && c55 > 132) { tvInches = [50, 43].find((dg) => ceil(dg) <= 132) || 43; tvWhy = 'high'; }
+  }
+  p.auto = { items, rw: img.width, rh: img.height, wallRgb: labToRgb(found.wallColor), tvInches, tvWhy, guess: guessWidth(items, img.width, tvInches) };
+  d.obstacles = d.obstacles.filter((o) => !o.autoId);
+  d.owned = d.owned.filter((o) => !o.autoId);
+  p.lastW = null; p.lastH = null;
+  if (!p.auto.guess) { p.measure = { which: 'width', value: null }; return '#/size'; }
+  setScale(p.auto.guess.inches);
+  applyAuto(); flattenAuto();
+  return '#/check';
+}
+// The width sets the scale. The height is what the photo shows, or at least
+// 8 ft when the ceiling wasn't in it.
+function setScale(W, H) {
+  const d = S.draft, p = d.photo, a = p.auto;
+  d.width = W;
+  a.shownH = Math.round((W * a.rh) / a.rw);
+  const noCeiling = p.seen && p.seen.ceiling === false;
+  d.height = Math.min(240, Math.max(72, H || (noCeiling ? Math.max(96, a.shownH) : a.shownH)));
+}
+
 const AUTO_KIND = { tv: 'tv', furniture: 'furniture', lamp: 'lamp' };
 const AUTO_LABEL = { tv: 'TV', furniture: 'Furniture', lamp: 'Lamp or plant' };
 const r2 = (v) => Math.round(v * 2) / 2;
 
-// What was found in the photo, in wall inches. The photo is taken as a straight-on
-// view with its bottom at the floor line; the width sets the scale.
+// What was found on the flattened wall, in wall inches, measured up from the floor
+// (the bottom corners). The width sets the scale.
 function applyAuto() {
   const d = S.draft, p = d.photo, a = p.auto;
-  const s = d.width / p.w;
+  const rw = a.rw || p.w, rh = a.rh || a.floorPx;
+  const s = d.width / rw;
   const inch = (it) => {
     const w = r2(it.w * s);
     const h = it.kind === 'tv' ? Math.max(r2(it.h * s), r2(w * 9 / 16)) : r2(it.h * s);
-    return { x: r2(it.x * s), y: Math.max(0, r2((a.floorPx - it.y - it.h) * s)), w, h };
+    return { x: r2(it.x * s), y: Math.max(0, r2((rh - it.y - it.h) * s)), w, h };
   };
   const live = a.items.filter((i) => !i.removed);
   d.obstacles = [
@@ -471,15 +509,28 @@ function applyAuto() {
   ];
 }
 
-// The flattened wall for auto mode: the photo from the floor up, and plain wall
-// color above it when the ceiling is higher than the photo reaches.
+// The flattened wall at its size: the photo inside the corners, and plain wall
+// color above the top corners when the ceiling is higher than the photo shows.
 function flattenAuto() {
   const d = S.draft, p = d.photo, a = p.auto;
-  const s = d.width / p.w;
-  const top = a.floorPx - d.height / s;
-  p.corners = [[0, top], [p.w, top], [p.w, a.floorPx], [0, a.floorPx]];
+  const rw = a.rw || p.w, rh = a.rh || a.floorPx;
+  const s = d.width / rw; // inches per pixel of the read wall
+  const top = rh - d.height / s; // the ceiling, in those pixels (below zero when the photo stops short of it)
+  const Hm = homography([[0, 0], [rw, 0], [rw, rh], [0, rh]], p.corners);
+  const full = [apply(Hm, 0, top), apply(Hm, rw, top), p.corners[2], p.corners[3]];
   const ppi = Math.min(8, 1600 / Math.max(d.width, d.height));
-  const out = flatten(S.mem.photo, p.corners, Math.round(d.width * ppi), Math.round(d.height * ppi), a.wallRgb);
+  const outW = Math.round(d.width * ppi), outH = Math.round(d.height * ppi);
+  const out = flatten(S.mem.photo, full, outW, outH, a.wallRgb);
+  // Above the top corners is the ceiling or a soffit in the photo, not wall: paint it plain.
+  const cut = Math.min(outH, Math.round(Math.max(0, d.height - rh * s) * ppi));
+  for (let i = 0; i < cut * outW; i++) { out.data[i * 4] = a.wallRgb[0]; out.data[i * 4 + 1] = a.wallRgb[1]; out.data[i * 4 + 2] = a.wallRgb[2]; }
+  // Things marked by hand keep their place on the wall when its size changes.
+  const fx = p.lastW ? d.width / p.lastW : 1, fy = p.lastH ? d.height / p.lastH : 1;
+  if (fx !== 1 || fy !== 1) {
+    for (const o of d.obstacles) if (!o.autoId) { o.x *= fx; o.w *= fx; o.y *= fy; o.h *= fy; }
+    for (const o of d.owned) if (!o.autoId && o.at) { o.at = { x: r2(o.at.x * fx), y: r2(o.at.y * fy) }; o.w = r2(o.w * fx); o.h = r2(o.h * fy); }
+  }
+  d.obstacles = d.obstacles.map(clampOb);
   S.mem.flat = out; S.mem.clean = null;
   p.flat = toDataUrl(out, 0.85); p.ppi = ppi; p.clean = null; p.cleanKey = null;
   p.lastW = d.width; p.lastH = d.height;
@@ -518,7 +569,9 @@ async function changeDims(f) {
   S.ui.sizeErr = null;
   const d = S.draft;
   await ensurePixels();
+  const a = d.photo && d.photo.auto;
   d.width = W; d.height = H;
+  if (a && a.rw) a.shownH = Math.round((W * a.rh) / a.rw);
   applyAuto();
   flattenAuto();
   resetLayouts(); persist(); render();
@@ -543,7 +596,10 @@ function check() {
     ...d.owned.filter((o) => o.at).map((o) => `<g class="owned-mark"><rect x="${o.at.x}" y="${H - o.at.y - o.h}" width="${o.w}" height="${o.h}" class="owned-box-mark"/><text x="${o.at.x + o.w / 2}" y="${H - o.at.y - o.h - s * 0.4}" font-size="${s * 0.85}" class="ob-label">Your ${esc(o.title)}</text></g>`),
   ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
-  const guess = auto ? { tv: 'Guessed from your TV, taking it as a 55 in TV. Measure the wall to be exact.', furniture: 'Guessed from the furniture. Measure the wall to be exact.', default: 'A guess. Measure the wall to be exact.' }[p.auto.guess.from] : null;
+  const from = auto && p.auto.guess ? p.auto.guess.from : null;
+  const why = { low: ' A 55 in one would put the ceiling under 7 ft.', high: ' A 55 in one would put the ceiling over 11 ft.' }[p.auto.tvWhy] || '';
+  const guess = from === 'tv' ? `Worked out from your TV, taken as a ${p.auto.tvInches} in TV.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
+  const tvPick = from === 'tv' ? `<label class="tv-size">Your TV <select id="tv-size" aria-label="Your TV's size">${TV_SIZES.map(([dg]) => `<option value="${dg}"${dg === p.auto.tvInches ? ' selected' : ''}>${dg} in</option>`).join('')}</select></label>` : '';
   const opts = [['must', 'Must keep'], ['happy', 'Happy to move'], ['dontcare', "Don't care"]];
   const rows = [
     ...d.owned.map((o) => `<li>
@@ -568,10 +624,10 @@ function check() {
     ${auto ? `<form id="dims-form" class="dims">
       <fieldset class="size-form"><legend>Wall width</legend>
         <span class="acts"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
-        <span class="guess">${esc(guess)}</span></fieldset>
+        <span class="guess">${esc(guess)}</span>${tvPick}</fieldset>
       <fieldset class="size-form"><legend>Ceiling height</legend>
         <span class="acts"><label><input type="number" inputmode="numeric" min="6" max="20" name="hft" value="${ft(H)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="hin" value="${inch(H)}"> in</label></span>
-        <span class="guess">${p.auto.shownH && H > p.auto.shownH + 2 ? `Your photo shows the bottom ${esc(feet(p.auto.shownH))}. The rest is drawn as plain wall, so check this.` : `Your photo shows ${esc(feet(p.auto.shownH || H))} of wall. If the ceiling is higher, put it here.`}</span></fieldset>
+        <span class="guess">${p.auto.shownH && H > p.auto.shownH + 2 ? `Your photo shows the bottom ${esc(feet(p.auto.shownH))}. The rest is drawn as plain wall, so check this.` : p.seen && p.seen.ceiling === false ? "The photo doesn't show where the wall meets the ceiling, so check this." : `Your photo shows ${esc(feet(p.auto.shownH || H))} of wall. If the ceiling is higher, put it here.`}</span></fieldset>
     </form>` : `<p class="size-read">${esc(feet(d.width))} wide, ${esc(feet(H))} tall</p>`}
     ${S.ui.sizeErr ? `<p class="error">${esc(S.ui.sizeErr)}</p>` : ''}
     ${rows ? `<ul class="found">${rows}</ul>` : ''}
@@ -580,7 +636,7 @@ function check() {
     <div class="acts">
       <a class="btn" href="#/layouts">Show me my wall</a>
     </div>
-    <p class="small muted">Something missed or wrong? <a href="#/things">Move or add things</a>, <a href="#/pieces">add art we missed</a>, or <a href="#/corners">set the corners by hand</a>.</p>
+    <p class="small muted">Something missed or wrong? <a href="#/things">Move or add things</a>, <a href="#/pieces">add art we missed</a>, or <a href="#/corners">move the corners</a>.</p>
   </main>${footer()}`;
 }
 
@@ -591,13 +647,19 @@ function corners() {
   if (!p) { go('#/start'); return ''; }
   const c = p.corners;
   const err = cornerProblem(c, p.w, p.h);
-  const r = Math.max(p.w, p.h) / 60;
+  const r = Math.max(p.w, p.h) / 45;
   const names = ['Top left', 'Top right', 'Bottom right', 'Bottom left'];
+  const seen = p.seen || {};
+  const misses = [
+    seen.ceiling === false ? "We couldn't see the ceiling, so the top dots are at the top of the photo. You'll set the ceiling height next." : null,
+    seen.floor === false ? "We couldn't see the floor. Drag the bottom dots to where the wall meets it." : null,
+  ].filter(Boolean);
   return `${header()}${steps('wall')}
   <main class="flow">
-    <h1>Drag the corners of the wall</h1>
-    <p class="lede">Put each dot where the wall meets the ceiling and the floor. Go past furniture; guess where the corner is behind it.</p>
+    <h1>Check the corners of your wall</h1>
+    <p class="lede">We put a dot on each corner. Drag any that are off: the top ones where the wall meets the ceiling, the bottom ones where it meets the floor. Behind furniture, guess where the corner is.</p>
     ${S.ui.quality ? `<p class="note">${esc(S.ui.quality)}</p>` : ''}
+    ${misses.map((m) => `<p class="note">${esc(m)}</p>`).join('')}
     <div class="photo-wrap">
       <svg id="corner-svg" viewBox="0 0 ${p.w} ${p.h}" data-w="${p.w}" data-h="${p.h}" class="photo-svg${err ? ' has-error' : ''}" role="group" aria-label="Wall photo with four corner handles">
         <image href="${p.src}" x="0" y="0" width="${p.w}" height="${p.h}"/>
@@ -606,9 +668,9 @@ function corners() {
           <circle cx="${x}" cy="${y}" r="${r * 2.2}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${r}" class="handle-dot"/></g>`).join('')}
       </svg>
     </div>
-    <p class="${err ? 'error' : 'muted small'}" id="corner-msg">${esc(err || 'Tip: arrow keys nudge a selected corner.')}</p>
+    <p class="${err ? 'error' : 'muted small'}" id="corner-msg">${esc(err || S.ui.cornerErr || 'Tip: arrow keys nudge a selected corner.')}</p>
     <div class="acts">
-      <button class="btn" type="button" data-act="corners-ok"${err ? ' disabled' : ''}>Looks right</button>
+      <button class="btn" type="button" data-act="corners-ok"${err || S.busy ? ' disabled' : ''}>${S.busy === 'read' ? 'Reading your wall…' : 'Looks right'}</button>
       <a class="btn-quiet" href="#/start">Use another photo</a>
     </div>
   </main>${footer()}`;
@@ -621,22 +683,25 @@ function sizeScreen() {
   if (!p) { go('#/start'); return ''; }
   const m = p.measure;
   const { aspect } = aspectFromCorners(p.corners, p.w, p.h);
+  // Without the ceiling in the photo, a height from the floor to the ceiling says nothing about the width.
+  const widthOnly = p.seen && p.seen.ceiling === false;
+  if (widthOnly) m.which = 'width';
   const known = m.value;
-  const other = known ? (m.which === 'width' ? known / aspect : known * aspect) : null;
+  const other = known && !widthOnly ? (m.which === 'width' ? known / aspect : known * aspect) : null;
   const otherVal = m.override || (other ? Math.round(other) : null);
-  const W = m.which === 'width' ? known : otherVal, H = m.which === 'width' ? otherVal : known;
+  const W = m.which === 'width' ? known : otherVal, H = widthOnly ? null : m.which === 'width' ? otherVal : known;
   const ft = (v) => (v ? Math.floor(v / 12) : ''), inch = (v) => (v ? Math.round(v % 12) : '');
   let warn = S.ui.sizeErr;
   if (!warn && W && H && (H > 240 || W > 600 || H < 60 || W < 24)) warn = `That makes the wall ${feet(W)} wide and ${feet(H)} tall. Check the number.`;
   return `${header()}${steps('wall')}
   <main class="flow">
     <h1>Give us one real measurement</h1>
-    <p class="lede">Measure the wall's width, or its height from the floor to the ceiling. We work out the other one from the photo.</p>
+    <p class="lede">${widthOnly ? "There's no TV in the photo clear enough to size the wall from. Measure the wall's width; you'll set the ceiling height next." : "There's no TV in the photo clear enough to size the wall from. Measure the wall's width, or its height from the floor to the ceiling, and we work out the other one."}</p>
     <form id="measure-form" class="size-form">
-      <div class="seg" role="group" aria-label="What you measured">
+      ${widthOnly ? '' : `<div class="seg" role="group" aria-label="What you measured">
         <button type="button" data-which="width" aria-pressed="${m.which === 'width'}">Width</button>
         <button type="button" data-which="height" aria-pressed="${m.which === 'height'}">Height</button>
-      </div>
+      </div>`}
       <fieldset><legend>${m.which === 'width' ? 'Wall width' : 'Wall height'}</legend>
         <label><input type="number" inputmode="numeric" min="1" max="50" name="ft" value="${ft(known)}" required> ft</label>
         <label><input type="number" inputmode="numeric" min="0" max="11" name="in" value="${inch(known)}"> in</label>
@@ -648,35 +713,11 @@ function sizeScreen() {
       ${warn ? `<p class="error">${esc(warn)}</p>` : ''}
       ${W && H && !warn ? `<p class="size-read">${esc(feet(W))} wide, ${esc(feet(H))} tall</p>` : ''}
       <div class="acts">
-        <button class="btn" type="submit" name="go" value="${other ? 'next' : 'calc'}">${other ? 'Flatten my wall' : 'Work it out'}</button>
+        <button class="btn" type="submit" name="go" value="${other || widthOnly ? 'next' : 'calc'}">${other || widthOnly ? 'Show me my wall' : 'Work it out'}</button>
         <a class="btn-quiet" href="#/corners">Back to the corners</a>
       </div>
     </form>
   </main>${footer()}`;
-}
-
-async function flattenWall(W, H) {
-  const d = S.draft, p = d.photo;
-  await ensurePixels();
-  const ppi = Math.min(8, 1600 / Math.max(W, H));
-  const out = flatten(S.mem.photo, p.corners, Math.round(W * ppi), Math.round(H * ppi));
-  S.mem.flat = out; S.mem.clean = null;
-  p.flat = toDataUrl(out, 0.85); p.ppi = ppi; p.clean = null; p.cleanKey = null;
-  // Same photo, new numbers: everything marked on it keeps its place on the wall.
-  const fx = p.lastW ? W / p.lastW : 1, fy = p.lastH ? H / p.lastH : 1;
-  const r2 = (v) => Math.round(v * 2) / 2;
-  if (fx !== 1 || fy !== 1) {
-    for (const o of d.obstacles) { o.x *= fx; o.w *= fx; o.y *= fy; o.h *= fy; }
-    for (const o of d.owned) if (o.at) { o.at = { x: r2(o.at.x * fx), y: r2(o.at.y * fy) }; o.w = r2(o.w * fx); o.h = r2(o.h * fy); }
-  }
-  for (const o of d.owned) if (o.at) o.rect = { x: o.at.x * ppi, y: (H - o.at.y - o.h) * ppi, w: o.w * ppi, h: o.h * ppi };
-  p.lastW = W; p.lastH = H;
-  d.width = W; d.height = H;
-  d.obstacles = d.obstacles.map(clampOb);
-  // The room's colors, read from the wall and what's in front of it.
-  S.draft.room = palette(out, 5);
-  resetLayouts();
-  persist();
 }
 
 // ---------- What's in the way ----------
@@ -1294,7 +1335,7 @@ function dragOn(svg, onDown, onMove, onUp) {
 function cornersChanged() {
   const p = S.draft.photo;
   p.flat = null; p.clean = null; p.cleanKey = null;
-  S.mem.flat = null; S.mem.clean = null;
+  S.mem.flat = null; S.mem.clean = null; S.mem.region = null;
   resetLayouts();
   persist();
 }
@@ -1413,11 +1454,17 @@ document.addEventListener('submit', (e) => {
     p.measure.override = typed && prevKnown === known && Math.abs(typed - Math.round(est)) > 0.5 ? typed : null;
     S.ui.sizeErr = null;
     const other = p.measure.override || Math.round(est);
-    const W = p.measure.which === 'width' ? known : other, H = p.measure.which === 'width' ? other : known;
+    const widthOnly = p.seen && p.seen.ceiling === false;
+    const W = p.measure.which === 'width' ? known : other, H = widthOnly ? null : p.measure.which === 'width' ? other : known;
     persist();
-    if (e.submitter && e.submitter.value === 'next' && W >= 24 && W <= 600 && H >= 60 && H <= 240) {
+    if (e.submitter && e.submitter.value === 'next' && W >= 24 && W <= 600 && (widthOnly || (H >= 60 && H <= 240)) && p.auto && p.auto.rw) {
       S.busy = 'flatten';
-      flattenWall(W, H).then(() => { S.busy = null; go('#/check'); }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });
+      ensurePixels().then(() => {
+        setScale(W, H);
+        p.auto.guess = { from: 'measure', inches: W };
+        applyAuto(); flattenAuto(); resetLayouts(); persist();
+        S.busy = null; go('#/check');
+      }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });
       return;
     }
     render();
@@ -1426,6 +1473,14 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.id === 'tv-size') {
+    // A different TV size changes the scale of the whole wall.
+    const p = S.draft.photo, a = p.auto;
+    a.tvInches = Number(t.value); a.tvWhy = null;
+    a.guess = guessWidth(a.items, a.rw, a.tvInches);
+    if (a.guess) ensurePixels().then(() => { setScale(a.guess.inches); applyAuto(); flattenAuto(); resetLayouts(); persist(); render(); });
+    return;
+  }
   if (t.form && t.form.id === 'dims-form') { changeDims(t.form); return; }
   if (t.dataset.obk) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
@@ -1460,8 +1515,8 @@ document.addEventListener('click', (e) => {
   if (t.dataset.isArt) {
     const a = S.draft.photo && S.draft.photo.auto;
     const it = a && a.items.find((i) => i.id === t.dataset.isArt);
-    if (it && S.mem.photo) {
-      it.kind = 'art'; Object.assign(it, thumbAndPalette(S.mem.photo, it));
+    if (it && S.mem.photo && a.rw) {
+      it.kind = 'art'; Object.assign(it, thumbAndPalette(regionImg(), it));
       applyAuto(); flattenAuto(); resetLayouts(); persist(); S.flash = 'Marked as your art. Set whether to keep it.'; render();
     } else { S.flash = 'Open the photo again to change this.'; render(); }
     return;
@@ -1500,7 +1555,13 @@ document.addEventListener('click', (e) => {
   }
   if (t.classList.contains('art') || t.classList.contains('piece-hit')) { S.selected = S.selected === t.dataset.id ? null : t.dataset.id; render(); return; }
   switch (a) {
-    case 'corners-ok': if (S.draft.photo) S.draft.photo.mode = 'manual'; persist(); go('#/size'); break;
+    case 'corners-ok': {
+      if (!S.draft.photo || S.busy) break;
+      S.busy = 'read'; S.ui.cornerErr = null; render();
+      setTimeout(() => readPhoto().then((to) => { S.busy = null; resetLayouts(); persist(); go(to); })
+        .catch(() => { S.busy = null; S.ui.cornerErr = "Couldn't read the photo. Try again, or use another photo."; render(); }), 30);
+      break;
+    }
     case 'add-piece': {
       const n = S.draft.owned.length + 1;
       S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: n === 1 ? 'print' : `print ${n}`, w: 16, h: 20, keep: 'happy', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });
