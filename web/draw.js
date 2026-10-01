@@ -18,7 +18,7 @@ export function feet(v) {
 
 export const KIND_NAME = {
   couch: 'Couch', headboard: 'Bed', dresser: 'Dresser', console: 'Console', window: 'Window', door: 'Door',
-  tv: 'TV', outlet: 'Outlet', switch: 'Switch', lamp: 'Lamp', plant: 'Plant', shelf: 'Shelf', furniture: 'Furniture',
+  tv: 'TV', outlet: 'Outlet', switch: 'Switch', lamp: 'Lamp', plant: 'Plant', shelf: 'Shelf', furniture: 'Furniture', mirror: 'Mirror',
 };
 export const obName = (o) => o.label || KIND_NAME[o.kind] || o.kind;
 

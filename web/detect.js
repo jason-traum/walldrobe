@@ -158,6 +158,34 @@ function close(mask, w, h, r = 1) {
   return ero;
 }
 
+// ---------- What the image model says ----------
+
+// The model's labels (ADE20K, 150 kinds) gathered into what matters on a wall.
+export const G = { OTHER: 0, WALL: 1, CEILING: 2, FLOOR: 3, ART: 4, TV: 5, LAMP: 6, PLANT: 7, FURNITURE: 8, WINDOW: 9, DOOR: 10, MIRROR: 11, MOVES: 12 };
+const ADE_GROUP = new Uint8Array(150);
+const group = (g, ids) => { for (const i of ids) ADE_GROUP[i] = g; };
+group(G.WALL, [0, 42]); // wall, column
+group(G.CEILING, [5, 82, 85]); // ceiling, light, chandelier
+group(G.FLOOR, [3, 28]); // floor, rug
+group(G.ART, [22, 100, 144, 43, 132, 148, 108]); // painting, poster, bulletin board, signboard, sculpture, clock, plaything
+group(G.TV, [89, 130, 141, 143, 74]); // television, screen, crt screen, monitor, computer
+group(G.LAMP, [36, 134]); // lamp, sconce
+group(G.PLANT, [17, 66, 135, 125, 4, 72]); // plant, flower, vase, pot, tree, palm
+group(G.FURNITURE, [7, 10, 15, 19, 23, 24, 30, 31, 33, 35, 39, 44, 45, 49, 50, 55, 57, 62, 64, 69, 70, 73, 75, 97, 99, 107, 110, 112, 41, 146, 47, 71, 118, 124, 129, 37, 65, 131]);
+group(G.WINDOW, [8, 18, 63]); // windowpane, curtain, blind
+group(G.DOOR, [14, 58]);
+group(G.MIRROR, [27]);
+group(G.MOVES, [12, 126, 92, 115, 67, 98, 142, 137, 147, 138, 139, 120, 119]); // people, animals and things that get moved
+export const groupOf = (id) => ADE_GROUP[id] || G.OTHER;
+// What a piece of furniture is called, by the label it mostly has.
+const FURN_KIND = { 23: 'couch', 30: 'couch', 7: 'headboard', 44: 'dresser', 35: 'dresser', 24: 'shelf', 62: 'shelf' };
+
+// The model's label at a photo point. seg: { w, h, labels } covering the whole photo.
+function labelAt(seg, photoW, photoH, x, y) {
+  const X = Math.max(0, Math.min(seg.w - 1, Math.floor((x / photoW) * seg.w))), Y = Math.max(0, Math.min(seg.h - 1, Math.floor((y / photoH) * seg.h)));
+  return seg.labels[Y * seg.w + X];
+}
+
 // ---------- Finding the wall in a photo ----------
 
 // A line v = a + b t through points [t, v], fit by least squares and then refit
@@ -234,6 +262,10 @@ function houghLines(pts, w, h, across, keep = 12) {
 export function findWall(img, opts = {}) {
   const S = shrink(img, 320, true);
   const { lab, w, h, s } = S;
+  // With the image model's labels, "wall" is what it calls wall, not a color guess.
+  const seg = opts.seg || null;
+  const Gm = seg ? new Uint8Array(w * h) : null;
+  if (seg) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) Gm[y * w + x] = groupOf(labelAt(seg, img.width, img.height, (x + 0.5) / s, (y + 0.5) / s));
   const L = new Float32Array(w * h);
   // A light blur, so texture and noise don't read as edges.
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -261,11 +293,18 @@ export function findWall(img, opts = {}) {
   const win = [];
   for (let y = Math.floor(h * 0.25); y < Math.ceil(h * 0.7); y++) for (let x = Math.floor(w * 0.2); x < Math.ceil(w * 0.8); x++) if (lab[(y * w + x) * 3] > 35) win.push(y * w + x);
   const whole = { corners: [[0, 0], [img.width, 0], [img.width, img.height], [0, img.height]], ceiling: false, floor: false, sides: [false, false] };
-  if (!win.length) return whole;
-  const bins = new Map();
-  for (const i of win) { const k = key(i); bins.set(k, (bins.get(k) || 0) + 1); }
-  const topBin = [...bins].sort((p, q) => q[1] - p[1])[0][0];
-  const seedPx = win.filter((i) => key(i) === topBin);
+  let seedPx;
+  if (Gm) {
+    seedPx = win.filter((i) => Gm[i] === G.WALL);
+    if (seedPx.length < 20) { seedPx = []; for (let i = 0; i < w * h; i++) if (Gm[i] === G.WALL) seedPx.push(i); }
+    if (!seedPx.length) return whole;
+  } else {
+    if (!win.length) return whole;
+    const bins = new Map();
+    for (const i of win) { const k = key(i); bins.set(k, (bins.get(k) || 0) + 1); }
+    const topBin = [...bins].sort((p, q) => q[1] - p[1])[0][0];
+    seedPx = win.filter((i) => key(i) === topBin);
+  }
   const seed = [0, 1, 2].map((k) => seedPx.reduce((t, i) => t + lab[i * 3 + k], 0) / seedPx.length);
   const cx = seedPx.reduce((t, i) => t + (i % w), 0) / seedPx.length, cy = seedPx.reduce((t, i) => t + Math.floor(i / w), 0) / seedPx.length;
   const px = (x, y) => { const X = Math.max(0, Math.min(w - 1, Math.round(x))), Y = Math.max(0, Math.min(h - 1, Math.round(y))); return Y * w + X; };
@@ -273,6 +312,7 @@ export function findWall(img, opts = {}) {
   // Wall-colored allows for light falling off across the wall; different means a clear step.
   const wallish = (c) => Math.hypot((c[0] - seed[0]) * 0.5, (c[1] - seed[1]) * 1.5, (c[2] - seed[2]) * 1.5) < 12;
   const differ = (p, q) => Math.hypot(p[0] - q[0], (p[1] - q[1]) * 1.5, (p[2] - q[2]) * 1.5) > 7;
+  const wallAt = (i) => (Gm ? Gm[i] === G.WALL : wallish(col(i)));
   const OFF = Math.max(2, Math.round(Math.max(w, h) / 110));
   // Edge points of the wall, one map per side: wall color on the inside, a clear
   // step to something else on the outside. A frame's right edge passes the left
@@ -283,8 +323,10 @@ export function findWall(img, opts = {}) {
       const i = y * w + x;
       if (mag[i] < 2.5) continue;
       if (dx ? Math.abs(gx[i]) < Math.abs(gy[i]) : Math.abs(gy[i]) < Math.abs(gx[i])) continue;
-      const ci = col(i + (dy * w + dx) * OFF), co = col(i - (dy * w + dx) * OFF);
-      if (wallish(ci) && differ(ci, co)) m[i] = 1;
+      const ii = i + (dy * w + dx) * OFF, io = i - (dy * w + dx) * OFF;
+      // The next wall over is labeled wall too: a step in color still marks the corner.
+      // Only the room's own surfaces end a wall; a lamp or a frame in front of it doesn't.
+      if (wallAt(ii) && ((Gm && (Gm[io] === G.CEILING || Gm[io] === G.FLOOR || Gm[io] === G.DOOR)) || differ(col(ii), col(io)))) m[i] = 1;
     }
     return m;
   };
@@ -321,7 +363,18 @@ export function findWall(img, opts = {}) {
     }
     return n ? ok / n : 0;
   };
-  const T0 = best(houghLines(topMarks, w, h, true), -1, cx, cy, (hi - lo) * 0.55, (c) => beyond(c, -1, lo, hi) < 0.3 && painted(c) > 0.6);
+  // With labels: the wall's top is where the ceiling (or a soffit, which the model
+  // also calls ceiling) starts.
+  const outerIs = (c, g, side, lo2, hi2) => {
+    let n = 0, ok = 0;
+    for (let t = Math.max(0, Math.ceil(lo2)); t <= Math.min(w - 1, hi2); t++) {
+      const v = c.a + c.b * t;
+      if (v < OFF * 2 || v >= h - OFF * 2) continue;
+      n++; if (Gm[px(t, v - side * OFF * 2)] === g) ok++;
+    }
+    return n ? ok / n : 0;
+  };
+  const T0 = best(houghLines(topMarks, w, h, true), -1, cx, cy, (hi - lo) * (Gm ? 0.35 : 0.55), Gm ? (c) => outerIs(c, G.CEILING, 1, lo, hi) > 0.5 : (c) => beyond(c, -1, lo, hi) < 0.3 && painted(c) > 0.6);
   const floorLines = houghLines(marks(0, -1), w, h, true, 30);
   const top = T0 || { a: by0, b: 0 }, left = Lf || { a: bx0, b: 0 }, right = Rf || { a: bx1, b: 0 };
   // Grow the wall inside the lines found so far, then read the floor off it:
@@ -336,7 +389,7 @@ export function findWall(img, opts = {}) {
     for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
       if (j < 0 || M[j]) continue;
       const X = j % w, Y = (j / w) | 0;
-      if (!inside(X, Y) || !wallish(col(j)) || differ(col(i), col(j))) continue;
+      if (!inside(X, Y) || !wallAt(j) || differ(col(i), col(j))) continue;
       M[j] = 1; queue.push(j);
     }
   }
@@ -351,17 +404,36 @@ export function findWall(img, opts = {}) {
     const env = { a: rel[Math.min(rel.length - 1, Math.floor(rel.length * 0.02))], b: top.b };
     // A floor line in the photo close to that is better than the estimate.
     const envAt = env.a + env.b * cx;
-    const snap = floorLines.filter((c) => Math.abs(c.b - top.b) < 0.025 && c.a + c.b * cx >= envAt - 2 && c.a + c.b * cx - envAt < h * 0.035 && c.votes >= w * 0.03).sort((p, q) => q.votes - p.votes)[0];
+    let snap = floorLines.filter((c) => Math.abs(c.b - top.b) < 0.025 && c.a + c.b * cx >= envAt - 2 && c.a + c.b * cx - envAt < h * 0.035 && c.votes >= w * 0.03).sort((p, q) => q.votes - p.votes)[0];
+    // With labels, it's only the floor if what's just below is labeled floor.
+    if (snap && Gm && outerIs(snap, G.FLOOR, -1, lo, hi) < 0.25) snap = null;
     // Only a line where the wall stops and the floor or a baseboard starts counts
     // as seeing the floor. Without one, the lowest wall we saw may just be where a
     // table or a couch starts hiding it.
     bottom = snap || env;
     floor = !!snap;
   }
+  // A soffit: the ceiling drops over this wall, and a little way above the wall's
+  // top there's another level line (the soffit's face meeting its underside, or
+  // the real ceiling). It means the ceiling is higher elsewhere, not over this wall.
+  let soffit = false;
+  if (T0 && Gm) {
+    const wallH = (bottom.a + bottom.b * cx) - (top.a + top.b * cx);
+    const ceilMarks = new Uint8Array(w * h);
+    for (let y = OFF; y < h - OFF; y++) for (let x = OFF; x < w - OFF; x++) {
+      const i = y * w + x;
+      if (mag[i] < 2.5 || Math.abs(gy[i]) < Math.abs(gx[i])) continue;
+      if (Gm[i + OFF * w] === G.CEILING && Gm[i - OFF * w] === G.CEILING && differ(col(i + OFF * w), col(i - OFF * w))) ceilMarks[i] = 1;
+    }
+    soffit = houghLines(ceilMarks, w, h, true).some((c) => {
+      const gap = (top.a + top.b * cx) - (c.a + c.b * cx);
+      return Math.abs(c.b - top.b) < 0.04 && gap > wallH * 0.1 && gap < wallH * 0.4 && c.votes >= (hi - lo) * 0.4;
+    });
+  }
   const up = (p) => [Math.max(0, Math.min(img.width, p[0] / s)), Math.max(0, Math.min(img.height, p[1] / s))];
   const corners = [meet(top, left), meet(top, right), meet(bottom, right), meet(bottom, left)].map(up);
   if (opts.debug) opts.debug.find = { w, h, wall: marks(1, 0), M, seed, lines: { top, bottom, left, right } };
-  return { corners, ceiling: !!T0, floor, sides: [!!Lf, !!Rf] };
+  return { corners, ceiling: !!T0, floor, soffit, sides: [!!Lf, !!Rf] };
 }
 
 // The largest rectangle of marked pixels whose width over height is in [lo, hi]
@@ -599,11 +671,100 @@ export function readWall(img, opts = {}) {
     items.push({ kind: it.kind, box, confidence: 0.6 });
   }
 
+  // With the image model's labels: it says what each thing is; the pixels above
+  // say exactly where its edges are.
+  const final = opts.labels ? semanticItems() : items;
+  function semanticItems() {
+    const { seg, toPhoto, photoW, photoH } = opts.labels;
+    const raw = new Uint8Array(w * h), Gs = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const [u, v] = apply(toPhoto, (x + 0.5) / s, (y + 0.5) / s);
+      const id = labelAt(seg, photoW, photoH, u, v);
+      raw[y * w + x] = id; Gs[y * w + x] = groupOf(id);
+    }
+    for (let y = hy; y < h; y++) for (let x = 0; x < w; x++) { Gs[y * w + x] = Gs[(hy - 1) * w + x]; raw[y * w + x] = raw[(hy - 1) * w + x]; }
+    const share = (box, groups) => { let n = 0, k = 0; for (let y = box[1]; y <= box[3]; y++) for (let x = box[0]; x <= box[2]; x++) { n++; if (groups.includes(Gs[y * w + x])) k++; } return n ? k / n : 0; };
+    const compsOf = (groups, r = 1) => { const m = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) m[i] = groups.includes(Gs[i]) ? 1 : 0; return components(r ? close(m, w, h, r) : m, w, h); };
+    const fillHolesComps = (m) => components(fillHoles(m, w, h), w, h).comps;
+    const iou = (a, b) => { const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]) + 1), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]) + 1); const i = ix * iy; return i / ((a[2] - a[0] + 1) * (a[3] - a[1] + 1) + (b[2] - b[0] + 1) * (b[3] - b[1] + 1) - i); };
+    const out = [];
+    // The TV: the screen found above if the model agrees it's a screen, else the model's own box.
+    const tvs = compsOf([G.TV]).comps.filter((c) => c.n >= area * 0.012).sort((a, b) => b.n - a.n);
+    let tvBox = null;
+    const classicTv = items.find((i) => i.kind === 'tv');
+    // A dark 16:9 rectangle is a screen unless the model says it's a print or a window.
+    // (The model sometimes calls a TV on a stand a cabinet: then the stand under it decides.)
+    if (classicTv && (share(classicTv.box, [G.TV]) > 0.4 || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15))) { out.push(classicTv); tvBox = classicTv.box; }
+    else if (tvs.length) {
+      const c = tvs[0], b = [c.x0, c.y0, c.x1, c.y1], ar = (c.x1 - c.x0 + 1) / (c.y1 - c.y0 + 1);
+      out.push({ kind: 'tv', box: b, confidence: 0.7, alone: ar > 1.5 && ar < 2.05 && c.n / ((c.x1 - c.x0 + 1) * (c.y1 - c.y0 + 1)) > 0.8, onStand: false });
+      tvBox = b;
+    }
+    // Art: the pieces found above that the model calls art, and any it found that they missed.
+    const arts = items.filter((i) => i.kind === 'art' && share(i.box, [G.ART, G.MIRROR]) > 0.4);
+    for (const c of compsOf([G.ART], 0).comps) {
+      const b = [c.x0, c.y0, c.x1, c.y1];
+      // A run of frames the model joined up isn't one piece: split it where the
+      // wall shows between them.
+      if (c.n / ((c.x1 - c.x0 + 1) * (c.y1 - c.y0 + 1)) < 0.6 || c.n > area * 0.25) {
+        const sub = new Uint8Array(w * h);
+        for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) { const i = y * w + x; sub[i] = loose[i] && Gs[i] === G.ART ? 1 : 0; }
+        for (const p of fillHolesComps(sub)) {
+          const pb = [p.x0, p.y0, p.x1, p.y1];
+          if (p.n < area * 0.003 || p.n / ((p.x1 - p.x0 + 1) * (p.y1 - p.y0 + 1)) < 0.6 || arts.some((a) => iou(a.box, pb) > 0.25)) continue;
+          arts.push({ kind: 'art', box: pb, confidence: 0.6 });
+        }
+        continue;
+      }
+      if (c.n < area * 0.003 || c.y1 >= floorY - h * 0.03 || (tvBox && iou(b, tvBox) > 0.2)) continue;
+      if (arts.some((a) => iou(a.box, b) > 0.25)) continue;
+      arts.push({ kind: 'art', box: b, confidence: 0.7 });
+    }
+    out.push(...arts);
+    // A mirror on the wall is planned around; leaning on the floor, it stands there.
+    for (const c of compsOf([G.MIRROR]).comps) {
+      if (c.n < area * 0.01) continue;
+      const toFloor = c.y1 >= floorY - h * 0.04;
+      out.push({ kind: 'mirror', box: [c.x0, c.y0, c.x1, toFloor ? floorY : c.y1], confidence: 0.6 });
+    }
+    // Windows and doors in this wall.
+    for (const c of compsOf([G.WINDOW]).comps) if (c.n >= area * 0.01) out.push({ kind: 'window', box: [c.x0, c.y0, c.x1, c.y1], confidence: 0.6 });
+    for (const c of compsOf([G.DOOR]).comps) if (c.n >= area * 0.01) out.push({ kind: 'door', box: [c.x0, c.y0, c.x1, floorY], confidence: 0.6 });
+    // What stands in front: furniture, lamps (shade and all) and plants.
+    const furn = compsOf([G.FURNITURE], 2).comps.filter((c) => c.n >= area * 0.004);
+    const onFurniture = (c) => furn.some((f) => f.x0 <= c.x1 && f.x1 >= c.x0 && f.y0 >= c.y1 - h * 0.02 && f.y0 - c.y1 <= h * 0.06);
+    for (const f of furn) {
+      const toFloor = f.y1 >= floorY - h * 0.04;
+      const top = floorY - f.y0;
+      if (toFloor && top < h * 0.12) continue; // low things never reach the art
+      // What it's called: the label it mostly has, or a console when a TV stands on it.
+      const tally = new Map();
+      for (let y = f.y0; y <= f.y1; y++) for (let x = f.x0; x <= f.x1; x++) if (Gs[y * w + x] === G.FURNITURE) { const k = raw[y * w + x]; tally.set(k, (tally.get(k) || 0) + 1); }
+      const main = [...tally].sort((a, b) => b[1] - a[1])[0];
+      const underTv = tvBox && f.x0 < tvBox[2] && f.x1 > tvBox[0] && Math.abs(f.y0 - tvBox[3]) <= Math.max(3, h * 0.04);
+      const kind = underTv ? 'console' : toFloor ? FURN_KIND[main && main[0]] || 'furniture' : 'shelf';
+      out.push({ kind, box: [f.x0, f.y0, f.x1, toFloor ? floorY : f.y1], confidence: 0.6 });
+      if (underTv) { const t = out.find((o) => o.kind === 'tv'); if (t) t.onStand = true; }
+    }
+    for (const [g, kind] of [[G.LAMP, 'lamp'], [G.PLANT, 'plant']]) {
+      for (const c of compsOf([g], 1).comps) {
+        if (c.n < area * 0.004) continue;
+        const toFloor = c.y1 >= floorY - h * 0.04;
+        // A plant off the floor is on a table or a stand and moves with a hand; so
+        // does a lamp with furniture under it. Neither is marked. A lamp high on the
+        // wall with nothing under it is a wall light, and stays.
+        if (!toFloor && (kind === 'plant' || onFurniture(c))) continue;
+        if (toFloor && floorY - c.y0 < h * (kind === 'lamp' ? 0.22 : 0.15)) continue;
+        out.push({ kind, box: [c.x0, c.y0, c.x1, toFloor ? floorY : c.y1], confidence: 0.6 });
+      }
+    }
+    return out;
+  }
   const up = (v) => v / s;
   if (opts.debug) opts.debug.out = { w, h, wallLike: fg.map((v) => 1 - v), solid, dark, floorY, seed: model.seed };
   return {
     wallColor: model.at(w / 2, h * 0.3),
-    items: items.map((it) => ({ kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: up(it.box[0]), y: up(it.box[1]), w: up(it.box[2] - it.box[0] + 1), h: up(it.box[3] - it.box[1] + 1) })),
+    items: final.map((it) => ({ kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: up(it.box[0]), y: up(it.box[1]), w: up(it.box[2] - it.box[0] + 1), h: up(it.box[3] - it.box[1] + 1) })),
   };
 }
 
@@ -669,14 +830,15 @@ export function hiddenFromFor(corners, seenBottom, W, H) {
  * moved down to where the floor would be under the stand.
  * Returns findWall's result, with floorFrom 'photo', 'stand' or null.
  */
-export function suggestWall(img) {
-  const f = findWall(img);
+export function suggestWall(img, seg = null) {
+  const f = findWall(img, { seg });
   if (f.floor) return { ...f, floorFrom: 'photo' };
   const { aspect } = aspectFromCorners(f.corners, img.width, img.height);
   const W = 600, H = Math.max(40, Math.round(W / aspect));
-  const yF = standFloor(readWall(flatten(img, f.corners, W, H)).items);
+  const toPhoto = homography([[0, 0], [W, 0], [W, H], [0, H]], f.corners);
+  const yF = standFloor(readWall(flatten(img, f.corners, W, H), seg ? { labels: { seg, toPhoto, photoW: img.width, photoH: img.height } } : {}).items);
   if (!yF || yF <= H + 2) return { ...f, floorFrom: null };
-  const Hm = homography([[0, 0], [W, 0], [W, H], [0, H]], f.corners);
+  const Hm = toPhoto;
   const clampPt = ([x, y]) => [Math.max(0, Math.min(img.width, x)), Math.max(0, Math.min(img.height, y))];
   const corners = [f.corners[0], f.corners[1], clampPt(apply(Hm, W, yF)), clampPt(apply(Hm, 0, yF))];
   return { ...f, corners, floorFrom: 'stand', seenBottom: [f.corners[3], f.corners[2]] };

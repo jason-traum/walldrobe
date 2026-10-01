@@ -42,7 +42,9 @@ States that apply everywhere:
 
 | State | What they see | Action |
 |---|---|---|
-| Checking | The photo with a dot on each corner of the wall where we found it. A note when the ceiling or the floor wasn't in the photo | Drag, "Looks right" |
+| Getting the reader | First photo only: "Getting the photo reader ready… 45%" on the button while the image model downloads (about 30 MB) | Wait |
+| Reader didn't load | The corners screen says "The photo reader didn't load, so these are rougher guesses than usual." | Drag, "Looks right" |
+| Checking | The photo with a dot on each corner of the wall where we found it. A note when the ceiling or the floor wasn't in the photo, or when a soffit is over the wall | Drag, "Looks right" |
 | Reading | "Reading your wall…" on the button while the wall inside the corners is flattened and read | Wait |
 | Corners crossed or off photo | Handles turn to the error style, "Corners should go clockwise from top left." | Fix |
 | Sized from a TV | On the check screen: "Worked out from your TV, taken as a 55 in TV." with the TV size to change | Change the TV size, type the width |
