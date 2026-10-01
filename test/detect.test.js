@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { readWall, guessWidth, suggestWall, tvDepthFactor, hiddenFromFor } from '../web/detect.js';
 import { flatten, aspectFromCorners, homography, apply } from '../web/photo.js';
 import { readPng } from './png.js';
+import { readFileSync } from 'node:fs';
+import { unpackLabels } from '../web/segcore.js';
 
 // A flattened wall: the wall fills the image and the floor is its bottom edge.
 function scene() {
@@ -75,28 +77,42 @@ const EXPECT = {
   lamp: [0.867, 0.232, 1, 1], // floor lamp, shade included (it runs past the wall's right edge)
 };
 const living = () => readPng(new URL('./fixtures/living_room.png', import.meta.url));
+// The image model's labels for the same photo, made with tools/segment.mjs.
+const livingLabels = () => unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room.labels.json', import.meta.url), 'utf8')));
+// Each living room test runs with the model's labels and without them (the
+// fallback when the model can't load).
+const MODES = [['with the image model', livingLabels], ['without it', () => null]];
 
-test('living room: the suggested corners are close to the real ones, with the hidden floor found from the TV stand', () => {
-  const img = living();
-  const f = suggestWall(img);
-  assert.ok(f.ceiling && f.sides[0] && f.sides[1], JSON.stringify(f));
-  assert.equal(f.floor, false, 'the floor is behind the table, so it was not seen');
-  assert.equal(f.floorFrom, 'stand');
-  f.corners.forEach(([x, y], i) => {
-    assert.ok(Math.abs(x - REAL[i][0]) < 0.03 * img.width && Math.abs(y - REAL[i][1]) < 0.03 * img.height, `corner ${i}: ${Math.round(x)}, ${Math.round(y)} vs ${REAL[i]}`);
+for (const [mode, labels] of MODES) {
+  test(`living room, ${mode}: the suggested corners are close to the real ones, with the hidden floor found from the TV stand`, () => {
+    const img = living();
+    const f = suggestWall(img, labels());
+    assert.ok(f.ceiling && f.sides[0] && f.sides[1], JSON.stringify(f));
+    assert.equal(f.floor, false, 'the floor is behind the table, so it was not seen');
+    assert.equal(f.floorFrom, 'stand');
+    f.corners.forEach(([x, y], i) => {
+      assert.ok(Math.abs(x - REAL[i][0]) < 0.03 * img.width && Math.abs(y - REAL[i][1]) < 0.03 * img.height, `corner ${i}: ${Math.round(x)}, ${Math.round(y)} vs ${REAL[i]}`);
+    });
   });
-});
-
-function readLiving() {
-  const img = living();
-  const { corners, seenBottom } = suggestWall(img);
-  const { aspect } = aspectFromCorners(corners, img.width, img.height);
-  const W = 600, H = Math.round(W / aspect);
-  return { img, corners, W, H, aspect, r: readWall(flatten(img, corners, W, H), { hiddenFrom: hiddenFromFor(corners, seenBottom, W, H) }) };
 }
 
-test('living room: reading the flattened wall finds two prints, the TV, its stand and the lamp', () => {
-  const { corners, W, H, r } = readLiving();
+test('living room, with the image model: the top corners are under a soffit, so the ceiling is higher elsewhere', () => {
+  assert.equal(suggestWall(living(), livingLabels()).soffit, true);
+});
+
+function readLiving(seg) {
+  const img = living();
+  const { corners, seenBottom } = suggestWall(img, seg);
+  const { aspect } = aspectFromCorners(corners, img.width, img.height);
+  const W = 600, H = Math.round(W / aspect);
+  const toPhoto = homography([[0, 0], [W, 0], [W, H], [0, H]], corners);
+  const labels = seg ? { seg, toPhoto, photoW: img.width, photoH: img.height } : undefined;
+  return { img, corners, W, H, aspect, r: readWall(flatten(img, corners, W, H), { hiddenFrom: hiddenFromFor(corners, seenBottom, W, H), labels }) };
+}
+
+for (const [mode, labels] of MODES) {
+test(`living room, ${mode}: reading the flattened wall finds two prints, the TV, its stand and the lamp`, () => {
+  const { corners, W, H, r } = readLiving(labels());
   // Detected boxes go back into the photo, then into the hand-set frame, so the
   // check doesn't depend on exactly where the suggested corners landed.
   const toPhoto = homography([[0, 0], [W, 0], [W, H], [0, H]], corners);
@@ -105,7 +121,8 @@ test('living room: reading the flattened wall finds two prints, the TV, its stan
     const pts = [[it.x, it.y], [it.x + it.w, it.y], [it.x + it.w, it.y + it.h], [it.x, it.y + it.h]].map(([x, y]) => apply(toFrame, ...apply(toPhoto, x, y)));
     return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
   };
-  const kinds = r.items.map((i) => i.kind).sort();
+  // The model also knows a stand with a TV on it is a console.
+  const kinds = r.items.map((i) => (i.kind === 'console' ? 'furniture' : i.kind)).sort();
   assert.deepEqual(kinds, ['art', 'art', 'furniture', 'lamp', 'tv'], kinds.join());
   // Each edge within 5% of the wall.
   const near = (got, want, what) => got.forEach((v, k) => assert.ok(Math.abs(Math.min(1, Math.max(0, v)) - want[k]) < 0.05, `${what} edge ${k}: ${v.toFixed(3)} vs ${want[k]}`));
@@ -113,12 +130,12 @@ test('living room: reading the flattened wall finds two prints, the TV, its stan
   near(arts[0], EXPECT.art[0], 'Yves Klein print');
   near(arts[1], EXPECT.art[1], 'smiley print');
   near(box(r.items.find((i) => i.kind === 'tv')), EXPECT.tv, 'TV');
-  near(box(r.items.find((i) => i.kind === 'furniture')), EXPECT.furniture, 'TV stand');
+  near(box(r.items.find((i) => i.kind === 'furniture' || i.kind === 'console')), EXPECT.furniture, 'TV stand');
   near(box(r.items.find((i) => i.kind === 'lamp')), EXPECT.lamp, 'lamp');
 });
 
-test('living room: the 55 in TV on its stand sizes the wall at about 10 ft by 7 ft 6 in', () => {
-  const { img, corners, W, H, aspect, r } = readLiving();
+test(`living room, ${mode}: the 55 in TV on its stand sizes the wall at about 10 ft by 7 ft 6 in`, () => {
+  const { img, corners, W, H, aspect, r } = readLiving(labels());
   const tv = r.items.find((i) => i.kind === 'tv');
   assert.ok(tv.alone && tv.onStand, JSON.stringify(tv));
   // How wide the TV is in the photo, for how far away it is.
@@ -131,3 +148,4 @@ test('living room: the 55 in TV on its stand sizes the wall at about 10 ft by 7 
   assert.ok(g.inches >= 112 && g.inches <= 126, `width ${g.inches} in`);
   assert.ok(tall >= 84 && tall <= 96, `height ${tall.toFixed(0)} in`);
 });
+}

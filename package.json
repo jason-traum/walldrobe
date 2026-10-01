@@ -9,5 +9,8 @@
     "elevations": "node tools/elevation.js",
     "demo": "node tools/build_demo.mjs",
     "site": "node tools/build_site.mjs"
+  },
+  "devDependencies": {
+    "onnxruntime-node": "^1.21.0"
   }
 }

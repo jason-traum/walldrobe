@@ -11,6 +11,8 @@ import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } f
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
+import { segment, modelCached } from './segment.js';
+import { packLabels, unpackLabels } from './segcore.js';
 
 const QUIZ_LENGTH = 10;
 const CATALOG = activeRecords(window.WALLDROBE_CATALOG.items).map((r) => ({ ...toCandidate(r), imageData: r.image.data, aspect: r.image.aspect }));
@@ -357,8 +359,8 @@ function start() {
       <h2>Your photo</h2>
       <label class="upload">
         <input type="file" accept="image/*" id="photo-input">
-        <span class="btn">${S.busy === 'photo' ? 'Reading your wall…' : 'Take or choose a photo'}</span>
-        <span class="muted small">Only you can see it. It stays on this device.</span>
+        <span class="btn" data-busy-label>${S.busy === 'photo' ? busyPhotoLabel() : 'Take or choose a photo'}</span>
+        <span class="muted small">Only you can see it. It stays on this device, and so does the photo reader: the first photo downloads it (about 30 MB) and it runs right here.</span>
       </label>
       ${S.ui.photoErr ? `<p class="error">${esc(S.ui.photoErr)}</p>` : ''}
       ${d && d.photo ? '<p class="small"><a href="#/check">Keep using the photo you added</a></p>' : ''}
@@ -386,6 +388,18 @@ function start() {
   </main>${footer()}`;
 }
 
+function busyPhotoLabel() {
+  return S.ui.modelPct != null ? `Getting the photo reader ready… ${S.ui.modelPct}%` : 'Reading your wall…';
+}
+function showBusyLabel() { const el = document.querySelector('[data-busy-label]'); if (el && S.busy === 'photo') el.textContent = busyPhotoLabel(); }
+// The model's labels for the photo, from memory or from the saved wall.
+function photoLabels() {
+  const p = S.draft && S.draft.photo;
+  if (!p || !p.seg) return null;
+  if (!S.mem.seg) S.mem.seg = unpackLabels(p.seg);
+  return S.mem.seg;
+}
+
 async function onPhoto(file) {
   S.ui.photoErr = null;
   if (!file) return;
@@ -395,15 +409,24 @@ async function onPhoto(file) {
     const img = await loadFile(file, 1400);
     const q = photoQuality(img);
     S.draft = { ...blankDraft(), taste: S.draft && S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste : { source: 'none', weights: null } };
+    // Label the photo with the image model (wall, ceiling, floor, art, TV...).
+    // If it can't load, the photo is read without it.
+    let seg = null;
+    try {
+      if (!(await modelCached())) { S.ui.modelPct = 0; showBusyLabel(); }
+      seg = await segment(img, (f) => { S.ui.modelPct = Math.round(f * 100); showBusyLabel(); });
+    } catch (err) { console.warn('photo reader', err); seg = null; }
+    S.ui.modelPct = null; showBusyLabel();
     // Find the wall in the photo: its four corners, for the person to check.
     // Nothing is read off the photo until they say the corners are right.
-    const found = suggestWall(img);
+    const found = suggestWall(img, seg);
     S.draft.photo = {
       src: img.url, w: img.width, h: img.height,
-      corners: found.corners, seen: { ceiling: found.ceiling, floor: found.floor, floorFrom: found.floorFrom, seenBottom: found.seenBottom || null, sides: found.sides },
+      corners: found.corners, seen: { ceiling: found.ceiling, floor: found.floor, floorFrom: found.floorFrom, seenBottom: found.seenBottom || null, sides: found.sides, soffit: !!found.soffit, model: !!seg },
+      seg: seg ? packLabels(seg) : null,
       flat: null, ppi: null, measure: { which: 'width', value: null }, mode: 'auto',
     };
-    S.mem = { photo: img, flat: null, clean: null, cleanKey: null };
+    S.mem = { photo: img, flat: null, clean: null, cleanKey: null, seg };
     S.ui.quality = q.brightness < 0.15 || q.sharpness < 0.012 ? 'The photo is dark or blurry, so the guesses may be off. Check them below.' : null;
     resetLayouts();
     persist();
@@ -447,7 +470,9 @@ async function readPhoto() {
   await ensurePixels();
   const img = regionImg();
   // Where a table or a couch in front hides the bottom of the wall, what stands there runs down to the floor.
-  const found = readWall(img, { hiddenFrom: hiddenFromFor(p.corners, p.seen && p.seen.seenBottom, img.width, img.height) });
+  const seg = photoLabels();
+  const labels = seg ? { seg, toPhoto: homography([[0, 0], [img.width, 0], [img.width, img.height], [0, img.height]], p.corners), photoW: p.w, photoH: p.h } : undefined;
+  const found = readWall(img, { hiddenFrom: hiddenFromFor(p.corners, p.seen && p.seen.seenBottom, img.width, img.height), labels });
   const items = found.items.map((it, i) => ({ ...it, id: `auto${i}`, removed: false }));
   for (const it of items) if (it.kind === 'art') Object.assign(it, thumbAndPalette(img, it));
   // A TV on a stand sits out from the wall and looks bigger than it would on it.
@@ -462,7 +487,7 @@ async function readPhoto() {
   // A 55 in TV unless that makes a ceiling the photo shows lower than 7 ft or
   // higher than 11 ft; then the next size that doesn't.
   let tvInches = (p.auto && p.auto.tvInches) || 55, tvWhy = null;
-  if (!(p.auto && p.auto.tvInches) && !(p.seen && p.seen.ceiling === false)) {
+  if (!(p.auto && p.auto.tvInches) && !(p.seen && (p.seen.ceiling === false || p.seen.soffit))) {
     const ceil = (dg) => { const g = guessWidth(items, img.width, dg, depth(dg)); return g ? (g.inches * img.height) / img.width : null; };
     const c55 = ceil(55);
     if (c55 && c55 < 84) { tvInches = [65, 75].find((dg) => ceil(dg) >= 84) || 75; tvWhy = 'low'; }
@@ -487,8 +512,10 @@ function setScale(W, H) {
   d.height = Math.min(240, Math.max(72, H || (noCeiling ? Math.max(96, a.shownH) : a.shownH)));
 }
 
-const AUTO_KIND = { tv: 'tv', furniture: 'furniture', lamp: 'lamp' };
-const AUTO_LABEL = { tv: 'TV', furniture: 'Furniture', lamp: 'Lamp or plant' };
+// What the photo reader calls things. Without the image model a lamp and a
+// plant look the same, so they're named together.
+const AUTO_KIND = (k) => (KIND_NAME[k] ? k : 'furniture');
+const AUTO_LABEL = (k, model) => (k === 'lamp' && !model ? 'Lamp or plant' : KIND_NAME[AUTO_KIND(k)]);
 const r2 = (v) => Math.round(v * 2) / 2;
 
 // What was found on the flattened wall, in wall inches, measured up from the floor
@@ -507,7 +534,7 @@ function applyAuto() {
   const live = a.items.filter((i) => !i.removed);
   d.obstacles = [
     ...d.obstacles.filter((o) => !o.autoId),
-    ...live.filter((i) => i.kind !== 'art').map((i) => clampOb({ id: i.id, autoId: i.id, kind: AUTO_KIND[i.kind], label: AUTO_LABEL[i.kind], ...inch(i) })),
+    ...live.filter((i) => i.kind !== 'art').map((i) => clampOb({ id: i.id, autoId: i.id, kind: AUTO_KIND(i.kind), label: AUTO_LABEL(i.kind, p.seen && p.seen.model), ...inch(i) })),
   ];
   const prev = new Map(d.owned.filter((o) => o.autoId).map((o) => [o.autoId, o]));
   const arts = live.filter((i) => i.kind === 'art');
@@ -553,11 +580,19 @@ function flattenAuto() {
 // ---------- Check what was found ----------
 
 function foundSentence(d) {
-  const n = (k) => d.obstacles.filter((o) => o.kind === k).length;
+  const n = (...ks) => d.obstacles.filter((o) => ks.includes(o.kind)).length;
   const parts = [];
-  if (n('tv')) parts.push(n('tv') === 1 ? 'a TV' : `${n('tv')} TVs`);
-  if (n('furniture') + n('console') + n('couch') + n('headboard') + n('dresser')) parts.push('furniture');
-  if (n('lamp') + n('plant')) parts.push(n('lamp') + n('plant') === 1 ? 'a lamp or plant' : 'lamps or plants');
+  const count = (k, one, many) => (k === 1 ? one : many.replace('#', k));
+  if (n('tv')) parts.push(count(n('tv'), 'a TV', '# TVs'));
+  if (n('furniture', 'console', 'couch', 'headboard', 'dresser', 'shelf')) parts.push('furniture');
+  const lit = d.photo && d.photo.seen && d.photo.seen.model;
+  if (lit) {
+    if (n('lamp')) parts.push(count(n('lamp'), 'a lamp', '# lamps'));
+    if (n('plant')) parts.push(count(n('plant'), 'a plant', '# plants'));
+  } else if (n('lamp', 'plant')) parts.push(n('lamp', 'plant') === 1 ? 'a lamp or plant' : 'lamps or plants');
+  if (n('window')) parts.push(count(n('window'), 'a window', '# windows'));
+  if (n('door')) parts.push(count(n('door'), 'a door', '# doors'));
+  if (n('mirror')) parts.push(count(n('mirror'), 'a mirror', '# mirrors'));
   if (d.owned.length) parts.push(d.owned.length === 1 ? '1 piece of art you already have' : `${d.owned.length} pieces of art you already have`);
   if (!parts.length) return 'Nothing in the way. A bare wall.';
   const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
@@ -637,9 +672,9 @@ function check() {
       <fieldset class="size-form"><legend>Wall width</legend>
         <span class="acts"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
         <span class="guess">${esc(guess)}</span>${tvPick}</fieldset>
-      <fieldset class="size-form"><legend>Ceiling height</legend>
+      <fieldset class="size-form"><legend>${p.seen && p.seen.soffit ? 'Height under the soffit' : 'Ceiling height'}</legend>
         <span class="acts"><label><input type="number" inputmode="numeric" min="6" max="20" name="hft" value="${ft(H)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="hin" value="${inch(H)}"> in</label></span>
-        <span class="guess">${p.auto.shownH && H > p.auto.shownH + 2 ? `Your photo shows the bottom ${esc(feet(p.auto.shownH))}. The rest is drawn as plain wall, so check this.` : p.seen && p.seen.ceiling === false ? "The photo doesn't show where the wall meets the ceiling, so check this." : `Your photo shows ${esc(feet(p.auto.shownH || H))} of wall. If the ceiling is higher, put it here.`}</span></fieldset>
+        <span class="guess">${p.auto.shownH && H > p.auto.shownH + 2 ? `Your photo shows the bottom ${esc(feet(p.auto.shownH))}. The rest is drawn as plain wall, so check this.` : p.seen && p.seen.ceiling === false ? "The photo doesn't show where the wall meets the ceiling, so check this." : p.seen && p.seen.soffit ? `From the floor up to the soffit, ${esc(feet(p.auto.shownH || H))} in your photo. The ceiling is higher past it, but art on this wall goes under it.` : `Your photo shows ${esc(feet(p.auto.shownH || H))} of wall. If the ceiling is higher, put it here.`}</span></fieldset>
     </form>` : `<p class="size-read">${esc(feet(d.width))} wide, ${esc(feet(H))} tall</p>`}
     ${S.ui.sizeErr ? `<p class="error">${esc(S.ui.sizeErr)}</p>` : ''}
     ${rows ? `<ul class="found">${rows}</ul>` : ''}
@@ -664,6 +699,8 @@ function corners() {
   const seen = p.seen || {};
   const misses = [
     seen.ceiling === false ? "We couldn't see the ceiling, so the top dots are at the top of the photo. You'll set the ceiling height next." : null,
+    seen.soffit ? "There's a soffit over this wall (the ceiling drops there), so the top dots are under it. Art goes below it; the ceiling is higher past it." : null,
+    seen.model === false ? "The photo reader didn't load, so these are rougher guesses than usual. Check them." : null,
     seen.floorFrom === 'stand' ? "The floor is hidden behind the furniture, so the bottom dots are a guess from your TV stand. Drag them if they're off." : seen.floor === false ? "We couldn't see where the wall meets the floor. Drag the bottom dots down to it, guessing behind furniture." : null,
   ].filter(Boolean);
   return `${header()}${steps('wall')}
