@@ -65,7 +65,7 @@ export function focal(pieces, g, family, fi) {
     if (c < 0) return { score: position };
     return { score: c === fi ? 1 : clamp01(visualWeight(pieces[c]) / visualWeight(f)) * 0.8 };
   }
-  if (family === 'line') return { score: position };
+  if (family === 'line' || family === 'column') return { score: position };
   // A two-row hang wants one piece that clearly leads.
   const ws = pieces.map(visualWeight).sort((a, b) => b - a);
   const clarity = clamp01((ws[0] / ws[1] - 1) / 0.4);

@@ -88,8 +88,8 @@ export function findZone(wall, obstacles, regions) {
     const maxH = wall.height - RULES.ceilingHard - y0;
     if (screen && maxH < 10) continue; // not enough wall above the TV for art
     return {
-      type: 'anchor', anchor: a, base: screen ? y0 - RULES.clearanceMin : base, cx, refW: a.w,
-      target: a.w * RULES.anchorRatio, range: RULES.anchorRange, interval: iv, maxH,
+      type: 'anchor', place: 'over', anchor: a, base: screen ? y0 - RULES.clearanceMin : base, cx, refW: a.w,
+      target: a.w * RULES.anchorRatio, ratio: RULES.anchorRatio, range: RULES.anchorRange, interval: iv, maxH,
     };
   }
 
@@ -102,9 +102,37 @@ export function findZone(wall, obstacles, regions) {
   const maxH = 2 * Math.min(wall.height - RULES.ceilingHard - c, c - 6);
   if (maxH < 8) return null;
   return {
-    type: 'wall', anchor: null, base: null, cx: iv.x0 + iv.w / 2, refW: iv.w,
-    target: iv.w * RULES.wallRatio, range: RULES.wallRange, interval: iv, maxH,
+    type: 'wall', place: 'wall', anchor: null, base: null, cx: iv.x0 + iv.w / 2, refW: iv.w,
+    target: iv.w * RULES.wallRatio, ratio: RULES.wallRatio, range: RULES.wallRange, interval: iv, maxH,
   };
+}
+
+// Every place a group could go: the main one (above the TV or the furniture, or
+// the open wall), then the open stretches at eye level beside that TV or piece
+// of furniture, where people often hang art already. A stretch beside is
+// narrower, so the art fills more of it.
+export function findZones(wall, obstacles, regions) {
+  const main = findZone(wall, obstacles, regions);
+  if (!main || main.type !== 'anchor') return main ? [main] : [];
+  const a = main.anchor;
+  const c = RULES.centerline;
+  // Beside a TV a tall stack may come down to sideLow from the floor, not only
+  // as far below eye level as it reaches above it.
+  const maxH = wall.height - RULES.ceilingHard - RULES.sideLow;
+  if (maxH < 8) return [main];
+  const out = [main];
+  for (const iv of freeIntervals(wall.width, regions, c - 12, c + 12)) {
+    if (iv.w < RULES.minSideWidth) continue;
+    const place = iv.x1 <= a.x + EPS ? 'left' : iv.x0 >= a.x + a.w - EPS ? 'right' : null;
+    if (!place || out.some((z) => z.place === place && z.interval.w >= iv.w)) continue;
+    const z = {
+      type: 'wall', place, beside: a.kind, anchor: null, base: null, minY: RULES.sideLow, cx: iv.x0 + iv.w / 2, refW: iv.w,
+      target: iv.w * RULES.sideRatio, ratio: RULES.sideRatio, range: RULES.sideRange, interval: iv, maxH,
+    };
+    const k = out.findIndex((x) => x.place === place);
+    if (k >= 0) out[k] = z; else out.push(z);
+  }
+  return out;
 }
 
 // Put a W x H group on the wall, on the quarter inch. Vertical position follows
@@ -120,7 +148,15 @@ export function placeGroup(zone, W, H, regions, wall) {
     let cy = RULES.centerline;
     if (cy + H / 2 > wall.height - RULES.ceilingSoft) cy = wall.height - RULES.ceilingSoft - H / 2;
     y = q(cy - H / 2);
+    if (zone.minY != null && y < zone.minY) y = qUp(zone.minY);
     if (y < 6) return null;
+    // On open wall a tall group may move up or down a little to clear furniture below it.
+    const ok = (yy) => yy >= Math.max(6, zone.minY ?? 6) && yy + H <= wall.height - RULES.ceilingHard + EPS
+      && freeIntervals(wall.width, regions, yy, yy + H).some((iv) => iv.w >= W - EPS && iv.x1 > zone.interval.x0 + EPS && iv.x0 < zone.interval.x1 - EPS);
+    if (!ok(y)) for (let d = 0.25; d <= RULES.slideMax + EPS; d += 0.25) {
+      if (ok(y + d)) { y += d; break; }
+      if (ok(y - d)) { y -= d; break; }
+    }
   }
   if (y + H > wall.height - RULES.ceilingHard + EPS) return null;
 

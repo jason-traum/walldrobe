@@ -19,7 +19,12 @@ export function anchorWord(kind) {
 }
 
 // "in the middle", "on the left of the top row", "in the middle over the couch"
-export function placePhrase(piece, group, anchorKind) {
+export function placePhrase(piece, group, anchorKind, family) {
+  // In a stack, up and down is what tells pieces apart.
+  if (family === 'column') {
+    const up = (piece.cy - (group.y + group.h / 2)) / group.h;
+    return Math.abs(up) < 0.12 ? 'in the middle' : up > 0 ? 'at the top' : 'at the bottom';
+  }
   const rel = (piece.cx - (group.x + group.w / 2)) / group.w;
   const side = Math.abs(rel) < 0.12 ? 'in the middle' : rel < 0 ? 'on the left' : 'on the right';
   const row = piece.row === 'top' ? ' of the top row' : piece.row === 'bottom' ? ' of the bottom row' : '';
@@ -50,7 +55,7 @@ export function pieceReason(f) {
   const { piece, group, anchorKind, family } = f;
   if (piece.role === 'pinned') return `Your ${shortTitle(piece.title)} stays exactly where it hangs now, as you asked.`;
 
-  const place = placePhrase(piece, group, anchorKind);
+  const place = placePhrase(piece, group, anchorKind, family);
   if (piece.kept) return fit([`You kept this one, ${place}, and the rest was picked around it.`, 'You kept this one, and the rest was picked around it.']);
   const word = anchorWord(anchorKind);
   const overAnchor = word ? ` over the ${word}` : '';
@@ -114,10 +119,12 @@ export function summary(layout, mustTitles, newCount, keptTitles = []) {
   const shape = family === 'salon' ? 'A two-row hang'
     : family === 'grid' ? `A ${meta.rows} by ${meta.cols} grid`
     : family === 'line' ? `A row of ${layout.pieces.length}`
+    : family === 'column' ? `A stack of ${layout.pieces.length}`
     : variant === 'solo' ? 'One statement piece'
     : 'One big piece with smaller ones on each side';
   const word = anchorWord(anchor.kind);
-  const where = word ? ` over the ${word}` : '';
+  const by = anchorWord(layout.beside);
+  const where = (layout.place === 'left' || layout.place === 'right') && by ? `, ${layout.place} of the ${by}` : word ? ` over the ${word}` : '';
   const built = mustTitles.length ? `, built around your ${shortTitle(mustTitles[0])}`
     : keptTitles.length === 1 ? `, built around the ${shortTitle(keptTitles[0])} you kept`
     : keptTitles.length > 1 ? `, built around the ${keptTitles.length} pieces you kept`

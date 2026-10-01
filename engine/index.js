@@ -9,8 +9,8 @@
 
 import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
-import { blockedRegions, findZone, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
-import { salonStructures, lineStructures, gridStructures, statementStructures, offeredSizes } from './structures.js';
+import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
+import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
 import { designScore, lookalike, lookPenalty } from './design.js';
@@ -21,6 +21,8 @@ export const VERSION = '0.2.0';
 const KEEPS = new Set(['must', 'happy', 'dontcare']);
 const REUSE_BONUS = 0.04;
 const SAME_ARTIST = 0.02;
+// A layout beside the TV or furniture is shown among the first ones when it scores at least this share of the best.
+const PLACE_SHOW = 0.85;
 const LOOKALIKE_PAIR = 0.04; // off the total for each pair of pieces that look almost the same
 const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-alikes
 const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans the pick toward stronger photos
@@ -94,6 +96,8 @@ function readPrefs(raw = {}) {
     style: STYLES[raw.style] ? raw.style : null,
     // An exact number of pieces, when the person picks one.
     pieces: num(raw.pieces) && raw.pieces >= 1 ? Math.min(RULES.maxCount, Math.floor(raw.pieces)) : null,
+    // Where on the wall: 'over' the TV or furniture, 'left' or 'right' of it, or null for anywhere.
+    place: typeof raw.place === 'string' ? raw.place : null,
     // The size lever: -1 fewer, bigger pieces; 1 more, smaller ones; null leaves it to the other scores.
     scale: num(raw.scale) && raw.scale !== 0 ? Math.max(-1, Math.min(1, raw.scale)) : null,
   };
@@ -122,7 +126,8 @@ function prepare(input) {
   const pinned = owned.filter((p) => p.pinned);
   const loose = owned.filter((p) => !p.pinned);
   const regions = blockedRegions(obstacles, pinned);
-  const zone = findZone(wall, obstacles, regions);
+  const zones = findZones(wall, obstacles, regions);
+  const zone = zones[0] || null;
 
   const palettes = new Map();
   for (const p of owned) palettes.set(p.id, normalizePalette(p.palette));
@@ -148,7 +153,7 @@ function prepare(input) {
 
   return {
     input, wall, obstacles, owned, catalog, prefs: readPrefs(input.prefs), exclude, kept, keptIds,
-    pinned, loose, regions, zone, palettes, hasRoom, pairSim, profiles,
+    pinned, loose, regions, zone, zones, palettes, hasRoom, pairSim, profiles,
     roomProfile: hasRoom ? profileFromPalette(room) : null,
     catalogCands, ownedById: new Map(owned.map((p) => [p.id, p])), catalogById: byId, tasteOf,
     look: lookFactory(profiles),
@@ -308,7 +313,7 @@ function buildPieces(st, place, bySlot) {
 function fitScore(L, zone) {
   const g = L.group;
   const ratio = g.w / zone.refW;
-  const target = zone.type === 'anchor' ? RULES.anchorRatio : RULES.wallRatio;
+  const target = zone.ratio;
   const fw = clamp01(1 - Math.abs(ratio - target) / 0.3);
   const cy = g.y + g.h / 2;
   let fv;
@@ -422,6 +427,9 @@ function redo(L, banned, ctx) {
   return improve({ ...R, ...judge(R, ctx) }, ctx, banned);
 }
 
+// Beside the TV is another place from over it, so the same frames there are another layout.
+const placeKey = (z, key) => (z.place === 'left' || z.place === 'right' ? `${z.place}|${key}` : key);
+
 // A layout's identity is its arrangement: family, frame sizes and where they go.
 function structureKey(st) {
   const slots = st.slots.map((s) => `${q(s.dx)},${q(s.dy)},${s.w}x${s.h}`).sort(cmpStr).join(';');
@@ -446,6 +454,7 @@ function structuresFor(fam, sctx) {
   if (fam === 'salon') return { structures: salonStructures(sctx) };
   if (fam === 'line') return { structures: lineStructures(sctx) };
   if (fam === 'grid') return gridStructures(sctx);
+  if (fam === 'column') return columnStructures(sctx);
   return statementStructures(sctx);
 }
 
@@ -455,7 +464,11 @@ function structuresFor(fam, sctx) {
  */
 export function layout(input) {
   const ctx = prepare(input);
-  const { zone, prefs, loose, kept } = ctx;
+  const { prefs, loose, kept } = ctx;
+  // The places to try: the one asked for, or all of them.
+  const asked = prefs.place ? ctx.zones.filter((z) => z.place === prefs.place) : [];
+  const zones = asked.length ? asked : ctx.zones;
+  const zone = zones[0] || null;
   const count = num(input.count) && input.count >= 1 ? Math.floor(input.count) : 3;
   const avoid = new Set(idList(input.avoid, 'avoid'));
   const problems = [];
@@ -468,7 +481,7 @@ export function layout(input) {
       code: 'NO_OPEN_SPACE',
       message: short ? 'This wall is too short to hang art at eye level.' : "There's no stretch of wall wide enough to hang on.",
     });
-    return { layouts: [], problems, zone: null, counts: [] };
+    return { layouts: [], problems, zone: null, zones: [], counts: [] };
   }
 
   const variants = happy.length ? [[...must, ...happy], must] : [must];
@@ -476,6 +489,8 @@ export function layout(input) {
   const mismatch = new Map(); // family -> number of variants it was skipped in, with its message
   const results = [];
 
+  for (const z of zones) {
+  const zc = { ...ctx, zone: z };
   for (const fixed of variants) {
     const fixedIds = new Set(fixed.map((p) => p.id));
     const cands = [...ctx.catalogCands, ...loose.filter((p) => !fixedIds.has(p.id) && p.keep !== 'must').map(ownedCand)];
@@ -485,7 +500,7 @@ export function layout(input) {
     for (const c of index.owned) for (const [w, h] of STANDARD) {
       if (Math.abs(c.sizes[0].w - w) <= 1 && Math.abs(c.sizes[0].h - h) <= 1) avail.set(sizeKey(w, h), (avail.get(sizeKey(w, h)) || 0) + 1);
     }
-    const sctx = { fixed, zone, avail, maxPieces: prefs.maxPieces, scale: prefs.pieces ? 0 : prefs.scale || 0, pieces: prefs.pieces, sizes: offeredSizes(avail) };
+    const sctx = { fixed, zone: z, avail, maxPieces: prefs.maxPieces, scale: prefs.pieces ? 0 : prefs.scale || 0, pieces: prefs.pieces, sizes: offeredSizes(avail) };
     // Which piece counts this style can make on this wall, for the count control.
     if (fixed === variants[variants.length - 1]) {
       // Two-row hangs report every count they can make in one pass; the rest are quick to try.
@@ -507,17 +522,18 @@ export function layout(input) {
     for (const st of structs) {
       const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look);
       if (!picked) continue;
-      const base = placeGroup(zone, st.W, st.H, ctx.regions, ctx.wall);
+      const base = placeGroup(z, st.W, st.H, ctx.regions, ctx.wall);
       if (!base) continue;
       const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
-      const done = place(st, bySlot, base, ctx);
+      const done = place(st, bySlot, base, zc);
       if (!done) continue;
       const L = {
         family: st.family, variant: st.variant || null, meta: st.meta, group: done.where, shift: done.where.shift,
-        pieces: done.pieces, happyTotal: happy.length, st, index, bySlot, key: structureKey(st),
+        pieces: done.pieces, happyTotal: happy.length, st, index, bySlot, key: placeKey(z, structureKey(st)), zc,
       };
-      results.push({ ...L, ...judge(L, ctx) });
+      results.push({ ...L, ...judge(L, zc) });
     }
+  }
   }
 
   // The best few get the improvement pass, one per arrangement.
@@ -533,7 +549,7 @@ export function layout(input) {
   const fams = new Set();
   for (const R of pool) if (!fams.has(R.family)) { fams.add(R.family); toImprove.push(R); }
   for (const R of pool) { if (toImprove.length >= SEARCH.improveTop) break; if (!toImprove.includes(R)) toImprove.push(R); }
-  const improved = new Map(toImprove.map((R) => [R, improve(R, ctx)]));
+  const improved = new Map(toImprove.map((R) => [R, improve(R, R.zc)]));
   let valid = pool.map((R) => improved.get(R) || R);
 
   // Budget: drop layouts over it, but say what the cheapest one costs.
@@ -556,11 +572,30 @@ export function layout(input) {
   // layout after the first gets art the earlier ones don't use, when there's enough.
   valid.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
   const order = [];
-  const famsSeen = new Set();
-  for (const L of valid) if (!famsSeen.has(L.family)) { famsSeen.add(L.family); order.push(L); }
+  const top = valid.length ? valid[0].score : 0;
+  // Your own happy-to-move pieces are the point: the best layout that uses the most
+  // of them leads.
+  const ownUse = (L) => L.pieces.filter((p) => p.keep === 'happy').length;
+  const mostOwn = happy.length && valid.length ? Math.max(...valid.map(ownUse)) : 0;
+  const ownLead = mostOwn ? valid.find((L) => ownUse(L) === mostOwn) : null;
+  if (ownLead) order.push(ownLead);
+  // With more than one place, the best layout in each place comes next, if it's
+  // close to the best overall. Only one side, so most stay in the main place.
+  const placesSeen = new Set(order.map((L) => L.zc.zone.place));
+  const side = (pl) => pl === 'left' || pl === 'right';
+  for (const L of valid) {
+    const pl = L.zc.zone.place;
+    if (placesSeen.has(pl) || (side(pl) && [...placesSeen].some(side))) continue;
+    if (!placesSeen.size || L.score >= PLACE_SHOW * top) { placesSeen.add(pl); order.push(L); }
+  }
+  // Variety after that comes from the main place.
+  const mainPlace = valid.filter((L) => L.zc.zone === zones[0]);
+  const famsSeen = new Set(order.map((L) => L.family));
+  for (const L of mainPlace) if (!famsSeen.has(L.family)) { famsSeen.add(L.family); order.push(L); }
   // Then a different arrangement before the same one with other art.
-  const shapeOf = (L) => `${L.family}|${L.st.slots.map((sl) => `${q(sl.dx)},${q(sl.dy)},${sl.w}x${sl.h}`).sort().join(';')}`;
+  const shapeOf = (L) => `${L.zc.zone.place}|${L.family}|${L.st.slots.map((sl) => `${q(sl.dx)},${q(sl.dy)},${sl.w}x${sl.h}`).sort().join(';')}`;
   const shapes = new Set(order.map(shapeOf));
+  for (const L of mainPlace) if (!order.includes(L) && !shapes.has(shapeOf(L))) { shapes.add(shapeOf(L)); order.push(L); }
   for (const L of valid) if (!order.includes(L) && !shapes.has(shapeOf(L))) { shapes.add(shapeOf(L)); order.push(L); }
   for (const L of valid) if (!order.includes(L)) order.push(L);
   const chosen = [];
@@ -570,23 +605,28 @@ export function layout(input) {
     if (chosen.length >= count) break;
     let pick = L;
     if (newArt(L).some((id) => used.has(id))) {
-      const alt = redo(L, used, ctx);
+      const alt = redo(L, used, L.zc);
       if (alt && (prefs.budget === null || total(alt) <= prefs.budget + EPS)) pick = alt;
     }
     chosen.push(pick);
     for (const id of newArt(pick)) used.add(id);
   }
   chosen.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
+  // First: the one with your pieces, else the best in the main place (over the TV
+  // or furniture); the rest by score.
+  const lead = (ownLead && chosen.find((L) => L.key === ownLead.key && ownUse(L) === mostOwn)) || chosen.find((L) => L.zc.zone === zones[0]);
+  if (lead) chosen.splice(0, chosen.length, lead, ...chosen.filter((L) => L !== lead));
 
   const present = new Set(results.map((L) => L.family));
   for (const fam of prefs.families) {
-    if (present.has(fam)) continue;
+    if (present.has(fam) || (fam === 'column' && !zones.some(columnZone))) continue;
     const m = mismatch.get(fam);
-    const message = m && m.n === variants.length ? m.message : {
+    const message = m && m.n === variants.length * zones.length ? m.message : {
       salon: 'No two-row layout fits this wall with the art available.',
       line: 'No single row fits this wall with the art available.',
       grid: 'No grid fits this wall with the art available.',
       statement: 'No statement piece fits this wall with the art available.',
+      column: 'No stack of pieces fits this wall with the art available.',
     }[fam];
     problems.push({ code: 'FAMILY_SKIPPED', family: fam, message });
   }
@@ -598,8 +638,8 @@ export function layout(input) {
     problems.unshift({ code: 'COUNT_DOESNT_FIT', pieces: prefs.pieces, near, message: near ? `${prefs.pieces} pieces don't make ${style} here. ${near} do.` : `${prefs.pieces} pieces don't fit here.` });
   } else if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) problems.unshift(whyNothing(must, zone, ctx.catalogCands, loose));
 
-  const layouts = chosen.map((L, i) => finish(L, i + 1, ctx));
-  return { layouts, problems, zone: zoneOut(zone), counts: fits };
+  const layouts = chosen.map((L, i) => finish(L, i + 1, L.zc));
+  return { layouts, problems, zone: zoneOut(zone), zones: ctx.zones.map(zoneOut), counts: fits };
 }
 
 /**
@@ -610,7 +650,9 @@ export function layout(input) {
  */
 export function refill(input, prev, opts = {}) {
   if (!prev || !Array.isArray(prev.pieces) || !prev.group) throw new TypeError('refill() needs a layout that layout() returned.');
-  const ctx = prepare(input);
+  const all = prepare(input);
+  // The layout's own place on the wall.
+  const ctx = { ...all, zone: all.zones.find((z) => z.place === (prev.place || 'over')) || all.zone };
   const problems = [];
   if (!ctx.zone) return { layouts: [], problems: [{ code: 'NO_OPEN_SPACE', message: "There's no stretch of wall wide enough to hang on." }], zone: null };
   const keepIds = new Set([...idList(opts.keep, 'keep'), ...ctx.keptIds]);
@@ -699,7 +741,7 @@ function whyNothing(must, zone, catalogCands, loose) {
 
 function zoneOut(z) {
   return {
-    type: z.type, anchor: z.anchor ? { id: z.anchor.id, kind: z.anchor.kind } : null,
+    type: z.type, place: z.place, beside: z.beside || null, anchor: z.anchor ? { id: z.anchor.id, kind: z.anchor.kind } : null,
     cx: q(z.cx), target: q(z.target), open: { x0: q(z.interval.x0), x1: q(z.interval.x1) },
   };
 }
@@ -758,7 +800,7 @@ function finish(L, rank, ctx) {
   const newCount = L.pieces.filter((p) => p.ref.source === 'catalog' && !p.kept).length;
   const c = L.color;
   const out = {
-    rank, key: L.key, family: L.family, variant: L.variant, score: r3(Math.max(0, Math.min(1, L.score))),
+    rank, key: L.key, place: zone.place, family: L.family, variant: L.variant, score: r3(Math.max(0, Math.min(1, L.score))),
     parts: r3map(L.parts),
     checks: r3map(L.checks),
     color: {
@@ -770,7 +812,7 @@ function finish(L, rank, ctx) {
     pieces, left, total: pieces.reduce((s, p) => s + (p.price || 0), 0),
     meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q), ragged: q(L.meta.ragged || 0) },
   };
-  out.summary = summary({ ...out, meta: L.meta, group }, mustTitles, newCount, keptTitles);
+  out.summary = summary({ ...out, meta: L.meta, group, beside: zone.beside }, mustTitles, newCount, keptTitles);
   out.notes = layoutNotes({ color: c, design: L.design, checks: L.checks, family: L.family, pieces: L.pieces });
   return out;
 }

@@ -352,3 +352,62 @@ export function statementStructures({ fixed, zone, avail, maxPieces, scale = 0, 
   const rest = out.filter((s) => s.variant !== 'solo').slice(0, 4);
   return { structures: [...rest, ...solos].sort((a, b) => b.pre - a.pre), skipped };
 }
+
+// ---------- A stack in a narrow stretch, centers on one vertical line ----------
+
+// A column only makes sense where the wall is narrow: beside the TV or furniture,
+// or a narrow open wall.
+export const columnZone = (zone) => zone.place === 'left' || zone.place === 'right' || zone.interval.w < RULES.columnMaxOpen;
+
+export function columnStructures({ fixed, zone, avail, maxPieces, scale = 0, pieces = null, sizes: offered = SIZES }) {
+  if (!columnZone(zone) || fixed.length > 4) return { structures: [], skipped: null };
+  const [lo, hi] = widthWindow(zone, pieces);
+  const base = fixed.map(fixedUnit);
+  const most = Math.min(4, pieces || Math.max(2, maxPieces));
+  const out = [];
+  const seen = new Set();
+  const fillSizes = [null, ...offered.flank.filter(([w, h]) => avail.has(sizeKey(w, h)))];
+  for (const sz of fillSizes) {
+    for (let nFill = sz ? 1 : 0; base.length + nFill <= most && (sz || nFill === 0); nFill++) {
+      const n = base.length + nFill;
+      if (n < 2 || !countOk(n, pieces)) continue;
+      const fills = sz ? Array.from({ length: nFill }, () => sz) : [];
+      if (nFill && !fitsAvail(fills, avail)) continue;
+      const units = [...base, ...fills.map(fillUnit)];
+      const W = Math.max(...units.map((u) => u.w));
+      const H = sum(units.map((u) => u.h)) + (n - 1) * G;
+      if (W < lo || W > hi || H > zone.maxH) continue;
+      // Every piece at least most of the column's width, so it reads as one stack.
+      if (units.some((u) => u.w < 0.6 * W)) continue;
+      // Each order once: top to bottom.
+      for (const order of orders(units)) {
+        const sig = order.map((u) => (u.fixed ? u.fixed.id : sizeKey(u.w, u.h))).join('|');
+        if (seen.has(sig)) continue;
+        seen.add(sig);
+        const slots = [];
+        let y = 0;
+        for (const u of [...order].reverse()) { slots.push({ w: u.w, h: u.h, dx: q((W - u.w) / 2), dy: q(y), fixed: u.fixed, row: null }); y += u.h + G; }
+        // Heavier at the bottom reads as steadier; a much bigger piece on top is marked down.
+        const area = (u) => u.w * u.h;
+        const topHeavy = area(order[0]) > 1.6 * area(order[order.length - 1]) ? 0.1 : 0;
+        out.push({ family: 'column', W, H, slots, meta: { ragged: 0, gaps: [G], rows: n }, pre: -Math.abs(W - zone.target) / zone.target - topHeavy + lean(n, scale) });
+      }
+    }
+  }
+  out.sort((a, b) => b.pre - a.pre);
+  return { structures: out.slice(0, 4), skipped: null };
+}
+
+// The different top-to-bottom orders of a few pieces (same-size fills are alike).
+function orders(units) {
+  if (units.length <= 1) return [units];
+  const out = [];
+  const seen = new Set();
+  units.forEach((u, i) => {
+    const k = u.fixed ? u.fixed.id : sizeKey(u.w, u.h);
+    if (seen.has(k)) return;
+    seen.add(k);
+    for (const rest of orders(units.filter((_, j) => j !== i))) out.push([u, ...rest]);
+  });
+  return out;
+}

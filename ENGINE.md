@@ -34,8 +34,9 @@ layout({
   ],
   taste: { 'aic-27992': 0.82 },        // 0 to 1 from the taste model; missing = 0.5
   room: { palette: [{ hex, weight }] },// optional, sampled from the photo
-  prefs: { budget: null, maxPieces: 9, families: null, style: null, pieces: null },
-  // style: 'structured' (statement, line, grid) or 'gallery' (salon); pieces: an exact count, 1 to 12
+  prefs: { budget: null, maxPieces: 9, families: null, style: null, pieces: null, place: null },
+  // style: 'structured' (statement, line, grid, column) or 'gallery' (salon); pieces: an exact count, 1 to 12
+  // place: 'over' (the TV or furniture), 'left' or 'right' of it, 'wall' (open wall), or null for anywhere
   count: 3,
 })
 ```
@@ -101,7 +102,7 @@ Every position and gap lands on the quarter inch before the hard checks run, so 
 
 ## Steps
 
-1. **Find the hanging zone.** Subtract blockers from the wall. If there's an anchor (the widest anchor at least 30 in wide), the zone sits over it: centered on it, bottom edge 8 in above its top. Otherwise the zone is the widest open span at 57 in, centered on that span.
+1. **Find the hanging zones.** Subtract blockers from the wall. If there's an anchor (the widest anchor at least 30 in wide), the main zone sits over it: centered on it, bottom edge 8 in above its top. Otherwise the zone is the widest open span at 57 in, centered on that span. With an anchor, each open stretch at 57 in to its left or right that's at least 20 in wide is a zone too (`place` 'left' or 'right'), where the group fills 0.75 of the stretch and may move up to 6 in from eye level to clear furniture. Every zone is tried unless `prefs.place` picks one; each layout says its `place`, and the output lists `zones`. A column (a stack of two to four pieces on one center line) is built only in a side zone or on open wall under 48 in.
 2. **Pick a target box.** Target width from the table above. Target height from the zone and the piece count.
 3. **Generate candidates per family.**
    - **Statement:** one large piece, optionally with one or a stacked pair of matching smaller pieces on each side, centered on the big one. A must-keep always takes the center. One piece alone may be as narrow as 0.35 of the furniture, because frames stop at 40 in; the fit score still marks it down.
@@ -202,7 +203,7 @@ Frames are built in the sizes the art passed in actually comes in: for two-row h
 
 ### Style and count
 
-`prefs.style` picks the families: `structured` is statement, line and grid; `gallery` is salon (with at least two frame sizes). `prefs.pieces` asks for an exact count: only structures with that many pieces are built, widths may run over `RULES.countRange` (0.35 to 0.9 of the reference width), and the size lever is ignored. `counts` in the output lists every count the chosen families can make on the wall, so a control can step through only those. Returned layouts show a different arrangement before the same arrangement with other art.
+`prefs.style` picks the families: `structured` is statement, line, grid and column (a stack, in narrow stretches only); `gallery` is salon (with at least two frame sizes). `prefs.pieces` asks for an exact count: only structures with that many pieces are built, widths may run over `RULES.countRange` (0.35 to 0.9 of the reference width), and the size lever is ignored. `counts` in the output lists every count the chosen families can make on the wall, so a control can step through only those. Returned layouts show a different arrangement before the same arrangement with other art.
 
 ### The size lever
 
