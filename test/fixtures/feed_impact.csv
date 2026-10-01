@@ -1,0 +1,10 @@
+Catalog Item Id,Parent SKU,Name,Description,Manufacturer,Url,Image Url,Current Price,Currency,Category,Size,Frame,Stock Availability
+ex-1-a,ex-1,"Coastal Morning by Ana Example","Giclee art print of a calm ocean at dawn",Example Shop,https://example.com/p/1?s=8x10,https://img.example.com/1.jpg,24.00,USD,Wall Art > Art Prints,8 x 10 in,Unframed,In Stock
+ex-1-b,ex-1,"Coastal Morning by Ana Example","Giclee art print of a calm ocean at dawn",Example Shop,https://example.com/p/1?s=16x20,https://img.example.com/1.jpg,"58.00",USD,Wall Art > Art Prints,16x20,Unframed,In Stock
+ex-1-c,ex-1,"Coastal Morning by Ana Example","Giclee art print of a calm ocean at dawn",Example Shop,https://example.com/p/1?s=16x20f,https://img.example.com/1.jpg,"$129.00",USD,Wall Art > Art Prints,16x20,Black Frame,In Stock
+ex-2,,"Lemon Grove | Art Print","A bright still life of lemons, framed",Ben Sample,https://example.com/p/2,https://img.example.com/2.jpg,40,USD,Art Prints,"18"" x 24""",Framed,In Stock
+ex-3,,"Coastal Morning Mug by Ana Example","Ceramic mug",Example Shop,https://example.com/p/3,https://img.example.com/3.jpg,18,USD,Home > Mugs,11 oz,,In Stock
+ex-4,,"Tennis Club Poster by Cleo Demo","Retro tennis poster",Example Shop,https://example.com/p/4,https://img.example.com/4.jpg,30,USD,Posters,A3,,Out of Stock
+ex-5,,"Blue Shapes by Cleo Demo","Abstract geometric poster",Example Shop,https://example.com/p/5,https://img.example.com/5.jpg,"39,95",EUR,Posters,50x70,,In Stock
+ex-6,,"Untitled Poster","No artist here",Example Shop,https://example.com/p/6,https://img.example.com/6.jpg,20,USD,Posters,12x16,,In Stock
+ex-7,,"Field Notes by Dee Placeholder","Original acrylic on canvas painting of a field",Example Shop,http://example.com/p/7,https://img.example.com/7.jpg,900,USD,Original Art,24x30,,In Stock

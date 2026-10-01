@@ -121,7 +121,7 @@ function steps(current) {
 function footer() {
   return `<footer class="site-foot">
     <p>Walldrobe: a wardrobe for your walls. Rent the Runway, for art.</p>
-    <p>Photos shown here are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's own license. Walldrobe doesn't sell them; each one links to where you can get it. Your wall photos stay on your device.</p>
+    <p>Photos shown here are from Unsplash, Pexels and Pixabay, credited to each photographer and shown under each site's own license. Prints from shops are shown as the shop's affiliate partner and link to the shop. Walldrobe doesn't sell them; each one links to where you can get it. Your wall photos stay on your device.</p>
   </footer>`;
 }
 const flashHtml = () => (S.flash ? `<p class="flash" role="status">${esc(S.flash)}</p>` : '');
@@ -835,7 +835,7 @@ function peekCard(p) {
     <div class="peek-head">
       <span class="thumb">${thumb}</span>
       <span class="piece-text"><span class="piece-title">${esc(title)}</span>
-      <span class="piece-meta">${p.w} x ${p.h} in frame${item ? `. Photo by ${esc(item.artist)} on ${esc(item.source)}` : '. Already yours'}</span></span>
+      <span class="piece-meta">${p.w} x ${p.h} in${item ? (item.offers && item.offers.length ? `. Art by ${esc(item.artist)}, ${esc(item.source)}${p.price ? `, ${money(p.price, (item.offers[0] || {}).currency || 'USD')}` : ''}` : ` frame. Photo by ${esc(item.artist)} on ${esc(item.source)}`) : ' frame. Already yours'}</span></span>
       <button type="button" class="peek-x" data-act="unpin" aria-label="Close">×</button>
     </div>
     ${colorBar(p.shares, 'cbar-piece')}
@@ -937,6 +937,17 @@ function printSize(w, h) {
   if (!p) return null;
   return w <= h ? p : [p[1], p[0]];
 }
+// "an 11 x 14", "an 8 x 10", "a 16 x 20"
+const aOrAn = (n) => (/^(8|11|18|8\d)(\D|$)/.test(String(n)) ? 'an' : 'a');
+const money = (n, cur = 'USD') => { try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); } catch { return `${n} ${cur}`; } };
+// The shop's offer at this frame size: the plain print first, framed as the other choice.
+function offersAt(item, w, h) {
+  const at = (item.offers || []).filter((o) => o.w && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
+  const plain = at.filter((o) => !o.framed).sort((a, b) => (a.price ?? 1e9) - (b.price ?? 1e9))[0];
+  const framed = at.filter((o) => o.framed).sort((a, b) => (a.price ?? 1e9) - (b.price ?? 1e9))[0];
+  const any = (item.offers || [])[0];
+  return { main: plain || framed || any || null, framed: plain ? framed : null };
+}
 const frameLink = (w, h) => `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} picture frame with mat`)}`;
 
 function getScreen() {
@@ -957,6 +968,23 @@ function getScreen() {
     ${flashHtml()}
     ${fresh.length ? `<ul class="buy-list">${fresh.map((p) => {
       const item = byId.get(p.ref.id);
+      const shop = item.offers && item.offers.length ? offersAt(item, p.w, p.h) : null;
+      if (shop && shop.main) {
+        const o = shop.main;
+        return `<li class="buy">
+        <img src="${item.imageData}" alt="" class="buy-img">
+        <div class="buy-text">
+          <p class="piece-title">${esc(item.title)}</p>
+          <p class="piece-meta">Art by ${esc(item.artist)}, sold by ${esc(item.source)}</p>
+          <p class="buy-size">${o.w ? `${o.w} x ${o.h} in print${o.framed ? ', framed' : `, fits ${aOrAn(o.w)} ${o.w} x ${o.h} in frame`}` : `${p.w} x ${p.h} in frame`}${o.price != null ? `. ${money(o.price, o.currency)}` : ''}</p>
+          <div class="acts">
+            <a class="btn small-btn" href="${esc(o.url)}" target="_blank" rel="sponsored noopener">Buy this print at ${esc(item.source)}</a>
+            ${shop.framed ? `<a class="btn-quiet small-btn" href="${esc(shop.framed.url)}" target="_blank" rel="sponsored noopener">Framed${shop.framed.price != null ? `, ${money(shop.framed.price, shop.framed.currency)}` : ''}</a>` : ''}
+            ${o.framed ? '' : `<a class="btn-quiet small-btn" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>`}
+          </div>
+        </div>
+      </li>`;
+      }
       const ps = printSize(p.w, p.h);
       return `<li class="buy">
         <img src="${item.imageData}" alt="" class="buy-img">
@@ -966,13 +994,14 @@ function getScreen() {
           <p class="buy-size">${ps ? `Print ${ps[0]} x ${ps[1]} in, in a ${p.w} x ${p.h} in frame with a mat` : `${p.w} x ${p.h} in frame`}</p>
           <div class="acts">
             <a class="btn small-btn" href="${esc(item.url)}" target="_blank" rel="noopener">Get the photo on ${esc(item.source)}</a>
-            <a class="btn-quiet small-btn" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find a ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>
+            <a class="btn-quiet small-btn" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>
           </div>
           <p class="muted small">Free to download and print for your own wall under the ${esc(item.record.source.license)}. Any print shop can print it at ${ps ? `${ps[0]} x ${ps[1]} in` : 'this size'}.</p>
         </div>
       </li>`;
     }).join('')}</ul>
-    <p class="frames-sum"><strong>Frames:</strong> ${[...frames].map(([k, n]) => `${n} x ${k} in`).join(', ')}.</p>` : ''}
+    <p class="frames-sum"><strong>Frames:</strong> ${[...frames].map(([k, n]) => `${n} x ${k} in`).join(', ')}.</p>
+    ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? `<p class="muted small">Prints from shops link to the shop, which sells and ships them. Walldrobe may earn a small commission when you buy, at no cost to you.</p>` : ''}` : ''}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <div class="guide-head"><h2 id="guide-h">Hanging guide</h2><button type="button" class="btn-quiet" data-act="print">Print the hanging guide</button></div>
       <p class="muted">${esc(L.summary)} Nail spots are measured from the left end of the wall and up from the floor.</p>
