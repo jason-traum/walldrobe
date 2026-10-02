@@ -186,23 +186,16 @@ function run() {
   return S.view;
 }
 function build(key) {
-  let r = layout({ ...engineInput(), keep: keepList() });
+  // Pieces you keep that can't all go up: the engine leaves out as few as it can, smallest first, and says which.
+  const r = layout({ ...engineInput(), keep: keepList(), prefs: { ...engineInput().prefs, dropFewest: true } });
   const problems = [...r.problems];
-  // Pieces you keep that leave no room for new art: let them move or be left out, and say so.
-  if (!r.layouts.length && keptOwned().length && !S.draft.justMine) {
-    const stuck = keptOwned();
-    for (const o of stuck) o.loosen = true;
-    r = layout({ ...engineInput(), keep: keepList() });
-    for (const o of stuck) delete o.loosen;
-    if (r.layouts.length) problems.unshift({ code: 'LOOSENED', message: stuck.length === 1 ? `Your ${stuck[0].title} doesn't fit with new art here, so some walls leave it out.` : "Your pieces don't all fit with new art here, so some walls leave one out." });
-  }
   let all = r.layouts;
   // A tight wall makes few walls at one fullness: add the ones the other two
   // make, after these, so there's always a real list to choose from.
   if (all.length && rerank(all, { distinct: true }).length < 8) {
     const mine = S.draft.fullness || 'balanced';
     for (const f of ['full', 'calm', 'balanced'].filter((x) => x !== mine)) {
-      const more = layout({ ...engineInput(), prefs: { fullness: f }, keep: keepList() }).layouts;
+      const more = layout({ ...engineInput(), prefs: { fullness: f, dropFewest: true }, keep: keepList() }).layouts;
       const have = new Set(all.map((L) => L.key));
       all = all.concat(more.filter((L) => !have.has(L.key)).map((L) => ({ ...L, score: (L.score || 0) - 0.05, other: f })));
     }
@@ -216,7 +209,7 @@ function build(key) {
 function rank() {
   const v = S.view;
   const before = v.list.map((L) => L.key);
-  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, hung: S.draft.owned.filter((o) => o.at), distinct: true });
+  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, hung: S.draft.owned.filter((o) => o.at), want: S.draft.justMine ? [] : keptOwned().map((o) => o.id), distinct: true });
   // A saved wall leads, the way it was left.
   const chosen = S.draft.chosen && v.all[0] && S.draft.chosen.layout.key === v.all[0].key ? v.list.findIndex((L) => L.key === v.all[0].key) : -1;
   if (chosen > 0) { const [c] = v.list.splice(chosen, 1); v.list.unshift(c); v.list.forEach((L, i) => { L.rank = i + 1; }); }
@@ -331,7 +324,9 @@ function cleanWall() {
   if (!S.mem.flat) return p.flat;
   const img = { data: new Uint8ClampedArray(S.mem.flat.data), width: S.mem.flat.width, height: S.mem.flat.height };
   const m = p.ppi; // a small margin for the frame's shadow
-  for (const o of moving) paintOut(img, { x: o.rect.x - m, y: o.rect.y - m, w: o.rect.w + 2 * m, h: o.rect.h + 2 * m }, Math.round(2 * p.ppi));
+  const rects = moving.map((o) => ({ x: o.rect.x - m, y: o.rect.y - m, w: o.rect.w + 2 * m, h: o.rect.h + 2 * m }));
+  const wall = p.auto && p.auto.wallRgb ? p.auto.wallRgb : null;
+  for (const r of rects) paintOut(img, r, Math.round(2 * p.ppi), { wall, skip: rects });
   S.mem.clean = toDataUrl(img, 0.82); S.mem.cleanKey = key;
   // Kept with the wall so saved walls and their previews show it without the old spots.
   p.clean = S.mem.clean; p.cleanKey = key;
@@ -708,7 +703,7 @@ function check() {
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const from = auto && p.auto.guess ? p.auto.guess.from : null;
   const why = { low: ' A 55 in one would put the ceiling under 7 ft.', high: ' A 55 in one would put the ceiling over 11 ft.', others: ' The other things in the photo say so.' }[p.auto && p.auto.tvWhy] || '';
-  const guess = NO_TAPE[from] ? `${NO_TAPE[from].why} Measure the wall to be exact.` : from === 'tv' ? `From your TV, taken as a ${p.auto.tvInches} in TV.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
+  const guess = from === 'together' && p.auto.guess.why ? `${p.auto.guess.why} Measure the wall to be exact.` : NO_TAPE[from] ? `${NO_TAPE[from].why} Measure the wall to be exact.` : from === 'tv' ? `From your TV, taken as a ${p.auto.tvInches} in TV.${why} Measure the wall to be exact.` : from === 'measure' ? 'From your measurement.' : 'Measure the wall to be exact.';
   const tvPick = from === 'tv' ? `<label class="inline">Your TV <select id="tv-size" aria-label="Your TV's size">${TV_SIZES.map(([dg]) => `<option value="${dg}"${dg === p.auto.tvInches ? ' selected' : ''}>${dg} in</option>`).join('')}</select></label>` : '';
   const tvGuess = tvCandidate(d);
   const fix = S.ui.fix;
@@ -820,9 +815,22 @@ function noTapeOptions(p) {
   const couch = biggest('couch', 'w');
   if (couch && couch.w > a.rw * 0.2) out.push(['couch', Math.round((a.rw * 84) / couch.w)]);
   if (p.seen && p.seen.ceiling !== false && !p.seen.soffit) out.push(['ceiling', Math.round((96 * a.rw) / a.rh)]);
-  out.push(['guess', 120]);
-  return out.filter(([, W]) => W >= 36 && W <= 480);
+  const real = out.filter(([, W]) => W >= 36 && W <= 480);
+  // Two or more things in the photo that agree on the size: offer that first, as one tap.
+  const agree = together(real);
+  return [...(agree ? [agree] : []), ...real, ['guess', 120]];
 }
+const NAMES = { door: 'the door', bed: 'the bed', couch: 'the couch', ceiling: 'an 8 ft ceiling' };
+function together(opts) {
+  if (opts.length < 2) return null;
+  const ws = opts.map(([, W]) => W);
+  if (Math.max(...ws) / Math.min(...ws) > 1.15) return null;
+  const W = Math.round(Math.exp(ws.reduce((t, w) => t + Math.log(w), 0) / ws.length));
+  const names = opts.map(([k]) => NAMES[k]);
+  const list = names.length === 2 ? `${names[0]} and ${names[1]}` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return ['together', W, { label: `Use ${feet(W)} wide`, why: `Worked out from ${list}, which agree on the size.`, sub: `${list[0].toUpperCase()}${list.slice(1)} agree on it.` }];
+}
+const noTapeInfo = (o) => o[2] || NO_TAPE[o[0]];
 
 function sizeScreen() {
   const p = S.draft && S.draft.photo;
@@ -863,7 +871,8 @@ function sizeScreen() {
     ${opts.length ? `<section class="samples">
       <h2>No tape measure?</h2>
       <p class="pencil">Pick something standard in the photo. It's a guess, and you can fix it on the next screen.</p>
-      <div class="acts left">${opts.map(([k]) => `<button type="button" class="btn quiet small" data-notape="${k}">${esc(NO_TAPE[k].label)}</button>`).join('')}</div>
+      ${opts[0][0] === 'together' ? `<div class="acts left together"><button type="button" class="btn" data-notape="together">${esc(opts[0][2].label)}</button><span class="help">${esc(opts[0][2].sub)}</span></div>` : ''}
+      <div class="acts left">${opts.filter((o) => o[0] !== 'together').map((o) => `<button type="button" class="btn quiet small" data-notape="${o[0]}">${esc(noTapeInfo(o).label)}</button>`).join('')}</div>
     </section>` : ''}
   </main>`;
 }
@@ -1066,7 +1075,7 @@ const pxNow = () => ($('#drawing') && $('#drawing').clientWidth) || Math.min(760
 // The ways a wall can't be shown, said plainly, with the way on.
 function noWalls(v) {
   const d = S.draft;
-  const p = v.problems.find((x) => x.code !== 'FAMILY_SKIPPED' && x.code !== 'ALL_SHOWN' && x.code !== 'LOOSENED');
+  const p = v.problems.find((x) => x.code !== 'FAMILY_SKIPPED' && x.code !== 'ALL_SHOWN' && x.code !== 'LEFT_OUT');
   return `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="change">Change</button>')}
   <main class="page">
     <div class="drawing">${drawWall(null, pxNow(), { still: true })}</div>
@@ -1100,7 +1109,7 @@ function feed() {
   if (!v.list.length) return noWalls(v);
   const d = S.draft;
   const px = pxNow();
-  const note = v.problems.find((x) => x.code === 'LOOSENED');
+  const note = v.problems.find((x) => x.code === 'LEFT_OUT');
   const items = v.list.map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
@@ -1163,6 +1172,7 @@ function wallScreen() {
     ${legend(L)}
     <h1 class="why">${esc(whyText(L))}</h1>
     <p class="cost">${esc(costShort(L))}</p>
+    ${breaksNote(L)}
     <div class="acts left">
       <button type="button" class="btn" data-act="get">${total.priced || total.free ? 'Get this wall' : 'Hang this wall'}</button>
       <button type="button" class="btn quiet" data-act="save">${S.ui.saved === d.id && !store.demoMode ? 'Saved on this device' : 'Save this wall'}</button>
@@ -1175,6 +1185,14 @@ function wallScreen() {
     </section>
   </main>${sheetHtml()}`;
 }
+// The wall as it hangs now is shown even when it breaks a rule; say which, plainly.
+function breaksNote(L) {
+  const hard = (L.breaks || []).filter((b) => b.hard);
+  if (L.variant !== 'asis' || !hard.length) return '';
+  const first = hard.slice(0, 2).map((b) => b.message).filter(Boolean);
+  return `<p class="note">This is how it hangs now. ${hard.length === 1 ? 'One spot is' : `${hard.length} spots are`} closer than we'd hang art${first.length ? `: ${esc(first.join('; '))}` : ''}.</p>`;
+}
+
 // Where a piece of yours goes in this wall, against where it hangs now.
 function moveNote(p) {
   const o = S.draft.owned.find((x) => x.id === p.ref.id);
@@ -2034,7 +2052,7 @@ document.addEventListener('click', (e) => {
     S.busy = 'flatten';
     ensurePixels().then(() => {
       setScale(opt[1]);
-      p.auto.guess = { from: opt[0], inches: opt[1] };
+      p.auto.guess = { from: opt[0], inches: opt[1], why: noTapeInfo(opt).why };
       applyAuto(); flattenAuto(); resetLayouts(); persist();
       S.busy = null; go('#/check');
     }).catch(() => { S.busy = null; S.ui.sizeErr = "Couldn't flatten the photo. Try again, or use another photo."; render(); });

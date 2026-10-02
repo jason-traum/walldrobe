@@ -9,9 +9,9 @@
 
 import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
-import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
+import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS, FURNITURE } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
-import { flowStructures, openSpace, shapeScore } from './flow.js';
+import { flowStructures, openSpace, shapeScore, canPack } from './flow.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes, whyLine } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
 import { designScore, lookalike, lookPenalty } from './design.js';
@@ -329,7 +329,8 @@ function flowZone(ctx, g) {
 function wallShape(L, ctx) {
   const frames = L.pieces.map((p, i) => ({ x: p.x, y: p.y, w: p.w, h: p.h, g: (L.st.slots[i] && L.st.slots[i].g) || 0 }));
   for (const p of ctx.pinned) frames.push({ x: p.at.x, y: p.at.y, w: p.w, h: p.h, g: 0 });
-  return shapeScore(frames, { space: ctx.space, wall: ctx.wall, obstacles: ctx.obstacles, fullness: ctx.prefs.fullness }).score;
+  const free = L.family === 'flow';
+  return shapeScore(frames, { space: ctx.space, wall: ctx.wall, obstacles: ctx.obstacles, fullness: ctx.prefs.fullness, free, loose: free && L.variant !== 'neat' }).score;
 }
 
 function fitScore(L, ctx) {
@@ -498,6 +499,13 @@ function structuresFor(fam, sctx) {
  * @returns {{ layouts: object[], problems: {code: string, message: string}[], zone: object|null }}
  */
 export function layout(input) {
+  const r = layoutOnce(input);
+  const prefs = (input && input.prefs) || {};
+  const out = !r.layouts.length && prefs.dropFewest ? dropFewest(input, r) : r;
+  return withAsIs(input, out);
+}
+
+function layoutOnce(input) {
   const ctx = prepare(input);
   const { prefs, loose, kept } = ctx;
   // The places to try: the one asked for, or all of them.
@@ -734,11 +742,195 @@ export function layout(input) {
     const style = { structured: 'a structured layout', gallery: 'a gallery wall' }[prefs.style] || 'a layout';
     problems.unshift({ code: 'COUNT_DOESNT_FIT', pieces: prefs.pieces, near, message: near ? `${prefs.pieces} pieces don't make ${style} here. ${near} do.` : `${prefs.pieces} pieces don't fit here.` });
   } else if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) {
-    problems.unshift(zone ? whyNothing(must, zone, ctx.catalogCands, loose) : { code: 'NO_OPEN_SPACE', message: "There's no stretch of wall wide enough to hang on." });
+    const together = prefs.families.includes('flow') && must.length >= 2 ? mustsDontFit(must, ctx) : null;
+    problems.unshift(together || (zone ? whyNothing(must, zone, ctx.catalogCands, loose) : { code: 'NO_OPEN_SPACE', message: "There's no stretch of wall wide enough to hang on." }));
   }
 
   const layouts = chosen.map((L, i) => finish(L, i + 1, L.zc));
   return { layouts, problems, zone: zone ? zoneOut(zone) : null, zones: ctx.zones.map(zoneOut), counts: fits };
+}
+
+/**
+ * Judge an arrangement someone already has: the same hard checks and the same
+ * scoring layout() uses on its own free-form walls, on pieces placed by hand.
+ * @param {object} input the same input layout() gets
+ * @param {{ id: string, x: number, y: number, w?: number, h?: number }[]} placed pieces by id
+ *   (yours, or catalog pieces with the frame size w x h), bottom-left corner in inches
+ * @returns {{ ok: boolean, fails: string[], score: number, comp: number, parts: object, checks: object, layout: object }}
+ */
+export function scoreArrangement(input, placed, opts = {}) {
+  if (!Array.isArray(placed) || !placed.length) throw new TypeError('scoreArrangement() needs a list of placed pieces.');
+  const a = arrangement(prepare(input), placed, opts.variant || 'asis');
+  return { ok: !a.fails.length, fails: a.fails, breaks: a.breaks, score: a.j.score, comp: a.j.comp, parts: a.j.parts, checks: a.j.checks, layout: a.out };
+}
+
+// Pieces placed by hand, judged as a free-form wall: the layout, its score, the hard
+// checks it fails and every rule it breaks.
+function arrangement(ctx, placed, variant, rank = 0) {
+  const pieces = placed.map((pl) => {
+    if (!pl || !pl.id || !num(pl.x) || !num(pl.y)) throw new TypeError(`Placed piece ${(pl && pl.id) || '(no id)'} needs id, x and y.`);
+    const own = ctx.ownedById.get(pl.id);
+    const cat = own ? null : ctx.catalogById.get(pl.id);
+    if (!own && !cat) throw new TypeError(`${pl.id} isn't one of your pieces or in the catalog.`);
+    const w = own ? own.w : pl.w, h = own ? own.h : pl.h;
+    if (!num(w) || !num(h)) throw new TypeError(`Placed piece ${pl.id} needs its frame size.`);
+    const base = { id: pl.id, title: titleOf(own || cat), w, h, x: pl.x, y: pl.y, cx: pl.x + w / 2, cy: pl.y + h / 2, row: null, role: 'fill', side: null, slot: { x: pl.x, y: pl.y, w, h } };
+    return own
+      ? { ...base, ref: { source: 'owned', id: own.id }, fixed: true, keep: own.keep, kept: false, price: 0, taste: null, drop: own.drop, artistName: null }
+      : { ...base, ref: { source: 'catalog', id: cat.id }, fixed: false, keep: null, kept: false, price: priceOf(cat, w, h), taste: ctx.tasteOf(cat.id), drop: null, artistName: cat.artist || null, ...catalogExtra(cat) };
+  });
+  const x0 = Math.min(...pieces.map((p) => p.x)), y0 = Math.min(...pieces.map((p) => p.y));
+  const group = { x: x0, y: y0, w: Math.max(...pieces.map((p) => p.x + p.w)) - x0, h: Math.max(...pieces.map((p) => p.y + p.h)) - y0, shift: 0 };
+  const st = {
+    family: 'flow', variant, W: group.w, H: group.h,
+    slots: pieces.map((p) => ({ w: p.w, h: p.h, dx: p.x - x0, dy: p.y - y0, fixed: p.fixed ? ctx.ownedById.get(p.id) : null, row: null, role: null, g: 0 })),
+    meta: { ragged: 0, gaps: [RULES.gap], rows: null, groups: 1 },
+  };
+  const L = {
+    family: 'flow', variant, meta: st.meta, group, shift: 0, pieces, st, index: null, bySlot: new Map(),
+    happyTotal: ctx.loose.filter((p) => p.keep === 'happy').length, key: `hand|${structureKey(st)}@${q(x0)},${q(y0)}`,
+  };
+  const zc = { ...ctx, zone: flowZone(ctx, group) };
+  const j = judge(L, zc);
+  const fails = checkPieces(pieces, ctx.regions, ctx.wall);
+  const ids = new Set(pieces.map((p) => p.ref.id));
+  for (const p of ctx.loose) if (p.keep === 'must' && !ids.has(p.id)) fails.push(`${p.id} must be on the wall`);
+  if (ids.size !== pieces.length) fails.push('a piece is placed twice');
+  return { fails, breaks: breaksOf(pieces, ctx), j, out: finish({ ...L, ...j }, rank, zc) };
+}
+
+// ---------- The wall as it hangs now ----------
+
+const r4 = (v) => Math.round(v * 4) / 4;
+const fmt = (v) => `${v}`;
+
+// Every rule an arrangement breaks, hard and soft: { rule, piece, by (inches), hard, with?, message }.
+export function breaksOf(pieces, ctx) {
+  const out = [];
+  const add = (rule, p, by, hard, message, w) => out.push({ rule, piece: p.ref ? p.ref.id : p.id, by: r4(by), hard, ...(w ? { with: w } : {}), message });
+  const name = (p) => shortTitle(p.title || p.id);
+  const W = ctx.wall;
+  for (const p of pieces) {
+    if (p.x < RULES.edge - EPS) add('wall-end', p, RULES.edge - p.x, true, `Your ${name(p)} is ${fmt(r4(RULES.edge - p.x))} in too close to the left end of the wall (the rule is ${RULES.edge} in).`);
+    if (p.x + p.w > W.width - RULES.edge + EPS) add('wall-end', p, p.x + p.w - (W.width - RULES.edge), true, `Your ${name(p)} is ${fmt(r4(p.x + p.w - (W.width - RULES.edge)))} in too close to the right end of the wall (the rule is ${RULES.edge} in).`);
+    if (p.y < -EPS) add('floor', p, -p.y, true, `Your ${name(p)} runs ${fmt(r4(-p.y))} in below the floor.`);
+    const top = W.height - (p.y + p.h);
+    if (top < RULES.ceilingHard - EPS) add('ceiling', p, RULES.ceilingHard - top, true, `Your ${name(p)} is ${fmt(r4(top))} in under the ceiling; the rule is at least ${RULES.ceilingHard}.`);
+    else if (top < RULES.ceilingSoft - EPS) add('ceiling-soft', p, RULES.ceilingSoft - top, false, `Your ${name(p)} is ${fmt(r4(top))} in under the ceiling; ${RULES.ceilingSoft} or more looks better.`);
+    for (const r of ctx.regions) {
+      if (!overlapsBox(p, r)) continue;
+      const o = ctx.obstacles.find((x) => x.id === r.id);
+      const what = o ? String(o.label || o.kind).toLowerCase() : 'piece that stays put';
+      if (o && FURNITURE.has(o.kind)) {
+        add('furniture-clearance', p, r.y + r.h - p.y, true, `Your ${name(p)} is ${fmt(r4(p.y - (o.y + o.h)))} in above the ${what}; the rule is at least ${fmt(r4(r.y + r.h - (o.y + o.h)))}.`, r.id);
+      } else {
+        const by = Math.min(p.x + p.w - r.x, r.x + r.w - p.x, p.y + p.h - r.y, r.y + r.h - p.y);
+        add(r.kind === 'pinned' ? 'pinned-clearance' : 'blocker-clearance', p, by, true, `Your ${name(p)} is ${fmt(r4(by))} in too close to the ${what}.`, r.id);
+      }
+    }
+  }
+  for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
+    const a = pieces[i], b = pieces[j];
+    const xg = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w)), yg = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+    const gap = Math.max(xg, yg);
+    const side = xg >= yg ? Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) : Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    if (gap < RULES.gapHard - EPS) add('gap', a, RULES.gapHard - gap, true, gap < 0 ? `Your ${name(a)} and ${name(b)} overlap.` : `Your ${name(a)} and ${name(b)} are ${fmt(r4(gap))} in apart; the rule is at least ${RULES.gapHard}.`, b.ref ? b.ref.id : b.id);
+    else if (side > 1 && gap <= 6 && (gap < RULES.gapMin - EPS || gap > RULES.gapMax + EPS)) add('gap-soft', a, gap < RULES.gapMin ? RULES.gapMin - gap : gap - RULES.gapMax, false, `Your ${name(a)} and ${name(b)} are ${fmt(r4(gap))} in apart; ${RULES.gapMin} to ${RULES.gapMax} looks most even.`, b.ref ? b.ref.id : b.id);
+  }
+  return out;
+}
+const overlapsBox = (a, b) => a.x < b.x + b.w - EPS && b.x < a.x + a.w - EPS && a.y < b.y + b.h - EPS && b.y < a.y + a.h - EPS;
+
+// When every piece of yours has a spot where it hangs now, the wall as it is always
+// comes back, even when it breaks a rule: it's the person's real wall. `breaks` says
+// which rules, by how much. Added after the others when layout() didn't make it.
+function withAsIs(input, r) {
+  const owned = (input.owned || []).filter((p) => !p.pinned);
+  const prefs = input.prefs || {};
+  if (!owned.length || !owned.every((p) => p.at && num(p.at.x) && num(p.at.y)) || (num(prefs.pieces) && prefs.pieces >= 1) || (Array.isArray(input.base) && input.base.length)) return r;
+  const ctx = prepare(input);
+  const a = arrangement(ctx, owned.map((p) => ({ id: p.id, x: p.at.x, y: p.at.y })), 'asis');
+  const have = r.layouts.findIndex((L) => L.variant === 'asis');
+  if (have >= 0) {
+    const layouts = r.layouts.slice();
+    layouts[have] = { ...layouts[have], breaks: a.breaks };
+    return { ...r, layouts };
+  }
+  const L = { ...a.out, rank: r.layouts.length + 1, breaks: a.breaks };
+  return { ...r, layouts: [...r.layouts, L] };
+}
+
+// ---------- Leaving out as few pieces as possible ----------
+
+function* combos(list, k, start = 0, acc = []) {
+  if (acc.length === k) { yield acc.slice(); return; }
+  for (let i = start; i < list.length; i++) { acc.push(list[i]); yield* combos(list, k, i + 1, acc); acc.pop(); }
+}
+
+// Pieces you keep that can't all go up together: try leaving out one, then two, the
+// smallest first, and return the walls of the first ones that work. Never more than
+// a third of them (rounded down), so seven never become three.
+const DROP_TRIES = 12;   // combinations tried per number left out, smallest first
+const DROP_SETS = 2;     // how many different sets left out the list shows
+function dropFewest(input, first) {
+  const owned = input.owned || [];
+  const musts = owned.filter((p) => p.keep === 'must' && !p.pinned);
+  if (musts.length < 2) return first;
+  const ctx = prepare(input);
+  const maxDrop = Math.max(1, Math.floor(musts.length / 3));
+  const area = (ps) => ps.reduce((s, p) => s + p.w * p.h, 0);
+  const prefs = { ...(input.prefs || {}), dropFewest: false };
+  for (let k = 1; k <= maxDrop; k++) {
+    const sets = [...combos(musts, k)].sort((a, b) => area(a) - area(b) || cmpStr(a.map((p) => p.id).join(), b.map((p) => p.id).join())).slice(0, DROP_TRIES);
+    const found = [];
+    for (const [i, drop] of sets.entries()) {
+      const out = new Set(drop.map((p) => p.id));
+      const rest = musts.filter((p) => !out.has(p.id));
+      // A quick look first: can the rest be packed on the open wall at all? (The first set is always tried in full.)
+      if (i > 0 && !canPack({ wall: ctx.wall, obstacles: ctx.obstacles, space: ctx.space, pinned: ctx.pinned, pieces: rest })) continue;
+      const sub = layoutOnce({ ...input, prefs, owned: owned.map((p) => (out.has(p.id) ? { ...p, keep: 'dontcare' } : p)) });
+      const walls = sub.layouts.filter((L) => drop.every((p) => !L.pieces.some((x) => x.ref.id === p.id)));
+      if (walls.length) found.push({ drop, walls });
+      if (found.length >= DROP_SETS) break;
+    }
+    if (!found.length) continue;
+    const n = musts.length;
+    const layouts = [];
+    // "The smallest" only when it is; otherwise it's the smallest that makes room.
+    const smallest = sets[0].map((p) => p.id).join();
+    for (const { drop, walls } of found) {
+      const ids = new Set(drop.map((p) => p.id));
+      const least = drop.map((p) => p.id).join() === smallest;
+      const why = drop.length === 1
+        ? `Left off so the other ${words(n - 1)} fit: all ${words(n)} don't fit on this wall together, and ${least ? "it's the smallest" : "it's one of the smallest"}.`
+        : `Left off so the other ${words(n - drop.length)} fit: all ${words(n)} don't fit on this wall together, and ${least ? 'these are the smallest' : 'these are among the smallest'}.`;
+      for (const L of walls) layouts.push({ ...L, dropped: [...ids], left: L.left.map((l) => (ids.has(l.id) ? { ...l, reason: why, dropped: true } : l)) });
+    }
+    const count = num(input.count) && input.count >= 1 ? Math.floor(input.count) : 3;
+    const list = layouts.slice(0, Math.max(count, found.length)).map((L, i) => ({ ...L, rank: i + 1 }));
+    const names = found[0].drop.map((p) => shortTitle(titleOf(p)));
+    const problem = { code: 'LEFT_OUT', pieces: found[0].drop.map((p) => p.id), sets: found.map((f) => f.drop.map((p) => p.id)), message: `All ${words(n)} of your pieces don't fit on this wall together, so these walls leave out ${k === 1 ? `your ${names[0]}` : `${words(k)} of them`}${found[0].drop.map((p) => p.id).join() === smallest ? (k === 1 ? ', the smallest' : ', the smallest') : ''}.` };
+    return { ...first, layouts: list, problems: [problem, ...first.problems.filter((p) => p.code === 'FAMILY_SKIPPED')] };
+  }
+  return first;
+}
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+const words = (n) => WORDS[n] || String(n);
+
+// The pieces you keep can't all go up together here: say so plainly, with the area
+// when that's the reason, instead of comparing their widths with one stretch of wall.
+function mustsDontFit(must, ctx) {
+  const art = must.reduce((s, p) => s + p.w * p.h, 0);
+  const n = must.length;
+  if (canPack({ wall: ctx.wall, obstacles: ctx.obstacles, space: ctx.space, pinned: ctx.pinned, pieces: must })) return null;
+  const sqft = (v) => Math.round(v / 144 * 10) / 10;
+  const big = art > 0.8 * ctx.space.area;
+  return {
+    code: 'MUSTS_DONT_FIT', count: n,
+    message: big
+      ? `Your ${words(n)} pieces cover ${sqft(art)} sq ft together, and this wall has ${sqft(ctx.space.area)} sq ft of open space.`
+      : `Your ${words(n)} pieces don't all fit on this wall together, around the furniture and with room between them.`,
+  };
 }
 
 /**

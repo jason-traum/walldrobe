@@ -118,8 +118,22 @@ const med = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.flo
 
 // Cover a rectangle (pixels, top-left origin) with the wall color around it, so a
 // piece that moves in the new layout doesn't also show where it used to hang.
-export function paintOut(img, r, ring = 6) {
+// opts.wall: the wall's own color [r, g, b]; a sample far from it (a lamp, the
+// next frame, a shadow) isn't wall and isn't used. opts.skip: other spots being
+// painted out, never sampled from.
+// Wall, in light or in shade: about as bright as the wall (half to a quarter more),
+// and the same color once brightness is set aside. A lamp, a black frame or a
+// pink mat next door isn't.
+function wallLike(r, g, b, wall) {
+  const l = r + g + b, lw = wall[0] + wall[1] + wall[2];
+  if (!lw || l < lw * 0.55 || l > lw * 1.25) return false;
+  const k = lw / l;
+  return Math.hypot(r * k - wall[0], g * k - wall[1], b * k - wall[2]) < 28;
+}
+export function paintOut(img, r, ring = 6, opts = {}) {
   const { data, width, height } = img;
+  const wall = opts.wall || null, skip = opts.skip || [];
+  const inSkip = (x, y) => skip.some((q) => q !== r && x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
   const x0 = Math.max(0, Math.floor(r.x)), y0 = Math.max(0, Math.floor(r.y));
   const x1 = Math.min(width, Math.ceil(r.x + r.w)), y1 = Math.min(height, Math.ceil(r.y + r.h));
   if (x1 <= x0 || y1 <= y0) return img;
@@ -135,11 +149,13 @@ export function paintOut(img, r, ring = 6) {
   const sampleAlong = (len, pick) => {
     // pick(i) -> list of [x, y] pixels across the ring at position i
     const raw = strip(len, (i) => {
-      const pts = pick(i).filter(([x, y]) => x >= 0 && y >= 0 && x < width && y < height);
+      const pts = pick(i).filter(([x, y]) => x >= 0 && y >= 0 && x < width && y < height && !inSkip(x, y)
+        && (!wall || wallLike(px(x, y, 0), px(x, y, 1), px(x, y, 2), wall)));
       if (!pts.length) return null;
       return [0, 1, 2].map((k) => med(pts.map(([x, y]) => px(x, y, k))));
     });
-    if (raw.every((v) => !v)) return null;
+    // An edge that's mostly not wall (a lamp beside it, the next frame) isn't used at all.
+    if (raw.filter(Boolean).length < Math.max(1, len * 0.25)) return null;
     // Fill gaps, then a box blur along the edge.
     let last = raw.find(Boolean);
     const filled = raw.map((v) => (v ? (last = v) : last));
