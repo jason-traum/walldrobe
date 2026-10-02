@@ -60,7 +60,8 @@ States that apply everywhere:
 
 | State | What they see | Action |
 |---|---|---|
-| Empty | The flattened wall, "Mark anything the art should clear." Buttons: furniture, window, door, outlet, switch, TV, other | Draw a box, skip |
+| Empty | The flattened wall, "Mark anything the art should clear." Buttons: couch, bed, dresser, console, TV, lamp, plant, window, door, wall edge, outlet, switch | Add, drag, skip |
+| Wall edge | A dashed line floor to ceiling where the wall steps or turns. Art doesn't cross it | Drag it |
 | One or more marked | Boxes with their names, each editable | Move, resize, delete, next |
 | Furniture height unknown | "How tall is the couch back?" with a default of 32 in | Accept, edit |
 | Everything blocked | "There's no stretch of wall wide enough to hang on." | Edit boxes |
@@ -74,6 +75,7 @@ One screen after the corners: the flattened photo with what we found marked, the
 | A box picked | Tap any box on the photo: four corner handles and its size under it. Drag a corner to resize, the middle to move; the same close-up follows the finger. The row's fields follow | Drag, Fix |
 | Found art | Each piece as a row: thumbnail cut from the photo, "Your [title]", size, Keep / Skip (Keep is on) | Keep, Skip, Fix |
 | Fixing a piece | Name, wide and tall in the row, and a photo button for art that isn't up | Done, Remove |
+| Fixing something in the way | "It's a" picks its kind (couch to wall edge), then wide, tall, from left, from floor | Done, Remove, It's art |
 | None found | "We didn't find any art on this wall." | Add art that isn't up yet, Mark art we missed |
 | A piece might be the TV | "It's the TV" link on the biggest wide piece when no TV was found | Tap it |
 | Sized from a TV | Under the width: "From your TV, taken as a 55 in TV. Measure the wall to be exact." and a TV size picker | Change the TV size, type the width |

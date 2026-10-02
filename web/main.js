@@ -822,7 +822,7 @@ function check() {
   const obRows = d.obstacles.map((o) => `<li class="row">
       <span class="thumb"><span class="kind">${esc(obName(o).split(' ')[0])}</span></span>
       <span class="row-text"><span class="name">${esc(obName(o))}</span><span class="meta">${o.w} x ${o.h} in</span>
-        ${fix === o.id ? `<span class="fix"><span class="nums">${num(o, 'w', 'Wide', 'data-obk')}${num(o, 'h', 'Tall', 'data-obk')}${num(o, 'x', 'From left', 'data-obk')}${num(o, 'y', 'From floor', 'data-obk')}</span>
+        ${fix === o.id ? `<span class="fix"><label class="inline"><span>It's a</span><select data-obkind="${esc(o.id)}">${OB_KINDS.map((k) => `<option value="${k}"${o.kind === k ? ' selected' : ''}>${esc(KIND_NAME[k])}</option>`).join('')}</select></label><span class="nums">${num(o, 'w', 'Wide', 'data-obk')}${num(o, 'h', 'Tall', 'data-obk')}${num(o, 'x', 'From left', 'data-obk')}${num(o, 'y', 'From floor', 'data-obk')}</span>
           <span class="fix-acts">${o.autoId && o.kind !== 'tv' ? `<button type="button" class="link" data-is-art="${esc(o.autoId)}">It's art</button>` : ''}<button type="button" class="link" data-remove-ob="${esc(o.id)}">Remove</button><button type="button" class="btn quiet small" data-fix="">Done</button></span></span>`
         : `<button type="button" class="link" data-fix="${esc(o.id)}" aria-label="Fix the ${esc(obName(o))}">Fix</button>`}</span>
     </li>`).join('');
@@ -1072,6 +1072,7 @@ function sizeScreen() {
 
 // ---------- Marking things by hand ----------
 
+const OB_KINDS = ['couch', 'headboard', 'dresser', 'console', 'shelf', 'tv', 'lamp', 'plant', 'window', 'door', 'mirror', 'edge', 'outlet', 'switch', 'furniture'];
 const DEFAULTS = {
   couch: (W) => ({ w: Math.min(84, W - 12), h: 32, x: (W - Math.min(84, W - 12)) / 2, y: 0 }),
   lamp: (W) => ({ w: 16, h: 62, x: Math.max(0, W - 22), y: 0 }),
@@ -1084,6 +1085,8 @@ const DEFAULTS = {
   tv: (W) => ({ w: 50, h: 29, x: (W - 50) / 2, y: 40 }),
   outlet: () => ({ w: 3, h: 5, x: 10, y: 12 }),
   switch: (W) => ({ w: 3, h: 5, x: W - 10, y: 46 }),
+  // A corner or a step in the wall (a column, a bump-out): floor to ceiling, a hair wide.
+  edge: (W) => ({ w: 1, h: S.draft.height, x: Math.round(W / 3), y: 0 }),
 };
 function clampOb(o) {
   const W = S.draft.width, H = S.draft.height;
@@ -1109,7 +1112,7 @@ function things() {
   if (need()) { go(need()); return ''; }
   const d = S.draft;
   const photo = d.photo && d.photo.flat;
-  const kinds = ['couch', 'headboard', 'dresser', 'console', 'tv', 'lamp', 'plant', 'window', 'door', 'outlet', 'switch'];
+  const kinds = ['couch', 'headboard', 'dresser', 'console', 'tv', 'lamp', 'plant', 'window', 'door', 'edge', 'outlet', 'switch'];
   const num = (o, k, label) => `<label class="num"><span>${label}</span><span class="num-in"><input type="number" step="0.5" min="0" data-obk="${k}" data-obid="${esc(o.id)}" value="${o[k]}"> in</span></label>`;
   return `${bar(back(d.photo ? '#/check' : '#/start', d.photo ? 'Your wall' : 'Size'))}
   <main class="page">
@@ -2552,6 +2555,17 @@ document.addEventListener('change', (e) => {
   if (t.dataset.obk) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
     if (o) { if (o.autoId) forgetAuto(o.autoId); o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
+  }
+  if (t.dataset.obkind) {
+    const o = S.draft.obstacles.find((x) => x.id === t.dataset.obkind);
+    if (o) {
+      if (o.autoId) forgetAuto(o.autoId);
+      o.kind = t.value; delete o.label;
+      // A wall edge runs floor to ceiling, a hair wide, where the box's middle was.
+      if (o.kind === 'edge') { const cx = o.x + o.w / 2; o.w = 1; o.x = cx - 0.5; o.y = 0; o.h = S.draft.height; o.fuzz = 0; }
+      clampOb(o); resetLayouts(); persist(); setTimeout(render, 0);
+    }
+    return;
   }
   if (t.dataset.std) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.std);
