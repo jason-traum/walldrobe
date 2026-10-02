@@ -101,7 +101,7 @@ The feed of ranked walls is where a layout is chosen. The open wall is where the
 | Layout preferences in one place: kind (any, structured, loose), how many (any, or a set number), how full, which art (shop prints, free art, both, just mine) | 1 | One level down from the feed and the open wall | 13, 18 |
 | Stepping the count and back brings the same walls back | 1, 4 | Engine and state, no control | 16 |
 | Kept pieces, and art you chose, come along to a new layout where they fit | 1, 5 | Engine, no control | 41 |
-| Tap a piece for its choices: favorites that fit first, then the best four, then "See all that fit" | 2 | Piece sheet, then a full list for that spot | 31, 59 |
+| Tap a piece (on the drawing or its row) to open it: its choices with favorites that fit first, then the best four, then "See all that fit"; Keep, Remove this frame and the heart are in the same sheet. No double tap, no long press | 2 | Piece sheet, then a full list for that spot | 31, 59, 64 |
 | Three meanings kept apart: keep in every wall, stays where it hangs (yours), favorite (heart) | 2 | Piece sheet; the heart also on each row | 5, 8, 37 |
 | Remove this frame: one fewer, the other frames stay | 2 | Piece sheet | 31, 38 |
 | New art in the open frames: same frames, new picks, kept and yours stay | 2 | One level down from the open wall | 15 |
@@ -118,7 +118,9 @@ The feed of ranked walls is where a layout is chosen. The open wall is where the
 | Confirm-screen fixes since a63c921: drag any box, close-up above the finger, nudge pad, wall edge, change what a found thing is | before 1 | Corners and confirm screens | 17, 20, 55, 56 |
 | Light mode only | all | Tokens | 19 |
 
-### Can wait
+### Later: kept, rebuilt after the loop works
+
+These are secondary, not dropped. Their code stays on the v2 and v3 branches and they come back one at a time once the core loop is done. Walldrobe will later have sign-in and become a platform where these live (Jason, 2026-10-02).
 
 | Feature | Why it waits | FEEDBACK |
 |---|---|---|
@@ -129,7 +131,8 @@ The feed of ranked walls is where a layout is chosen. The open wall is where the
 | What we learned page and Never show me | The engine keeps using them; the page waits | 40, 46 |
 | Your art from before on a new wall | Small; after compare works | 11 |
 | Wall sections and a whole home | Engine first | 49 |
-| Tap to lock, double tap to like | Open question | 39 |
+| On a computer, small icons on hover (heart, keep) to skip opening the sheet | The phone comes first; same actions, added later | 39, 64 |
+| Tap to lock, double tap to like | Replaced: a tap opens the piece (row 64); no double tap, it fights zoom on iPhone | 39 |
 
 ### Engine only (no interface)
 
