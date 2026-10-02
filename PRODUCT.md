@@ -107,7 +107,8 @@ The feed of ranked walls is where a layout is chosen. The open wall is where the
 | New art in the open frames: same frames, new picks, kept and yours stay | 2 | One level down from the open wall | 15 |
 | Undo every change, visible, inline | 2, 4 | Under the drawing, only after a change | 4 |
 | Your pieces as Keep, Maybe or Skip; one row of thumbnails on the wall, not full rows | 1, 2 | Confirm screen; the thumbnail row on the open wall | 8, 33, 34 |
-| Save this wall as a small icon; a saved wall keeps its pieces and reopens exactly | 3 | Open wall | 43, 44 |
+| The wall you are working on keeps itself: every change is kept on the device as you go, so leaving and coming back finds it as you left it. Save (a small icon) adds it to Your walls to compare; a saved wall keeps its pieces and reopens exactly. No automatic version history: Undo steps back one change at a time | 3, 4 | Open wall | 43, 44, 66 |
+| A swap changes only that one piece; every other frame and print stays. Only "New art in the open frames" changes several at once, never kept pieces or yours, and Undo brings them back | 2 | Piece sheet; the door | 31, 66 |
 | Make another: back to the feed with everything kept, nothing lost | 5 | The back link, as built | 44 |
 | Compare saved walls side by side | 6 | Your walls | 44 |
 | Favorites page; hearts feed taste | 2 | One level down | 5, 45, 59 |
