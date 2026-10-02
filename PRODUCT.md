@@ -38,7 +38,7 @@ Not knobs. Walldrobe generates every wall that fits the space once, keeps all of
 
 - Does it actually fit: real inches, clear of the window, the outlet and the couch.
 - Are my pieces in it, and did it respect the ones I said I'd keep.
-- What the new pieces cost at the store they link to.
+- What the new pieces cost at the store they link to. (Hidden in v4 for now: pricing will change, FEEDBACK 72.)
 - Does it look like me, or like a catalog.
 - Can I change it later without new holes (the frames stay, the prints swap).
 
