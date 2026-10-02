@@ -216,6 +216,9 @@ The cohort message asking classmates for wall photos is drafted (without promisi
 
 ## 10. Other open items
 
+- **Rethink the controls (Jason, 2026-10-02):** "with all of these buttons, its feeling more and more like ai slop... we need them but we need to rethink them... maybe its a drop down." The strip (style, fullness, art, count, refresh), the frame looks and the Change sheet all need one calmer pattern. Start from what a person changes most and hide the rest one level down.
+- **Taste goes deeper than the seven axes (Jason, 2026-10-02):** "art preferences are def more deep than just the metrics you picked." Warm, busy, abstract, print, light, vivid and black and white are a start. Next: subject (people, places, plants, type), era and style movement, medium, mood, and how pieces talk to each other on one wall. Learn from the pieces people save and hang, not only from a fixed list.
+- **Walls feed next:** follow people, most-saved pieces, a page to review reported walls. Walldrobe could move to its own Supabase project after Oct 25 if the race project is paused.
 - Design pass on the layouts screen; earlier proposal of near-black main buttons with red kept for measurements, never answered.
 - The image model's license is non-commercial.
 - Budget should be a hard limit, not a ranking factor.
