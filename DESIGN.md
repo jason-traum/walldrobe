@@ -58,7 +58,7 @@ Light, on `:root`:
 | `--field` | #777B7F | Input and control edges (dark #8D9195), so a field reads as a field at 3:1. |
 | `--swatch` | #8A8F94 | The stand-in color for a piece of yours with no photo. |
 
-Dark (`prefers-color-scheme: dark`): `--canvas` #1C1D1C, `--surface` #242624, `--ink` #ECEDEB, `--pencil` #A9ADB1, `--hairline` #343635, `--tape` #7FB3EC, `--tape-soft` #203247, `--on-tape` #0E1A28, `--marker` #E08DB4, `--marker-soft` #3A2430, `--error` #FF9C85. The drawn wall, frames, mats and the three tape strips do not change: a wall is light in both themes.
+Light only since 2026-10-02 (DECISIONS). The dark values below are kept for reference and not shipped. Dark (`prefers-color-scheme: dark`): `--canvas` #1C1D1C, `--surface` #242624, `--ink` #ECEDEB, `--pencil` #A9ADB1, `--hairline` #343635, `--tape` #7FB3EC, `--tape-soft` #203247, `--on-tape` #0E1A28, `--marker` #E08DB4, `--marker-soft` #3A2430, `--error` #FF9C85. The drawn wall, frames, mats and the three tape strips do not change: a wall is light in both themes.
 
 Contrast, WCAG 2.2 (computed):
 

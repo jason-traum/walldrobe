@@ -105,6 +105,11 @@ export const FAMILIES = Object.freeze(['flow', 'statement', 'line', 'grid', 'col
 // against the engine's (ENGINE.md, "His wall against the engine's"). Set a weight
 // to 0 to switch its rule off.
 export const FREEFORM = Object.freeze({
+  // Over a piece of furniture, a one-group wall should be about as wide as a set
+  // shape would be (RULES.anchorRange of the furniture's width); outside that the
+  // room part falls off linearly over this much of the ratio. 0 turns it off.
+  // Jason's couch photo: three pieces 28 in across topped the list over a 74 in couch.
+  widthFall: 0.3,
   // The biggest frame anchors the group: near its center line and not in its top
   // part. Share of the shape score; the other parts share the rest.
   anchor: 0.08,

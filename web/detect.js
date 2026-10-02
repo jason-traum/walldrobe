@@ -1118,7 +1118,8 @@ export function scaleEstimates(found, photo = {}) {
     out.push({ from: 'tv', ppi: tv.w / (setWidth(dg) * depth), inches: setWidth(dg), px: tv.w, depth, tvInches: dg, confidence: photo.tvPicked ? 0.9 : REF.tv.confidence, note: `a ${dg} in TV, ${setWidth(dg)} in wide${depth > 1.001 ? ', standing out from the wall' : ''}` });
   }
   const door = biggest(['door'], 'h');
-  if (door && (!rh || door.h > rh * 0.4)) out.push({ from: 'door', ppi: door.h / REF.door.inches, inches: REF.door.inches, px: door.h, confidence: REF.door.confidence, note: REF.door.note });
+  // A door runs to the floor: with the floor hidden it's cut short, and reads too small.
+  if (door && photo.floor !== false && (!rh || door.h > rh * 0.4)) out.push({ from: 'door', ppi: door.h / REF.door.inches, inches: REF.door.inches, px: door.h, confidence: REF.door.confidence, note: REF.door.note });
   const bed = biggest(['headboard', 'bed'], 'w');
   if (bed && (!rw || bed.w > rw * 0.15)) out.push({ from: 'bed', ppi: bed.w / REF.bed.inches, inches: REF.bed.inches, px: bed.w, confidence: REF.bed.confidence, note: REF.bed.note });
   const couch = biggest(['couch'], 'w');

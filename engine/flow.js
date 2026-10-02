@@ -195,7 +195,7 @@ export function shapeScore(frames, ctx) {
     // Relation to the room: centered on the TV or furniture it sits over or wraps,
     // or sharing a line with it when beside it; on bare wall, near the middle.
     const gcx = b.x + b.w / 2;
-    let rel = null;
+    let rel = null, besideRel = null;
     for (const a of anchors) {
       const overX = b.x < a.x + a.w - EPS && a.x < b.x + b.w - EPS;
       if (overX && b.y + b.h > a.y + a.h) {
@@ -204,9 +204,12 @@ export function shapeScore(frames, ctx) {
       } else if (!overX && b.y < a.y + a.h + 24 && b.y + b.h > a.y) {
         const top = a.y + a.h;
         const shared = [b.y + b.h, b.y, b.y + b.h / 2].some((v) => Math.abs(v - top) <= 1 || Math.abs(v - (a.y + a.h / 2)) <= 1);
-        rel = Math.max(rel ?? 0, shared ? 1 : 0.6);
+        besideRel = Math.max(besideRel ?? 0, shared ? 1 : 0.6);
       }
     }
+    // Over furniture, that's what the group answers to; a line shared with a shelf
+    // beside it doesn't make up for being the wrong size or off center over the couch.
+    if (rel === null) rel = besideRel;
     // Over more than one piece of furniture (a bed and a dresser): centered on them together.
     if (FREEFORM.span) {
       const under = anchors.filter((a) => b.y + b.h > a.y + a.h
@@ -221,6 +224,21 @@ export function shapeScore(frames, ctx) {
     room += ga * rel;
   }
   cohesion /= area; lines /= area; ears /= area; room /= area; anchor /= area;
+  // The wall as a whole over one piece of furniture: about as wide as a set shape
+  // would be (RULES.anchorRange of it). Too narrow reads as an afterthought; too wide
+  // spills past it. The widest piece of furniture under all of the art is the one.
+  if (FREEFORM.widthFall) {
+    const B = boxOf(frames);
+    const below = anchors.filter((a) => !SCREENS.has(a.kind) && B.x < a.x + a.w - EPS && a.x < B.x + B.w - EPS && B.y >= a.y + a.h - EPS);
+    // Over two pieces of furniture (a bed and a dresser), they count together.
+    const spanned = FREEFORM.span ? below.filter((a) => Math.min(B.x + B.w, a.x + a.w) - Math.max(B.x, a.x) >= FREEFORM.spanCover * a.w - EPS) : [];
+    const refW = spanned.length >= 2 ? Math.max(...spanned.map((a) => a.x + a.w)) - Math.min(...spanned.map((a) => a.x)) : below.length ? Math.max(...below.map((a) => a.w)) : 0;
+    if (refW) {
+      const ratio = B.w / refW, [lo, hi] = RULES.anchorRange;
+      const off = ratio < lo ? lo - ratio : ratio > hi ? ratio - hi : 0;
+      room *= clamp01(1 - off / FREEFORM.widthFall);
+    }
+  }
 
   // Eye level: the art's center of mass near 60 in.
   const cy = sum(frames.map((f) => (f.y + f.h / 2) * f.w * f.h)) / area;

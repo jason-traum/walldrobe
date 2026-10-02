@@ -600,11 +600,12 @@ async function readPhoto() {
     if (c55 && c55 < 84) { tvInches = [65, 75].find((dg) => ceil(dg) >= 84) || 75; tvWhy = 'low'; }
     if (c55 && c55 > 132) { tvInches = [50, 43].find((dg) => ceil(dg) <= 132) || 43; tvWhy = 'high'; }
   }
-  const seenOpts = { h: img.height, ceiling: !!(p.seen && p.seen.ceiling !== false && !p.seen.soffit), depthFor: depth };
+  // The ceiling sets the size only when the floor is in the photo too: floor to ceiling is the 8 ft.
+  const seenOpts = { h: img.height, ceiling: !!(p.seen && p.seen.ceiling !== false && !p.seen.soffit && p.seen.floor !== false), floor: !(p.seen && p.seen.floor === false), depthFor: depth };
   const guess = guessWidth(items, img.width, tvInches, depth(tvInches), seenOpts);
   // The other things in the photo can say the TV is a different size than we took it as.
   if (guess && guess.tvWhy === 'others') { tvInches = guess.tvInches; tvWhy = 'others'; }
-  p.auto = { items, rw: img.width, rh: img.height, wallRgb: labToRgb(found.wallColor), tvInches, tvWhy, tvPx, depth: depth(tvInches), guess, seenOpts: { h: seenOpts.h, ceiling: seenOpts.ceiling } };
+  p.auto = { items, rw: img.width, rh: img.height, wallRgb: labToRgb(found.wallColor), tvInches, tvWhy, tvPx, depth: depth(tvInches), guess, seenOpts: { h: seenOpts.h, ceiling: seenOpts.ceiling, floor: seenOpts.floor } };
   d.obstacles = d.obstacles.filter((o) => !o.autoId);
   d.owned = d.owned.filter((o) => !o.autoId);
   p.lastW = null; p.lastH = null;
@@ -999,12 +1000,14 @@ function noTapeOptions(p) {
   const out = [];
   const biggest = (k, dim) => a.items.filter((i) => i.kind === k && !i.removed).sort((x, y) => y[dim] - x[dim])[0];
   const door = biggest('door', 'h');
-  if (door && door.h > a.rh * 0.4) out.push(['door', Math.round((a.rw * 80) / door.h)]);
+  // A door is the full 6 ft 8 in only when its bottom, the floor, is in the photo.
+  if (door && door.h > a.rh * 0.4 && !(p.seen && p.seen.floor === false)) out.push(['door', Math.round((a.rw * 80) / door.h)]);
   const bed = biggest('headboard', 'w');
   if (bed && bed.w > a.rw * 0.15) out.push(['bed', Math.round((a.rw * 64) / bed.w)]);
   const couch = biggest('couch', 'w');
   if (couch && couch.w > a.rw * 0.2) out.push(['couch', Math.round((a.rw * 84) / couch.w)]);
-  if (p.seen && p.seen.ceiling !== false && !p.seen.soffit) out.push(['ceiling', Math.round((96 * a.rw) / a.rh)]);
+  // Only when both the ceiling and the floor are in the photo; with the floor hidden, the bottom is a couch back, not the floor.
+  if (p.seen && p.seen.ceiling !== false && !p.seen.soffit && p.seen.floor !== false) out.push(['ceiling', Math.round((96 * a.rw) / a.rh)]);
   const real = out.filter(([, W]) => W >= 36 && W <= 480);
   // Two or more things in the photo that agree on the size: offer that first, as one tap.
   const agree = together(real);

@@ -2,7 +2,7 @@
    Rules and the contrast table: DESIGN.md. */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light; /* Light only: art reads truest on a light wall, and the drawn wall is light anyway. */
   --canvas: #F4F4F2;
   --surface: #FFFFFF;
   --ink: #1A1B1A;
@@ -41,25 +41,6 @@
   --r-thumb: 3px;
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
   --font: Switzer, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #1C1D1C;
-    --surface: #242624;
-    --ink: #ECEDEB;
-    --pencil: #A9ADB1;
-    --hairline: #343635;
-    --field: #8D9195;
-    --tape: #7FB3EC;
-    --tape-soft: #203247;
-    --on-tape: #0E1A28;
-    --marker: #E08DB4;
-    --marker-soft: #3A2430;
-    --error: #FF9C85;
-    --error-soft: #3A221C;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --scrim: rgba(0, 0, 0, 0.55);
-  }
 }
 
 * { box-sizing: border-box; }
