@@ -228,3 +228,50 @@ export function layoutNotes({ color, design, checks, family, pieces }) {
   const warn = caveat(color, design, checks, family, pieces);
   return warn ? [...good, warn] : good;
 }
+
+// ---------- The one line under each wall ----------
+// Who's in it, the shape and where, and one number: "Both of yours, four new.
+// Lined up over the couch, 77 in across."
+
+const NUMS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+const words = (n) => NUMS[n] || String(n);
+const upper = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const ANCHOR_KINDS = new Set(['couch', 'sofa', 'headboard', 'bed', 'console', 'dresser', 'sideboard', 'credenza', 'tv', 'desk', 'shelf']);
+
+function inchText(v) {
+  const q = Math.round(v * 4) / 4, whole = Math.floor(q), f = ['', '¼', '½', '¾'][Math.round((q - whole) * 4)];
+  return `${whole}${f} in`;
+}
+
+export function whyLine(layout, { ownedTotal = 0, obstacles = [] } = {}) {
+  const { pieces, family, variant, meta = {}, group } = layout;
+  const own = pieces.filter((p) => p.ref.source === 'owned').length;
+  const fresh = pieces.length - own;
+  let who;
+  if (!own) who = `${fresh === 1 ? 'One new piece' : `${upper(words(fresh))} new pieces`}${ownedTotal ? ', none of yours' : ''}`;
+  else {
+    const mine = own === ownedTotal
+      ? (own === 1 ? 'Yours' : own === 2 ? 'Both of yours' : `All ${words(own)} of yours`)
+      : own === 1 ? 'One of yours' : `${upper(words(own))} of yours`;
+    who = `${mine}, ${fresh ? `${words(fresh)} new` : 'nothing new'}`;
+  }
+  const n = pieces.length;
+  const shape = family === 'flow'
+    ? (variant === 'asis' ? 'As it hangs now' : variant === 'neat' ? 'Lined up' : (meta.groups || 1) > 1 ? 'Two groups' : 'A loose gallery wall')
+    : family === 'salon' ? 'Two rows'
+    : family === 'grid' ? `A ${meta.rows} by ${meta.cols} grid`
+    : family === 'line' ? `A row of ${words(n)}`
+    : family === 'column' ? `A stack of ${words(n)}`
+    : variant === 'solo' ? 'One big piece'
+    : `One big piece and ${words(n - 1)} beside it`;
+  // Over the furniture or the TV it sits above, when it sits over one.
+  const under = obstacles
+    .filter((o) => ANCHOR_KINDS.has(o.kind) && o.y + o.h <= group.y + 1)
+    .map((o) => ({ o, lap: Math.min(o.x + o.w, group.x + group.w) - Math.max(o.x, group.x) }))
+    .filter(({ o, lap }) => lap >= 0.5 * Math.min(group.w, o.w))
+    .sort((a, b) => b.o.y + b.o.h - (a.o.y + a.o.h))[0];
+  const word = under ? anchorWord(under.o.kind) : null;
+  const where = word && (meta.groups || 1) === 1 ? ` over the ${word}` : '';
+  const across = inchText(group.w);
+  return { who, shape, where, across, text: `${who}. ${shape}${where}, ${across} across.` };
+}

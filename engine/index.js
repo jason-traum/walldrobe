@@ -12,11 +12,12 @@ import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
 import { flowStructures, openSpace, shapeScore } from './flow.js';
-import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
+import { pieceReason, leftReason, summary, shortTitle, layoutNotes, whyLine } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
 import { designScore, lookalike, lookPenalty } from './design.js';
 
 export { RULES, WEIGHTS } from './constants.js';
+export { rerank } from './rank.js';
 export const VERSION = '0.2.0';
 
 const KEEPS = new Set(['must', 'happy', 'dontcare']);
@@ -911,6 +912,7 @@ function finish(L, rank, ctx) {
     meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q), ragged: q(L.meta.ragged || 0), groups: L.meta.groups || 1 },
   };
   out.summary = summary({ ...out, meta: L.meta, group, beside: zone.beside }, mustTitles, newCount, keptTitles);
+  out.why = whyLine(out, { ownedTotal: (ctx.owned || []).length, obstacles: ctx.obstacles || [] });
   out.notes = layoutNotes({ color: c, design: L.design, checks: L.checks, family: L.family, pieces: L.pieces });
   return out;
 }
