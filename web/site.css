@@ -514,3 +514,16 @@ svg.is-dragging .measure { opacity: 0.25; }
 .frame-light { stroke: #C9C7C0; stroke-width: 0.15; }
 .frame-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; }
 .frame-row select { min-height: 44px; }
+.looks { display: flex; flex-wrap: wrap; gap: 8px; }
+.look { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 12px 6px 8px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font); cursor: pointer; }
+.look[aria-pressed="true"] { border-color: var(--tape); background: var(--tape-soft); color: var(--tape); font-weight: 600; }
+.pop { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px; border: 1px solid var(--hairline); border-radius: 22px; background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font); cursor: pointer; }
+.pop span { width: 20px; height: 20px; border-radius: 50%; display: inline-block; }
+.pop[aria-pressed="true"] { border-color: var(--tape); background: var(--tape-soft); }
+.fine summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--tape); font-weight: 500; }
+.fine[open] { display: grid; gap: 8px; }
+/* Long choice rows on the frame picker wrap instead of pushing the page wide. */
+.frame-pick .seg { display: flex; flex-wrap: wrap; max-width: 100%; }
+.frame-pick .seg button { flex: 1 0 auto; border-top: 1px solid var(--hairline); margin-top: -1px; }
+.frame-row select { max-width: 100%; }
+.fine .label { font: 500 14px/20px var(--font); color: var(--pencil); margin-top: 4px; }
