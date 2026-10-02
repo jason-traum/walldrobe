@@ -94,6 +94,7 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 - 2026-10-01: Default, not settled: a piece you own is Keep or Skip on the confirm screen; "Pin it where it hangs" is one tap deeper, on the wall. Jason: "honestly I'm not sure." Reopen after the first five real walls: if people keep asking for a piece to stay exactly put, pin moves up to the confirm screen.
 - 2026-10-01: Not in v1: hand-picked style or count, the Art switch and the filter panel, sign-up and accounts. Walls save on the device.
 - 2026-10-01: Say "wall", not "layout", in the interface.
+- 2026-10-01: Generate once, rank many times. The engine keeps every wall that passes the hard rules and the composition gate (deduplicated, capped around 30 to 50), not the top 3, and ranking runs separately from generating so a save, a swap, the quiz or how full re-orders the list in place without regenerating. Each wall's one line names what moved it. Jason: "should generate a ton of options then rank them based on the fit and preferences listed which can change." Engine work for the build step: split taste and color out of generation into the rank pass.
 
 ## Design
 

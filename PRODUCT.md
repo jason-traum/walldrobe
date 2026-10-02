@@ -28,7 +28,7 @@ Which wall to hang. Then: which of their pieces stay, which new pieces to get, a
 
 ## How choosing works
 
-Not knobs. Walldrobe generates every layout that fits the space, ranks them best to worst for this wall, and shows them as one scrollable list: the wall drawn at true scale, and one line on why it fits ("Two of yours, three new, lined up over the couch at eye level"). Some walls get 3 options, some get 10. The person scrolls and picks; they don't push Structured or 6 pieces or Balanced to coax an alternative out.
+Not knobs. Walldrobe generates every wall that fits the space once, keeps all of them that pass, and ranks them best to worst for this wall and this person. Ranking is separate from generating, so when a preference changes (a save, a swap, the quiz, how full) the list re-orders in place. It shows them as one scrollable list: the wall drawn at true scale, and one line on why it fits ("Two of yours, three new, lined up over the couch at eye level"). Some walls get 3 options, some get 10. The person scrolls and picks; they don't push Structured or 6 pieces or Balanced to coax an alternative out.
 
 - Every change is reversible. Swapping a piece, changing a wall, moving a frame: there is always a visible way back, never a disappearing toast as the only record.
 - Any piece can be saved. Saves feed taste from then on. Swaps and skips count as weak signals. The 10-pick quiz still exists as "Make it mine", one tap from the wall, for people who want to tell us more at once.
