@@ -1,10 +1,23 @@
 # DESIGN.md
 
-Status: v4, 2026-10-02 evening: the painter's tape direction is kept unchanged from a63c921 (the review gave no reason to change it); the v4 reference screens below are proposed, waiting on Jason's OK. v2 direction picked on 2026-10-01 (DECISIONS, "v2 step 4"): painter's tape. The structure is the feed (DECISIONS, "v2 step 3"). Tokens live on `:root` in the v2 stylesheet and nowhere else. The reference screens in `design/references/` are what new work is compared against, not memory.
+Status: v4, 2026-10-02 evening: direction "Taped up" picked (DECISIONS, v4 step 4; mocks in design/directions). New prints hang unframed with torn tape tabs at the corners, yours hang framed. The references in design/references/v4-* are what new work is compared against. Older sections below still describe the v2 frames-of-tape drawing where they differ; the v4 rules here win.
 
 ## What the design is for
 
 The wall is the hero. People are judging art, and art needs neutral surroundings, so the interface stays quiet and the pieces carry the color. The one thing Walldrobe does that nothing else does is show you your wall finished, at true scale, before you buy or drill. Everything on screen serves that picture.
+
+## v4: Taped up (2026-10-02)
+
+- New prints are drawn as paper, unframed, with a thin white edge, held by torn tape tabs across the corners: two at the top, two more at the bottom on anything taller than 20 in. Blue `--tape-strip` while proposed, green `--tape-keep` once kept. Pieces of yours are framed (frame and mat), never taped.
+- Tab size: the real roll's width, 1.41 in at wall scale, never under 5 px on screen; about 3.2 in long, never under 15 px. Each tab sits at about 42 degrees with a few degrees of random lean, torn at both ends. Not wider: at 7.5 px it read as clip art (FEEDBACK 74).
+- The wordmark is "walldrobe" in lowercase Familjen Grotesk 600 with one blue tab across the top left of the w, 15 x 5 px, the same proportion as on the wall.
+- Furniture is flat silhouettes one step darker than the wall, no outlines, no pillows or seams worth looking at. The art carries the color.
+- Type: Familjen Grotesk 400, 500, 600 (replaces Switzer). Action color `#1A5FA6`.
+- Words: no why line, no reason line on rows, no move note on the wall screen. A wall is judged by looking at it (FEEDBACK 74). The count ("1 of 24") stays small under each drawing. The Undo line is "Swapped. Undo", "Kept. Undo", "Removed. Undo". Rows are the title, then size and shop, then "Kept" when kept.
+- Save and Get are two small buttons in the pager row, Save quiet and Get filled, 36 px tall inside a 44 px row.
+- Rows sit on the page with hairlines between them, no card.
+- Thumbnails repeat the drawing's code: new pieces as taped paper, yours framed.
+- No legend (FEEDBACK 70). No prices for now (FEEDBACK 72).
 
 ## The direction and its source
 
