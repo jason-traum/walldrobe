@@ -1925,12 +1925,28 @@ function costLine(c, long) {
   if (c.unpriced) bits.push(`${c.unpriced} without a listed price`);
   return bits.join('. ');
 }
-const FINISH_NAME = { black: 'black', white: 'white', oak: 'oak', brass: 'brass' };
-const FINISH_LABEL = { black: 'Black', white: 'White', oak: 'Oak', brass: 'Brass' };
-// The frame a piece suits, from what it is: black and white photos in black with
-// a mat; warm, painted or earthy pieces in oak; vintage, botanical and old-master
-// prints in brass; bright, graphic posters in white or black, no mat. Big pieces
-// (over 24 in on the long side) go without a mat; small ones get one.
+const FINISH_NAME = { black: 'black', white: 'white', oak: 'oak', walnut: 'walnut', brass: 'brass', color: 'colored' };
+const FINISH_LABEL = { black: 'Black', white: 'White', oak: 'Oak', walnut: 'Walnut', brass: 'Brass', color: 'Color' };
+const FINISH_HEX = { black: '#1B1B1B', white: '#F4F3EE', oak: '#B88A5A', walnut: '#5A3E2B', brass: '#A8884A' };
+// One bold color across a set: a color pop. Muted enough to sit with art, never the tape colors.
+const POP = { blue: ['Blue', '#2E5A9C'], red: ['Red', '#B0392B'], green: ['Green', '#2E6B4E'], pink: ['Pink', '#D78AA5'], yellow: ['Yellow', '#D9A93A'] };
+// How thick the frame's face is, and how wide the mat: the mat is the buffer between art and frame.
+const PROFILE_IN = { thin: 0.6, standard: 0.9, chunky: 1.5 };
+const MAT_IN = { none: 0, slim: 1.5, standard: 2.5, wide: 4 };
+const MAT_LABEL = { none: 'No mat', slim: 'Slim mat', standard: 'Mat', wide: 'Wide mat' };
+// A look sets all three for the wall at once.
+const LOOKS = {
+  classic: { label: 'Classic', finish: 'black', profile: 'standard', mat: 'standard' },
+  gallery: { label: 'Gallery', finish: 'black', profile: 'thin', mat: 'wide' },
+  wood: { label: 'Warm wood', finish: 'oak', profile: 'standard', mat: 'slim' },
+  clean: { label: 'Clean', finish: 'white', profile: 'thin', mat: 'none' },
+  gold: { label: 'Gold', finish: 'brass', profile: 'thin', mat: 'standard' },
+  pop: { label: 'Color pop', finish: 'color', color: 'blue', profile: 'standard', mat: 'standard' },
+};
+// The frame a piece suits, from what it is: black and white in black; classic or
+// old-world in brass; warm, earthy or painted in oak; soft and light in white;
+// everything else in black. The mat: none on big pieces (over 24 in), a mat on
+// photos, a slim one on light pieces, none on bold graphic ones.
 function suggestFrame(item, p) {
   const r = (item && item.record) || {}, c = r.color || {}, t = r.tags || {};
   const words = new Set([...(t.style || []), ...(t.vibe || []), ...(t.mood || []), ...(t.subjects || []), r.category, t.theme].filter(Boolean).map((x) => String(x).toLowerCase()));
@@ -1943,18 +1959,30 @@ function suggestFrame(item, p) {
   else if (has('painterly', 'earthy', 'warm', 'western', 'rustic') || ((c.warmth ?? 0.5) >= 0.7 && (c.saturation ?? 0.5) < 0.5)) { finish = 'oak'; why = 'warm, earthy colors sit well in oak'; }
   else if (has('pastel', 'soft', 'airy', 'dreamy', 'serene', 'fresh', 'riviera', 'summer', 'tropical') && (c.brightness ?? 0.5) >= 0.55) { finish = 'white'; why = 'a light, soft piece stays light in white'; }
   else { finish = 'black'; why = 'black frames graphic and photo pieces cleanly'; }
-  const mat = big ? false : photo || (c.brightness ?? 0.5) >= 0.5;
+  const mat = big ? 'none' : photo ? 'standard' : (c.brightness ?? 0.5) >= 0.55 ? 'slim' : 'none';
   return { finish, mat, why };
 }
-// Frames for the new pieces on this wall: matched (one finish for the set) or each its own, with any you changed by hand.
+const framesNow = () => { const f = (S.draft && S.draft.frames) || {}; if (typeof f.mat === 'boolean') f.mat = f.mat ? 'standard' : 'none'; return f; };
+// The frame each new piece gets: the set's (one look for the wall) or its own suggestion, with any you set by hand.
 function frameFor(id, p) {
-  const d = S.draft, f = (d && d.frames) || {};
-  const own = f.each && f.each[id];
-  if (own) return own;
-  const sug = suggestFrame(byId.get(id), p);
-  if (f.mode === 'each') return sug;
-  return { finish: f.finish || setFinish(), mat: f.mat === undefined ? sug.mat : f.mat };
+  const f = framesNow(), sug = suggestFrame(byId.get(id), p);
+  const each = f.each && f.each[id];
+  const base = f.mode === 'each'
+    ? { finish: sug.finish, color: null, profile: f.profile || 'standard', mat: sug.mat }
+    : { finish: f.finish || setFinish(), color: f.color || null, profile: f.profile || 'standard', mat: f.mat || sug.mat };
+  const out = { ...base, ...(each || {}) };
+  if (out.finish === 'color' && !POP[out.color]) out.color = 'blue';
+  return out;
 }
+// What to draw: the frame's color, its face and the mat in inches (a mat never eats more than a fifth of the short side).
+function frameDraw(fr, p) {
+  const hex = fr.finish === 'color' ? POP[fr.color][1] : FINISH_HEX[fr.finish] || FINISH_HEX.black;
+  return { hex, light: fr.finish === 'white', f: PROFILE_IN[fr.profile] || PROFILE_IN.standard, m: Math.min(MAT_IN[fr.mat] || 0, 0.2 * Math.min(p.w, p.h)) };
+}
+const finishWord = (fr) => (fr.finish === 'color' ? POP[fr.color][0].toLowerCase() : FINISH_NAME[fr.finish]);
+const finishLabel = (fr) => (fr.finish === 'color' ? POP[fr.color][0] : FINISH_LABEL[fr.finish]);
+// The print that sits inside the mat, to the half inch.
+const insideMat = (p, fr) => { const m = frameDraw(fr, p).m; return [Math.floor((p.w - 2 * m) * 2) / 2, Math.floor((p.h - 2 * m) * 2) / 2]; };
 // The finish most of the pieces suit; black when your own frames are on the wall, since most are black.
 function setFinish() {
   const L = shown();
@@ -1966,8 +1994,17 @@ function setFinish() {
   const top = Object.entries(count).sort((a, b) => b[1] - a[1] || (a[0] === 'black' ? -1 : b[0] === 'black' ? 1 : 0));
   return top.length && (top.length === 1 || top[0][1] > top[1][1]) ? top[0][0] : 'black';
 }
-const frameStyle = () => ({ finish: 'black', mat: true, ...((S.draft && S.draft.frames) || {}) });
-const frameLink = (w, h, id) => { const f = id ? frameFor(id, { w, h }) : frameStyle(); return `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} ${FINISH_NAME[f.finish]} picture frame${f.mat ? ' with mat' : ''}`)}`; };
+// Most of the new art black and white: a color pop frame can tie it together.
+function mostlyBW() {
+  const L = shown();
+  const fresh = L ? L.pieces.filter((p) => p.ref.source === 'catalog') : [];
+  const bw = fresh.filter((p) => { const r = byId.get(p.ref.id)?.record; return r && (r.color?.bw || (r.tags?.style || []).includes('monochrome')); }).length;
+  return fresh.length >= 2 && bw / fresh.length >= 0.7;
+}
+const frameLink = (w, h, id) => {
+  const fr = frameFor(id, { w, h }), m = frameDraw(fr, { w, h }).m, [pw, ph] = insideMat({ w, h }, fr);
+  return `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} ${finishWord(fr)} picture frame${m ? ` with mat for ${Math.min(pw, ph)}x${Math.max(pw, ph)} print` : ''}`)}`;
+};
 
 // The wall's size is measured when you typed it or set it by tape; a size
 // worked out from a TV or a door in the photo is an estimate.
@@ -2028,9 +2065,9 @@ function getScreen() {
         ${o.framed ? '' : frameRow(item.id, p)}
         <span class="row-acts"><a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>${o.framed ? '' : `<a class="btn quiet small" href="${frameLink(p.w, p.h, p.ref.id)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>`}</span></span></li>`;
     }
-    const ps = frameFor(p.ref.id, p).mat ? printSize(p.w, p.h) : [p.w, p.h];
+    const fr = frameFor(p.ref.id, p), ps = frameDraw(fr, p).m ? insideMat(p, fr) : null;
     return `<li class="row buy">${thumb}<span class="row-text"><span class="name">${esc(item.title)}</span>
-      <span class="meta">Photo by ${esc(item.artist)} on ${esc(item.source)}. ${ps ? `Print it ${ps[0]} x ${ps[1]} in for a ${p.w} x ${p.h} in frame with a mat` : `${p.w} x ${p.h} in frame`}. Free under the ${esc(item.record.source.license)}.</span>
+      <span class="meta">Photo by ${esc(item.artist)} on ${esc(item.source)}. ${ps ? `Print it ${ps[0]} x ${ps[1]} in for a ${p.w} x ${p.h} in frame with a ${inches(frameDraw(fr, p).m)} mat` : `Print it ${p.w} x ${p.h} in, no mat`}. Free under the ${esc(item.record.source.license)}.</span>
       ${frameRow(item.id, p)}
       <span class="row-acts"><a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a><a class="btn quiet small" href="${frameLink(p.w, p.h, p.ref.id)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a></span></span></li>`;
   }).join('');
@@ -2053,7 +2090,7 @@ function getScreen() {
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
         <span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>
       </form>
-      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, photo: d.photo && d.photo.flat ? cleanWall() : null, hideObstacles: !!(d.photo && d.photo.flat), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: keptSet(), measure: true, still: true, pxWide: pxNow(), frames: (p) => frameFor(p.ref.id, p), label: `${d.name}, hanging guide` })}</div>
+      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, photo: d.photo && d.photo.flat ? cleanWall() : null, hideObstacles: !!(d.photo && d.photo.flat), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: keptSet(), measure: true, still: true, pxWide: pxNow(), frames: (p) => frameDraw(frameFor(p.ref.id, p), p), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">Frame</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
         <tbody>${hangOrder.map((p) => `<tr><td>${esc(nameOf(p))}${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.w} x ${p.h} in</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
@@ -2072,23 +2109,47 @@ function getScreen() {
 
 // The frames for the new pieces: one finish and mat or not, for the whole wall.
 function framePicker() {
-  const f = (S.draft && S.draft.frames) || {};
+  const f = framesNow();
   const mode = f.mode === 'each' ? 'each' : 'set';
   const seg = (name, pairs, cur, attr) => `<span class="seg" role="group" aria-label="${esc(name)}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</span>`;
-  const fin = f.finish || setFinish();
+  const fin = f.finish || setFinish(), prof = f.profile || 'standard';
+  const look = f.look || null;
+  const pop = mode === 'set' && fin === 'color';
+  const owns = shown() && shown().pieces.some((p) => p.ref.source !== 'catalog');
+  const note = mode === 'each' ? 'Each piece in the frame that suits it best.'
+    : f.finish ? '' : `${FINISH_LABEL[fin]} ${fin === 'black' ? 'ties the set together' : 'suits most of these pieces'}${owns ? ' and matches your own frames' : ''}.`;
   return `<div class="frame-pick">
     <p class="sheet-label">Frames for the new pieces</p>
-    <div class="strip-row">${seg('Frames', [['set', 'Matched set'], ['each', 'Each its own']], mode, 'fmode')}</div>
-    ${mode === 'set' ? `<div class="strip-row">${seg('Finish', [['black', 'Black'], ['white', 'White'], ['oak', 'Oak'], ['brass', 'Brass']], fin, 'finish')}${seg('Mat', [['1', 'Mat'], ['0', 'No mat']], f.mat === undefined ? '' : f.mat ? '1' : '0', 'mat')}</div>
-    <p class="pencil small">${f.finish ? '' : `${FINISH_LABEL[fin]} ${fin === 'black' ? 'ties the set together' : 'suits most of these pieces'}${shown() && shown().pieces.some((p) => p.ref.source !== 'catalog') ? ' and matches your own frames' : ''}. `}${f.mat === undefined ? 'Mats where a piece wants one. ' : ''}Change any piece below.</p>`
-    : '<p class="pencil small">Each piece in the frame that suits it best. Change any piece below.</p>'}
+    <div class="looks" role="group" aria-label="Looks">${Object.entries(LOOKS).map(([k, v]) => `<button type="button" class="look" data-look="${k}" aria-pressed="${look === k}">${frameSwatch(v)}<span>${esc(v.label)}</span></button>`).join('')}</div>
+    ${mostlyBW() && fin !== 'color' ? '<p class="note">Mostly black and white: one color frame across the set, a color pop, can tie it together.</p>' : ''}
+    ${pop ? `<div class="strip-row" role="group" aria-label="Frame color">${Object.entries(POP).map(([k, [l, hex]]) => `<button type="button" class="pop" data-fcolor="${k}" aria-pressed="${(f.color || 'blue') === k}" aria-label="${l}"><span style="background:${hex}"></span>${l}</button>`).join('')}</div>` : ''}
+    <details class="fine"${!look && (f.finish || f.profile || f.mat || f.mode) ? ' open' : ''}><summary>Fine-tune: finish, frame, mat</summary>
+      <div class="strip-row">${seg('Frames', [['set', 'Matched set'], ['each', 'Each its own']], mode, 'fmode')}</div>
+      ${mode === 'set' ? `<span class="label">Finish</span><div class="strip-row">${seg('Finish', [['black', 'Black'], ['white', 'White'], ['oak', 'Oak'], ['walnut', 'Walnut'], ['brass', 'Brass'], ['color', 'Color']], fin, 'finish')}</div>` : ''}
+      <span class="label">Frame</span><div class="strip-row">${seg('Frame', [['thin', 'Thin'], ['standard', 'Standard'], ['chunky', 'Chunky']], prof, 'profile')}</div>
+      ${mode === 'set' ? `<span class="label">Mat</span><div class="strip-row">${seg('Mat', [['none', 'None'], ['slim', 'Slim'], ['standard', 'Standard'], ['wide', 'Wide']], f.mat || '', 'mat')}</div>` : ''}
+    </details>
+    <p class="pencil small">${note ? `${esc(note)} ` : ''}${mode === 'set' && !f.mat ? 'Mats where a piece wants one. ' : ''}The mat is the white border inside the frame: the frame stays the size on the wall, the print is smaller. Change any piece below.</p>
   </div>`;
 }
-// One piece's frame, under its name in the buy list: what it is, and why, with the choices.
+// A small framed square for each look, so the choice is seen, not read.
+function frameSwatch(v) {
+  const hex = v.finish === 'color' ? POP[v.color][1] : FINISH_HEX[v.finish];
+  const f = PROFILE_IN[v.profile] * 3, m = MAT_IN[v.mat] * 1.4;
+  return `<svg viewBox="0 0 28 34" width="28" height="34" aria-hidden="true"><rect x="0" y="0" width="28" height="34" fill="${hex}"${v.finish === 'white' ? ' stroke="#C9C7C0" stroke-width="0.6"' : ''}/><rect x="${f}" y="${f}" width="${28 - 2 * f}" height="${34 - 2 * f}" fill="#FBFBF9"/><rect x="${f + m}" y="${f + m}" width="${28 - 2 * (f + m)}" height="${34 - 2 * (f + m)}" fill="#8FA3B8"/></svg>`;
+}
+// One piece's frame, under its name in the buy list: finish and mat, and why.
 function frameRow(id, p) {
-  const f = frameFor(id, p), sug = suggestFrame(byId.get(id), p);
-  const own = S.draft.frames && S.draft.frames.each && S.draft.frames.each[id];
-  return `<span class="frame-row"><label class="inline"><span>Frame</span><select data-fpiece="${esc(id)}" aria-label="Frame for ${esc(byId.get(id).title)}">${['black', 'white', 'oak', 'brass'].flatMap((k) => [`${k}|1`, `${k}|0`]).map((v) => { const [k, m] = v.split('|'); return `<option value="${v}"${f.finish === k && (f.mat ? '1' : '0') === m ? ' selected' : ''}>${FINISH_LABEL[k]}${m === '1' ? ', mat' : ', no mat'}</option>`; }).join('')}</select></label>${own ? '' : `<span class="pencil small">${f.finish === sug.finish ? `Suggested: ${esc(sug.why)}.` : `Matched to the set. On its own, ${FINISH_LABEL[sug.finish].toLowerCase()}: ${esc(sug.why)}.`}</span>`}</span>`;
+  const fr = frameFor(id, p), sug = suggestFrame(byId.get(id), p);
+  const own = framesNow().each && framesNow().each[id];
+  const finishOpts = [...['black', 'white', 'oak', 'walnut', 'brass'].map((k) => [k, FINISH_LABEL[k]]), ...Object.entries(POP).map(([k, [l]]) => [`color:${k}`, l])];
+  const cur = fr.finish === 'color' ? `color:${fr.color}` : fr.finish;
+  const title = byId.get(id).title;
+  return `<span class="frame-row">
+    <label class="inline"><span>Frame</span><select data-ffinish="${esc(id)}" aria-label="Frame for ${esc(title)}">${finishOpts.map(([v, l]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+    <label class="inline"><span class="sr">Mat for ${esc(title)}</span><select data-fmat="${esc(id)}" aria-label="Mat for ${esc(title)}">${Object.entries(MAT_LABEL).map(([v, l]) => `<option value="${v}"${v === fr.mat ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+    ${own ? '' : `<span class="pencil small">${fr.finish === sug.finish ? `Suggested: ${esc(sug.why)}.` : `Matched to the set. On its own, ${FINISH_LABEL[sug.finish].toLowerCase()}: ${esc(sug.why)}.`}</span>`}
+  </span>`;
 }
 
 // ---------- Your walls ----------
@@ -2119,7 +2180,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['fmode', 'fpiece', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -2634,11 +2695,13 @@ document.addEventListener('change', (e) => {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
     if (o) { if (o.autoId) forgetAuto(o.autoId); o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
   }
-  if (t.dataset.fpiece) {
-    const [finish, m] = t.value.split('|');
-    const fr = S.draft.frames || {};
-    S.draft.frames = { ...fr, each: { ...(fr.each || {}), [t.dataset.fpiece]: { finish, mat: m === '1' } } };
-    logE('frames', { piece: t.dataset.fpiece, finish, mat: m });
+  if (t.dataset.ffinish || t.dataset.fmat) {
+    const id = t.dataset.ffinish || t.dataset.fmat, fr = S.draft.frames || {};
+    const L = shown(), p = L && L.pieces.find((x) => x.ref.id === id);
+    const now = p ? frameFor(id, p) : {};
+    const next = t.dataset.ffinish ? (t.value.startsWith('color:') ? { finish: 'color', color: t.value.slice(6) } : { finish: t.value, color: null }) : { mat: t.value };
+    S.draft.frames = { ...fr, each: { ...(fr.each || {}), [id]: { finish: now.finish, color: now.color, mat: now.mat, ...next } } };
+    logE('frames', { piece: id, ...next });
     persist(); setTimeout(render, 0); return;
   }
   if (t.dataset.obkind) {
@@ -2778,9 +2841,12 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.chip) { S.sheet = { chip: t.dataset.chip }; render(); return; }
-  if (t.dataset.fmode) { S.draft.frames = { ...(S.draft.frames || {}), mode: t.dataset.fmode, each: {} }; logE('frames', { mode: t.dataset.fmode }); persist(); render(); return; }
-  if (t.dataset.finish) { S.draft.frames = { ...(S.draft.frames || {}), mode: 'set', finish: t.dataset.finish, each: {} }; logE('frames', { finish: t.dataset.finish }); persist(); render(); return; }
-  if (t.dataset.mat !== undefined) { S.draft.frames = { ...(S.draft.frames || {}), mode: 'set', mat: t.dataset.mat === '1', each: {} }; logE('frames', { mat: t.dataset.mat }); persist(); render(); return; }
+  if (t.dataset.look) { const v = LOOKS[t.dataset.look]; S.draft.frames = { mode: 'set', look: t.dataset.look, finish: v.finish, color: v.color || null, profile: v.profile, mat: v.mat, each: {} }; logE('frames', { look: t.dataset.look }); persist(); render(); return; }
+  if (t.dataset.fmode) { S.draft.frames = { ...framesNow(), mode: t.dataset.fmode, look: null, each: {} }; logE('frames', { mode: t.dataset.fmode }); persist(); render(); return; }
+  if (t.dataset.finish) { S.draft.frames = { ...framesNow(), mode: 'set', look: null, finish: t.dataset.finish, color: t.dataset.finish === 'color' ? framesNow().color || 'blue' : null, each: {} }; logE('frames', { finish: t.dataset.finish }); persist(); render(); return; }
+  if (t.dataset.fcolor) { S.draft.frames = { ...framesNow(), mode: 'set', finish: 'color', color: t.dataset.fcolor, each: {} }; logE('frames', { color: t.dataset.fcolor }); persist(); render(); return; }
+  if (t.dataset.profile) { S.draft.frames = { ...framesNow(), look: null, profile: t.dataset.profile }; logE('frames', { profile: t.dataset.profile }); persist(); render(); return; }
+  if (t.dataset.mat !== undefined) { S.draft.frames = { ...framesNow(), mode: 'set', look: null, mat: t.dataset.mat, each: {} }; logE('frames', { mat: t.dataset.mat }); persist(); render(); return; }
   if (t.dataset.size && t.dataset.id) {
     const id = t.dataset.id, [w, h] = t.dataset.size.split('x').map(Number);
     const L = shown(), p = L && L.pieces.find((x) => x.ref.id === id);

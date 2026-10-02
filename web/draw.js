@@ -131,8 +131,6 @@ function pinStrip(x, y, id) {
 // One piece. `img` is the art, cropped to the opening, never stretched.
 // kind: 'own' (a frame of yours), 'pin' (yours, stays put), 'new' (blue tape),
 // 'kept' (green tape).
-// Frame finishes for new pieces once a wall is picked (the hanging guide).
-export const FINISHES = { black: '#1B1B1B', white: '#F4F3EE', oak: '#B88A5A', brass: '#A8884A' };
 function framed(p, H, img, { kind, selected, fallback, still, frames }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
@@ -149,13 +147,11 @@ function framed(p, H, img, { kind, selected, fallback, still, frames }) {
   // Framed the way you picked: the frame, a mat if you want one, the art inside, never stretched.
   if (typeof frames === 'function') frames = frames(p);
   if (frames && (kind === 'new' || kind === 'kept')) {
-    const f = frames.finish === 'oak' || frames.finish === 'brass' ? 1.1 : 0.9;
-    const m = frames.mat ? (Math.min(p.w, p.h) >= 12 ? 2 : 1.25) : 0;
-    const col = FINISHES[frames.finish] || FINISHES.black;
+    const { hex, light, f, m } = frames;
     return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
-    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${col}"${frames.finish === 'white' ? ' class="frame-light"' : ''}/>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${hex}"${light ? ' class="frame-light"' : ''}/>
     <rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/>
-    <text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(1.2, Math.min(2.4, p.w / 10))}" class="art-wait">${esc(String(p.title || '').slice(0, 22))}</text>
+    ${(() => { const t = String(p.title || '').slice(0, 22), iw = p.w - 2 * (f + m); return `<text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(0.6, Math.min(2.4, iw / Math.max(1, t.length * 0.62)))}" class="art-wait">${esc(t)}</text>`; })()}
     ${img ? `<image href="${img}" x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" preserveAspectRatio="xMidYMid slice"/>` : ''}
     ${sel}
   </g>`;
