@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Walldrobe — Layout &amp; Art</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f0f1eb;color:#27332e;font-family:Arial,sans-serif}header,aside{max-width:830px;margin:32px auto;padding:0 8px}h1{font-size:29px;letter-spacing:-.6px;margin:8px 0 12px}h2{font-size:16px;margin:0 0 12px}p{font-size:15px;line-height:1.6;max-width:740px}.eyebrow{font-size:12px;letter-spacing:1.7px;text-transform:uppercase;color:#616b63}.phones{display:flex;justify-content:center;gap:32px;align-items:flex-start}.phone{width:390px;flex:none}.phone>div{border-radius:18px;overflow:hidden;box-shadow:0 0 0 1px #d1d6cc,0 15px 45px #27332e12;line-height:0}.phone svg{max-width:100%;height:auto;display:block}.control{cursor:pointer;touch-action:manipulation}.control:focus-visible{outline:3px solid #267759;outline-offset:2px}.control[aria-disabled="true"]{cursor:default}.prototype-button{font:inherit;font-size:14px;min-height:44px;border:1px solid #abb9a8;border-radius:9px;background:#fffefa;padding:10px 16px;color:#27332e;cursor:pointer}.notes{display:grid;grid-template-columns:1fr 1fr;gap:24px}.notes p{font-size:14px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}footer{max-width:830px;margin:24px auto 40px;padding:0 8px;color:#616b63;font-size:12px;line-height:1.6}a{color:#315844}
+@media(max-width:859px){header,aside,footer{margin:20px 16px;padding:0}header h1{font-size:25px}.phones{display:block}.phone{width:min(390px,100vw);margin:auto}.phone h2{margin-left:16px}.phone:nth-child(2){display:none}.phone>div{border-radius:0;box-shadow:none}.notes{grid-template-columns:1fr}header p{font-size:14px}}
+</style></head><body>
+<header><div class="eyebrow">Walldrobe · Interaction proposal</div><h1>One wall. Two ways to work on it.</h1><p>Layout changes the arrangement. Art keeps the frames in place. These two 390 px views share the same wall: try a change in either. On a phone, use the Layout / Art switch.</p><button class="prototype-button" data-action="reset">Start the six-step walkthrough</button></header>
+<main class="phones"><section class="phone"><h2>Explore the arrangement</h2><div id="phone-0"></div></section><section class="phone"><h2>Refine one piece</h2><div id="phone-1"></div></section></main>
+<aside><div class="notes"><div><h2>Try the loop · 16 taps</h2><p>Start the walkthrough. Choose a layout. Tap the first piece and Keep; do the same for a second piece. Tap a third piece, try three alternatives, then Remove frame. Choose the Structured layout card. In Versions, restore the earlier four-piece wall with two kept pieces. Choose Frames, Oak, then Hang.</p></div><div><h2>What the prototype demonstrates</h2><p>Kept art follows arrangement changes. Art swaps preserve frame positions. Removing a frame returns to Layout. Undo reverses wall changes. Versions groups consecutive edits; All changes retains each one. Restoring an earlier version creates a new branch. The three arrangements and eight prints are illustrative fixtures.</p></div></div></aside>
+<footer>Interaction wireframe, October 2, 2026. The room is a schematic placeholder for the user's photograph. This file demonstrates the editing loop; it does not run Walldrobe's engine, calculate nail positions, or include the full photo, taste, and shopping flows. The two views are the same screen in different states, not a proposed desktop split view.</footer>
+<div id="live" class="sr-only" aria-live="polite"></div><script>/* Self-contained interaction proposal. Illustrative layouts; no layout engine. */
+const W = 390, H = 844;
+const C = {ink:'#27332e',muted:'#616b63',line:'#dcded7',paper:'#fffefa',accent:'#315844',soft:'#e9efe7'};
+const prints = [
+ {name:'Blue shapes', bg:'#e3e8df',c:'#354f79',d:'#becaaf',type:'buy'},
+ {name:'Warm horizon',bg:'#f0e1cb',c:'#a0573e',d:'#c98a69',type:'buy'},
+ {name:'Coastal study',bg:'#d9e3df',c:'#526d70',d:'#a8bcb2',type:'free'},
+ {name:'Quiet forms',bg:'#eee5d9',c:'#646751',d:'#c4b28e',type:'buy'},
+ {name:'Evening light',bg:'#edd8cd',c:'#94584e',d:'#c99378',type:'free'},
+ {name:'Garden shapes',bg:'#e0e4d0',c:'#596c4d',d:'#a6ae84',type:'buy'},
+ {name:'Open water',bg:'#d7e4e6',c:'#4c6a82',d:'#9fbac9',type:'free'},
+ {name:'Soft geometry',bg:'#ede2cf',c:'#9b754a',d:'#c9aa7c',type:'buy'}
+];
+const clone = x => JSON.parse(JSON.stringify(x));
+const initial = (kept=true) => ({layout:'Loose',pieces:[
+ {id:'a',art:0,keep:kept,owned:true},{id:'b',art:1,keep:kept,owned:false},
+ {id:'c',art:2,keep:false,owned:false},{id:'d',art:3,keep:false,owned:false}],frame:'Black',filter:'All'});
+let state=initial(),history=[],undo=[],redo=[],savedArt=[],versionNumber=0;
+let views=[{mode:'Layout',selected:null,sheet:null,page:0},{mode:'Art',selected:'c',sheet:null,page:0}];
+let stage='wall';
+const keptCount = (s=state) => s.pieces.filter(p=>p.keep).length;
+const remember = label => history.push({id:++versionNumber,label,state:clone(state)});
+remember('Starting wall');
+function commit(label,fn){undo.push(clone(state));redo=[];fn();remember(label);}
+function reset(){state=initial(false);history=[];undo=[];redo=[];savedArt=[];versionNumber=0;stage='wall';views=[{mode:'Layout',selected:null,sheet:null,page:0},{mode:'Art',selected:null,sheet:null,page:0}];remember('Starting wall');}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+function text(x,y,s,size=14,fill=C.ink,weight=400,anchor='start'){return `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" font-weight="${weight}" text-anchor="${anchor}">${esc(s)}</text>`;}
+function rect(x,y,w,h,fill,rx=0,stroke='none',sw=1){return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;}
+function button(x,y,w,h,label,action,opts={}){
+ const {active=false,primary=false,plain=false,disabled=false,small=false}=opts;
+ return `<g role="button" tabindex="${disabled?-1:0}" aria-label="${esc(opts.aria||label)}" aria-disabled="${disabled}" data-action="${action}" data-hit="${x},${y},${w},${h}" opacity="${disabled?.4:1}" class="control">${rect(x,y,w,h,primary?C.accent:active?C.soft:plain?'transparent':C.paper,10,plain?'none':active?C.accent:C.line)}${text(x+w/2,y+h/2+5,label,small?12:14,primary?'#fff':C.ink,active||primary?600:500,'middle')}</g>`;
+}
+function art(x,y,w,h,id,frame='Black'){
+ const p=prints[id%prints.length],border=frame==='Oak'?'#b89165':frame==='White'?'#fcfcf8':'#383e38';
+ return `${rect(x,y,w,h,border,1)}${rect(x+3,y+3,w-6,h-6,'#f7f4e9')}${rect(x+7,y+7,w-14,h-14,p.bg)}<svg x="${x+7}" y="${y+7}" width="${w-14}" height="${h-14}" viewBox="0 0 100 120" preserveAspectRatio="none"><circle cx="${id%2?70:36}" cy="37" r="24" fill="${p.d}"/><path d="${id%2?'M0 92 Q40 38 100 83 L100 120 L0 120Z':'M15 110 L15 70 Q15 45 42 45 Q69 45 69 70 L69 110Z'}" fill="${p.c}"/><path d="M68 120 L68 91 Q68 71 88 71 L100 71 L100 120Z" fill="${p.d}"/></svg>`;
+}
+function positions(s){
+ const base=s.layout==='Structured'?[[43,154,68,88],[120,154,68,88],[197,154,68,88],[274,154,68,88],[160,253,68,55]]:
+ s.layout==='Roomier'?[[35,148,68,88],[122,135,76,103],[218,161,56,70],[294,155,55,62],[142,249,62,52]]:
+ [[49,148,68,88],[129,133,76,103],[217,157,56,70],[285,149,55,62],[142,249,62,52]];
+ return s.pieces.map(p=>base[['a','b','c','d','e'].indexOf(p.id)]);
+}
+function room(s,v,interactive=true){
+ let out=rect(16,88,358,318,'#e9e8df',14);
+ out+=`<path d="M16 356 H374 V406 H16Z" fill="#d9d3c6"/><path d="M16 356 H374" stroke="#cecdbf" stroke-width="3"/>`;
+ out+=rect(80,278,235,72,'#999e88',16)+rect(71,327,253,66,'#f6f3e9',12)+rect(82,308,105,39,'#e5e3d7',8)+rect(200,308,104,39,'#e5e3d7',8);
+ out+=`<path d="M74 362 Q184 349 321 369 V393 H74Z" fill="#c6b7a0"/>`;
+ out+=rect(25,328,40,6,'#9c876e',2)+rect(29,334,4,43,'#9c876e')+rect(57,334,4,43,'#9c876e')+rect(40,298,4,30,'#817a61');
+ out+=`<path d="M28 300 L35 278 H48 L55 300Z" fill="#faf5df"/>`;
+ s.pieces.forEach((p,i)=>{
+  const [x,y,w,h]=positions(s)[i];
+  if(interactive)out+=`<g role="button" tabindex="0" aria-label="${esc(prints[p.art].name)}${p.keep?', kept':''}" data-action="piece:${p.id}" data-hit="${x},${y},${w},${h}" class="control">`;
+  out+=art(x,y,w,h,p.art,s.frame);
+  if(v&&v.selected===p.id)out+=rect(x-4,y-4,w+8,h+8,'none',4,C.accent,2);
+  if(p.keep)out+=`<circle cx="${x+w-3}" cy="${y+3}" r="10" fill="${C.accent}"/>${text(x+w-3,y+7,'✓',12,'white',700,'middle')}`;
+  if(interactive)out+='</g>';
+ });
+ return out;
+}
+function miniLayout(x,y,w,h,s){
+ let out=rect(x,y,w,h,'#ecece3',6),pos=positions(s);
+ s.pieces.forEach((p,i)=>{let [px,py,pw,ph]=pos[i];out+=rect(x+(px-20)/350*w,y+(py-115)/185*h,pw/350*w,ph/185*h,prints[p.art].c,1);});
+ return out;
+}
+function footer(v){return button(16,784,84,44,'↶ Undo','undo',{plain:true,disabled:!undo.length})+button(106,784,112,44,'Versions','versions',{plain:true})+button(226,784,148,44,'Frames →','frames',{primary:true});}
+function layoutControls(v){
+ let out=button(16,518,48,48,'−','minus',{aria:'One fewer piece',disabled:state.pieces.length<=keptCount()||state.pieces.length<=1});
+ out+=text(116,548,`${state.pieces.length} pieces`,15,C.ink,600,'middle');
+ out+=button(168,518,48,48,'+','plus',{aria:'One more piece',disabled:state.pieces.length>=5});
+ out+=button(228,518,146,48,'Layout options','options');
+ out+=text(16,597,'Try another arrangement',14,C.muted);
+ ['Loose','Structured','Roomier'].forEach((kind,i)=>{
+  const x=16+i*122,s={...state,layout:kind};
+  out+=`<g role="button" tabindex="0" aria-label="${kind} layout" data-action="layout:${kind}" data-hit="${x},614,114,111" class="control">${rect(x,614,114,111,C.paper,10,state.layout===kind?C.accent:C.line,state.layout===kind?2:1)}${miniLayout(x+8,622,98,68,s)}${text(x+57,711,kind,13,C.ink,state.layout===kind?600:400,'middle')}</g>`;
+ });
+ out+=button(16,734,358,44,'See all layouts','suggestions',{plain:true});
+ return out;
+}
+function alternatives(p,offset=0){const inUse=state.pieces.filter(x=>x.id!==p.id).map(x=>x.art);const pool=prints.map((a,i)=>i).filter(i=>i!==p.art&&!inUse.includes(i)&&(state.filter==='All'||prints[i].type===(state.filter==='Free to print'?'free':'buy')));if(!pool.length)return [];offset%=pool.length;return pool.slice(offset).concat(pool.slice(0,offset)).slice(0,4);}
+function artControls(v){
+ const p=state.pieces.find(p=>p.id===v.selected);
+ if(!p)return text(195,552,'Tap a piece to try other art.',17,C.ink,500,'middle')+text(195,580,'The frames stay where they are.',14,C.muted,400,'middle')+button(16,626,358,48,`New art in ${state.pieces.length-keptCount()} open frames`,'refresh',{disabled:keptCount()===state.pieces.length})+button(16,692,172,48,'Art filters','filters')+button(200,692,174,48,'Your art','owned');
+ let out=text(16,525,prints[p.art].name,17,C.ink,600)+button(330,500,44,44,'×','deselect',{plain:true,aria:'Close piece controls'});
+ out+=button(16,549,174,44,p.keep?'✓ Kept · make optional':'Keep in layouts','keep:'+p.id,{active:p.keep,small:p.keep});
+ out+=button(202,549,172,44,'Remove frame','remove:'+p.id,{disabled:p.keep});
+ out+=text(16,621,p.keep?'Make optional to replace this piece.':'Try another print',14,C.muted);
+ alternatives(p,v.more||0).forEach((id,i)=>{
+  const x=16+i*91;
+  out+=`<g role="button" tabindex="${p.keep?-1:0}" aria-disabled="${p.keep}" aria-label="Try ${esc(prints[id].name)}" data-action="swap:${p.id}:${id}" data-hit="${x},635,85,78" class="control" opacity="${p.keep?.4:1}">${rect(x,635,85,78,C.paper,8,C.line)}${art(x+21,641,43,66,id,state.frame)}</g>`;
+ });
+ out+=button(16,727,106,44,'Art filters','filters',{plain:true,small:true})+button(128,727,126,44,'More choices','more:'+p.id,{plain:true,small:true})+button(260,727,114,44,'Save for later','save:'+p.id,{plain:true,small:true});
+ return out;
+}
+function sheet(v){
+ if(!v.sheet)return '';
+ const top=v.sheet==='versions'?318:370;
+ let out=`<g role="dialog" aria-label="${esc(v.sheet)}">`+rect(0,0,390,844,'#27332e55')+rect(0,top,390,844-top,C.paper,22)+rect(165,top+10,60,4,C.line,2)+button(330,top+20,44,44,'×','close',{plain:true,aria:'Close panel'});
+ const title={options:'Layout options',versions:'Earlier versions',suggestions:'Layouts for your wall',filters:'Art filters',owned:'Your art',menu:'Bedroom',saved:'Saved for later'}[v.sheet]||'Your wall';
+ out+=text(20,top+51,title,21,C.ink,600);
+ if(v.sheet==='options'){
+  out+=text(20,top+97,'Arrangement',14,C.muted);
+  out+=button(20,top+115,169,56,'Structured','layout:Structured',{active:state.layout==='Structured'})+button(201,top+115,169,56,'Loose','layout:Loose',{active:state.layout==='Loose'});
+  out+=text(20,top+217,'Prefer more breathing room?',16,C.ink,500)+text(20,top+244,'Compare the Roomier layout on your wall.',13,C.muted)+button(20,top+266,350,52,'Try roomier','layout:Roomier');
+  out+=text(20,top+361,'Your kept pieces stay included.',14,C.muted);
+ } else if(v.sheet==='versions'){
+  out+=text(20,top+81,'Restores the art, layout and keep choices.',13,C.muted);
+  const full=history.slice().reverse();
+  const grouped=full.filter((it,i)=>i===0||it.label!==full[i-1].label);
+  const display=v.allChanges?full:grouped;
+  const items=display.slice(v.page*4,v.page*4+4);
+  items.forEach((it,i)=>{
+   const y=top+101+i*86;
+   out+=`<g role="button" tabindex="0" aria-label="Restore version ${it.id}: ${esc(it.label)}" data-action="restore:${it.id}" data-hit="16,${y},358,78" class="control">${rect(16,y,358,78,C.paper,10,C.line)}${miniLayout(25,y+9,80,60,it.state)}${text(119,y+28,it.label.length>26?it.label.slice(0,24)+'…':it.label,14,C.ink,500)}${text(119,y+53,`${it.state.pieces.length} pieces · ${keptCount(it.state)} kept · v${it.id}`,12,C.muted)}</g>`;
+  });
+  out+=button(20,top+450,110,44,v.allChanges?'Milestones':'All changes','historydetail',{small:true})+button(140,top+450,110,44,'Newer','newer',{disabled:v.page===0})+button(260,top+450,110,44,'Older','older',{disabled:(v.page+1)*4>=display.length});
+ } else if(v.sheet==='suggestions'){
+  out+=text(20,top+87,`${state.pieces.length} pieces · ${keptCount()} kept in every option`,13,C.muted);
+  ['Loose','Structured','Roomier'].forEach((kind,i)=>{
+   const y=top+108+i*99,s={...state,layout:kind};
+   out+=`<g role="button" tabindex="0" aria-label="Choose ${kind}" data-action="layout:${kind}" data-hit="20,${y},350,88" class="control">${rect(20,y,350,88,C.paper,10,C.line)}${miniLayout(28,y+8,115,72,s)}${text(160,y+45,kind,16,C.ink,500)}</g>`;
+  });
+ } else if(v.sheet==='filters'){
+  out+=text(20,top+92,'Which art would you like to see?',15,C.muted);
+  ['All','Prints to buy','Free to print'].forEach((name,i)=>out+=button(20,top+116+i*66,350,54,name,'filter:'+name,{active:state.filter===name}));
+  out+=text(20,top+354,'Applies to new suggestions.',14,C.muted)+text(20,top+378,'Your current wall stays as it is.',14,C.muted);
+ } else if(v.sheet==='owned'){
+  const p=state.pieces.find(p=>p.id==='a');
+  out+=art(20,top+96,70,88,0,state.frame)+text(106,top+123,'Blue shapes',17,C.ink,600)+text(106,top+148,'Your piece',13,C.muted);
+  ['Keep','Maybe','Skip'].forEach((name,i)=>out+=button(20+i*120,top+210,110,52,name,'owned:'+name,{active:name===(p?(p.keep?'Keep':'Maybe'):'Skip')}));
+  out+=text(20,top+303,'Keep: include in every suggestion.',14,C.muted)+text(20,top+331,'Maybe: use it when it fits the wall.',14,C.muted)+text(20,top+359,'Skip: leave it off this wall.',14,C.muted);
+ } else if(v.sheet==='menu'){
+  [['Wall details','Checked'],['Taste','Optional'],['Your art','Keep / Maybe / Skip'],['Saved art',`${savedArt.length} pieces`]].forEach(([name,detail],i)=>{
+   const y=top+96+i*69,action=['details','taste','owned','saved'][i];
+   out+=button(20,y,350,56,name+' · '+detail,action,{plain:true});
+  });
+ } else if(v.sheet==='saved'){
+  out+=text(20,top+90,'Saved pieces are not automatically kept.',13,C.muted);
+  if(!savedArt.length)out+=text(20,top+142,'No saved pieces yet.',16);
+  savedArt.forEach((id,i)=>{if(i<4)out+=art(20+(i%4)*89,top+123,71,100,id)+text(20+(i%4)*89,top+247,prints[id].name.split(' ')[0],12)+button(20+(i%4)*89,top+263,71,44,'Remove','unsave:'+id,{small:true});});
+ } else {
+  out+=text(20,top+110,v.sheet==='taste'?'Optional taste choices live here.':'Wall measurements and fixed pieces.',16)+text(20,top+144,'Return to your wall whenever you like.',14,C.muted);
+ }
+ return out+'</g>';
+}
+function finishScreen(v){
+ let out=text(16,42,stage==='frames'?'Choose frames':'Hanging guide',23,C.ink,600)+button(270,17,104,44,'Your wall','back',{plain:true});
+ out+=room(state,null,false);
+ if(stage==='frames'){
+  out+=text(16,439,'One look for the wall',17,C.ink,600)+text(16,466,'You can change a single frame afterwards.',13,C.muted);
+  ['Black','Oak','White'].forEach((name,i)=>out+=button(16+i*122,505,114,66,name,'frame:'+name,{active:state.frame===name}));
+  out+=text(16,619,`${state.pieces.length} pieces · ${state.frame} frames`,16,C.ink,500);
+  out+=button(16,784,84,44,'↶ Undo','undo',{plain:true,disabled:!undo.length})+button(106,784,112,44,'Versions','versions',{plain:true})+button(226,784,148,44,'Hang →','hang',{primary:true});
+ }else{
+  out+=text(16,444,`${state.pieces.length} pieces · ${state.frame} frames`,17,C.ink,600);
+  [['1','Check your measurements'],['2','Mark each hanging point'],['3','Hang and level your frames']].forEach(([n,label],i)=>{out+=rect(16,488+i*70,44,44,C.soft,22)+text(38,516+i*70,n,16,C.accent,600,'middle')+text(74,516+i*70,label,15);});
+  out+=text(16,736,'Your saved wall is always here to revisit.',14,C.muted)+button(16,784,358,44,'Back to your wall','back');
+ }
+ return out;
+}
+function renderPhone(index){
+ const v=views[index];
+ let body=rect(0,0,W,H,C.paper);
+ if(stage!=='wall')body+=finishScreen(v);
+ else{
+  body+=text(16,39,'Bedroom',23,C.ink,600)+text(16,65,`Saved · ${state.pieces.length} pieces · ${keptCount()} kept`,13,C.muted)+button(330,18,44,44,'···','menu',{plain:true,aria:'Wall and taste settings'});
+  body+=room(state,v)+text(16,430,v.mode==='Layout'?'Your kept pieces come along.':'Try prints. The frames stay in place.',14,C.muted);
+  body+=rect(16,449,358,48,'#eeeee7',12)+button(16,449,179,48,'Layout','mode:Layout',{active:v.mode==='Layout',plain:v.mode!=='Layout'})+button(195,449,179,48,'Art','mode:Art',{active:v.mode==='Art',plain:v.mode!=='Art'});
+  body+=v.mode==='Layout'?layoutControls(v):artControls(v);
+  body+=footer(v);
+ }
+ body+=sheet(v);
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" data-view="${index}" role="group" aria-label="${esc(v.mode)} view of your wall" style="font-family:Arial,sans-serif">${body}</svg>`;
+}
+function dispatch(action,index=0){
+ const v=views[index],[kind,a,b]=action.split(':');
+ if(kind==='mode'){v.mode=a;v.selected=null;v.sheet=null;}
+ else if(kind==='piece'){v.mode='Art';v.selected=a;v.sheet=null;v.more=0;}
+ else if(kind==='deselect'){v.selected=null;}
+ else if(kind==='keep'){
+  const p=state.pieces.find(p=>p.id===a);if(!p)return;
+  commit(p.keep?'Piece made optional':'Piece kept',()=>p.keep=!p.keep);v.selected=null;
+ }else if(kind==='swap'){
+  const p=state.pieces.find(p=>p.id===a);if(!p||p.keep)return;
+  commit('Art changed',()=>p.art=+b);
+ }else if(kind==='remove'||kind==='minus'){
+  const p=kind==='remove'?state.pieces.find(p=>p.id===a):state.pieces.slice().reverse().find(p=>!p.keep);
+  if(!p||p.keep||state.pieces.length<=1)return;
+  commit('One fewer piece',()=>state.pieces=state.pieces.filter(x=>x.id!==p.id));v.mode='Layout';v.selected=null;
+ }else if(kind==='plus'){
+  if(state.pieces.length>=5)return;const id=['a','b','c','d','e'].find(id=>!state.pieces.some(p=>p.id===id));
+  commit('One more piece',()=>state.pieces.push({id,art:4,keep:false,owned:id==='a'}));
+ }else if(kind==='layout'){
+  commit(a+' arrangement',()=>state.layout=a);v.mode='Layout';v.selected=null;v.sheet=null;
+ }else if(kind==='restore'){
+  const old=history.find(h=>h.id===+a);if(!old)return;
+  commit('Restored v'+a,()=>state=clone(old.state));v.sheet=null;v.selected=null;stage='wall';
+ }else if(kind==='undo'){
+  if(!undo.length)return;redo.push(clone(state));state=undo.pop();remember('Undid a change');views.forEach(x=>x.selected=null);
+ }else if(kind==='refresh'){
+  if(keptCount()===state.pieces.length)return;
+  commit('New art in open frames',()=>state.pieces.forEach(p=>{if(!p.keep){const pool=alternatives(p);if(pool.length)p.art=pool[0];}}));
+ }else if(kind==='filter'){
+  commit('Art filter changed',()=>state.filter=a);v.sheet=null;
+ }else if(kind==='more'){
+  v.more=(v.more||0)+4;
+ }else if(kind==='save'){
+  const p=state.pieces.find(p=>p.id===a);if(p&&!savedArt.includes(p.art))savedArt.push(p.art);v.sheet='saved';
+ }else if(kind==='unsave'){savedArt=savedArt.filter(id=>id!==+a);
+ }else if(kind==='owned'){
+  if(!a)v.sheet='owned';else{
+   commit('Your art: '+a,()=>{let p=state.pieces.find(p=>p.id==='a');if(a==='Skip')state.pieces=state.pieces.filter(x=>x.id!=='a');else{if(!p){p={id:'a',art:0,keep:false,owned:true};state.pieces.unshift(p);}p.keep=a==='Keep';}});v.sheet=null;
+  }
+ }else if(kind==='frames'){stage='frames';views.forEach(x=>x.sheet=null);}
+ else if(kind==='frame'){commit(a+' frames',()=>state.frame=a);}
+ else if(kind==='hang'){stage='hang';}
+ else if(kind==='back'){stage='wall';}
+ else if(kind==='close'){v.sheet=null;}
+ else if(kind==='historydetail'){v.allChanges=!v.allChanges;v.page=0;}
+ else if(kind==='older'){v.page++;}
+ else if(kind==='newer'){v.page=Math.max(0,v.page-1);}
+ else if(kind==='reset'){reset();}
+ else if(['versions','options','suggestions','filters','menu','saved','details','taste'].includes(kind)){v.sheet=kind;v.page=0;}
+ if(typeof document!=='undefined')draw();
+}
+function draw(){
+ document.getElementById('phone-0').innerHTML=renderPhone(0);
+ document.getElementById('phone-1').innerHTML=renderPhone(1);
+ document.getElementById('live').textContent=`${state.pieces.length} pieces. ${keptCount()} kept. ${state.layout} layout. ${stage==='wall'?'Editing your wall':stage}.`;
+}
+if(typeof document!=='undefined'){
+ draw();
+ document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(!el||el.getAttribute('aria-disabled')==='true')return;const pane=el.closest('[data-view]');dispatch(el.dataset.action,pane?+pane.dataset.view:0);});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'){views.forEach(v=>v.sheet=null);draw();}if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-action]')){e.preventDefault();e.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
+}
+if(typeof module!=='undefined')module.exports={renderPhone,dispatch,reset,getState:()=>clone(state),getHistory:()=>clone(history),getStage:()=>stage,positions,views};
+</script></body></html>
