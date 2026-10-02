@@ -106,7 +106,7 @@ function upgradeDraft(d) {
   d.kept = d.kept || [];
   d.fullness = d.fullness || 'balanced';
   if (d.taste && !d.taste.picks) d.taste.picks = [];
-  for (const o of d.owned || []) if (o.keep !== 'skip') { if (o.keep !== 'must') o.pinned = false; o.keep = 'must'; }
+  for (const o of d.owned || []) if (o.keep !== 'skip') { if (o.keep === 'happy') o.loosen = true; if (o.keep !== 'must') o.pinned = false; o.keep = 'must'; }
   return d;
 }
 // Saves and swaps belong to you, not to one wall: a wall opens with yours.
@@ -305,7 +305,7 @@ function build(key0) {
 function rank() {
   const v = S.view;
   const before = v.list.map((L) => L.key);
-  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, hung: S.draft.owned.filter((o) => o.at), want: S.draft.justMine ? [] : keptOwned().map((o) => o.id), art: [...CATALOG, ...S.draft.owned], distinct: true });
+  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, hung: S.draft.owned.filter((o) => o.at), want: S.draft.justMine ? [] : keptOwned().filter((o) => !o.loosen).map((o) => o.id), art: [...CATALOG, ...S.draft.owned], distinct: true });
   // A saved wall leads, the way it was left.
   const chosen = S.draft.chosen && v.all[0] && S.draft.chosen.layout.key === v.all[0].key ? v.list.findIndex((L) => L.key === v.all[0].key) : -1;
   if (chosen > 0) { const [c] = v.list.splice(chosen, 1); v.list.unshift(c); v.list.forEach((L, i) => { L.rank = i + 1; }); }
@@ -809,9 +809,12 @@ function sizePick(o) {
   </select></label>${o.w !== o.h ? `<button type="button" class="link" data-turn="${esc(o.id)}">Turn it ${land ? 'upright' : 'sideways'}</button>` : ''}</span>`;
 }
 
+// Keep: in every wall. Maybe: in a wall when it earns its place, left off when it doesn't. Skip: out.
+const keepState = (o) => (o.keep === 'skip' ? 'skip' : o.loosen ? 'maybe' : 'must');
 const KEEP_SEG = (o) => `<span class="seg" role="group" aria-label="Your ${esc(o.title)}">
-  <button type="button" data-keep="must" data-oid="${esc(o.id)}" aria-pressed="${o.keep !== 'skip'}">Keep</button>
-  <button type="button" data-keep="skip" data-oid="${esc(o.id)}" aria-pressed="${o.keep === 'skip'}">Skip</button></span>`;
+  <button type="button" data-keep="must" data-oid="${esc(o.id)}" aria-pressed="${keepState(o) === 'must'}">Keep</button>
+  <button type="button" data-keep="maybe" data-oid="${esc(o.id)}" aria-pressed="${keepState(o) === 'maybe'}">Maybe</button>
+  <button type="button" data-keep="skip" data-oid="${esc(o.id)}" aria-pressed="${keepState(o) === 'skip'}">Skip</button></span>`;
 
 const nextAfterCheck = () => (S.draft.taste && S.draft.taste.source === 'yours' ? '#/wall' : '#/taste');
 function check() {
@@ -1421,7 +1424,7 @@ function wallScreen() {
       ? `<span class="thumb" style="aspect-ratio:${p.w}/${p.h}">${o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`
       : `<span class="thumb" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt=""></span>`;
     const c = item && item.offers && item.offers.length ? offersAt(item, p.w, p.h).main : null;
-    const state = own ? (p.role === 'pinned' ? 'Yours, stays put' : 'Yours') : kept.has(p.ref.id) ? 'Kept' : 'New';
+    const state = own ? (p.role === 'pinned' ? 'Yours, stays put' : o && o.loosen ? 'Yours, maybe' : 'Yours') : kept.has(p.ref.id) ? 'Kept' : 'New';
     const meta = own ? `${p.w} x ${p.h} in. ${moveNote(p)}` : `${p.w} x ${p.h} in${c && c.price != null ? `, ${money(c.price, c.currency)} at ${esc(item.source)}` : item.offers.length ? `, at ${esc(item.source)}` : `, free photo on ${esc(item.source)}`}`;
     const saved = d.saved.includes(p.ref.id);
     return `<li class="row piece-row">
@@ -1614,9 +1617,10 @@ function pieceSheet(id) {
       <p class="meta">${p.w} x ${p.h} in. ${moveNote(p)}</p>
       <p>${esc(cleanReason(p.reason))}</p>
       <p class="nail-line">${p.role === 'pinned' ? 'Already up.' : `Nail ${esc(inches(p.nail.y))} up, ${esc(inches(p.nail.x))} from the left end.`}</p>
+      ${o ? KEEP_SEG(o) : ''}
+      <p class="pencil small">Keep: in every wall. Maybe: in a wall when it earns its place. Skip: out.</p>
       <div class="acts left">
         ${o && o.at ? `<button type="button" class="btn quiet" data-pin="${esc(id)}">${p.role === 'pinned' ? 'Let it move' : 'Pin it where it hangs'}</button>` : ''}
-        <button type="button" class="btn quiet" data-keep="skip" data-oid="${esc(id)}">Leave it out</button>
       </div>`;
   }
   const item = byId.get(id);
@@ -3099,11 +3103,12 @@ document.addEventListener('click', (e) => {
   if (t.dataset.keep && t.dataset.oid) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.oid);
     if (o) {
-      const was = o.keep;
+      const was = keepState(o);
       o.keep = t.dataset.keep === 'skip' ? 'skip' : 'must';
-      if (o.keep === 'skip') o.pinned = false;
+      o.loosen = t.dataset.keep === 'maybe';
+      if (o.keep !== 'must') o.pinned = false;
       // A piece of yours: only that it was kept or skipped, never its name or photo.
-      if (was !== o.keep) logE(o.keep === 'skip' ? 'skip' : 'keep', { own: true, from: route()[0] || '' });
+      if (was !== keepState(o)) logE(keepState(o) === 'skip' ? 'skip' : 'keep', { own: true, maybe: !!o.loosen, from: route()[0] || '' });
       S.mem.clean = null;
       if (route()[0] === 'wall') { S.sheet = null; rebuild('keep'); return; }
       resetLayouts(); persist(); render();
