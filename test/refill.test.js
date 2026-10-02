@@ -21,7 +21,7 @@ test('every layout explains itself: key, parts, checks, colors and notes', () =>
   for (const w of [livingRoom, bedroom, hallway]) {
     for (const L of layout(inputFor(w)).layouts) {
       assert.equal(typeof L.key, 'string');
-      assert.deepEqual(Object.keys(L.parts).sort(), ['color', 'design', 'fit', 'taste']);
+      assert.deepEqual(Object.keys(L.parts).sort(), ['color', 'comp', 'design', 'fit', 'taste']);
       for (const [k, v] of Object.entries(L.checks)) assert.ok(v >= 0 && v <= 1, `${k} ${v}`);
       assert.ok(L.color.scheme && Object.keys(L.color.shares).length > 0);
       assert.ok(L.notes.length >= 1 && L.notes.length <= 5, `${L.notes.length} notes`);

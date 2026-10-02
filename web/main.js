@@ -134,7 +134,7 @@ function engineInput() {
   const d = S.draft;
   const owned = d.owned.map((p) => ({
     id: p.id, title: p.title, w: p.w, h: p.h, keep: p.keep, drop: p.drop,
-    pinned: !!(p.pinned && p.at), at: p.pinned && p.at ? p.at : undefined,
+    pinned: !!(p.pinned && p.at), at: p.at || undefined,
     palette: p.palette && p.palette.length ? p.palette : p.color ? [{ hex: p.color, weight: 1 }] : undefined,
   }));
   // Which art to pick from: real prints from shops, photos, or both (prints lean ahead a little).
@@ -146,9 +146,12 @@ function engineInput() {
   const taste = scoreTaste(d.taste.weights, catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
-  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: 3, prefs: { style: d.style || undefined, pieces: d.pieces || undefined } };
+  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: 3, base: S.stepBase || undefined,
+    // The piece count is everything on the wall, pieces that stay put included.
+    prefs: { style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined, fullness: d.fullness || 'balanced' } };
 }
 const keepList = () => S.draft.kept || [];
+const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep === 'must').length;
 
 // ---------- Filters ----------
 // Take art out the way a shop's filters do: color, people, price, subjects, shops.
@@ -210,7 +213,7 @@ function filterPanel() {
 }
 const ART_MODES = ['prints', 'both', 'photos'];
 const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.style, S.draft.pieces, artMode(), filters()]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.style, S.draft.pieces, S.draft.fullness, artMode(), filters()]);
 
 function remember(layouts) {
   for (const L of layouts) {
@@ -676,6 +679,15 @@ function tvCandidate(d) {
   return best ? best.id : null;
 }
 
+// How much a piece of theirs has to stay: where it hangs, in the layout but free
+// to move, happy to move or leave out, or doesn't matter.
+function keepSeg(o) {
+  const opts = o.at
+    ? [['stay', 'Stays put', o.keep === 'must' && o.pinned], ['must', 'Must use', o.keep === 'must' && !o.pinned], ['happy', 'Happy to move', o.keep === 'happy'], ['dontcare', "Don't care", o.keep === 'dontcare']]
+    : [['must', 'Must use', o.keep === 'must'], ['happy', 'Happy to move', o.keep === 'happy'], ['dontcare', "Don't care", o.keep === 'dontcare']];
+  return `<span class="seg seg-full keep-seg" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, l, on]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${on}">${l}</button>`).join('')}</span>`;
+}
+
 function check() {
   if (need()) { go(need()); return ''; }
   const d = S.draft, p = d.photo;
@@ -697,7 +709,7 @@ function check() {
     ...d.owned.map((o) => `<li>
       <span class="f-thumb">${o.thumb ? `<img src="${o.thumb}" alt="">` : '<span class="f-icon">Art</span>'}</span>
       <span class="f-main"><span class="f-name">Your ${esc(o.title)}, ${o.w} x ${o.h} in</span>
-        <span class="seg seg-full" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, l]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${o.keep === v}">${o.at && v === 'must' ? 'Keep it there' : l}</button>`).join('')}</span>
+        ${keepSeg(o)}
         ${o.id === tvGuess ? `<button type="button" class="linklike" data-is-tv="${esc(o.autoId)}" aria-label="Your ${esc(o.title)} is really the TV">It's the TV</button>` : ''}</span>
       <button type="button" class="linklike" data-remove-owned="${esc(o.id)}" aria-label="Not art, remove your ${esc(o.title)}">Remove</button>
     </li>`),
@@ -936,9 +948,9 @@ function pieces() {
         </div>
       </div>
       ${odd(o) ? `<p class="error">This reads as ${o.w} x ${o.h} in. Check it.</p>` : ''}
-      <span class="seg seg-full" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, label]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${o.keep === v}">${label}</button>`).join('')}</span>
+      ${keepSeg(o)}
       <div class="owned-foot">
-        ${o.at ? `<label class="toggle"><input type="checkbox" data-pin="${esc(o.id)}"${o.pinned ? ' checked' : ''}> Pin where it hangs now</label>` : `<label class="btn-quiet small-btn file-btn">${o.thumb ? 'New photo of it' : 'Add a photo of it'}<input type="file" accept="image/*" data-art-photo="${esc(o.id)}"></label>`}
+        ${o.at ? '<span></span>' : `<label class="btn-quiet small-btn file-btn">${o.thumb ? 'New photo of it' : 'Add a photo of it'}<input type="file" accept="image/*" data-art-photo="${esc(o.id)}"></label>`}
         <button type="button" class="linklike" data-remove-owned="${esc(o.id)}">Remove</button>
       </div>
     </li>`).join('')}</ul>` : ''}
@@ -1066,7 +1078,9 @@ const STYLE_HINT = {
 function shapeControls(L, counts, zones) {
   const d = S.draft;
   const n = d.pieces || L.pieces.length;
-  const fewer = counts.filter((c) => c < n).pop(), more = counts.find((c) => c > n);
+  // The engine counts new and movable pieces; the count shown includes pieces that stay put.
+  const all = counts.map((c) => c + stayCount());
+  const fewer = all.filter((c) => c < n).pop(), more = all.find((c) => c > n);
   const dis = S.busy ? ' disabled' : '';
   return `<div class="shape">
       <span class="seg" role="group" aria-label="Kind of wall">${[[null, 'Either'], ['structured', 'Structured'], ['gallery', 'Loose']].map(([v, l]) => `<button type="button" data-style="${v || ''}" aria-pressed="${(d.style || null) === v}"${dis}>${l}</button>`).join('')}</span>
@@ -1077,7 +1091,9 @@ function shapeControls(L, counts, zones) {
       </span>
       ${d.pieces ? `<button type="button" class="linklike small" data-count="any"${dis}>Any number</button>` : ''}
     </div>
-
+    <div class="shape"><span class="lever-label" id="full-label">How full</span>
+      <span class="seg" role="group" aria-labelledby="full-label">${[['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']].map(([v, l]) => `<button type="button" data-fullness="${v}" aria-pressed="${(d.fullness || 'balanced') === v}"${dis}>${l}</button>`).join('')}</span>
+    </div>
     ${d.style ? `<p class="muted small shape-hint">${esc(STYLE_HINT[d.style])}</p>` : ''}`;
 }
 const ownedInfo = (id) => { const o = S.draft.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color } : null; };
@@ -1386,7 +1402,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['isArt', 'isTv', 'style', 'count', 'rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['isArt', 'isTv', 'style', 'fullness', 'count', 'rank', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'scale', 'art', 'filter', 'v', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1764,9 +1780,9 @@ document.addEventListener('click', (e) => {
   if (t.dataset.keep && t.dataset.oid) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.oid);
     if (o) {
-      o.keep = t.dataset.keep;
-      // A piece already hanging that you must keep stays where it hangs; the new art goes around it.
-      if (o.at) o.pinned = o.keep === 'must';
+      // "Stays put" keeps a piece exactly where it hangs; "Must use" puts it in every layout, free to move.
+      o.keep = t.dataset.keep === 'stay' ? 'must' : t.dataset.keep;
+      o.pinned = !!(o.at && t.dataset.keep === 'stay');
       S.mem.clean = null; resetLayouts(); persist(); render();
     }
     return;
@@ -1784,11 +1800,15 @@ document.addEventListener('click', (e) => {
     act('scale', () => run()); return;
   }
   if (t.dataset.art) { S.draft.art = t.dataset.art; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
+  if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; S.draft.pieces = null; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.style !== undefined) { S.draft.style = t.dataset.style || null; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.count !== undefined) {
     if (!t.dataset.count) return;
+    // One more or one fewer keeps the frames already up where they are.
+    const L = t.dataset.count === 'any' ? null : shown();
+    S.stepBase = L ? L.pieces.filter((p) => p.role !== 'pinned').map((p) => (p.slot ? { ...p.slot } : { x: p.x, y: p.y, w: p.w, h: p.h })) : null;
     S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count);
-    S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return;
+    S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => { run(); S.stepBase = null; }); return;
   }
   if (t.dataset.scale !== undefined) { S.draft.scale = Number(t.dataset.scale); S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.pick) {

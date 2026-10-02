@@ -65,18 +65,13 @@ Browser checks were done with Playwright (Chromium) against `http://localhost:87
 
 Live is `main` at commit 02b4bea (wd16): layouts beside the TV, the "Where" choice, stack shape, "It's the TV" on the likeliest piece.
 
-## 5. What's in flight (branch `free-form`, not live)
+## 5. What shipped on 2026-10-01 evening (wd18)
 
-On top of 02b4bea, not merged:
-
-- `engine/flow.js`: the free-form packer (section 6), wired into `layout()` as family `flow`, included in both Structured and Loose.
-- The free-form layouts lead the list: Jason's own pieces first, then a medium, a full and a light free-form one, then the set shapes.
-- Side zones are no longer tried by default (only with `prefs.place`). The "Where" control is removed from the screens; tab names no longer say "left side".
-- Summaries for free-form layouts don't mention the TV or a side.
-- `RULES.maxCount` is 20 (was 12).
-- Speed: the beam search and the improvement pass are lighter for walls with more than 8 open slots.
-- Screens: "Art that isn't up yet" on the check screen and on Your art (add by size, optional photo of the piece; the photo sets its colors, thumbnail and shape).
-- **About 12 tests fail.** They assume art always goes over the TV or couch, or a family mix that free-form layouts now crowd out (engine.test.js: living room families, over-the-couch width, hallway centered at 57, group never slides off furniture, width window, maxPieces 1, short wall, wide couch, the two beside-the-TV tests; refill.test.js odd-size swap; taste.test.js speed under 2 s for the demo walls). Fix them as part of the engine work below, deliberately: some should pass `families` explicitly, some reflect real bugs (maxPieces must cap flow; a too-short wall must still say so).
+- Free-form engine (`engine/flow.js`, section 6) live and leading the list: one group, two coordinated groups, "as it is", repair pass, shape score, staged ranking.
+- How full (Calm, Balanced, Full) on the layouts screen.
+- "Must keep" split: Stays put, Must use, Happy to move, Don't care. The count includes pieces that stay put. Stepping the count keeps the frames on screen (`input.base`).
+- Core nesting sizes for new prints. Art that isn't up yet (add by size, optional photo). The "Where" control is gone.
+- All 140 tests pass. A full set of layouts takes about 0.2 to 0.5 s per wall on a fast computer.
 
 ## 6. The layout engine: where it's going
 
@@ -91,7 +86,7 @@ The free-form packer, as built:
 5. Shortlist: pre-score shapes (coverage of open space up to 30%, bounding-box fill, eye level); best per count band and look.
 6. Fill with prints, judge, rank.
 
-**Next, agreed with Jason, in this order** (also in the To-Dos doc):
+**Done in wd18:** items 1 to 4 below, except the speed target on a phone (not yet measured on a phone). **Still open:** the photo reader (section 7), the drag-and-snap editor, the nail-confirm step, the stock-wall review sheet. The original list, for reference:
 
 1. Fix the scoring.
    - Bounding-box fill must not punish wrapping the TV: measure art against the open area inside the box, per group.

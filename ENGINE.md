@@ -34,7 +34,9 @@ layout({
   ],
   taste: { 'aic-27992': 0.82 },        // 0 to 1 from the taste model; missing = 0.5
   room: { palette: [{ hex, weight }] },// optional, sampled from the photo
-  prefs: { budget: null, maxPieces: 9, families: null, style: null, pieces: null, place: null },
+  prefs: { budget: null, maxPieces: 9, families: null, style: null, pieces: null, place: null, fullness: 'balanced' },
+  // fullness: 'calm' | 'balanced' | 'full', the share of the open wall art should cover
+  base: null, // optional: the frames of the layout on screen [{x, y, w, h}]; stepping the count keeps them
   // style: 'structured' (statement, line, grid, column) or 'gallery' (salon); pieces: an exact count, 1 to 12
   // place: 'over' (the TV or furniture), 'left' or 'right' of it, 'wall' (open wall), or null for anywhere
   count: 3,
@@ -215,3 +217,19 @@ Frames are built in the sizes the art passed in actually comes in: for two-row h
 - `layout({ ..., exclude: [ids] })`: never use these.
 - `layout({ ..., avoid: [keys] })`: skip layouts already shown (every layout has a `key`), for "try a new layout".
 - `refill(input, layout, { keep: [ids], swap: id })`: same frames in the same places. With `swap`, only that piece changes; otherwise every piece not kept (and not owned) changes. Pieces it replaces are never picked again for their slot in the same call.
+
+
+## Free-form layouts (engine/flow.js)
+
+Family `flow`, in both Structured (neat runs) and Loose (loose runs), and first in the list. Nothing fixes where the art goes; the open wall does.
+
+1. **Open wall.** The wall inset 3 in from the ends, 20 in up from the floor to 6 in under the ceiling, minus every blocked region (obstacle plus buffer). Its area is measured on a 2 in grid.
+2. **Starting spots.** Over the middle of the two widest anchors, at the lowest height a frame fits. Plus pockets: every place a mid-size frame fits, joined into connected areas; a big area gets up to 4 spots, spread apart, near 60 in.
+3. **Growth.** First frame at the spot (or the nearest fit within 30 in). Each next frame beside, above or below one already up, one gap apart, lined up with its top, bottom or middle (edges only in neat runs). Spots are scored on closeness to the group's center (round, wide or tall growth), shared lines, eye level and a little seeded noise. Runs cover spot x size plan (hero, mixed, small; even, even-small, pair) x growth. Owned pieces go in first, biggest first (and smallest first when several must be used). A snapshot after every frame gives every count.
+4. **Two groups.** A group of 1 to 4 from one spot, then a second of up to 5 from another spot at least 30 in away, starting on the first one's top or bottom line, kept 8 in clear of it.
+5. **As it is.** The person's hung pieces where they are, nothing new.
+6. **Stepping the count.** With `base`, runs also grow on from the frames on screen, and the layout that keeps them all leads.
+7. **Shape score** (`shapeScore`): fullness 0.24 (log-normal around the target), cohesion 0.18 (art over the open area inside each group's outline), lines 0.13 (frames on a line that 3 or more share), ears 0.10 (no frame attached by under 35% of its side), eye 0.13 (center of mass within 7 in of 60), room 0.14 (centered on the anchor it sits over or wraps; sharing a line with it when beside), balance 0.08 (art plus TV, furniture and lamps across the whole wall). With two groups, room drops to 0.07 and the pair (shared line, repeated sizes) takes 0.07.
+8. **Shortlist and repair.** The best of each kind (groups, neat or loose, light/right/full, which thirds of the wall, own pieces used), then a repair pass on the best: drop a piece, shift a group 1.5 or 3 in, move the least attached piece, swap a frame's size.
+
+Every layout's fit is the shape score (free-form) or half the old zone fit and half the shape score (set shapes). Composition = 0.55 fit + 0.45 design; score = 0.5 composition + 0.25 taste + 0.25 color + reuse 0.08 x share of happy pieces used. Layouts more than 0.15 below the best composition are dropped when enough remain.
