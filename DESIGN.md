@@ -1,6 +1,6 @@
 # DESIGN.md
 
-Status: v4, 2026-10-02 evening: direction "Taped up" picked (DECISIONS, v4 step 4; mocks in design/directions). New prints hang unframed with torn tape tabs at the corners, yours hang framed. The references in design/references/v4-* are what new work is compared against. Older sections below still describe the v2 frames-of-tape drawing where they differ; the v4 rules here win.
+Status: v4, 2026-10-02 evening: direction "Taped up" picked (DECISIONS, v4 step 4; mocks in design/directions). New prints hang unframed with torn tape tabs at the corners, yours hang framed. The references in design/references/v4-* (approved by Jason 2026-10-02) are what new work is compared against. Older sections below still describe the v2 frames-of-tape drawing where they differ; the v4 rules here win.
 
 ## What the design is for
 
