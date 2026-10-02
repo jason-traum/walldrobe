@@ -82,6 +82,18 @@ Live is `main` at wd20 (editor and nail confirm). Bundles go up as wdNN, one num
   - Hanging guide: `draft.drop` (wire drop), `sizeMeasured()` for the estimate note, `nailRef()` for "Or 6 in right of the TV's right edge, 10 in above its top".
   - Checked with Playwright at 320, 390 and 1280 on the sample living room: drag, snap guides, refused spot, undo, keyboard, refresh and plus keep spots, drop changes nail heights, no sideways scroll, no console errors.
 
+## 5c. The v2 redo (started 2026-10-01, late evening)
+
+Jason: the site "looks like complete AI slop, too many buttons, not intuitive", full overhaul. He wrote a six-step prompt (Walldrobe_redo_prompt.md) and a design playbook ("Claude Code app design craft", about 2,000 lines; its six review questions, the avoid list in section 10 and appendices A to D are the rulebook). Steps 1 to 4 are done on branch `v2`; `main` and the live site are untouched until he approves the switch.
+
+- Step 1, review: screenshots at 390, 320, 1280, light and dark, in the scratchpad `review/` folder and sent to him as three sheets. Verdict: Fit, Structure and Identity fail; Behavior mostly works; Integrity is good; Continuity partial. Keep the engine and the photo reader, rebuild every screen.
+- Step 2, product reset: PRODUCT.md rewritten. The first wall always adds new art. Choosing is a ranked scrollable list of 3 to 10 walls, not knobs. Generate once, rank many: the engine keeps the whole pool past the gate and re-ranks in place when a preference changes (engine work: split taste and color out of generation). Corners, then one confirm screen. Undo everywhere. Saves feed taste. Keep settings default to Keep or Skip (unsettled).
+- Step 3, structure: the feed (A) picked over the stage (B) and pieces-first (C), with B's pinned-photo swipe inside an open wall and C's piece rows.
+- Step 4, direction: painter's tape. DESIGN.md rewritten with tokens, type, components, motion, named anti-patterns. Prototype: `node tools/v2_proto.mjs` writes `web/v2/proto-feed.html`, `proto-wall.html` and `v2.css` from the real engine on the sample living room with Jason's two prints and the long-title fixture; serve the repo root and open `/web/v2/proto-feed.html`. Reference screens in `design/references/` (feed-390, wall-open-390, light and dark).
+- Next: step 5, build, one flow at a time on `v2`, following DESIGN.md and the playbook rules, screenshots at 390x844, 320 and desktop in light and dark against the references, bounded passes. Then step 6, a fresh-context review (playbook prompt B3) and the B4 audit, then merge only when Jason says.
+
+Known rough edges in the prototype, for the build: the tape's torn ends read as little stars at corners where four strips meet (make the jags one-sided and shorter); the why line is built in the prototype, not the engine (the engine should return who, shape and one number); wall 3 in the sample feed puts a piece 1 in from the wall's end, which is an engine ranking problem, not a design one.
+
 ## 6. The layout engine: where it's going
 
 The core lesson (DECISIONS 2026-10-01): every earlier version hard-coded the designer's first decision, where the art goes ("over the anchor"), then patched in more places. Jason's living room broke it: 26 to 29 in of height over the TV, a 34 in print, open wall on the left. He wants the engine to look at all the open space plus buffers and decide like a person would, including untraditional layouts, and it must not say "above the TV" or "to the left" as options.
