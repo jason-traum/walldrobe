@@ -103,6 +103,9 @@ States that apply everywhere:
 | Example original | Label: "Example. Not for rent yet." | |
 | Swapping a piece | Three alternatives that fit the same slot | Pick one, cancel |
 | Buy link dead | "This one isn't available anymore." | Swap it |
+| Moving pieces | "Move pieces" turns the drawing into an editor (dashed outline). Drag a frame, or focus it and use the arrow keys (Shift for 3 in). It snaps to other frames' edges and centers, the layout's spacing, the middle of the wall, 57 in, and the edges of the TV, windows and furniture, with the guide drawn | Done moving, Undo, Put them back |
+| Moved to a spot that breaks a rule | The frame turns red with the reason under the drawing ("Too close to the TV"); on letting go it goes back: "Too close to the TV, so it went back." | Drag again |
+| Moved by hand | The summary reads "Placed by you: 6 pieces, 92 in across." The notes carry one line saying they describe the layout as first drawn. Refresh, swap and one more or fewer keep the moved spots; the moved layout is the one kept on reload | Put them back |
 
 ## 10. Buy list
 
@@ -110,6 +113,9 @@ States that apply everywhere:
 |---|---|---|
 | Default | Each new piece with size, price and source, and the total | "Buy on [source]" per piece |
 | Nothing new | "This layout only uses what you own. Nothing to buy." | Save the wall |
+| Hanging guide | Nail spots from the left end and the floor. Under each piece's name, when a TV, window, door, mirror, shelf, dresser or console is within 30 in: the same spot from its nearest edge | Change the wire drop, print |
+| Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows the number; a piece with its own drop keeps it | Type a number |
+| Size from the photo | "These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two." | Check one measurement |
 | Leaving the site | Opens in a new tab; the layout stays | |
 
 ## 11. Your walls

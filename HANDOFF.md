@@ -63,7 +63,7 @@ Browser checks were done with Playwright (Chromium) against `http://localhost:87
 
 **Pushing (the way it's been done from a cloud session).** The cloud container can't push. Jason's Mac is linked; his clone is `~/Projects/walldrobe`, and his git credentials live on the linked machine. Flow: commit in the container, `git bundle create wdNN.bundle <last-pushed>..main`, send the bundle to the Mac (`~/Projects/wdNN.bundle`), then on the Mac clone fresh into a temp folder, fetch from the bundle, fast-forward, and `git push origin main`. Don't run git inside `~/Projects/walldrobe` from a sandboxed shell that can't delete files: it leaves lock files behind. If it happens, remove `.git/index.lock` and friends (with Jason's OK) and fast-forward that clone from origin. Bundles wd9 to wd16 sit in `~/Projects`.
 
-Live is `main` at commit 02b4bea (wd16): layouts beside the TV, the "Where" choice, stack shape, "It's the TV" on the likeliest piece.
+Live is `main` at wd20 (editor and nail confirm). Bundles go up as wdNN, one number per push.
 
 ## 5. What shipped on 2026-10-01 evening (wd18)
 
@@ -72,6 +72,15 @@ Live is `main` at commit 02b4bea (wd16): layouts beside the TV, the "Where" choi
 - "Must keep" split: Stays put, Must use, Happy to move, Don't care. The count includes pieces that stay put. Stepping the count keeps the frames on screen (`input.base`).
 - Core nesting sizes for new prints. Art that isn't up yet (add by size, optional photo). The "Where" control is gone.
 - All 140 tests pass. A full set of layouts takes about 0.2 to 0.5 s per wall on a fast computer.
+
+## 5b. What shipped after that (wd19, wd20)
+
+- wd19 (eaab77f), photo reader: blank wall-mounted TVs found, couch backs never a TV, edges of frames and furniture never the wall's edge, `fuzz` clearance on boxes read from a photo. Section 7 has what's left.
+- wd20, editor and nail confirm (all in `web/main.js`, section "Moving pieces by hand"):
+  - "Move pieces" on the layouts screen. `snapSpot()` snaps each axis on its own within 9 screen px; `moveProblem()` checks a spot with the engine's own `blockedRegions` and `checkPieces` plus the hard gap to other frames; `movePiece()` updates x, y, cx, cy, nail and slot, regroups the bounding box, keeps an undo list on the layout (`L.history`, stripped before saving) and stores the layout as `draft.chosen` so it survives a reload. Arrow keys nudge (`nudge()`).
+  - Refill and the count step use `slot` and `shown()`, so moved spots carry through refresh, swap and plus or minus.
+  - Hanging guide: `draft.drop` (wire drop), `sizeMeasured()` for the estimate note, `nailRef()` for "Or 6 in right of the TV's right edge, 10 in above its top".
+  - Checked with Playwright at 320, 390 and 1280 on the sample living room: drag, snap guides, refused spot, undo, keyboard, refresh and plus keep spots, drop changes nail heights, no sideways scroll, no console errors.
 
 ## 6. The layout engine: where it's going
 
@@ -137,7 +146,7 @@ The cohort message asking classmates for wall photos is drafted (without promisi
 ## 9. Decisions taken today (all in DECISIONS.md except where noted)
 
 - Layouts beside the TV, then free-form over all open wall (2026-10-01).
-- Defaults Jason accepted for the next build (record these in DECISIONS.md when they ship): core of about 6 nesting sizes for new prints; fullness defaults to Balanced with Calm and Full one tap away; the editor comes before the nail-confirm step.
+- Defaults Jason accepted for the next build (record these in DECISIONS.md when they ship): core of about 6 nesting sizes for new prints; fullness defaults to Balanced with Calm and Full one tap away; the editor comes before the nail-confirm step (both shipped in wd20).
 - Defer: owning a modular frame system, a metric depth model, a vision-model critic (offline experiment only, later), whole-home allocation (grow the "closet" over time instead).
 
 ## 10. Other open items

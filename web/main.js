@@ -3,7 +3,8 @@
 // own wall, then the list of what to get and where the nails go.
 // Screens are plain functions that return HTML; every change re-renders.
 
-import { layout, refill } from '../engine/index.js';
+import { layout, refill, RULES } from '../engine/index.js';
+import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair, describeTaste } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
@@ -29,6 +30,7 @@ const S = {
   view: null, // { key, layouts, problems }
   rank: 1,
   selected: null,
+  edit: false, // moving pieces by hand on the layouts screen
   measure: true,
   flash: null,
   busy: null,
@@ -52,7 +54,7 @@ function persist() {
   S.saveFailed = !ok;
   return ok;
 }
-function resetLayouts() { S.view = null; S.rank = 1; S.selected = null; S.seen = new Map(); S.avoid = []; S.ui.saved = null; }
+function resetLayouts() { S.view = null; S.rank = 1; S.selected = null; S.edit = false; S.seen = new Map(); S.avoid = []; S.ui.saved = null; }
 // Back to your own wall after looking at a sample.
 function resumeDraft() {
   const d = store.loadDraft();
@@ -656,8 +658,11 @@ async function changeDims(f) {
   const d = S.draft;
   await ensurePixels();
   const a = d.photo && d.photo.auto;
+  const typedWidth = W !== d.width;
   d.width = W; d.height = H;
   if (a && a.rw) a.shownH = Math.round((W * a.rh) / a.rw);
+  // A width typed in is a measurement: nail spots stop being estimates.
+  if (a && typedWidth) a.guess = { from: 'measure', inches: W };
   applyAuto();
   flattenAuto();
   resetLayouts(); persist(); render();
@@ -1116,7 +1121,7 @@ function whyPanel(L) {
     .map(([k, v]) => `<li><span class="dot${k === 'white' ? ' is-white' : ''}" style="background:${SWATCH[k] || '#999'}"></span>${esc(k)} <span class="muted">${pct(v)}</span></li>`).join('');
   const notes = L.notes.map((n) => `<li${n.startsWith('Worth knowing') ? ' class="caveat"' : ''}>${esc(n)}</li>`).join('');
   return `<div class="why-head"><h2>Why it works</h2><span class="scheme">${esc(SCHEME[c.scheme] || c.scheme)}${c.colors && c.colors.length ? `: ${esc(c.colors.join(', '))}` : ''}</span></div>
-    ${colorBar(c.shares, 'cbar-wall')}<ul class="legend">${legend}</ul><ul class="notes">${notes}</ul>`;
+    ${colorBar(c.shares, 'cbar-wall')}<ul class="legend">${legend}</ul><ul class="notes">${notes}${L.moved ? '<li class="caveat">You moved pieces by hand, so these notes are about the layout as we first drew it.</li>' : ''}</ul>`;
 }
 
 // One small card per piece. It pops up over the drawing when you point at
@@ -1155,6 +1160,26 @@ function tight(L, d) {
   if (L.parts.fit >= 0.55 && L.pieces.length > 0) return '';
   const owned = d.owned.length;
   return `<p class="note"><strong>Not much open wall here.</strong> This is the best that fits${owned ? `. With ${owned === 1 ? 'a piece' : 'pieces'} already up, swapping the art in ${owned === 1 ? 'that frame' : 'those frames'} may do more than adding more` : ', or leave this wall bare and pick another'}.</p>`;
+}
+
+// After a piece is moved by hand, the engine's sentence about the shape may not hold.
+function summaryOf(L) {
+  if (!L.moved) return L.summary;
+  const n = L.pieces.length, fresh = L.pieces.filter((p) => p.ref.source === 'catalog').length;
+  return `Placed by you: ${n} piece${n === 1 ? '' : 's'}, ${inches(L.group.w)} across${fresh ? `, with ${fresh} new piece${fresh === 1 ? '' : 's'}` : ''}.`;
+}
+// Under the drawing: the hint, or the controls for moving pieces by hand.
+function editBar(L) {
+  const canMove = L.pieces.some(movable);
+  const undo = L.history && L.history.length;
+  if (!S.edit) {
+    return `<div class="edit-bar"><p class="hint muted">${S.selected ? 'Tap the piece again, or the x, to close.' : 'Point at or tap any piece to see why it\'s there, keep it or swap it.'}</p>
+      ${canMove ? `<div class="acts"><button type="button" class="btn-quiet small-btn" data-act="edit" aria-pressed="false">Move pieces</button>${undo ? '<button type="button" class="btn-quiet small-btn" data-act="undo-all">Put them back</button>' : ''}</div>` : ''}</div>`;
+  }
+  return `<div class="edit-bar is-on"><p class="hint" id="edit-msg" aria-live="polite">Drag a piece, or use the arrow keys. It snaps to the other frames, the middle of the wall and eye level.</p>
+    <div class="acts"><button type="button" class="btn small-btn" data-act="edit" aria-pressed="true">Done moving</button>
+    <button type="button" class="btn-quiet small-btn" data-act="undo-move"${undo ? '' : ' disabled'}>Undo</button>
+    <button type="button" class="btn-quiet small-btn" data-act="undo-all"${undo ? '' : ' disabled'}>Put them back</button></div></div>`;
 }
 
 function layoutsScreen() {
@@ -1214,13 +1239,13 @@ function layoutsScreen() {
       <section class="stage" aria-label="Layouts for this wall">
         ${shapeControls(L, result.counts || [], result.zones)}
         <div class="layouts">${result.layouts.map((x, i) => `<button type="button" class="layout-tab" data-rank="${x.rank}" aria-pressed="${x.rank === S.rank}" aria-label="Layout ${x.rank}: ${esc(names[i])}, ${x.pieces.length} piece${x.pieces.length === 1 ? '' : 's'}"><span class="rank" aria-hidden="true">${x.rank}</span><span class="lt-name" aria-hidden="true">${esc(names[i])}</span><span class="lt-count" aria-hidden="true">${x.pieces.length} piece${x.pieces.length === 1 ? '' : 's'}</span></button>`).join('')}</div>
-        <div class="drawing-wrap" id="drawing-wrap">
+        <div class="drawing-wrap${S.edit ? ' is-editing' : ''}" id="drawing-wrap">
           <div class="drawing" id="drawing">${drawLayout(L, ($('#drawing') && $('#drawing').clientWidth) || Math.min(700, (window.innerWidth || 700) - 50))}</div>
-          ${order.map(peekCard).join('')}
+          ${S.edit ? '' : order.map(peekCard).join('')}
         </div>
-        <p class="hint muted">${S.selected ? 'Tap the piece again, or the x, to close.' : 'Point at or tap any piece to see why it\'s there, keep it or swap it.'}</p>
+        ${editBar(L)}
         ${flashHtml()}
-        <p class="summary">${esc(L.summary)}</p>
+        <p class="summary">${esc(summaryOf(L))}</p>
         ${newCount ? `<p class="cost-line">${esc(costLine(wallCost(L)))}.</p>` : ''}
         <div class="acts">
           <button type="button" class="btn" data-act="get">${newCount ? 'Get this wall' : 'Hang this wall'}</button>
@@ -1251,7 +1276,7 @@ function layoutsScreen() {
 
 function saveThisWall() {
   const L = shown();
-  S.draft.chosen = L ? { layout: L, inputKey: viewKey() } : null;
+  S.draft.chosen = L ? { layout: bareLayout(L), inputKey: viewKey() } : null;
   const ok = store.saveWall(S.draft) && persist();
   if (ok) { S.ui.saved = S.draft.id; S.flash = store.demoMode ? 'Sample mode: nothing is saved.' : 'Saved on this device. Find it under Your walls.'; }
   else S.flash = "Didn't save. This device's storage may be full. Try again after deleting an old wall.";
@@ -1305,6 +1330,38 @@ function costLine(c, long) {
 }
 const frameLink = (w, h) => `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} picture frame with mat`)}`;
 
+// The wall's size is measured when you typed it or set it by tape; a size
+// worked out from a TV or a door in the photo is an estimate.
+function sizeMeasured(d) {
+  const p = d.photo;
+  if (!p) return true;
+  if (p.auto && p.auto.guess) return p.auto.guess.from === 'measure';
+  return !!(p.measure && p.measure.value);
+}
+// A nail spot from the nearest clear edge on the wall, like the TV's, which is
+// easier and closer to measure from than the end of the wall.
+// Couches and beds are soft at the edges, so they aren't measured from.
+const REF_KINDS = new Set(['tv', 'window', 'door', 'mirror', 'shelf', 'dresser', 'console', 'sideboard', 'credenza']);
+function nailRef(n, obstacles) {
+  let best = null;
+  for (const o of obstacles || []) {
+    if (!REF_KINDS.has(o.kind)) continue;
+    const dx = n.x < o.x ? o.x - n.x : n.x > o.x + o.w ? n.x - o.x - o.w : 0;
+    const dy = n.y < o.y ? o.y - n.y : n.y > o.y + o.h ? n.y - o.y - o.h : 0;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= 30 && (!best || dist < best.dist)) best = { o, dist };
+  }
+  if (!best) return null;
+  const o = best.o, name = obName(o).toLowerCase();
+  const r = (v) => Math.round(v * 4) / 4;
+  const hz = n.x < o.x ? `${inches(r(o.x - n.x))} left of the ${name}'s left edge`
+    : n.x > o.x + o.w ? `${inches(r(n.x - o.x - o.w))} right of the ${name}'s right edge`
+    : `${inches(r(n.x - o.x))} right of the ${name}'s left edge`;
+  const vt = n.y > o.y + o.h ? `${inches(r(n.y - o.y - o.h))} above its top`
+    : n.y < o.y ? `${inches(r(o.y - n.y))} below its bottom` : `${inches(r(o.y + o.h - n.y))} down from its top`;
+  return `${hz}, ${vt}`;
+}
+
 function getScreen() {
   if (need()) { go(need()); return ''; }
   const d = S.draft;
@@ -1314,7 +1371,13 @@ function getScreen() {
   const mine = L.pieces.filter((p) => p.ref.source === 'owned');
   const frames = new Map();
   for (const p of fresh) { const k = `${p.w} x ${p.h}`; frames.set(k, (frames.get(k) || 0) + 1); }
-  const hangOrder = [...L.pieces].filter((p) => p.role !== 'pinned').sort((a, b) => b.w * b.h - a.w * a.h);
+  // Nails follow the wire drop you measured; pieces you gave your own drop keep it.
+  const drop = typeof d.drop === 'number' && d.drop >= 0 ? d.drop : RULES.defaultDrop;
+  const LG = { ...L, pieces: L.pieces.map((p) => (p.role === 'pinned' || !p.nailNote ? p : { ...p, nail: { x: p.nail.x, y: Math.round((p.y + p.h - drop) * 4) / 4 } })) };
+  const hangOrder = [...LG.pieces].filter((p) => p.role !== 'pinned').sort((a, b) => b.w * b.h - a.w * a.h);
+  const refs = new Map(hangOrder.map((p) => [p.ref.id, nailRef(p.nail, d.obstacles)]));
+  const anyRef = [...refs.values()].some(Boolean);
+  const estimate = !sizeMeasured(d);
   const nameOf = (p) => (byId.get(p.ref.id) ? byId.get(p.ref.id).title : `Your ${p.title}`);
   return `${header()}${steps('get')}
   <main class="flow wide">
@@ -1360,13 +1423,19 @@ function getScreen() {
     ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? `<p class="muted small">Prints from shops link to the shop, which sells and ships them. Prices are the shop's, checked when we added the print, and may have changed. Walldrobe isn't paid for these links.</p>` : ''}` : ''}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <div class="guide-head"><h2 id="guide-h">Hanging guide</h2><button type="button" class="btn-quiet" data-act="print">Print the hanging guide</button></div>
-      <p class="muted">${esc(L.summary)} Nail spots are measured from the left end of the wall and up from the floor.</p>
-      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, measure: true, pxWide: 900, label: `${d.name}, hanging guide` })}</div>
-      <table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">Frame</th><th scope="col">Nail from left</th><th scope="col">Nail up from floor</th></tr></thead>
-        <tbody>${hangOrder.map((p) => `<tr><td>${esc(nameOf(p))}</td><td>${p.w} x ${p.h} in</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table>
+      <p class="muted">${esc(summaryOf(L))} Nail spots are measured from the left end of the wall and up from the floor.</p>
+      ${estimate ? `<p class="note"><strong>These spots are estimates.</strong> The wall's size came from your photo, so a spot can be off by an inch or two. Measure the wall's width once and every spot firms up. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Check one measurement</a></p>` : ''}
+      <form class="drop-form" id="drop-form">
+        <label for="drop">Wire or hanger sits</label>
+        <span class="drop-in"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
+        <span class="muted small">Pull the wire up tight, as it will hang, and measure from it to the top. Nail heights below follow this.</span>
+      </form>
+      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, measure: true, pxWide: 900, label: `${d.name}, hanging guide` })}</div>
+      <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">Frame</th><th scope="col">Nail from left</th><th scope="col">Nail up from floor</th></tr></thead>
+        <tbody>${hangOrder.map((p) => `<tr><td>${esc(nameOf(p))}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.w} x ${p.h} in</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="tips">
         <li>Hang the biggest piece first; the others measure off it.</li>
-        <li>Nail heights assume the wire sits 2 in below the top of the frame. Pull the wire tight and measure yours, then move the nail by the difference.</li>
+        ${anyRef ? `<li>Measuring from the nearest edge, like the TV's, keeps any error small${estimate ? ', which helps while the wall size is an estimate' : ''}.</li>` : ''}
         <li>Mark each spot with painter's tape before you drill, and step back to look.</li>
       </ol>
     </section>
@@ -1461,7 +1530,7 @@ function wire(r) {
   if (pi) pi.addEventListener('change', (e) => onPhoto(e.target.files[0]));
   const m = $('#measure');
   if (m) m.addEventListener('change', (e) => { S.measure = e.target.checked; render(); });
-  if (r === 'layouts') wirePeek();
+  if (r === 'layouts') { if (S.edit) wireEdit(); else wirePeek(); }
 }
 
 // Pointing at a piece shows its card; tapping pins it so the buttons stay put.
@@ -1522,6 +1591,185 @@ function dragOn(svg, onDown, onMove, onUp) {
     svg.addEventListener('pointerup', up);
     svg.addEventListener('pointercancel', up);
   });
+}
+
+// ---------- Moving pieces by hand ----------
+// Drag a frame and it snaps to the other frames' edges and centers, to the
+// layout's spacing, to the middle of the wall, to 57 in, and to the edges of
+// the TV and furniture. A spot that breaks a hard rule (over the TV, too close
+// to another frame, off the wall) is shown in red and the piece goes back.
+
+const qq = (v) => Math.round(v * 4) / 4;
+const SNAP_PX = 9;
+const EDGE_KINDS = new Set(['tv', 'window', 'door', 'mirror', 'shelf', 'couch', 'sofa', 'headboard', 'bed', 'dresser', 'console', 'sideboard', 'credenza']);
+const movable = (p) => p.role !== 'pinned';
+const bareLayout = (L) => { const { history, ...rest } = L; return rest; };
+
+// The spacing this layout uses between frames, so a moved piece can match it.
+function layoutGap(L) {
+  const g = L.meta && Array.isArray(L.meta.gaps) && L.meta.gaps.find((v) => typeof v === 'number' && v > 0);
+  return g || RULES.gap;
+}
+
+// Where a piece would snap to, near (x, y). Each axis snaps on its own.
+function snapSpot(L, me, x, y, tol) {
+  const d = S.draft, gap = layoutGap(L);
+  const others = L.pieces.filter((p) => p.ref.id !== me.ref.id);
+  const xs = [[d.width / 2 - me.w / 2, { line: d.width / 2, what: 'wall-center' }]];
+  const ys = [[RULES.centerline - me.h / 2, { line: RULES.centerline, what: 'eye' }]];
+  for (const o of others) {
+    xs.push([o.x, { line: o.x }], [o.x + o.w - me.w, { line: o.x + o.w }], [o.x + o.w / 2 - me.w / 2, { line: o.x + o.w / 2 }]);
+    xs.push([o.x + o.w + gap, { gap: [o.x + o.w, o.x + o.w + gap], o }], [o.x - gap - me.w, { gap: [o.x - gap, o.x], o }]);
+    ys.push([o.y, { line: o.y }], [o.y + o.h - me.h, { line: o.y + o.h }], [o.y + o.h / 2 - me.h / 2, { line: o.y + o.h / 2 }]);
+    ys.push([o.y + o.h + gap, { gap: [o.y + o.h, o.y + o.h + gap], o }], [o.y - gap - me.h, { gap: [o.y - gap, o.y], o }]);
+  }
+  for (const o of d.obstacles) {
+    if (!EDGE_KINDS.has(o.kind)) continue;
+    xs.push([o.x, { line: o.x }], [o.x + o.w - me.w, { line: o.x + o.w }], [o.x + o.w / 2 - me.w / 2, { line: o.x + o.w / 2 }]);
+  }
+  const pick = (cands, v) => {
+    let best = null;
+    for (const [at, why] of cands) { const dist = Math.abs(at - v); if (dist <= tol && (!best || dist < best.dist - 1e-9)) best = { at, why, dist }; }
+    return best;
+  };
+  const sx = pick(xs, x), sy = pick(ys, y);
+  return { x: sx ? sx.at : qq(x), y: sy ? sy.at : qq(y), sx: sx && sx.why, sy: sy && sy.why };
+}
+
+// What's wrong with a piece at (x, y), in plain words, or null when it fits.
+function moveProblem(L, me, x, y) {
+  const d = S.draft, g = RULES.gapHard;
+  const pinned = L.pieces.filter((p) => !movable(p) && p.ref.id !== me.ref.id).map((p) => ({ id: p.ref.id, at: { x: p.x, y: p.y }, w: p.w, h: p.h }));
+  // Another frame may come no closer than the hard minimum gap.
+  const frames = L.pieces.filter((p) => movable(p) && p.ref.id !== me.ref.id)
+    .map((p) => ({ x: p.x - g, y: p.y - g, w: p.w + 2 * g, h: p.h + 2 * g, id: p.ref.id, kind: 'art' }));
+  const regions = [...blockedRegions(d.obstacles, pinned), ...frames];
+  const fails = checkPieces([{ id: me.ref.id, x, y, w: me.w, h: me.h }], regions, { width: d.width, height: d.height });
+  if (!fails.length) return null;
+  const f = fails[0];
+  if (f.endsWith('past the end of the wall')) return 'Too close to the end of the wall';
+  if (f.endsWith('too close to floor or ceiling')) return y + me.h / 2 > d.height / 2 ? 'Too close to the ceiling' : 'Too low on the wall';
+  const rid = f.slice(f.indexOf(' on ') + 4);
+  const piece = L.pieces.find((p) => p.ref.id === rid);
+  if (piece) return movable(piece) ? 'Too close to another frame' : `Too close to your ${piece.title}`;
+  const ob = d.obstacles.find((o) => o.id === rid);
+  if (!ob) return "That spot doesn't fit";
+  const name = obName(ob).toLowerCase();
+  return FURNITURE.has(ob.kind) && y >= ob.y + ob.h - 0.01 ? `Too low over the ${name}` : `Too close to the ${name}`;
+}
+
+function movePiece(L, id, x, y) {
+  const p = L.pieces.find((v) => v.ref.id === id);
+  if (!p) return;
+  L.history = [...(L.history || []), { pieces: clone(L.pieces), group: { ...L.group } }].slice(-30);
+  const dx = qq(x) - p.x, dy = qq(y) - p.y;
+  p.x = qq(x); p.y = qq(y); p.cx = qq(p.x + p.w / 2); p.cy = qq(p.y + p.h / 2);
+  p.nail = { x: qq(p.nail.x + dx), y: qq(p.nail.y + dy) };
+  if (p.slot) p.slot = { ...p.slot, x: p.slot.x + dx, y: p.slot.y + dy };
+  regroup(L);
+  L.moved = true;
+  afterEdit(L);
+}
+function regroup(L) {
+  const ps = L.pieces.filter(movable).map((p) => p.slot || p);
+  if (!ps.length) return;
+  const x0 = Math.min(...ps.map((p) => p.x)), y0 = Math.min(...ps.map((p) => p.y));
+  const x1 = Math.max(...ps.map((p) => p.x + p.w)), y1 = Math.max(...ps.map((p) => p.y + p.h));
+  L.group = { ...L.group, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+// An edited layout is the one you picked: it survives a reload.
+function afterEdit(L) {
+  S.ui.saved = null;
+  S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() };
+  persist();
+}
+function undoMove(L, all) {
+  if (!L.history || !L.history.length) return;
+  const to = all ? L.history[0] : L.history[L.history.length - 1];
+  L.pieces = to.pieces; L.group = to.group;
+  L.history = all ? [] : L.history.slice(0, -1);
+  if (!L.history.length) L.moved = false;
+  afterEdit(L);
+}
+
+function guideSvg(L, me, spot, H) {
+  const d = S.draft, s = labelSize(d.width, ($('#drawing') && $('#drawing').clientWidth) || 600);
+  const out = [];
+  const vline = (x) => `<line x1="${x}" x2="${x}" y1="0" y2="${H}" class="snap-line"/>`;
+  const hline = (y) => `<line x1="0" x2="${d.width}" y1="${H - y}" y2="${H - y}" class="snap-line"/>`;
+  if (spot.sx && spot.sx.line !== undefined) out.push(vline(spot.sx.line));
+  if (spot.sy && spot.sy.line !== undefined) out.push(hline(spot.sy.line));
+  if (spot.sx && spot.sx.gap) {
+    const [a, b] = spot.sx.gap, y = H - (Math.max(spot.y, spot.sx.o.y) + Math.min(spot.y + me.h, spot.sx.o.y + spot.sx.o.h)) / 2;
+    out.push(`<line x1="${a}" x2="${b}" y1="${y}" y2="${y}" class="snap-gap"/><text x="${(a + b) / 2}" y="${y - s * 0.4}" text-anchor="middle" font-size="${s * 0.8}" class="snap-label">${esc(inches(b - a))}</text>`);
+  }
+  if (spot.sy && spot.sy.gap) {
+    const [a, b] = spot.sy.gap, x = (Math.max(spot.x, spot.sy.o.x) + Math.min(spot.x + me.w, spot.sy.o.x + spot.sy.o.w)) / 2;
+    out.push(`<line x1="${x}" x2="${x}" y1="${H - a}" y2="${H - b}" class="snap-gap"/><text x="${x + s * 0.4}" y="${H - (a + b) / 2 + s * 0.3}" font-size="${s * 0.8}" class="snap-label">${esc(inches(b - a))}</text>`);
+  }
+  if (spot.sy && spot.sy.what === 'eye') out.push(`<text x="${s * 0.4}" y="${H - RULES.centerline - s * 0.35}" font-size="${s * 0.8}" class="snap-label">57 in, eye level</text>`);
+  return out.join('');
+}
+
+function wireEdit() {
+  const wrap = $('#drawing-wrap');
+  const svg = wrap && wrap.querySelector('svg');
+  if (!svg || !S.edit) return;
+  const L = shown();
+  const H = Number(svg.dataset.h);
+  const msg = $('#edit-msg');
+  const say = (t) => { if (msg) msg.textContent = t; };
+  const NS = 'http://www.w3.org/2000/svg';
+  dragOn(svg, (e) => {
+    const g = e.target.closest && e.target.closest('.art');
+    const me = g && L.pieces.find((p) => p.ref.id === g.dataset.id);
+    if (!me || !movable(me)) return null;
+    const guides = document.createElementNS(NS, 'g');
+    guides.setAttribute('class', 'snap-guides');
+    svg.appendChild(guides);
+    g.classList.add('is-moving');
+    svg.classList.add('is-dragging');
+    const ctm = svg.getScreenCTM();
+    return { g, me, guides, start: wallPoint(svg, e), tol: SNAP_PX / (ctm ? ctm.a : 4), spot: { x: me.x, y: me.y }, bad: null, moved: false };
+  }, (c, e) => {
+    const at = wallPoint(svg, e);
+    const d = S.draft;
+    const rx = Math.max(0, Math.min(d.width - c.me.w, c.me.x + at.x - c.start.x));
+    const ry = Math.max(0, Math.min(d.height - c.me.h, c.me.y + at.y - c.start.y));
+    if (!c.moved && Math.hypot(rx - c.me.x, ry - c.me.y) < c.tol * 0.4) return;
+    c.moved = true;
+    c.spot = snapSpot(L, c.me, rx, ry, c.tol);
+    c.bad = moveProblem(L, c.me, c.spot.x, c.spot.y);
+    c.g.setAttribute('transform', `translate(${c.spot.x - c.me.x} ${-(c.spot.y - c.me.y)})`);
+    c.g.classList.toggle('is-bad', !!c.bad);
+    c.guides.innerHTML = guideSvg(L, c.me, c.spot, H);
+    say(c.bad ? `${c.bad}. Let go and it goes back.` : `${inches(c.spot.x)} from the left end, bottom ${inches(c.spot.y)} up.`);
+  }, (c) => {
+    c.guides.remove();
+    svg.classList.remove('is-dragging');
+    c.g.classList.remove('is-moving', 'is-bad');
+    if (!c.moved) { c.g.removeAttribute('transform'); return; }
+    if (c.bad) { c.g.removeAttribute('transform'); S.flash = `${c.bad}, so it went back.`; render(); return; }
+    S.flash = null;
+    movePiece(L, c.me.ref.id, c.spot.x, c.spot.y);
+    render();
+    const again = document.querySelector(`#drawing .art[data-id="${CSS.escape(c.me.ref.id)}"]`);
+    if (again) again.focus({ preventScroll: true });
+  });
+}
+
+// Arrow keys move the focused piece: half an inch, or 3 in with Shift.
+function nudge(id, key, big) {
+  const L = shown();
+  const me = L && L.pieces.find((p) => p.ref.id === id);
+  if (!me || !movable(me)) return;
+  const step = big ? 3 : 0.5;
+  const [dx, dy] = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[key];
+  const bad = moveProblem(L, me, me.x + dx, me.y + dy);
+  if (bad) { S.flash = `${bad}, so it stays.`; render(); }
+  else { S.flash = null; movePiece(L, id, me.x + dx, me.y + dy); render(); }
+  const again = document.querySelector(`#drawing .art[data-id="${CSS.escape(id)}"]`);
+  if (again) again.focus({ preventScroll: true });
 }
 
 // New corners mean a new flattened wall: the size step has to run again.
@@ -1620,6 +1868,7 @@ function wireDraw() {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
+  if (f.id === 'drop-form') { const i = $('#drop'); if (i) i.dispatchEvent(new Event('change', { bubbles: true })); return; }
   if (f.id === 'dims-form') { changeDims(f).then(() => go('#/layouts')); return; }
   if (f.id === 'size-form') {
     const v = (n) => Number(f.elements[n].value || 0);
@@ -1666,6 +1915,11 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.id === 'drop') {
+    const v = Number(t.value);
+    if (Number.isFinite(v) && v >= 0 && v <= 12) { S.draft.drop = Math.round(v * 4) / 4; persist(); render(); const again = $('#drop'); if (again) again.focus({ preventScroll: true }); }
+    return;
+  }
   if (t.dataset && t.dataset.artPhoto && t.files && t.files[0]) {
     // A photo of a piece that isn't up: its colors, a thumbnail, and its shape.
     const o = S.draft.owned.find((x) => x.id === t.dataset.artPhoto);
@@ -1829,6 +2083,7 @@ document.addEventListener('click', (e) => {
     if (S.draft && S.draft.id === t.dataset.delete) { S.draft = null; store.clearDraft(); }
     S.ui.confirmDelete = null; S.flash = store.demoMode ? 'Sample mode: nothing is deleted.' : 'Deleted, with its photo.'; render(); return;
   }
+  if (S.edit && t.classList.contains('art')) return;
   if (t.classList.contains('art') || t.classList.contains('piece-hit')) { S.selected = S.selected === t.dataset.id ? null : t.dataset.id; render(); return; }
   switch (a) {
     case 'corners-ok': {
@@ -1864,13 +2119,15 @@ document.addEventListener('click', (e) => {
       persist(); S.flash = null; act('keep', () => rebuildOthers(L)); break;
     }
     case 'unpin': S.selected = null; render(); break;
+    case 'edit': S.edit = !S.edit; S.selected = null; S.flash = null; render(); break;
+    case 'undo-move': case 'undo-all': { const L = shown(); if (L) undoMove(L, a === 'undo-all'); S.flash = null; render(); break; }
     case 'retry': resetLayouts(); render(); break;
     case 'filters': S.ui.filters = !S.ui.filters; render(); break;
     case 'swap': S.flash = null; act(`swap:${t.dataset.id}`, () => refreshShown(t.dataset.id)); break;
     case 'refresh': S.flash = null; act('refresh', () => refreshShown(null)); break;
     case 'another': S.flash = null; act('another', newLayouts); break;
     case 'save': saveThisWall(); render(); break;
-    case 'get': S.draft.chosen = { layout: shown(), inputKey: viewKey() }; persist(); go('#/get'); break;
+    case 'get': S.draft.chosen = { layout: bareLayout(shown()), inputKey: viewKey() }; persist(); go('#/get'); break;
     case 'print': window.print(); break;
     case 'cancel-delete': S.ui.confirmDelete = null; render(); break;
     default: break;
@@ -1880,6 +2137,10 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && S.selected && route()[0] === 'layouts') { const id = S.selected; S.selected = null; render(); const g = document.querySelector(`.art[data-id="${CSS.escape(id)}"]`); if (g) g.focus({ preventScroll: true }); return; }
   const t = e.target.closest && e.target.closest('.art');
+  if (t && S.edit && route()[0] === 'layouts') {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); nudge(t.dataset.id, e.key, e.shiftKey); }
+    return;
+  }
   if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); S.selected = S.selected === t.dataset.id ? null : t.dataset.id; render(); }
 });
 
