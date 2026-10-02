@@ -1,16 +1,16 @@
-/* Walldrobe v2. Painter's tape. Tokens live here on :root and nowhere else.
-   Rules and the contrast table: DESIGN.md. */
+/* Walldrobe v4. Taped up, in the finished room. Tokens live here on :root and nowhere else.
+   Rules: DESIGN.md (v4). Light only. */
 
 :root {
-  color-scheme: light; /* Light only: art reads truest on a light wall, and the drawn wall is light anyway. */
+  color-scheme: light;
   --canvas: #F4F4F2;
   --surface: #FFFFFF;
   --ink: #1A1B1A;
   --pencil: #585C5F;
   --hairline: #D9DBD8;
   --field: #777B7F;
-  --tape: #1B62AC;
-  --tape-strip: #2F7FD0;
+  --tape: #1A5FA6;
+  --tape-strip: #1A5FA6;
   --tape-keep: #2F8A4E;
   --tape-pin: #C8551A;
   --tape-soft: #D6E6F7;
@@ -19,15 +19,24 @@
   --marker-soft: #F3E2EA;
   --error: #A12A14;
   --error-soft: #F8E6E1;
-  /* The drawn wall is light in both themes. */
+  /* The drawn room. */
   --wall: #E7E6E2;
-  --wall-edge: #CFCDC8;
+  --wall-hi: #EFEDE8;
+  --wall-lo: #E3E0D9;
+  --wood: #5B3A2E;
+  --wood-2: #6A4636;
+  --bedding-2: #E6E4DE;
+  --pillow: #FAF9F6;
+  --shade: #F4EFE3;
+  --metal: #2B2B2B;
+  --paper: #FDFDFB;
+  --wall-edge: #F7F6F2;
   --wall-ink: #4F555A;
   --furn: #BDBCB8;
   --furn-dark: #A2A19D;
-  --bedding: #D8D5CE;
+  --bedding: #F1F0EC;
   --glass: #D7DEE4;
-  --frame: #1B1B1B;
+  --frame: #1E1E1E;
   --mat: #FBFBF9;
   --swatch: #8A8F94;
   /* Marks drawn on the light wall keep their light-theme values in both themes. */
@@ -40,9 +49,8 @@
   --r-sheet: 10px;
   --r-thumb: 3px;
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
-  --font: Switzer, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font: "Familjen Grotesk", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
 }
-
 * { box-sizing: border-box; }
 html, body { background: var(--canvas); margin: 0; }
 html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
@@ -66,17 +74,16 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .pencil { color: var(--pencil); }
 .small { font-size: 14px; line-height: 20px; }
 .help { color: var(--pencil); font-size: 14px; line-height: 20px; }
-.help.is-warn { color: var(--ink); }
-.size-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
-.size-pick select { min-height: 44px; }
-.size-pick .link { min-height: 44px; }
 .lede { font-size: 16px; line-height: 24px; max-width: 36em; }
 .error { color: var(--error); font-weight: 500; }
 
 /* ---------- The bar ---------- */
 .bar { max-width: 760px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 8px 16px; position: sticky; top: 0; z-index: 4; background: var(--canvas); }
 .bar-l, .bar-r { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wordmark { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 18px; letter-spacing: -0.01em; padding: 11px 0; min-height: 44px; display: inline-flex; align-items: center; }
+/* The door in the bar reads as a link in the action blue, like the reference; still a 44 px target. */
+.bar-r .btn[data-act="change"] { background: none; border: 0; color: var(--tape); padding: 0 4px 0 8px; font-weight: 500; }
+.wordmark { position: relative; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 20px; letter-spacing: -0.01em; padding: 11px 0 11px 2px; min-height: 44px; display: inline-flex; align-items: center; }
+.wordmark .tab { position: absolute; left: -3px; top: 14px; width: 15px; height: 5px; background: var(--tape-strip); transform: rotate(-38deg); }
 .back { color: var(--ink); text-decoration: none; font-weight: 500; font-size: 16px; padding: 11px 8px 11px 0; white-space: nowrap; }
 .back span { color: var(--pencil); }
 .demo-note { max-width: 760px; margin: 0 auto; padding: 0 16px 8px; color: var(--pencil); font-size: 13px; line-height: 18px; }
@@ -120,7 +127,7 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .seg button:disabled { opacity: 0.5; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .chip { min-height: 44px; padding: 0 14px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface); color: var(--ink); font: 500 15px/20px var(--font); cursor: pointer; }
-.drawing > .chip, .drawing .chip { position: absolute; top: 10px; left: 10px; min-height: 0; padding: 3px 9px; font-size: 13px; line-height: 18px; color: var(--pencil); border: 0; pointer-events: none; }
+.drawing > .chip, .drawing .chip { position: absolute; top: 8px; left: 10px; min-height: 0; padding: 0; background: none; font-size: 12px; line-height: 16px; color: var(--pencil); border: 0; border-radius: 0; pointer-events: none; }
 
 /* ---------- Notes ---------- */
 .note { background: var(--surface); padding: 12px 14px; border-radius: var(--r-control); font-size: 15px; line-height: 22px; margin: 12px 0; }
@@ -142,10 +149,18 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .furn rect, .furn path, rect.furn { fill: var(--furn); }
 .furn .furn-dark, .furn-dark { fill: var(--furn-dark); }
 .furn .bedding { fill: var(--bedding); }
-.furn .pillow { fill: var(--mat); }
+.furn .bedding-2 { fill: var(--bedding-2); }
+.furn .pillow { fill: var(--pillow); }
+.furn .wood { fill: var(--wood); }
+.furn .wood-2 { fill: var(--wood-2); }
+.furn .metal { fill: var(--metal); }
+.wall-hi { stop-color: var(--wall-hi); }
+.wall-lo { stop-color: var(--wall-lo); }
+.paper { fill: var(--paper); }
+.frame { fill: var(--frame); }
 .furn .seam { stroke: var(--furn-dark); stroke-width: 0.4; }
 .furn .pole { stroke: var(--furn-dark); stroke-width: 0.8; }
-.furn .shade { fill: var(--mat); }
+.furn .shade { fill: var(--shade); }
 .furn .leaf { fill: #8FA48A; }
 .window rect { fill: var(--glass); stroke: var(--mat); stroke-width: 1.2; }
 .window line { stroke: var(--mat); stroke-width: 0.8; }
@@ -236,8 +251,6 @@ input[type="color"] { width: 44px; height: 44px; border: 1px solid var(--field);
 .num { display: grid; gap: 4px; color: var(--pencil); font-size: 14px; }
 .num-in { display: inline-flex; align-items: center; gap: 6px; }
 .name-in { display: grid; gap: 4px; color: var(--pencil); font-size: 14px; }
-.check { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; min-height: 44px; padding-top: 10px; cursor: pointer; }
-.check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--tape); flex: none; }
 .fix-acts { display: flex; align-items: center; gap: 16px; }
 .row-open { grid-column: 1 / 3; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: start; text-align: left; border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
 .piece-row { grid-template-columns: 56px minmax(0, 1fr) 44px; }
@@ -281,36 +294,31 @@ input[type="color"] { width: 44px; height: 44px; border: 1px solid var(--field);
 
 /* ---------- The feed ---------- */
 .feed-page { padding: 4px 16px 48px; max-width: 760px; margin: 0 auto; }
-.feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 48px; }
+.feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; }
 .entry-link { display: grid; gap: 8px; color: var(--ink); text-decoration: none; border-radius: var(--r-control); }
-.entry-link .drawing { margin: 0 -16px 16px; }
+.entry-link .drawing { margin: 0; }
 .entry-link .why { font-size: 18px; line-height: 24px; font-weight: 500; max-width: 34em; text-wrap: balance; }
 .entry-link:active .drawing { opacity: 0.92; }
 .cost { color: var(--pencil); font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; }
 .has-saved { color: var(--marker); }
 .is-waiting { opacity: 0.6; }
-.feed-end { margin-top: 48px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.feed-end { margin-top: 24px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .feed-end .link { padding: 0; min-height: 44px; text-align: left; }
 @media (min-width: 640px) { .entry-link .drawing { margin: 0 0 16px; } }
 
 /* ---------- One wall ---------- */
 .wall-page { padding: 4px 16px 48px; max-width: 760px; margin: 0 auto; display: grid; gap: 8px; }
-.wall-page .drawing-wrap { margin: 0 -16px 8px; touch-action: pan-y; }
+.wall-page .drawing-wrap { margin: 0 0 8px; touch-action: pan-y; }
 .wall-page .why { font-size: 20px; line-height: 26px; font-weight: 500; max-width: 32em; margin-top: 8px; }
 .wall-page .acts { margin: 8px 0 24px; }
 .wall-page h2 { margin-top: 16px; }
 .wall-main, .wall-side { display: grid; gap: 8px; align-content: start; min-width: 0; }
 @media (min-width: 1000px) {
-  body.on-wall .bar, body.on-wall .demo-note, body.on-wall .steps-bar { max-width: 1120px; }
+  body.on-wall .bar, body.on-wall .demo-note { max-width: 1120px; }
   .wall-page { max-width: 1120px; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr); gap: 40px; align-items: start; }
   .wall-side h2 { margin-top: 0; }
   .wall-page .drawing-wrap { margin: 0 0 8px; }
 }
-.legend { color: var(--pencil); font-size: 14px; line-height: 20px; }
-.key { display: inline-block; width: 18px; height: 6px; margin: 0 4px 0 2px; vertical-align: middle; border-radius: 1px; }
-.key-new { background: var(--tape-strip); }
-.key-kept { background: var(--tape-keep); }
-.key-pin { background: var(--tape-pin); }
 @media (min-width: 640px) { .wall-page .drawing-wrap { margin: 0 0 8px; } }
 .is-editing .drawing { outline: 2px dashed var(--tape-strip); outline-offset: 4px; }
 .is-editing svg { touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -385,239 +393,31 @@ svg.is-dragging .measure { opacity: 0.25; }
 .wall-meta { display: grid; gap: 8px; min-width: 0; }
 @media (max-width: 420px) { .wall-item { grid-template-columns: 1fr; } }
 
-/* ---------- Browse ---------- */
-.home-browse a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
-.filters { display: flex; flex-wrap: wrap; gap: 8px; }
-.filter { display: block; min-width: 0; max-width: 100%; }
-/* On a phone the controls wrap and fill each row, so the row edges line up. */
-@media (max-width: 599px) { .filter { flex: 1 1 auto; } .filter select { width: 100%; } }
-.select { position: relative; display: block; }
-.select select { -webkit-appearance: none; appearance: none; max-width: 100%; min-height: 44px; padding: 0 28px 0 10px; border: 1px solid var(--field); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font-weight: 500; cursor: pointer; }
-.select::after { content: ""; position: absolute; right: 11px; top: 50%; width: 7px; height: 7px; margin-top: -6px; border-right: 2px solid var(--pencil); border-bottom: 2px solid var(--pencil); transform: rotate(45deg); pointer-events: none; }
-.filter.is-on select { background: var(--tape-soft); color: var(--tape); border-color: var(--tape-soft); font-weight: 600; }
-.filter.is-on .select::after { border-color: var(--tape); }
-.browse-count { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; min-height: 44px; margin-top: -8px; }
-.browse-count .link { padding: 0; }
-.tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 12px; }
-.tile { min-width: 0; }
-.tile-open { display: grid; gap: 2px; align-content: start; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: var(--r-thumb); }
-.tile-wall { position: relative; display: block; aspect-ratio: 4 / 5; margin-bottom: 8px; background: var(--wall); border-radius: var(--r-thumb); transition: transform 120ms var(--ease); }
-.tile-open:active .tile-wall { transform: scale(0.97); }
-.tile-in { position: absolute; inset: 12%; display: flex; align-items: center; justify-content: center; }
-/* The mat is a border on a content box, so the image box keeps the art's own shape exactly. */
-.tile-art, .big-art { display: block; box-sizing: content-box; border: 4px solid var(--mat); background: var(--mat); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); overflow: hidden; }
-.tile-art img, .big-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.big-art { border-width: 6px; }
-.tile-saved { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--mat); }
-.tile-saved svg { width: 16px; height: 16px; }
-.tile-saved .heart-on { fill: var(--on-wall-marker); stroke: var(--on-wall-marker); }
-.tile-name { font-weight: 500; font-size: 16px; line-height: 22px; overflow-wrap: anywhere; }
-.tile .meta { overflow-wrap: anywhere; }
-/* A piece whose image didn't load: its title in the mat. */
-.is-missing[data-title]::after { content: attr(data-title); padding: 6px; font-size: 12px; line-height: 15px; overflow: hidden; }
-.tile-art.is-missing, .big-art.is-missing { min-height: 0; }
-.browse-more { justify-content: center; margin-top: 16px; }
-.keep-note { display: grid; justify-items: start; }
-.keep-note .link { padding: 0; }
-.browse-end { text-align: center; margin-top: 16px; }
-@media (min-width: 600px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 16px; } }
-@media (min-width: 1000px) {
-  body.on-browse .bar, body.on-browse .demo-note, .page.browse, body.on-browse .credits { max-width: 1120px; }
-  .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
-}
-
 @media print {
   .bar, .demo-note, .acts, .credits, .drop-form .help { display: none; }
   body { background: #FFFFFF; color: #000000; }
 }
 
-/* What we learned: one line per taste axis, the choice under the name on a phone. */
-.rows .row.axis-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: center; }
-.rows .row.axis-row > * { grid-column: auto; grid-row: auto; }
-@media (min-width: 600px) { .rows .row.axis-row { grid-template-columns: minmax(0, 1fr) auto; } .axis-row .seg { width: auto; } .axis-row .seg button { flex: 0 0 auto; padding: 0 14px; } }
-
-/* Which walls: the four choices on screen, one tap each. */
-/* Chips, kept for the filters button. */
-.chips-row { display: flex; flex-wrap: nowrap; gap: 6px; margin: 0 -16px 16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
-.chips-row::-webkit-scrollbar { display: none; }
-.sheet .chips-row { flex-wrap: wrap; margin: 0; padding: 0; overflow: visible; }
-.chip-btn { flex: 0 0 auto; white-space: nowrap; min-height: 44px; padding: 0 12px; border: 1px solid var(--field); border-radius: 22px; background: var(--surface); color: var(--ink); font: 500 14px/20px var(--font); cursor: pointer; }
-.chip-btn.is-on { background: var(--tape-soft); border-color: transparent; color: var(--tape); font-weight: 600; }
-.chip-btn:active { transform: scale(0.97); }
-
-/* A choice sheet: each option a full row, its meaning under it. */
-.opts { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
-.opt { display: grid; gap: 2px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
-.opt[aria-pressed="true"] { background: var(--tape-soft); border-color: var(--tape); }
-.opt-name { font: 600 16px/22px var(--font); }
-.opt[aria-pressed="true"] .opt-name { color: var(--tape); }
-.opt-sub { font: 400 14px/20px var(--font); color: var(--pencil); }
-.opt-wide { margin-top: 12px; min-height: 48px; }
-.num-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; margin-top: 12px; }
-.num-btn { min-height: 48px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: 600 17px/20px var(--font); font-variant-numeric: tabular-nums; cursor: pointer; }
-.num-btn[aria-pressed="true"] { background: var(--tape-soft); border-color: var(--tape); color: var(--tape); }
-
-/* The Change sheet in groups: what to show, this wall, your taste, then plain links. */
-.sheet-label { margin: 16px 0 0; font: 600 14px/20px var(--font); color: var(--pencil); }
-.sheet-label:first-of-type { margin-top: 8px; }
-.sheet-links { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--hairline); }
-.sheet-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--pencil); font: 400 15px/20px var(--font); text-decoration: underline; text-underline-offset: 3px; }
-
-/* Under the open wall: which wall of how many, and one more or one fewer piece. */
-.wall-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
-.stepper { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--field); border-radius: 22px; padding: 0 8px; background: var(--surface); overflow: hidden; }
-.stepper .icon-btn { font-size: 22px; }
-.step-n { min-width: 72px; text-align: center; font: 600 15px/20px var(--font); font-variant-numeric: tabular-nums; }
-
-/* The close-up above a finger on a photo. Fixed size, round, a thin cross at its middle. */
-.loupe { position: fixed; z-index: 30; width: 120px; height: 120px; border-radius: 50%; border: 2px solid var(--tape-strip); box-shadow: 0 8px 24px rgba(20, 24, 28, 0.25); background-color: var(--wall); background-repeat: no-repeat; pointer-events: none; display: none; }
-.loupe::before, .loupe::after { content: ""; position: absolute; left: 50%; top: 50%; background: var(--tape-strip); }
-.loupe::before { width: 1px; height: 28px; transform: translate(-50%, -50%); }
-.loupe::after { width: 28px; height: 1px; transform: translate(-50%, -50%); }
-.handle.is-picked .handle-dot { fill: var(--tape-strip); }
-.nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 0 0; }
-.nudge-who { color: var(--pencil); font: 500 14px/20px var(--font); }
-.nudge-pad { display: inline-flex; border: 1px solid var(--field); border-radius: 22px; background: var(--surface); }
-.nudge-pad .icon-btn { font-size: 18px; }
-
-/* Boxes on the confirm photo: tap to pick, then corner handles and the size under it. */
-.photo-check .box { cursor: pointer; }
-.photo-check .box.is-picked .ob-box, .photo-check .box.is-picked .owned-box-mark { stroke-width: 3; }
-.photo-check .box.is-picked .ob-box { stroke: var(--on-wall-tape); }
-.photo-check .box-h { cursor: grab; }
-.photo-check .box-size { fill: var(--on-wall); font-weight: 600; text-anchor: middle; paint-order: stroke; stroke: var(--mat); stroke-width: 0.6; }
-.photo-check .box rect { pointer-events: all; }
-
-/* Sizes a piece comes in, in its sheet. */
-.sizes { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
-.size-btn { display: grid; gap: 0; min-height: 44px; padding: 4px 12px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: 500 15px/20px var(--font); font-variant-numeric: tabular-nums; cursor: pointer; text-align: center; }
-.size-btn[aria-pressed="true"] { background: var(--tape-soft); border-color: var(--tape); color: var(--tape); }
-.size-price { display: block; font: 400 13px/16px var(--font); color: var(--pencil); }
-.size-btn[aria-pressed="true"] .size-price { color: var(--tape); }
-.pool { display: grid; gap: 12px; }
-
-/* A corner or step in the wall: a dashed line, floor to ceiling. */
-.wall-edge { stroke: var(--on-wall); stroke-width: 0.6; stroke-dasharray: 2 1.5; opacity: 0.7; }
-
-/* Your taste, on the feed: one line and one action. */
-.taste-h { font-weight: 600; }
-.frame-pick { display: grid; gap: 8px; margin: 0 0 16px; }
-.frame-light { stroke: #C9C7C0; stroke-width: 0.15; }
-.frame-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; }
-.frame-row select { min-height: 44px; }
-.looks { display: flex; flex-wrap: wrap; gap: 8px; }
-.look { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 12px 6px 8px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font); cursor: pointer; }
-.look[aria-pressed="true"] { border-color: var(--tape); background: var(--tape-soft); color: var(--tape); font-weight: 600; }
-.pop { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px; border: 1px solid var(--hairline); border-radius: 22px; background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font); cursor: pointer; }
-.pop span { width: 20px; height: 20px; border-radius: 50%; display: inline-block; }
-.pop[aria-pressed="true"] { border-color: var(--tape); background: var(--tape-soft); }
-.fine summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--tape); font-weight: 500; }
-.fine[open] { display: grid; gap: 8px; }
-/* Long choice rows on the frame picker wrap instead of pushing the page wide. */
-.frame-pick .seg { display: flex; flex-wrap: wrap; max-width: 100%; }
-.frame-pick .seg button { flex: 1 0 auto; border-top: 1px solid var(--hairline); margin-top: -1px; }
-.frame-row select { max-width: 100%; }
-.fine .label { font: 500 14px/20px var(--font); color: var(--pencil); margin-top: 4px; }
-
-/* Walls people hung: one post per wall, before and after side by side on wide screens. */
-.posts { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px; }
-.post { display: grid; gap: 12px; }
-.post-head { margin: 0; }
-.post-who { font-weight: 600; }
-.post-note { margin: 0; font: 500 17px/24px var(--font); }
-.post-pair { display: grid; gap: 12px; }
-.post-pair figure, .post-others figure { margin: 0; display: grid; gap: 6px; }
-.post-pair figcaption, .post-others figcaption { color: var(--pencil); font-size: 14px; line-height: 20px; }
-.post-others { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 700px) { .post-pair { grid-template-columns: 1fr 1fr; } }
-
-/* Every version of the wall, as a row of small drawings. */
-.versions { margin: 8px 0 0; }
-.versions .sheet-label { margin: 0 0 8px; }
-.versions-row { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 8px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
-.version { flex: none; width: 128px; display: grid; gap: 4px; padding: 0; border: 0; background: none; color: var(--pencil); font: 500 13px/16px var(--font); text-align: left; cursor: pointer; scroll-snap-align: start; }
-.version .small-drawing { display: block; border-radius: 4px; border: 2px solid transparent; overflow: hidden; }
-.version[aria-pressed="true"] .small-drawing { border-color: var(--ink); }
-.version[aria-pressed="true"] { color: var(--ink); }
-.version:active .small-drawing { opacity: 0.9; }
-
-/* Other art for a spot, in the piece sheet. */
-.alts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-.alt { display: grid; gap: 4px; padding: 0; border: 0; background: none; color: var(--ink); font: 400 12px/15px var(--font); text-align: left; cursor: pointer; }
-.alt-art { display: block; width: 100%; overflow: hidden; border-radius: 3px; background: var(--wall); }
-.alt-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.alt-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.alt:disabled { opacity: 0.5; }
-
-/* One label, one control, in the Adjust sheet and on the taste page. */
-.field-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 44px; font: 500 15px/20px var(--font); }
-.field-row select { max-width: 60vw; }
-.field-row .stepper { justify-self: end; }
-.axis-row select { width: 100%; }
-.state { font: 500 12px/16px var(--font); color: var(--pencil); background: var(--canvas); border: 1px solid var(--hairline); border-radius: 10px; padding: 1px 7px; vertical-align: 2px; white-space: nowrap; }
-.state.is-kept { color: var(--tape-keep); border-color: var(--tape-keep); }
-
-.home-links { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 8px; }
-.home-links a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
-.piece-sheet .art-big { width: min(100%, 160px); max-height: 200px; }
-.piece-sheet .sheet-art { margin-top: 16px; }
-
-/* Your own pieces on the wall: thumbnails only. */
-.mine { display: grid; gap: 8px; margin-bottom: 8px; }
-.mine h2 { margin: 0; }
-.mine-row { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 4px; }
-.mine-pc { position: relative; flex: none; height: 64px; min-width: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
-.mine-pc .thumb { display: block; height: 64px; width: auto; max-height: none; }
-.mine-pc .thumb img, .mine-pc .thumb .swatch { height: 100%; width: 100%; object-fit: cover; display: block; }
-.mine-tag { position: absolute; left: 2px; bottom: 2px; font: 600 10px/14px var(--font); padding: 0 4px; border-radius: 3px; background: var(--surface); color: var(--ink); }
-@media (min-width: 1000px) { .mine-row { margin: 0; padding: 2px 0 4px; flex-wrap: wrap; } }
-
-/* The wall screen: the room's name, one switch under the drawing, a bar of three at the bottom. */
-.wall-bar { align-items: flex-start; padding-top: 12px; }
-.wall-name { font-size: 24px; line-height: 30px; }
-.wall-sub { margin: 2px 0 0; color: var(--pencil); font-size: 14px; line-height: 20px; }
-.menu-btn { font-size: 20px; letter-spacing: 1px; }
-.wall-page { padding-bottom: 96px; }
-.lens-hint { margin: 4px 0 0; color: var(--pencil); font-size: 14px; }
-.lens-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 3px; margin: 8px 0 4px; background: var(--wall); border-radius: 10px; }
-.lens-switch button { min-height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--pencil); font: 500 16px/20px var(--font); cursor: pointer; }
-.lens-switch button[aria-selected="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
-.lens-body { display: grid; gap: 12px; margin-top: 8px; }
-.count-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-.count-row .stepper { min-height: 48px; }
-.count-row .step-n { min-width: 72px; text-align: center; font-weight: 600; }
-.lens-body .sheet-label { margin: 4px 0 0; }
-.layout-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.layout-card { display: grid; gap: 6px; padding: 6px 6px 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font); text-align: center; cursor: pointer; }
-.layout-card[aria-pressed="true"] { border: 2px solid var(--ink); padding: 5px 5px 7px; font-weight: 600; }
-.card-drawing { display: block; border-radius: 4px; overflow: hidden; }
-.see-all { justify-self: center; min-height: 44px; display: inline-flex; align-items: center; }
-.why-line { margin: 0; font-size: 15px; line-height: 21px; }
-.lens-lead { margin: 0; font-size: 17px; font-weight: 500; }
-.art-acts { display: grid; gap: 8px; }
-.piece-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.piece-head h2 { font-size: 19px; line-height: 24px; }
-.acts.two { display: grid; grid-template-columns: 1fr 1fr; }
-.text-acts { display: flex; flex-wrap: wrap; gap: 0 18px; }
-.text-acts .link { min-height: 44px; padding: 0; }
-.on-wall-row { margin-top: 4px; }
-.dock-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; max-width: 760px; margin: 0 auto; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--canvas); border-top: 1px solid var(--hairline); }
-.dock-bar .btn { justify-content: center; }
-.dock-bar .btn.quiet { border-color: transparent; background: transparent; padding: 0 10px; }
-.dock-bar .btn:disabled { opacity: 0.4; }
-@media (min-width: 1000px) { body.on-wall .dock-bar { max-width: 1120px; } }
-
-/* Versions, in a sheet. */
-.ver-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
-.ver { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; width: 100%; padding: 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
-.ver[aria-current="true"] { border: 2px solid var(--ink); padding: 7px; }
-.ver-drawing { display: block; border-radius: 4px; overflow: hidden; }
-.ver-text { display: grid; gap: 2px; }
-.menu-item { justify-content: space-between; gap: 12px; }
-.menu-item .pencil { font-weight: 400; font-size: 14px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
-.own-row .seg { margin-top: 6px; }
-.wall-page #drawing { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
-.sub-h { margin-top: 24px; }
-.never-list { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 0; }
-.never-list li { display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-top: 1px solid var(--hairline); }
-.wall-bar .bar-l { flex-direction: column; align-items: flex-start; gap: 0; }
+/* ---------- v4: the open wall ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.pager { margin-right: 0; }
+.pager .wall-acts { margin-left: auto; display: flex; gap: 8px; }
+.pager .wall-acts .btn { min-height: 44px; padding: 0 16px; font-size: 15px; }
+.yours { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.yours-l { color: var(--pencil); font-size: 14px; width: 44px; }
+.yours-pc { border: 0; background: none; padding: 4px; min-width: 44px; min-height: 44px; display: grid; place-items: center; cursor: pointer; }
+.tn { position: relative; display: block; flex: none; }
+.tn img, .tn .swatch { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tn.own { padding: 4px; background: var(--mat); box-shadow: 0 0 0 2px var(--frame), 0 1px 3px rgba(91, 82, 69, 0.3); }
+.tn.new { padding: 3px; background: var(--paper); box-shadow: 0 1px 2px rgba(91, 82, 69, 0.25); }
+.tn.new::before, .tn.new::after { content: ""; position: absolute; top: -3px; width: 15px; height: 5px; background: var(--tape-strip); }
+.tn.new::before { left: -5px; transform: rotate(-40deg); }
+.tn.new::after { right: -5px; transform: rotate(40deg); }
+.tn.new.kept::before, .tn.new.kept::after { background: var(--tape-keep); }
+.pieces { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 24px 16px; }
+.piece { position: relative; }
+.piece-open { width: 100%; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; display: grid; gap: 8px; }
+.piece-art { height: 158px; display: flex; align-items: flex-end; justify-content: center; padding-top: 6px; }
+.piece-name { color: var(--pencil); font-size: 14px; line-height: 19px; padding-right: 40px; overflow-wrap: anywhere; }
+.piece-kept { color: var(--tape-keep); font-size: 13px; line-height: 18px; margin-top: -6px; }
+.piece .heart { position: absolute; right: -8px; bottom: -8px; margin: 0; }
