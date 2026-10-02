@@ -14,6 +14,7 @@ import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } f
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
+import * as social from './social.js';
 import { segment, modelCached, warm } from './segment.js';
 import { packLabels, unpackLabels } from './segcore.js';
 
@@ -36,6 +37,7 @@ function logE(type, data = {}) { store.logEvent(type, S.draft && S.draft.sample 
 const S = {
   draft: store.loadDraft(),
   memo: new Map(), // views by key, so a step back shows the same walls
+  feed: { status: 'idle', posts: [], mine: new Set(), more: false, at: 0, err: null },
   quiz: null,
   view: null, // { key, all, list, rankKey, problems }
   openKey: null, // the wall that's open
@@ -450,7 +452,7 @@ function home() {
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
       <p class="how">One photo, then check what we found. Pick a wall from the list. Tape it up, step back, hang it.</p>
-    <p class="how"><a href="#/community">See what people hung</a>${store.listShared().length ? ` (${store.listShared().length})` : ''}</p>
+    <p class="how"><a href="#/community">See what people hung</a></p>
       <p class="home-browse"><a href="#/browse">Or just browse every print</a></p>
     </div>
   </main>
@@ -2158,7 +2160,7 @@ function frameRow(id, p) {
 
 // A share card: the wall as it was, the wall they hung, the others they considered, the pieces.
 // Only the flattened wall goes in, never the room photo; your own pieces as sizes and thumbs.
-function makePost(note, name) {
+function makePost(note, name, withPhoto = true) {
   const d = S.draft, L = shown(), v = S.view;
   if (!L) return null;
   const others = (v ? v.list : []).filter((x) => x.key !== L.key && x.variant !== 'asis').slice(0, 3);
@@ -2166,7 +2168,7 @@ function makePost(note, name) {
   return {
     id: `post${Date.now().toString(36)}`, at: new Date().toISOString(), name: (name || '').trim().slice(0, 40), note: (note || '').trim().slice(0, 240),
     wall: { width: d.width, height: d.height }, obstacles: d.obstacles,
-    before: d.photo && d.photo.flat ? d.photo.flat : null, clean: d.photo && d.photo.flat ? cleanWall() : null,
+    before: withPhoto && d.photo && d.photo.flat ? d.photo.flat : null, clean: withPhoto && d.photo && d.photo.flat ? cleanWall() : null,
     after: bare(L), considered: others.map(bare),
     owned: d.owned.filter((o) => o.keep !== 'skip').map((o) => ({ id: o.id, title: o.title, w: o.w, h: o.h, at: o.at || null, thumb: o.thumb || null, color: o.color || null })),
     frames: L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => ({ id: p.ref.id, ...frameFor(p.ref.id, p) })),
@@ -2178,8 +2180,34 @@ function postSvg(post, L, px, opts = {}) {
   const fr = post.frames ? new Map(post.frames.map((f) => [f.id, f])) : new Map();
   return wallSvg({ wall: post.wall, obstacles: post.obstacles, photo: opts.before ? post.before : post.clean, hideObstacles: !!post.before, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor, keptIds: new Set((post.kept || []).map((k) => k.id)), still: true, pxWide: px, frames: L && opts.framed ? (p) => { const f = fr.get(p.ref.id); return f ? frameDraw(f, p) : null; } : null, label: opts.label || post.room });
 }
+// The public feed. Loads when the page opens and again after a minute; your own shares that
+// haven't reached it yet stay on this phone with a way to try again.
+function loadFeed(more) {
+  const F = S.feed;
+  if (F.status === 'loading') return;
+  F.status = 'loading'; F.err = null;
+  const last = more && F.posts.length ? F.posts[F.posts.length - 1].at : null;
+  Promise.all([social.feed(last), more ? Promise.resolve(null) : social.mine().catch(() => null)])
+    .then(([rows, mine]) => {
+      F.posts = more ? [...F.posts, ...rows.filter((r) => !F.posts.some((x) => x.remote === r.remote))] : rows;
+      if (mine) F.mine = new Set(mine);
+      F.more = rows.length === social.PAGE; F.status = 'ok'; F.at = Date.now();
+    })
+    .catch((e) => { F.status = 'error'; F.err = e.message; F.at = Date.now(); })
+    .finally(() => { if (route()[0] === 'community') render(); });
+}
+function feedPosts() {
+  const F = S.feed, local = store.listShared(), hidden = new Set(social.reported());
+  const mineIds = new Set([...F.mine, ...local.filter((p) => p.remote).map((p) => p.remote)]);
+  const pending = local.filter((p) => !p.remote).map((p) => ({ ...p, mine: true, pending: true }));
+  const pub = F.status === 'ok' || F.posts.length ? F.posts : local.filter((p) => p.remote);
+  return [...pending, ...pub.filter((p) => !hidden.has(p.remote)).map((p) => ({ ...p, mine: mineIds.has(p.remote) }))];
+}
+function findPost(id) { return feedPosts().find((x) => x.id === id) || null; }
 function communityScreen() {
-  const posts = store.listShared();
+  const F = S.feed;
+  if (!store.demoMode && F.status !== 'loading' && (F.status === 'idle' || Date.now() - F.at > 60000)) setTimeout(() => loadFeed(false), 0);
+  const posts = feedPosts();
   const px = pxNow();
   const date = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };
   const cards = posts.map((post) => {
@@ -2187,8 +2215,19 @@ function communityScreen() {
     const pieces = fresh.map((p) => { const it = byId.get(p.ref.id); if (!it) return ''; const saved = ME.saved.includes(it.id); return `<li class="row piece-row">
         <button type="button" class="row-open" data-browse="${esc(it.id)}"><span class="thumb" style="aspect-ratio:${it.aspect || p.w / p.h}"><img src="${it.imageData}" alt=""></span><span class="row-text"><span class="name">${esc(it.title)}</span><span class="meta">${p.w} x ${p.h} in${it.offers && it.offers.length ? `, ${esc(it.source)}` : ', free photo'}</span></span></button>
         <button type="button" class="heart" data-save="${esc(it.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Saved' : 'Save'} ${esc(it.title)}">${heart(saved)}</button></li>`; }).join('');
+    const ask = S.ui.askPost && S.ui.askPost.id === post.id ? S.ui.askPost.what : null;
+    const acts = ask === 'remove'
+      ? `<span class="error">${post.pending ? 'Remove it from this phone?' : 'Take it off the feed for everyone?'}</span>
+        <button type="button" class="btn danger small" data-unshare="${esc(post.id)}">Remove</button><button type="button" class="btn quiet small" data-act="ask-cancel">Keep it</button>`
+      : ask === 'report'
+        ? `<span class="error">Report this wall? It's hidden for you, and three reports hide it for everyone.</span>
+        <button type="button" class="btn danger small" data-report="${esc(post.id)}">Report</button><button type="button" class="btn quiet small" data-act="ask-cancel">Cancel</button>`
+        : `${fresh.length && S.draft && !need() ? `<button type="button" class="btn quiet small" data-try-set="${esc(post.id)}">Try these on my wall</button>` : ''}
+        ${post.pending ? `<button type="button" class="btn quiet small" data-reshare="${esc(post.id)}">Share it again</button>` : ''}
+        ${post.mine ? `<button type="button" class="link" data-ask-post="remove" data-pid="${esc(post.id)}">Remove</button>` : `<button type="button" class="link" data-ask-post="report" data-pid="${esc(post.id)}">Report</button>`}`;
     return `<li class="post" id="${esc(post.id)}">
-      <p class="post-head"><span class="post-who">${esc(post.name || 'Someone')}</span> <span class="pencil">${esc(post.room)}, ${esc(date(post.at))}${post.sample ? ', a sample wall' : ''}</span></p>
+      <p class="post-head"><span class="post-who">${esc(post.name || 'Someone')}${post.mine ? ' <span class="pencil">(you)</span>' : ''}</span> <span class="pencil">${esc(post.room)}, ${esc(date(post.at))}${post.sample ? ', a sample wall' : ''}</span></p>
+      ${post.pending ? '<p class="note">Only on this phone. It didn\'t reach the feed.</p>' : ''}
       ${post.note ? `<p class="post-note">${esc(post.note)}</p>` : ''}
       <div class="post-pair">
         ${post.before ? `<figure><div class="drawing">${postSvg(post, null, px, { before: true, label: 'Before' })}</div><figcaption>Before</figcaption></figure>` : ''}
@@ -2196,30 +2235,67 @@ function communityScreen() {
       </div>
       ${post.considered.length ? `<p class="sheet-label">Also considered</p><div class="post-others">${post.considered.map((L) => `<figure><div class="drawing">${postSvg(post, L, Math.round(px / 2), { label: 'Considered' })}</div><figcaption>${esc((L.why && L.why.text) || L.summary || '')}</figcaption></figure>`).join('')}</div>` : ''}
       ${fresh.length ? `<p class="sheet-label">The pieces</p><ul class="rows">${pieces}</ul>` : ''}
-      <div class="acts left">
-        ${fresh.length && S.draft && !need() ? `<button type="button" class="btn quiet small" data-try-set="${esc(post.id)}">Try these on my wall</button>` : ''}
-        <button type="button" class="link" data-unshare="${esc(post.id)}">Remove</button>
-      </div>
+      <div class="acts left">${acts}</div>
     </li>`;
   }).join('');
+  const status = store.demoMode ? '<p class="note">Sample mode: the public feed is off.</p>'
+    : F.status === 'error' ? `<p class="note">Couldn't load the feed: ${esc(F.err || 'no connection')}. <button type="button" class="link" data-act="feed-retry">Try again</button></p>`
+      : F.status === 'loading' && !F.posts.length ? '<p class="pencil">Loading walls...</p>' : '';
+  const empty = !posts.length && F.status === 'ok' ? '<p class="pencil">No walls yet. Share one from its Get it screen and it shows up here for everyone.</p>' : '';
   return `${bar(back('#/', 'Walldrobe'), S.draft && !need() ? '<a class="btn quiet small" href="#/wall">My wall</a>' : '<a class="btn quiet small" href="#/new">Start a wall</a>')}
   <main class="page">
     <h1>Walls</h1>
-    <p class="lede">What people hung: the wall before, the wall after, and the others they thought about. ${posts.length ? '' : 'Share a wall from its Get it screen and it lands here.'}</p>
-    <p class="note">For now, shared walls stay on this device. The public feed is next.</p>
+    <p class="lede">What people hung: the wall before, the wall after, and the others they thought about.</p>
     ${flashHtml()}
-    ${posts.length ? `<ul class="posts">${cards}</ul>` : ''}
+    ${status}
+    ${posts.length ? `<ul class="posts">${cards}</ul>` : empty}
+    ${F.more && F.status !== 'error' ? `<div class="acts"><button type="button" class="btn quiet" data-act="feed-more"${F.status === 'loading' ? ' disabled' : ''}>${F.status === 'loading' ? 'Loading...' : 'More walls'}</button></div>` : ''}
   </main>${sheetHtml()}`;
 }
 function shareSheet() {
   const d = S.draft;
+  const hasPhoto = !!(d.photo && d.photo.flat);
   return `<h2 id="sheet-h">Share this wall</h2>
-    <p class="pencil small">What goes up: the flattened wall (not your room photo), the wall you picked, the three you also considered, and the pieces. Your pieces as sizes and small thumbnails. You can remove it any time.</p>
+    <p class="pencil small">Anyone can see it on the Walls page. What goes up: the wall you picked, the three you also considered, and the pieces. Your own pieces as sizes and small thumbnails. Never your room photo, only the flattened wall if you leave the box on. You can remove it any time.</p>
     <form id="share-form" class="fields">
       <label class="name-in"><span>Your name, or leave it blank</span><input type="text" name="who" maxlength="40" value="${esc(ME.name || '')}"></label>
       <label class="name-in"><span>A line about it, if you like</span><input type="text" name="note" maxlength="240" placeholder="Why this one?"></label>
-      <div class="acts left"><button class="btn" type="submit">Share</button><button class="btn quiet" type="button" data-act="close-sheet">Not now</button></div>
+      ${hasPhoto ? '<label class="check"><input type="checkbox" name="photo" checked> <span>Show my wall photo for the before and after</span></label>' : ''}
+      <div class="acts left"><button class="btn" type="submit"${S.ui.sharing ? ' disabled' : ''}>${S.ui.sharing ? 'Sharing...' : 'Share'}</button><button class="btn quiet" type="button" data-act="close-sheet">Not now</button></div>
     </form>`;
+}
+
+// Smaller photos for the feed, same shape: scaled, never stretched.
+function shrink(url, maxW, q) {
+  return new Promise((resolve) => {
+    if (!url) { resolve(null); return; }
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, maxW / im.naturalWidth);
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      resolve(cv.toDataURL('image/jpeg', q));
+    };
+    im.onerror = () => resolve(null);
+    im.src = url;
+  });
+}
+async function forFeed(post) {
+  for (const [w, q] of [[900, 0.72], [640, 0.62]]) {
+    const p = { ...post, before: await shrink(post.before, w, q), clean: await shrink(post.clean, w, q) };
+    if (JSON.stringify(p).length < 850000) return p;
+  }
+  return { ...post, before: null, clean: null };
+}
+async function sendPost(post) {
+  const small = await forFeed(post);
+  const remote = await social.share(small);
+  const kept = { ...post, remote };
+  store.addShared(kept);
+  S.feed.mine.add(remote);
+  S.feed.posts = [{ ...small, id: `pub-${remote}`, remote, at: new Date().toISOString() }, ...S.feed.posts.filter((x) => x.remote !== remote)];
+  return kept;
 }
 
 // ---------- Your walls ----------
@@ -2250,7 +2326,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['trySet', 'unshare', 'look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['trySet', 'unshare', 'report', 'reshare', 'askPost', 'pid', 'look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -2684,14 +2760,18 @@ document.addEventListener('submit', (e) => {
   if (f.id === 'dims-form') { changeDims(f); return; }
   if (f.id === 'share-form') {
     const who = f.elements.who.value, note = f.elements.note.value;
-    const post = makePost(note, who);
+    const withPhoto = f.elements.photo ? f.elements.photo.checked : false;
+    if (S.ui.sharing) return;
+    const post = makePost(note, who, withPhoto);
     if (!post) return;
+    if (store.demoMode) { S.sheet = null; S.flashNext = 'Sample mode: nothing is shared.'; go('#/community'); return; }
     ME.name = who.trim().slice(0, 40); syncMe();
-    logE('share', { wall: post.after.key, considered: post.considered.length, note: !!post.note });
-    const ok = store.addShared(post);
-    S.sheet = null;
-    S.flashNext = ok ? 'Shared. For now it lives on this device; the public feed is next.' : store.demoMode ? 'Sample mode: nothing is shared.' : "Didn't save; this device's storage may be full.";
-    go('#/community');
+    logE('share', { wall: post.after.key, considered: post.considered.length, note: !!post.note, photo: withPhoto });
+    S.ui.sharing = true; render();
+    sendPost(post)
+      .then(() => { S.flashNext = 'Shared. Anyone can see it on the Walls page.'; })
+      .catch((e) => { store.addShared(post); S.flashNext = `Saved on this phone. Sharing failed: ${e.message}. Tap Share it again below.`; })
+      .finally(() => { S.ui.sharing = false; S.sheet = null; go('#/community'); });
     return;
   }
   if (f.id === 'size-form') {
@@ -2974,9 +3054,47 @@ document.addEventListener('click', (e) => {
     resetLayouts(); persist(); render(); return;
   }
   if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
-  if (t.dataset.unshare) { store.removeShared(t.dataset.unshare); S.flash = 'Removed.'; render(); return; }
+  if (t.dataset.askPost) { S.ui.askPost = { id: t.dataset.pid, what: t.dataset.askPost }; render(); return; }
+  if (t.dataset.act === 'ask-cancel') { S.ui.askPost = null; render(); return; }
+  if (t.dataset.act === 'feed-retry') { S.feed.status = 'idle'; loadFeed(false); render(); return; }
+  if (t.dataset.act === 'feed-more') { loadFeed(true); render(); return; }
+  if (t.dataset.unshare) {
+    const post = findPost(t.dataset.unshare);
+    S.ui.askPost = null;
+    if (!post) { render(); return; }
+    const dropLocal = () => { for (const p of store.listShared()) if (p.id === post.id || (post.remote && p.remote === post.remote)) store.removeShared(p.id); };
+    if (!post.remote) { dropLocal(); S.flash = 'Removed.'; render(); return; }
+    social.remove(post.remote)
+      .then((ok) => {
+        S.feed.posts = S.feed.posts.filter((x) => x.remote !== post.remote); S.feed.mine.delete(post.remote); dropLocal();
+        S.flash = ok ? 'Removed from the feed.' : 'It was already gone.';
+      })
+      .catch((e) => { S.flash = `Couldn't remove it: ${e.message}. Try again.`; })
+      .finally(render);
+    return;
+  }
+  if (t.dataset.report) {
+    const post = findPost(t.dataset.report);
+    S.ui.askPost = null;
+    if (!post || !post.remote) { render(); return; }
+    social.hideForMe(post.remote);
+    logE('report', { post: post.remote });
+    social.report(post.remote, 'reported in app').catch(() => {});
+    S.flash = 'Reported. It is hidden for you.'; render(); return;
+  }
+  if (t.dataset.reshare) {
+    const post = findPost(t.dataset.reshare);
+    if (!post || !post.pending || S.ui.sharing) return;
+    S.ui.sharing = true; S.flash = 'Sharing...'; render();
+    const { pending, mine, ...clean } = post;
+    sendPost(clean)
+      .then(() => { S.flash = 'Shared. Anyone can see it now.'; })
+      .catch((e) => { S.flash = `Still only on this phone: ${e.message}.`; })
+      .finally(() => { S.ui.sharing = false; render(); });
+    return;
+  }
   if (t.dataset.trySet) {
-    const post = store.listShared().find((x) => x.id === t.dataset.trySet);
+    const post = findPost(t.dataset.trySet);
     if (!post || !S.draft) return;
     // Their new pieces, kept in every one of your walls at the sizes they used.
     const fresh = post.after.pieces.filter((p) => p.ref.source === 'catalog' && byId.get(p.ref.id));
