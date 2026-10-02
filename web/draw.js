@@ -131,7 +131,9 @@ function pinStrip(x, y, id) {
 // One piece. `img` is the art, cropped to the opening, never stretched.
 // kind: 'own' (a frame of yours), 'pin' (yours, stays put), 'new' (blue tape),
 // 'kept' (green tape).
-function framed(p, H, img, { kind, selected, fallback, still }) {
+// Frame finishes for new pieces once a wall is picked (the hanging guide).
+export const FINISHES = { black: '#1B1B1B', white: '#F4F3EE', oak: '#B88A5A', brass: '#A8884A' };
+function framed(p, H, img, { kind, selected, fallback, still, frames }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
   const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
@@ -143,6 +145,20 @@ function framed(p, H, img, { kind, selected, fallback, still }) {
       ? `<image href="${img}" x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" preserveAspectRatio="xMidYMid slice"/>`
       : `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame"/><rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/><rect x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" fill="${fallback || 'var(--swatch)'}"/>`;
     return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>${inner}<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="own-edge"/>${kind === 'pin' ? pinStrip(p.x, y, p.ref.id) : ''}${sel}</g>`;
+  }
+  // Framed the way you picked: the frame, a mat if you want one, the art inside, never stretched.
+  if (typeof frames === 'function') frames = frames(p);
+  if (frames && (kind === 'new' || kind === 'kept')) {
+    const f = frames.finish === 'oak' || frames.finish === 'brass' ? 1.1 : 0.9;
+    const m = frames.mat ? (Math.min(p.w, p.h) >= 12 ? 2 : 1.25) : 0;
+    const col = FINISHES[frames.finish] || FINISHES.black;
+    return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${col}"${frames.finish === 'white' ? ' class="frame-light"' : ''}/>
+    <rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/>
+    <text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(1.2, Math.min(2.4, p.w / 10))}" class="art-wait">${esc(String(p.title || '').slice(0, 22))}</text>
+    ${img ? `<image href="${img}" x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+    ${sel}
+  </g>`;
   }
   const m = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
   return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>
@@ -208,7 +224,7 @@ export function wallSvg(o) {
     const kind = owned ? (p.role === 'pinned' ? 'pin' : 'own') : (o.keptIds && o.keptIds.has(p.ref.id) ? 'kept' : 'new');
     // A pinned piece is still on the wall in the photo: only its strip of tape is drawn.
     if (kind === 'pin' && o.photo) return `<g class="art is-pin" data-id="${esc(p.ref.id)}"${o.still ? '' : ` tabindex="0" role="button" aria-label="${esc(p.title)}, stays where it hangs"`}><rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="hit"/>${pinStrip(p.x, H - p.y - p.h, p.ref.id)}</g>`;
-    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still });
+    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null });
   }).join('') : '';
   // A wall you can tap pieces on is a group, so screen readers reach each piece.
   const role = L && !o.still ? 'group' : 'img';
