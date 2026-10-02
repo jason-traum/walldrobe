@@ -1,6 +1,6 @@
 # DESIGN.md
 
-Status: v2 direction picked on 2026-10-01 (DECISIONS, "v2 step 4"): painter's tape. The structure is the feed (DECISIONS, "v2 step 3"). Tokens live on `:root` in the v2 stylesheet and nowhere else. The reference screens in `design/references/` are what new work is compared against, not memory.
+Status: v4, 2026-10-02 evening: the painter's tape direction is kept unchanged from a63c921 (the review gave no reason to change it); the v4 reference screens below are proposed, waiting on Jason's OK. v2 direction picked on 2026-10-01 (DECISIONS, "v2 step 4"): painter's tape. The structure is the feed (DECISIONS, "v2 step 3"). Tokens live on `:root` in the v2 stylesheet and nowhere else. The reference screens in `design/references/` are what new work is compared against, not memory.
 
 ## What the design is for
 
@@ -113,10 +113,13 @@ No all-caps labels. No italic. No bold for emphasis in running text. Numbers tha
 - Wall drawing: `web/draw.js` elevation at true scale. Owned pieces as `--frame` frames with `--mat` mats. Proposed pieces as tape. Furniture flat in two greys. Measurements only when asked for, in `--pencil`, except the hanging guide, where they are always on.
 - Why line: one sentence, built from the layout: who's in it ("Both of yours, four new"), the shape ("lined up over the couch"), one number ("77 in across"). Then the cost on its own line in `--pencil`.
 - Count: "1 of 9" above the why line, `--pencil`.
-- Change: one quiet button at the top right of the wall screen. Opens a sheet with how full, just my pieces, as it hangs now, move pieces, make it mine. Nothing from the sheet is on the main screen.
+- The door (v4 name "Adjust", proposed; was "Change", which read as unclear, FEEDBACK 21): one quiet button at the top right of the feed and of the open wall. Opens one sheet with layout preferences, new art in the open frames, move pieces, measurements, put it back, taste test, your pieces, favorites, fix what's marked, new wall. Nothing from the sheet is on the main screen.
+- Your walls (v4): a `--tape` text link left of the door, shown once a wall is saved, with the count ("Your walls 2"). On the feed and the open wall.
+- Save and Get (v4): two quiet icon buttons, 44 x 44 px, at the right end of the pager row under the drawing: a bookmark (Save this wall) and a bag (Get this wall), each with its name as its accessible label. No words beside them: at 320 wide "Save" and "Get" push the row past the screen edge. They replace the two full-width buttons (FEEDBACK 43).
+- Your pieces on the open wall (v4): one row, "Yours" then a 40 x 44 px framed thumbnail per piece (tap one for its sheet), then one line in `--pencil` on what moves ("Not up yet: the nails for both are on Get it."). Only new pieces get full rows (FEEDBACK 34).
 - Undo: every change (swap, keep in every wall, put back) shows "Undo" inline under the drawing, and it stays until you open another wall or leave. Focus moves to it after a swap. The Change sheet has "Put this wall back the way it was" for a wall you changed, and "Show it as it hangs now".
 - Move note: each piece of yours says where it goes against where it hangs: "Stays where it hangs now.", "Moves 4 in right and 2 in higher: take it down and rehang it.", or "Not up yet: hang it here." The hanging guide repeats "Take it down and rehang it here." Never "stays" when it moves.
-- Get it: the one primary is "Save this wall". Every Buy and Find a frame link is quiet, small, and opens in a new tab.
+- Get it page: the one primary is "Save this wall". Every Buy and Find a frame link is quiet, small, and opens in a new tab.
 - A piece that hasn't loaded, or failed: its title in the mat where the art goes. No broken-image icon, no blank.
 - Sample content: "Sample wall" as a `--surface` chip with `--pencil` text at the top left of the drawing, on every sample.
 
@@ -162,4 +165,9 @@ Captured from the real build (`?demo#/sample/bedroom`, two pieces of yours, not 
 `design/references/feed-390.png`: the feed, the first wall with both of yours framed and one new piece in blue tape, at 390 wide, light.
 `design/references/wall-open-390.png`: the same wall open, full page, with a saved piece and the rows under it.
 `design/references/piece-sheet-390.png`: a new piece's sheet, saved, with Swap and Keep it in every wall.
-Compare new work against these, not against memory. Dark versions sit beside them.
+Compare new work against these, not against memory. The dark versions are not used (light only).
+
+v4 references, 2026-10-02 (proposed, waiting on Jason's OK). Mocked on the a63c921 build's real page and stylesheet, with the v4 changes applied to the page: the door named Adjust, Your walls in the bar, Save and Get as icons, your pieces as one thumbnail row, and the long-title fixture on a new piece.
+
+`design/references/v4-feed-390.png` and `v4-feed-320.png`: the first screen, the bedroom sample's ranked walls, with Your walls 2 in the bar.
+`design/references/v4-wall-hard-390.png` and `v4-wall-hard-320.png`: the hard state, full page: an open wall after keeping one new piece (green tape) and swapping another, with the Undo line, the tape legend, the why line, your two pieces as thumbnails, and the long title wrapping to three lines without truncation.
