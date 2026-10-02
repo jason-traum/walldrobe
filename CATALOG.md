@@ -186,3 +186,37 @@ A 403, 429 or 5xx is "unknown": the host would not say. Unknown changes nothing 
 Nothing is deleted: the record, its measurements and tags stay, so a piece that comes back needs no re-import. `activeRecords()` drops any piece with `health.gone`, `toCandidate()` and the site build drop gone offers, and `validateRecord` checks the shape, so a hand edit that gets it wrong stops the build. Desenio offers share one product page across sizes, so they go gone together; House of Spoils offers have one url per size and go one at a time. The source page of a free photo is reported but never makes a piece gone, since the image is ours to show under its license.
 
 The metadata audit (always printed, `--dry` prints only this) lists, per piece: no price on any offer, offers with no size, image aspect missing or more than 14% off every listed size (noted when the sizes carry `crop: true`, which is by design), fewer than 3 subject tags, no artist, no license on a free photo, no description, an image url shared by several pieces, and a title that looks like a placeholder (Untitled, IMG_1234, a bare number, the id). It prints the counts and the 20 pieces with the most weak fields.
+
+## Sourcing real art, for later (2026-10-02)
+
+Not built. Kept here so the catalog can grow with taste, not volume. Jason: "I don't want a dump of art, I want really cool stuff... for now this is just a concept, store that data for later."
+
+The problem today: about 1,200 of 1,500 pieces are photos; about 290 are prints, paintings or illustrations. House of Spoils (586) is mostly photography.
+
+The bar: a hand-picked collection of about 150 pieces, each one something a design-minded 30-year-old would actually hang. A mix of exhibition posters, editions by real artists, illustration, abstract and graphic work, with photos capped near a quarter. Jason says yes or no to every piece before it goes in.
+
+Taste anchor: Jason's own wall (fixtures/jason_bedroom.js): an Yves Klein blue print, The World's Marathon poster, a Running Room illustration, a smiley on dark ground, a black and white drawing, a figure photo. Exhibition and graphic posters with a story behind them, bold color, sport and design.
+
+Where to look first:
+
+| Kind | Where | Why |
+|---|---|---|
+| Museum exhibition posters | Louisiana Museum shop (butik.louisiana.dk), MoMA, Tate, Fondation Beyeler | Real artists and gallery typography, cheap |
+| Editions by known contemporary artists | Counter Editions, Avant Arte | Signed, numbered, artists people know |
+| Emerging artists, curated | Tappan, Uprise Art | A gallery team picks them |
+| Design-led print shops | The Poster Club, Paper Collective | Named artists, every piece frames well |
+| Screenprint and riso studios | Print Club London and others | Bold, limited, personal |
+| More of what we have | Desenio and Poster Store art categories (illustration, abstract, line, graphic) | Same importer, fastest |
+
+Affiliate programs, when it's time (figures from third-party directories; check the network's own page):
+
+| Shop | Network | Commission | Feed |
+|---|---|---|---|
+| Desenio | CJ | 7% of the sale before VAT and shipping; no brand bidding in search ads | Yes |
+| Society6 | CJ via FlexOffers | 4%, 30-day cookie, $50 minimum payout | Yes |
+| JUNIQE, Artfinder | Awin | Check | Usually |
+| Minted, Saatchi Art | Impact | Check | Usually |
+
+How a feed works for us: one CSV or TSV row per product size (id, title, tracking link, image link, price, size, color); `tools/import_feed.mjs` already reads that shape (see the feeds section above). The buy button becomes the tracking link. Small studios and artists can be asked directly; being featured is often welcome.
+
+Open conflict: this file says no museum or library archives (Jason: modern art and photos only). Museum shop exhibition posters are sold prints, not archive images, so they fit. Public domain modernists from open-access collections (Kandinsky, Klee, Mondrian, Hilma af Klint, Bauhaus) would need Jason to reverse that rule.
