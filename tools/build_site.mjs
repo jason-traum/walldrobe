@@ -11,7 +11,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const esbuild = process.argv[2] || 'esbuild';
 
 const app = execFileSync(esbuild, [join(root, 'web/main.js'), '--bundle', '--format=iife', '--minify', '--target=es2020'], { encoding: 'utf8' });
-const css = readFileSync(join(root, 'web/site.css'), 'utf8');
+// Switzer (Fontshare, ITF Free Font License), self-hosted: inlined so the page needs no font CDN.
+const fontFace = [400, 500, 600].map((w) => `@font-face{font-family:Switzer;font-style:normal;font-weight:${w};font-display:swap;src:url(data:font/woff2;base64,${readFileSync(join(root, `web/fonts/switzer-${w}.woff2`)).toString('base64')}) format('woff2')}`).join('');
+const css = fontFace + readFileSync(join(root, 'web/site.css'), 'utf8');
 const catalog = JSON.parse(readFileSync(join(root, 'demo/catalog.json'), 'utf8'));
 const errors = validateCatalog(catalog.items);
 if (errors.length) { console.error(errors.slice(0, 20).join('\n')); process.exit(1); }

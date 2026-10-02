@@ -122,30 +122,56 @@ export function paintOut(img, r, ring = 6) {
   const { data, width, height } = img;
   const x0 = Math.max(0, Math.floor(r.x)), y0 = Math.max(0, Math.floor(r.y));
   const x1 = Math.min(width, Math.ceil(r.x + r.w)), y1 = Math.min(height, Math.ceil(r.y + r.h));
-  // Sample the wall just outside each edge, and blend across so light falloff stays.
-  const edge = (xa, ya, xb, yb) => {
-    const R = [], G = [], B = [];
-    for (let y = Math.max(0, ya); y < Math.min(height, yb); y++) for (let x = Math.max(0, xa); x < Math.min(width, xb); x++) {
-      const o = (y * width + x) * 4; R.push(data[o]); G.push(data[o + 1]); B.push(data[o + 2]);
-    }
-    return R.length ? [med(R), med(G), med(B)] : null;
+  if (x1 <= x0 || y1 <= y0) return img;
+  // The wall just outside each edge, sampled along the whole edge (a median across
+  // the ring, smoothed along it), so the light falloff across the patch matches
+  // the wall around it instead of reading as a flat sticker.
+  const px = (x, y, k) => data[(y * width + x) * 4 + k];
+  const strip = (n, at) => {
+    const out = [];
+    for (let i = 0; i < n; i++) { const v = at(i); out.push(v); }
+    return out;
   };
-  const top = edge(x0, y0 - ring, x1, y0), bottom = edge(x0, y1, x1, y1 + ring);
-  const left = edge(x0 - ring, y0, x0, y1), right = edge(x1, y0, x1 + ring, y1);
-  const known = [top, bottom, left, right].filter(Boolean);
-  const avg = known.length ? [0, 1, 2].map((k) => known.reduce((s, c) => s + c[k], 0) / known.length) : [200, 200, 200];
-  const T = top || avg, Bt = bottom || avg, L = left || avg, Rt = right || avg;
+  const sampleAlong = (len, pick) => {
+    // pick(i) -> list of [x, y] pixels across the ring at position i
+    const raw = strip(len, (i) => {
+      const pts = pick(i).filter(([x, y]) => x >= 0 && y >= 0 && x < width && y < height);
+      if (!pts.length) return null;
+      return [0, 1, 2].map((k) => med(pts.map(([x, y]) => px(x, y, k))));
+    });
+    if (raw.every((v) => !v)) return null;
+    // Fill gaps, then a box blur along the edge.
+    let last = raw.find(Boolean);
+    const filled = raw.map((v) => (v ? (last = v) : last));
+    const R = Math.max(2, Math.round(len / 20));
+    return filled.map((_, i) => {
+      const lo = Math.max(0, i - R), hi = Math.min(len - 1, i + R);
+      const acc = [0, 0, 0];
+      for (let j = lo; j <= hi; j++) for (let k = 0; k < 3; k++) acc[k] += filled[j][k];
+      return acc.map((a) => a / (hi - lo + 1));
+    });
+  };
+  const W = x1 - x0, H = y1 - y0;
+  const ringPts = (fixed, along, horiz, dir) => { const out = []; for (let d = 1; d <= ring; d++) out.push(horiz ? [along, fixed + dir * d] : [fixed + dir * d, along]); return out; };
+  const top = y0 > 0 ? sampleAlong(W, (i) => ringPts(y0 - 1, x0 + i, true, -1).map(([x, y]) => [x, y + 1])) : null;
+  const bottom = y1 < height ? sampleAlong(W, (i) => ringPts(y1, x0 + i, true, 1).map(([x, y]) => [x, y - 1])) : null;
+  const left = x0 > 0 ? sampleAlong(H, (i) => ringPts(x0 - 1, y0 + i, false, -1).map(([x, y]) => [x + 1, y])) : null;
+  const right = x1 < width ? sampleAlong(H, (i) => ringPts(x1, y0 + i, false, 1).map(([x, y]) => [x - 1, y])) : null;
+  if (!top && !bottom && !left && !right) return img;
   for (let y = y0; y < y1; y++) {
-    const ty = (y - y0 + 0.5) / Math.max(1, y1 - y0);
+    const j = y - y0;
     for (let x = x0; x < x1; x++) {
-      const tx = (x - x0 + 0.5) / Math.max(1, x1 - x0);
+      const i = x - x0;
+      // Nearer edges count for more.
+      const parts = [];
+      if (top) parts.push([1 / (j + 1), top[i]]);
+      if (bottom) parts.push([1 / (H - j), bottom[i]]);
+      if (left) parts.push([1 / (i + 1), left[j]]);
+      if (right) parts.push([1 / (W - i), right[j]]);
+      const wsum = parts.reduce((s, [w]) => s + w, 0);
       const o = (y * width + x) * 4;
-      for (let k = 0; k < 3; k++) {
-        const v = 0.5 * (T[k] * (1 - ty) + Bt[k] * ty) + 0.5 * (L[k] * (1 - tx) + Rt[k] * tx);
-        // A little grain so the patch doesn't read as a flat sticker.
-        const n = (((x * 73856093) ^ (y * 19349663)) & 7) - 3.5;
-        data[o + k] = v + n;
-      }
+      const n = (((x * 73856093) ^ (y * 19349663)) & 3) - 1.5;
+      for (let k = 0; k < 3; k++) data[o + k] = parts.reduce((s, [w, c]) => s + w * c[k], 0) / wsum + n;
     }
   }
   return img;
