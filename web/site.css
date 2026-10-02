@@ -301,7 +301,7 @@ input[type="color"] { width: 44px; height: 44px; border: 1px solid var(--field);
 .wall-page h2 { margin-top: 16px; }
 .wall-main, .wall-side { display: grid; gap: 8px; align-content: start; min-width: 0; }
 @media (min-width: 1000px) {
-  body.on-wall .bar, body.on-wall .demo-note { max-width: 1120px; }
+  body.on-wall .bar, body.on-wall .demo-note, body.on-wall .steps-bar { max-width: 1120px; }
   .wall-page { max-width: 1120px; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr); gap: 40px; align-items: start; }
   .wall-side h2 { margin-top: 0; }
   .wall-page .drawing-wrap { margin: 0 0 8px; }
@@ -531,22 +531,21 @@ svg.is-dragging .measure { opacity: 0.25; }
 .post-others { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 700px) { .post-pair { grid-template-columns: 1fr 1fr; } }
 
-/* The five steps, under the bar. Done steps are links, the current one is ink. */
-.steps-bar { max-width: 760px; margin: 0 auto; padding: 0 16px 8px; }
-.steps-bar ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 0; counter-reset: step; }
-.steps-bar li { flex: 0 1 auto; min-width: 0; counter-increment: step; display: flex; align-items: center; gap: 6px; min-height: 36px; font: 500 13px/16px var(--font); color: var(--field); border-top: 2px solid var(--hairline); padding-top: 6px; }
-.steps-bar li::before { content: counter(step); flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 11px; line-height: 15px; text-align: center; }
-.steps-bar li a { color: var(--tape); text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
-.steps-bar li.is-done { color: var(--tape); border-top-color: var(--tape); }
+/* The five steps, under the bar: number and name, the current one in ink. */
+.steps-bar { max-width: 760px; margin: 0 auto; padding: 0 16px 12px; }
+.steps-bar ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 0 20px; counter-reset: step; }
+.steps-bar li { counter-increment: step; display: inline-flex; align-items: center; gap: 7px; min-height: 32px; font: 500 14px/18px var(--font); color: var(--field); white-space: nowrap; }
+.steps-bar li::before { content: counter(step); flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 12px; line-height: 19px; text-align: center; }
+.steps-bar li a { color: var(--tape); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
+.steps-bar li.is-done { color: var(--tape); }
 .steps-bar li.is-done::before { background: var(--tape); border-color: var(--tape); color: var(--on-tape); }
-.steps-bar li[aria-current] { color: var(--ink); border-top-color: var(--ink); }
+.steps-bar li[aria-current] { color: var(--ink); font-weight: 600; }
 .steps-bar li[aria-current]::before { background: var(--ink); border-color: var(--ink); color: var(--canvas); }
-/* Narrow: every step keeps its number and its line; only the current one keeps its name. */
+/* Narrow: every step keeps its number; only the current one keeps its name. */
 @media (max-width: 599px) {
-  .steps-bar li { flex: 1 1 0; }
+  .steps-bar ol { gap: 0 12px; }
   .steps-bar li:not([aria-current]) a, .steps-bar li:not([aria-current]) span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .steps-bar li:not([aria-current]) { position: relative; }
-  .steps-bar li[aria-current] { flex: 2 1 0; }
 }
 
 /* Every version of the wall, as a row of small drawings. */
