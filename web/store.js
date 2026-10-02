@@ -34,3 +34,9 @@ export function renameWall(id, name) { return write(WALLS, listWalls().map((x) =
 export const getWall = (id) => listWalls().find((x) => x.id === id) || null;
 
 export const newId = () => `w${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+// You, apart from any one wall: the pieces you saved, the ones you swapped
+// away, and art you own that isn't up anywhere yet. Every wall reads from this.
+const ME = 'walldrobe.me.v1';
+export const loadMe = () => { const m = read(ME, null) || {}; return { saved: m.saved || [], skipped: m.skipped || [], art: m.art || [] }; };
+export const saveMe = (m) => write(ME, m);

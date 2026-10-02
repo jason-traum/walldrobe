@@ -84,3 +84,28 @@ test('distinct drops walls that look the same at a glance', () => {
 test('rerank refuses bad input', () => {
   assert.throws(() => rerank(null), TypeError);
 });
+
+test('a wall that moves a piece of yours that is already up ranks lower, more the farther it moves', () => {
+  const r = layout(base());
+  const withBlue = r.layouts.filter((L) => L.pieces.some((p) => p.ref.id === 'blue'));
+  assert.ok(withBlue.length >= 2, 'need walls with the blue print');
+  // Hang the blue print exactly where one wall puts it: that wall should not drop, and walls that move it far should.
+  const home = withBlue[Math.floor(withBlue.length / 2)];
+  const at = home.pieces.find((p) => p.ref.id === 'blue');
+  const plain = rerank(r.layouts);
+  const hung = rerank(r.layouts, { hung: [{ id: 'blue', at: { x: at.x, y: at.y } }] });
+  const pos = (list, key) => list.findIndex((x) => x.key === key);
+  assert.ok(pos(hung, home.key) <= pos(plain, home.key), `home wall went from ${pos(plain, home.key)} to ${pos(hung, home.key)}`);
+  const far = withBlue.filter((L) => { const p = L.pieces.find((q) => q.ref.id === 'blue'); return Math.hypot(p.x - at.x, p.y - at.y) > 36; });
+  if (far.length) {
+    const L = far[0];
+    const d0 = plain.find((x) => x.key === L.key).rankScore, d1 = hung.find((x) => x.key === L.key).rankScore;
+    assert.ok(d1 < d0, `far wall score ${d0} -> ${d1}`);
+    assert.ok(d0 - d1 <= 0.08 + 1e-9, 'capped per piece');
+  }
+  // A piece under an inch from where it hangs costs nothing.
+  const same = rerank(r.layouts, { hung: [{ id: 'blue', at: { x: at.x + 0.5, y: at.y } }] });
+  assert.equal(same.find((x) => x.key === home.key).rankScore, plain.find((x) => x.key === home.key).rankScore);
+  // Bad positions are ignored, not thrown.
+  assert.doesNotThrow(() => rerank(r.layouts, { hung: [{ id: 'blue' }, null] }));
+});

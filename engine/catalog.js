@@ -31,10 +31,12 @@ export const SEASONS = ['summer', 'winter', 'spring', 'fall', 'any'];
 const MEDIA = ['photo', 'painting', 'illustration', 'print'];
 const STATUS = ['active', 'hidden', 'removed'];
 const WHO = ['source', 'measured', 'rule', 'model', 'human', null];
+const WHY = ['offer', 'image', 'both']; // why health.gone was set: every offer gone, the image gone, or both
 
 const isStr = (v) => typeof v === 'string' && v.trim().length > 0;
 const isNum01 = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 const isHex = (v) => typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/.test(v);
+const isIso = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(v) && !Number.isNaN(Date.parse(v));
 
 // Returns a list of problems; an empty list means the record is good.
 export function validateRecord(r) {
@@ -108,7 +110,14 @@ export function validateRecord(r) {
   if (!Array.isArray(r.sizes) || !r.sizes.length || !r.sizes.every((z) => z.w > 0 && z.h > 0)) at('sizes needs at least one frame size');
   else if (im.aspect && !r.sizes.every((z) => z.crop || Math.abs((z.w / z.h) / im.aspect - 1) <= 0.14 + 1e-9)) at('a frame size is more than 14% off the image shape without crop: true');
   if (!Array.isArray(r.offers)) at('offers must be a list');
-  else if (!r.offers.every((o) => o && isStr(o.vendor) && /^https:\/\//.test(o.url || '') && (o.price == null || (typeof o.price === 'number' && o.price >= 0)) && (o.w == null || (o.w > 0 && o.h > 0)))) at('each offer needs a vendor, an https link, a price of 0 or more (or none) and a size with both sides');
+  else {
+    if (!r.offers.every((o) => o && isStr(o.vendor) && /^https:\/\//.test(o.url || '') && (o.price == null || (typeof o.price === 'number' && o.price >= 0)) && (o.w == null || (o.w > 0 && o.h > 0)))) at('each offer needs a vendor, an https link, a price of 0 or more (or none) and a size with both sides');
+    if (!r.offers.every((o) => o && (o.gone == null || o.gone === true) && (o.since == null || isIso(o.since)))) at('an offer that is gone carries gone: true and an ISO date in since');
+  }
+  if (r.health != null) {
+    const h = r.health;
+    if (!h || typeof h !== 'object' || h.gone !== true || !isIso(h.since) || !WHY.includes(h.why)) at(`health must be { gone: true, since: ISO date, why: ${WHY.join(' | ')} } or absent`);
+  }
   if (!r.provenance || !PROVENANCE_KEYS.every((key) => key in r.provenance) || !Object.values(r.provenance).every((v) => WHO.includes(v))) at(`provenance needs ${PROVENANCE_KEYS.join(', ')}, each source, measured, rule, model, human or null`);
   return e;
 }
@@ -130,7 +139,7 @@ export function toCandidate(r) {
     title: r.title,
     artist: r.artist.name,
     source: r.source.name || { unsplash: 'Unsplash', pexels: 'Pexels', pixabay: 'Pixabay' }[r.source.provider] || r.source.provider,
-    offers: r.offers || [],
+    offers: liveOffers(r),
     url: r.source.page,
     image: r.image.src,
     palette: r.color.palette.map(({ hex, weight }) => ({ hex, weight })),
@@ -143,4 +152,8 @@ export function toCandidate(r) {
   };
 }
 
-export const activeRecords = (records) => records.filter((r) => r.status === 'active' && r.rights.show);
+// Offers the shop still lists. tools/check_catalog.mjs --apply sets gone: true on the rest.
+export const liveOffers = (r) => (r.offers || []).filter((o) => !o.gone);
+
+// What the screens may show: active, allowed to show, and not gone from the shop or the image host.
+export const activeRecords = (records) => records.filter((r) => r.status === 'active' && r.rights.show && !(r.health && r.health.gone));

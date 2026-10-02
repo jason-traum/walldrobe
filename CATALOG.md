@@ -111,7 +111,8 @@ Each record keeps `provenance`, a map from field group to who set it, so a later
 | `tags.season` | summer, winter, spring, fall or any | model | filters |
 | `tags.vibe` | A few free words: mid century, film, italian summer, brutalist | model | search |
 | `sizes` | Standard outer frame sizes this image fits with a mat (shape within 14%). If none fits, the nearest size with `crop: true` | rule | layout |
-| `offers` | Places to buy a print: vendor, link, size, price. Empty until a partner feed allows it | source | buy flow |
+| `offers` | Places to buy a print: vendor, link, size, price. Empty until a partner feed allows it. An offer the shop no longer lists carries `gone: true` and `since` (set by the health check, below) and is never shown | source, then the health check | buy flow |
+| `health` | Absent while the piece is fine. `{ gone: true, since, why }` once every offer is gone or the image is gone (`why` is `offer`, `image` or `both`); such a piece is not active | the health check | catalog |
 | `quality.score` | 0 to 1, how good it looks framed (a 1 to 5 review, scaled). Leans the pick 15% toward stronger photos | model | ranking |
 | `provenance` | Who set each group | all | the tagging pipeline |
 
@@ -153,3 +154,35 @@ Credit reads "Art by {artist}, sold by {shop}". `rights.sell` stays false: the s
 - No more than about 35 pieces of one category, and near-duplicates get `hide` in tools/tags.json so they never show.
 - Every new piece is looked at before it ships: a line in tools/tags.json with description, subjects, mood, style, rooms, people, setting, time, season, vibe and quality.
 - A record that fails `validateRecord` doesn't ship; the build stops.
+
+## Catalog health
+
+Shops drop listings and image hosts move files. `tools/check_catalog.mjs` asks every shop and image host whether each piece is still there, audits the metadata, and records what it found. It is the only part of the catalog that touches the network, and it never runs in the engine or the build.
+
+Run it from your own machine (the shops block most data-center traffic; a cloud container will see 403s and timeouts):
+
+```
+node tools/check_catalog.mjs            # check every offer url, image url and source page; writes tools/health.json
+node tools/check_catalog.mjs --dry      # metadata audit only, no network; writes tools/health.dry.json
+node tools/check_catalog.mjs --apply    # write the gone flags from tools/health.json into demo/catalog.json
+```
+
+The full check sends about 5,900 requests: 6 at a time, 300 ms apart per host, 15 s timeout, a browser User-Agent. Expect 20 to 30 minutes, nearly all of it House of Spoils, which has one url per size (about 4,100 urls on one host, so concurrency does not help there). `--limit 50` or `--only id,id` for a quick look; `--no-pages` skips the Unsplash, Pexels and Pixabay pages of free photos; `--concurrency`, `--spacing`, `--timeout` and `--tries` change the pace. Each url is tried with HEAD first, then a one-byte GET (`Range: bytes=0-0`) if the host refuses HEAD. A local image (`art/...`) is checked on disk.
+
+What gone means, per url:
+
+- a 404 or 410,
+- a redirect that lands on the shop's home page or a category page instead of the product (the final url lost the product slug and is no deeper than the one asked for),
+- a network failure (timeout, reset, DNS) on all 3 tries.
+
+A 403, 429 or 5xx is "unknown": the host would not say. Unknown changes nothing when applied, so a shop that blocks a check for an afternoon does not empty the catalog. Every url's result (status, http code, final url, error) is in `tools/health.json` with a `checkedAt` date, and the printed table shows per piece: offers ok/gone, image, source page.
+
+`--apply` merges `tools/health.json` into `demo/catalog.json`:
+
+- an offer whose url is gone gets `gone: true` and `since: <checkedAt>`; an offer seen ok again loses the flag;
+- a piece whose every offer is gone, or whose image is gone, gets `health: { gone: true, since, why }` with `why` one of `offer`, `image`, `both`; `since` is kept from the first time it went gone;
+- a piece seen live again loses `health`.
+
+Nothing is deleted: the record, its measurements and tags stay, so a piece that comes back needs no re-import. `activeRecords()` drops any piece with `health.gone`, `toCandidate()` and the site build drop gone offers, and `validateRecord` checks the shape, so a hand edit that gets it wrong stops the build. Desenio offers share one product page across sizes, so they go gone together; House of Spoils offers have one url per size and go one at a time. The source page of a free photo is reported but never makes a piece gone, since the image is ours to show under its license.
+
+The metadata audit (always printed, `--dry` prints only this) lists, per piece: no price on any offer, offers with no size, image aspect missing or more than 14% off every listed size (noted when the sizes carry `crop: true`, which is by design), fewer than 3 subject tags, no artist, no license on a free photo, no description, an image url shared by several pieces, and a title that looks like a placeholder (Untitled, IMG_1234, a bare number, the id). It prints the counts and the 20 pieces with the most weak fields.
