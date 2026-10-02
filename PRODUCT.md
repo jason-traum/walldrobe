@@ -4,7 +4,7 @@ Walldrobe is Rent the Runway, for art: a wardrobe for your walls. You show it on
 
 Rotation is the product. The layout is the service that makes it fit.
 
-Status: v2 reset, 2026-10-01. The v1 flow below replaces the one that shipped on 2026-10-01 (see DECISIONS, "v2 reset").
+Status: v4 product reset, 2026-10-02 evening, waiting on Jason (see "v4" below). v4 starts from the a63c921 interface (Oct 1, 11:19 pm) with today's engine, photo reader, catalog, taste and server. The v3 flow further down is paused. Live is still v2 on main.
 
 ## Who it's for
 
@@ -66,7 +66,90 @@ Use: wall, piece, print, original, frame, hang, swap, keep, skip, save, pin, you
 
 Avoid in the interface: curate, elevate, AI, algorithm, SKU, inventory, "gallery wall solution", layout (say wall), hype words, exclamation points, em dashes.
 
-## The flow (v3, 2026-10-02)
+## v4 (proposed 2026-10-02, waiting on Jason)
+
+### The loop, in Jason's words
+
+"First lock in a layout preference, then curate the art, then save a wall with the pieces in it, then keep playing, make another, then compare them."
+
+1. Lock in a layout.
+2. Curate the art.
+3. Save the wall with its pieces.
+4. Keep playing.
+5. Make another.
+6. Compare them.
+
+Before the loop: the photo, the corners and one confirm screen (as built). After it: Get it (what to buy, the nails). A feature that serves no step waits.
+
+### Structure kept from a63c921
+
+The feed of ranked walls is where a layout is chosen. The open wall is where the art is curated. Get it is where you buy and hang. Every lever lives one level down, behind one door per screen. Nothing new goes on a main screen unless the budget below allows it or something comes off.
+
+### Favorites (Jason, 2026-10-02)
+
+"Four alternatives are fine but if you are really buying something you are eventually going to want to see more than four... preference first for your favorites, especially if one of your favorites actually works in the scheme you already have... a way to look at favorites... favorites also feeds the preferences."
+
+- A spot's choices show your favorites that come in a size that fits that spot first, marked with the heart, then the best others. Four show at once; "See all that fit" lists every print that fits that spot, favorites first.
+- Favorites have their own page, one level down, with "See it on my wall".
+- Hearts keep feeding taste (style, subject and the ranking bonus, as built), and a favorite that fits an open frame is tried there first when walls are filled.
+
+### Must have for v4
+
+| Feature | Loop step | Where it lives | FEEDBACK |
+|---|---|---|---|
+| Ranked walls, each with its why line and cost | 1 | Feed | 2, 3 |
+| Layout preferences in one place: kind (any, structured, loose), how many (any, or a set number), how full, which art (shop prints, free art, both, just mine) | 1 | One level down from the feed and the open wall | 13, 18 |
+| Stepping the count and back brings the same walls back | 1, 4 | Engine and state, no control | 16 |
+| Kept pieces, and art you chose, come along to a new layout where they fit | 1, 5 | Engine, no control | 41 |
+| Tap a piece for its choices: favorites that fit first, then the best four, then "See all that fit" | 2 | Piece sheet, then a full list for that spot | 31, 59 |
+| Three meanings kept apart: keep in every wall, stays where it hangs (yours), favorite (heart) | 2 | Piece sheet; the heart also on each row | 5, 8, 37 |
+| Remove this frame: one fewer, the other frames stay | 2 | Piece sheet | 31, 38 |
+| New art in the open frames: same frames, new picks, kept and yours stay | 2 | One level down from the open wall | 15 |
+| Undo every change, visible, inline | 2, 4 | Under the drawing, only after a change | 4 |
+| Your pieces as Keep, Maybe or Skip; one row of thumbnails on the wall, not full rows | 1, 2 | Confirm screen; the thumbnail row on the open wall | 8, 33, 34 |
+| Save this wall as a small icon; a saved wall keeps its pieces and reopens exactly | 3 | Open wall | 43, 44 |
+| Make another: back to the feed with everything kept, nothing lost | 5 | The back link, as built | 44 |
+| Compare saved walls side by side | 6 | Your walls | 44 |
+| Favorites page; hearts feed taste | 2 | One level down | 5, 45, 59 |
+| Taste test, easy to find | 1, 2 | One level down, named plainly | 21, 40 |
+| Sizes each print comes in | 2 | Piece sheet | 45 |
+| Get this wall as a small icon; Get it with the buy list, the engine's suggested frame per piece in words, the nails and the wire drop | after 6 | Open wall, then Get it | 22, 43 |
+| Move pieces by hand, measurements | 4 | One level down | (built) |
+| Confirm-screen fixes since a63c921: drag any box, close-up above the finger, nudge pad, wall edge, change what a found thing is | before 1 | Corners and confirm screens | 17, 20, 55, 56 |
+| Light mode only | all | Tokens | 19 |
+
+### Can wait
+
+| Feature | Why it waits | FEEDBACK |
+|---|---|---|
+| Frame looks, mats, weights, per-piece finishes | Comes after the loop; the suggested frame in words covers Get it for now | 22, 23 |
+| Walls people hung, sharing | Serves no loop step | 25, 26 |
+| Browse every print | "See all that fit" covers the loop's need | 45 |
+| Art filters: people, price, color, shop | Not asked for in the loop; which art is enough for now | 13 |
+| What we learned page and Never show me | The engine keeps using them; the page waits | 40, 46 |
+| Your art from before on a new wall | Small; after compare works | 11 |
+| Wall sections and a whole home | Engine first | 49 |
+| Tap to lock, double tap to like | Open question | 39 |
+
+### Engine only (no interface)
+
+Generate once, rank many (3). The first wall adds new art (7). No price term (10). Move penalty for hung pieces (11). Free-form walls, the packer, the anchor (12, 51). Wall edges (20). Subject in taste, the adaptive test (40). Deeper taste beyond seven axes (28). Seven axes, complements, the event log (46). Scale from every reference, early model download (47). Catalog health (48). Reader fixes (52). Favorites that fit tried first when filling and in a spot's choices (59).
+
+### Control budget
+
+Visible controls per main screen. Content (wall cards, drawn pieces, piece rows, one heart per new piece) is counted separately.
+
+| Screen | a63c921 | v4 budget | On the screen | One level down |
+|---|---|---|---|---|
+| Feed | 3 | 4 | Wordmark, one door, Your walls once one is saved, one spare | Layout preferences, taste test, your pieces, fix what's marked, favorites, new wall |
+| Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, one spare | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
+| Piece sheet | 5 | 6 plus the choices | Choices (favorites first), See all that fit, Keep in every wall, Remove this frame, heart, sizes; for yours: Stays where it hangs, Leave it out | The full list for that spot |
+| Your walls | none | 4 plus wall cards | Back, Compare, New wall, one spare | Rename, delete |
+| Get it | 7 | 7 | As a63c921, with each frame in words | none |
+
+A spare is held, not given to anything until Jason says.
+
+## The flow (v3, 2026-10-02, paused; v4 replaces it once approved)
 
 Five named steps, shown on every screen past the photo: Wall, Taste, Pick, Frames, Hang. One decision per step. Every lever lives one level down, inside the step it belongs to, never on the screen beside the wall.
 
