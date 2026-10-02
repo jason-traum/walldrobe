@@ -11,12 +11,12 @@ The wall is the hero. People are judging art, and art needs neutral surroundings
 - New prints are drawn as paper, unframed, with a thin white edge, held by torn tape tabs across the corners: two at the top, two more at the bottom on anything taller than 20 in. Blue `--tape-strip` while proposed, green `--tape-keep` once kept. Pieces of yours are framed (frame and mat), never taped.
 - Tab size: the real roll's width, 1.41 in at wall scale, never under 5 px on screen; about 3.2 in long, never under 15 px. Each tab sits at about 42 degrees with a few degrees of random lean, torn at both ends. Not wider: at 7.5 px it read as clip art (FEEDBACK 74).
 - The wordmark is "walldrobe" in lowercase Familjen Grotesk 600 with one blue tab across the top left of the w, 15 x 5 px, the same proportion as on the wall.
-- Furniture is flat silhouettes one step darker than the wall, no outlines, no pillows or seams worth looking at. The art carries the color.
-- Type: Familjen Grotesk 400, 500, 600 (replaces Switzer). Action color `#1A5FA6`.
-- Words: no why line, no reason line on rows, no move note on the wall screen. A wall is judged by looking at it (FEEDBACK 74). The count ("1 of 24") stays small under each drawing. The Undo line is "Swapped. Undo", "Kept. Undo", "Removed. Undo". Rows are the title, then size and shop, then "Kept" when kept.
-- Save and Get are two small buttons in the pager row, Save quiet and Get filled, 36 px tall inside a 44 px row.
-- Rows sit on the page with hairlines between them, no card.
-- Thumbnails repeat the drawing's code: new pieces as taped paper, yours framed.
+- Mixed with Finished wall (FEEDBACK 75): the room in its own colors (wall lit a touch lighter at the top, wood bed and dresser, linen bedding, a black floor lamp), pieces of yours in black frames with mats and one soft shadow, new prints as paper with a fainter shadow under their tape.
+- Type: Familjen Grotesk 400, 500, 600 (replaces Switzer). One blue, `#1A5FA6`, for actions and for blue tape alike; green `#2F8A4E` only for kept tape and the word Kept; plum `#9C3A66` only for the favorite heart.
+- Words: no why line, no reason line, no move note, no count under walls in the list (the open wall's pager keeps "3 of 24"). A wall is judged by looking at it (FEEDBACK 74, 75). The Undo line is "Swapped. Undo", "Kept. Undo", "Removed. Undo".
+- New pieces on the open wall are a two-across grid of the art itself, about 150 px tall, taped like the drawing; under each, the title in `--pencil` at 14 px and "Kept" when kept, and a heart. No size or shop line; those are in the piece sheet with the credit ("Art by Lindsey Cherek, sold by Desenio"). Images carry the title as alt text and the heart says which piece it saves.
+- Save and "Get it" sit at the right of the pager row, Save quiet and Get it filled, 44 px tall, inside the 16 px gutter.
+- Thumbnails repeat the drawing's code: new pieces as taped paper, yours framed. No cards anywhere.
 - No legend (FEEDBACK 70). No prices for now (FEEDBACK 72).
 
 ## The direction and its source
