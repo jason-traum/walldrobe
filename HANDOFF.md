@@ -110,6 +110,27 @@ Open risks (need a real iPhone or real use):
 | Desktop feed | One column; the open wall has two |
 | Color reasons | Sometimes say left or right wrongly |
 
+## 5d. After v2 (2026-10-02, overnight, all on `v2`, not merged)
+
+Built, each with a DECISIONS line:
+
+| Area | What |
+|---|---|
+| You, across walls | Saves, swaps and art that isn't up live on you (`walldrobe.me.v1`); Saved page; "Your art from before" on a new wall |
+| Browse | `#/browse`, every print with size, color and shop filters, sizes and prices per piece, See it on my wall |
+| Taste | Seven axes, the quiz splits the least-known one, "What we learned" with one-tap corrections (`#/profile`), complements in ranking |
+| Ranking | Move penalty for pieces already up; walls that drop kept pieces rank lower; no price term (test data) |
+| Your art on a full wall | Drop as few as possible (`prefs.dropFewest`), a packer when growing frame by frame can't fit them, the wall as it hangs always shown with its breaks |
+| Free-form | Anchor (biggest piece low and central), neighbors lining up, centered over two pieces of furniture; from Jason's own bedroom wall (`fixtures/jason_bedroom.js`, `fixtures/jason_read.js`, numbers only) |
+| Photo reader | Corner creases, frame splitting, furniture split by kind, edge snap, lean agreement; scale from every reference with a disagreement note; agreeing references as one tap when there's no TV; paint-out samples only wall |
+| Setup | Model downloads on the start screen; standard frame size picker |
+| Catalog | `tools/check_catalog.mjs` (network check from Jason's machine, `--dry` audit, `--apply`), gone offers and items dropped |
+| Learning | Device event log (`walldrobe.events.v1`), nothing sent |
+
+The photo reader bench (40 stock photos plus Jason's bedroom, read by eye) is in the scratchpad `bench/` folder with `run.sh`; it's private and not in the repo. Copy it next to `walldrobe-private/` when the session's files go to the Mac.
+
+Open, needing Jason: headboard clearance for a piece not centered over the bed (his real wall has one 0.5 in above it; the rule is 6 in); a corner photo (ask to shoot square, or read two walls); sections on one plane as layout boundaries; whether a dresser counts as a scale reference; a cap on new pieces added to a wall of your own art (now up to 2 on the packer path, 3 by normal growth); free photos in Browse.
+
 ## 6. The layout engine: where it's going
 
 The core lesson (DECISIONS 2026-10-01): every earlier version hard-coded the designer's first decision, where the art goes ("over the anchor"), then patched in more places. Jason's living room broke it: 26 to 29 in of height over the TV, a 34 in print, open wall on the left. He wants the engine to look at all the open space plus buffers and decide like a person would, including untraditional layouts, and it must not say "above the TV" or "to the left" as options.
