@@ -1335,7 +1335,7 @@ function feed() {
   return `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Change</button>')}
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
-    ${shapeChips()}
+    ${shapeStrip(v.list[0])}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
@@ -1382,9 +1382,9 @@ function wallScreen() {
     </div>
     <div class="wall-tools">
       <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button></div>
-      ${L.variant === 'asis' ? '' : stepper(L)}
       ${L.pieces.some((p) => p.ref.source === 'catalog' && !kept.has(p.ref.id)) ? `<button type="button" class="btn quiet small" data-act="refresh"${S.busy ? ' disabled' : ''}>${S.busy === 'refresh' ? 'Picking…' : 'New art'}</button>` : ''}
     </div>
+    ${shapeStrip(L.variant === 'asis' ? null : L)}
     ${S.edit ? editBar(L) : ''}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
@@ -1446,71 +1446,48 @@ const kindLabel = () => ({ structured: 'Structured', gallery: 'Loose' }[S.draft.
 const countLabel = () => (S.draft.pieces ? `${S.draft.pieces} pieces` : 'Any count');
 const artLabel = () => (S.draft.justMine ? 'Just mine' : `${ARTS.find(([k]) => k === artMode())[1]}${poolCount() ? ` · ${poolCount()} filter${poolCount() === 1 ? '' : 's'}` : ''}`);
 const fullLabel = () => FULLS.find(([k]) => k === (S.draft.fullness || 'balanced'))[1];
-// One row of chips, each showing what's picked; a chip that isn't the default is filled.
-function shapeChips() {
+// The four choices, on screen, one tap each. Kind and how full on one line,
+// art and how many pieces on the next. A count that's set shows "Any" to let it go.
+function shapeStrip(L) {
   const d = S.draft;
-  const chip = (k, label, on) => `<button type="button" class="chip-btn${on ? ' is-on' : ''}" data-chip="${k}" aria-haspopup="dialog">${esc(label)}</button>`;
-  return `<div class="chips-row" role="group" aria-label="What kind of walls">
-    ${chip('kind', kindLabel(), !!d.style)}${chip('count', countLabel(), !!d.pieces)}${chip('art', artLabel(), artMode() !== 'prints' || !!d.justMine || poolCount() > 0)}${chip('full', fullLabel(), (d.fullness || 'balanced') !== 'balanced')}
+  const dis = S.busy ? ' disabled' : '';
+  const seg = (name, pairs, cur, attr) => `<span class="seg" role="group" aria-label="${esc(name)}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span>`;
+  const counts = (S.view && S.view.counts) || [];
+  // The count shown is the wall's own when none is set, so minus and plus step from it.
+  const n = d.pieces || (L ? L.pieces.length : null);
+  const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
+  const arts = [['prints', 'Prints'], ['both', 'Both'], ['photos', 'Photos'], ...(keptOwned().length ? [['mine', 'Mine']] : [])];
+  const artCur = d.justMine ? 'mine' : artMode();
+  return `<div class="strip" role="group" aria-label="Which walls">
+    <div class="strip-row">
+      ${seg('Kind of wall', KINDS.map(([v, l]) => [v, l]), d.style || null, 'style')}
+      ${seg('How full', FULLS.map(([v, l]) => [v, l]), d.fullness || 'balanced', 'fullness')}
+    </div>
+    <div class="strip-row">
+      ${seg('Art', arts, artCur, 'art')}
+      <span class="stepper" role="group" aria-label="How many pieces">
+        <button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button>
+        <span class="step-n">${n ? `${n} piece${n === 1 ? '' : 's'}` : 'Any'}</span>
+        <button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button>
+      </span>
+      ${d.pieces ? `<button type="button" class="link" data-count="any"${dis}>Any</button>` : ''}
+      <button type="button" class="link${poolCount() ? ' is-on' : ''}" data-chip="art"${dis}>${poolCount() ? `${poolCount()} filter${poolCount() === 1 ? '' : 's'}` : 'Filters'}</button>
+    </div>
   </div>`;
 }
 function chipSheet(k) {
-  const d = S.draft;
-  const opt = (attr, val, label, sub, on) => `<li><button type="button" class="opt" data-${attr}="${esc(val)}" aria-pressed="${on}"><span class="opt-name">${esc(label)}</span>${sub ? `<span class="opt-sub">${esc(sub)}</span>` : ''}</button></li>`;
-  if (k === 'kind') return `<h2 id="sheet-h">Kind of wall</h2><ul class="opts">${KINDS.map(([v, l, sub]) => opt('style', v || '', l, sub, (d.style || null) === v)).join('')}</ul>`;
-  if (k === 'art') {
-    const f = pool(), mode = artMode();
-    const seg = (name, pairs, cur) => `<span class="seg" role="group" aria-label="${esc(name)}">${pairs.map(([v, l]) => `<button type="button" data-pool="${name}" data-v="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</span>`;
-    const shops = [['desenio', 'Desenio'], ['houseofspoils', 'House of Spoils'], ['free', 'Free photos']].filter(([v]) => mode === 'both' || (mode === 'prints' ? v !== 'free' : v === 'free'));
-    return `<h2 id="sheet-h">Art</h2><ul class="opts">${ARTS.map(([v, l, sub]) => opt('art', v, l, sub, !d.justMine && artMode() === v)).join('')}${keptOwned().length ? opt('just', '1', 'Just my pieces', 'Nothing new, only what you own', !!d.justMine) : ''}</ul>
-      ${d.justMine ? '' : `<p class="sheet-label">Leave out</p>
-      <div class="pool">
-        <div class="sheet-row"><span class="label">People</span>${seg('people', [['any', 'Fine'], ['none', 'No people']], f.people)}</div>
-        ${mode !== 'photos' ? `<div class="sheet-row"><span class="label">Price</span>${seg('maxPrice', PRICES, f.maxPrice)}</div>` : ''}
-        <div class="sheet-row"><span class="label">Color</span>${seg('color', [['any', 'Any'], ['color', 'Color only'], ['bw', 'Black and white']], f.color)}</div>
-        ${shops.length > 1 ? `<div class="sheet-row"><span class="label">From</span><span class="seg" role="group" aria-label="Shops">${shops.map(([v, l]) => `<button type="button" data-pool="shops" data-v="${v}" aria-pressed="${!f.shops.includes(v)}">${l}</button>`).join('')}</span></div>` : ''}
-        ${poolCount(f) ? '<button type="button" class="link" data-pool="clear">Clear the filters</button>' : ''}
-      </div>`}`;
-  }
-  if (k === 'full') return `<h2 id="sheet-h">How full</h2><ul class="opts">${FULLS.map(([v, l, sub]) => opt('fullness', v, l, sub, (d.fullness || 'balanced') === v)).join('')}</ul>`;
-  if (k === 'count') {
-    const counts = (S.view && S.view.counts) || [];
-    return `<h2 id="sheet-h">How many pieces</h2>
-      <p class="pencil small">The numbers that make a wall here${d.style ? `, ${kindLabel().toLowerCase()}` : ''}.</p>
-      <div class="num-grid">${counts.map((n) => `<button type="button" class="num-btn" data-count="${n}" aria-pressed="${d.pieces === n}">${n}</button>`).join('')}</div>
-      <button type="button" class="opt opt-wide" data-count="any" aria-pressed="${!d.pieces}"><span class="opt-name">Any number</span></button>`;
-  }
-  return '';
-}
-// The same wall with new art in every frame that isn't kept or yours.
-function refreshArt() {
-  const L = shown();
-  if (!L) return;
-  const input = engineInput();
-  const fresh = L.pieces.filter((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)).map((p) => p.ref.id);
-  if (!fresh.length) { S.flash = 'Every piece here is kept or yours, so there is nothing to refresh.'; return; }
-  const exclude = [...new Set([...(S.seen.get(L.key) || []), ...fresh])].filter((x) => !keptSet().has(x));
-  let r = refill({ ...input, keep: keepList(), exclude }, L, {});
-  if (!r.layouts.length) r = refill({ ...input, keep: keepList(), exclude: fresh }, L, {});
-  if (!r.layouts.length) { S.flash = r.problems[0] ? r.problems[0].message : 'No other art fits these frames.'; return; }
-  const prev = L;
-  const next = { ...r.layouts[0], history: L.history, moved: L.moved };
-  replaceWall(L.key, next); remember(next);
-  logE('refresh', { wall: L.key, n: fresh.length });
-  S.ui.saved = null; persist();
-  S.undo = { label: `New art in ${fresh.length === 1 ? 'the one open frame' : `all ${fresh.length} frames`}.`, run: () => { replaceWall(prev.key, prev); persist(); } };
-}
-// Under the open wall: start from this one and add a piece or take one away.
-function stepper(L) {
-  const counts = (S.view && S.view.counts) || [];
-  const n = L.pieces.length;
-  const fewer = counts.filter((c) => c < n).pop(), more = counts.find((c) => c > n);
-  const dis = S.busy ? ' disabled' : '';
-  return `<span class="stepper" role="group" aria-label="Pieces on this wall">
-    <button type="button" class="icon-btn" data-step="${fewer || ''}" aria-label="One fewer piece"${fewer && !dis ? '' : ' disabled'}>−</button>
-    <span class="step-n">${n} piece${n === 1 ? '' : 's'}</span>
-    <button type="button" class="icon-btn" data-step="${more || ''}" aria-label="One more piece"${more && !dis ? '' : ' disabled'}>+</button>
-  </span>`;
+  if (k !== 'art') return '';
+  const f = pool(), mode = artMode();
+  const seg = (name, pairs, cur) => `<span class="seg" role="group" aria-label="${esc(name)}">${pairs.map(([v, l]) => `<button type="button" data-pool="${name}" data-v="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</span>`;
+  const shops = [['desenio', 'Desenio'], ['houseofspoils', 'House of Spoils'], ['free', 'Free photos']].filter(([v]) => mode === 'both' || (mode === 'prints' ? v !== 'free' : v === 'free'));
+  return `<h2 id="sheet-h">Leave out</h2>
+    <div class="pool">
+      <div class="sheet-row"><span class="label">People</span>${seg('people', [['any', 'Fine'], ['none', 'No people']], f.people)}</div>
+      ${mode !== 'photos' ? `<div class="sheet-row"><span class="label">Price</span>${seg('maxPrice', PRICES, f.maxPrice)}</div>` : ''}
+      <div class="sheet-row"><span class="label">Color</span>${seg('color', [['any', 'Any'], ['color', 'Color only'], ['bw', 'Black and white']], f.color)}</div>
+      ${shops.length > 1 ? `<div class="sheet-row"><span class="label">From</span><span class="seg" role="group" aria-label="Shops">${shops.map(([v, l]) => `<button type="button" data-pool="shops" data-v="${v}" aria-pressed="${!f.shops.includes(v)}">${l}</button>`).join('')}</span></div>` : ''}
+      ${poolCount(f) ? '<button type="button" class="link" data-pool="clear">Clear the filters</button>' : ''}
+    </div>`;
 }
 
 // ---------- Sheets ----------
@@ -1542,8 +1519,6 @@ function changeSheet() {
     d.taste && d.taste.source === 'yours' ? item('<a class="sheet-item" href="#/profile">What we learned</a>') : '',
   ].join('');
   return `<h2 id="sheet-h">Change</h2>
-    <p class="sheet-label">Which walls</p>
-    ${shapeChips()}
     ${wallItems ? `<p class="sheet-label">This wall</p><ul class="sheet-list">${wallItems}</ul>` : ''}
     <p class="sheet-label">Your taste</p><ul class="sheet-list">${tasteItems}</ul>
     <nav class="sheet-links" aria-label="Go to">
@@ -2662,31 +2637,15 @@ document.addEventListener('click', (e) => {
   }
   if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; S.draft.pieces = null; logE('shape', { fullness: t.dataset.fullness }); rebuild('fullness'); return; }
   if (t.dataset.style !== undefined) { S.draft.style = t.dataset.style || null; logE('shape', { style: S.draft.style }); rebuild('style'); return; }
-  if (t.dataset.art) { S.draft.art = t.dataset.art; S.draft.justMine = false; logE('shape', { art: t.dataset.art }); rebuild('art'); return; }
-  if (t.dataset.count !== undefined) { S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count); logE('shape', { pieces: S.draft.pieces }); rebuild('count'); return; }
-  if (t.dataset.step !== undefined) {
-    if (!t.dataset.step) return;
-    // One more or one fewer keeps the frames already up where they are.
-    const L = shown();
-    S.stepBase = L ? L.pieces.filter((p) => p.role !== 'pinned').map((p) => (p.slot ? { ...p.slot } : { x: p.x, y: p.y, w: p.w, h: p.h })) : null;
-    S.draft.pieces = Number(t.dataset.step);
-    logE('step', { from: L ? L.pieces.length : null, to: S.draft.pieces });
-    S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '.stepper .step-n'; persist(); render(); return;
-  }
-  if (t.dataset.just !== undefined) { S.draft.justMine = t.dataset.just === '1'; rebuild('just'); return; }
-  if (t.dataset.axis) {
-    const d = S.draft, axis = t.dataset.axis, v = t.dataset.lean;
-    if (!d.taste || d.taste.source !== 'yours') d.taste = { source: 'yours', weights: null, picks: [], corrections: [] };
-    d.taste.corrections = [...(d.taste.corrections || []).filter((c) => c.axis !== axis), { axis, lean: v === 'none' ? null : v }];
-    logE('taste-set', { axis, lean: v });
-    resetLayouts(); persist(); render(); return;
-  }
-  if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
-  if (t.dataset.turn) { const o = S.draft.owned.find((x) => x.id === t.dataset.turn); if (o) { [o.w, o.h] = [o.h, o.w]; resetLayouts(); persist(); render(); } return; }
-  if (t.dataset.try) { tryOnWall(t.dataset.try); return; }
-  if (t.dataset.addPast) {
-    const a = ME.art.find((x) => x.id === t.dataset.addPast);
-    if (a) { S.draft.owned.push({ id: a.id, title: a.title, w: a.w, h: a.h, keep: 'must', pinned: false, thumb: a.thumb || undefined, color: a.color || '#8A8F94', palette: a.palette || [{ hex: a.color || '#8A8F94', weight: 1 }], fromPhoto: false }); resetLayouts(); persist(); render(); }
+  if (t.dataset.art) { if (t.dataset.art === 'mine') S.draft.justMine = true; else { S.draft.art = t.dataset.art; S.draft.justMine = false; } logE('shape', { art: t.dataset.art }); rebuild('art'); return; }
+  if (t.dataset.count !== undefined) {
+    if (!t.dataset.count) return;
+    const onWall = route()[0] === 'wall', L = onWall ? shown() : (S.view && S.view.list[0]) || null;
+    // On an open wall, one more or one fewer keeps the frames already up where they are.
+    S.stepBase = L && t.dataset.count !== 'any' ? L.pieces.filter((p) => p.role !== 'pinned').map((p) => (p.slot ? { ...p.slot } : { x: p.x, y: p.y, w: p.w, h: p.h })) : null;
+    S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count);
+    logE('shape', { pieces: S.draft.pieces, from: L ? L.pieces.length : null });
+    if (onWall && L) { S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '.stepper .step-n'; persist(); render(); } else { S.openKey = null; rebuild('count'); S.focusAfter = '.stepper .step-n'; }
     return;
   }
   if (t.dataset.forgetArt) { ME.art = ME.art.filter((x) => x.id !== t.dataset.forgetArt); syncMe(); render(); return; }

@@ -455,7 +455,14 @@ svg.is-dragging .measure { opacity: 0.25; }
 .axis-row .seg button { flex: 1 1 0; padding: 0 8px; }
 @media (min-width: 600px) { .rows .row.axis-row { grid-template-columns: minmax(0, 1fr) auto; } .axis-row .seg { width: auto; } .axis-row .seg button { flex: 0 0 auto; padding: 0 14px; } }
 
-/* Which walls: one row of chips, each showing what's picked. A chip that isn't the default is filled. */
+/* Which walls: the four choices on screen, one tap each. */
+.strip { display: grid; gap: 8px; margin: 0 0 16px; }
+.strip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.strip .seg button { padding: 0 10px; font-size: 14px; }
+.strip .link { min-height: 44px; padding: 0 4px; }
+.strip .link.is-on { color: var(--tape); font-weight: 600; }
+.wall-page .strip { margin-top: 8px; }
+/* Chips, kept for the filters button. */
 .chips-row { display: flex; flex-wrap: nowrap; gap: 6px; margin: 0 -16px 16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
 .chips-row::-webkit-scrollbar { display: none; }
 .sheet .chips-row { flex-wrap: wrap; margin: 0; padding: 0; overflow: visible; }
