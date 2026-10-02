@@ -98,6 +98,8 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 
 ## Design
 
+- 2026-10-01 (v2 step 3): Structure picked: the feed. The wall screen is a ranked list of whole walls, each full width on your photo with one line of why, the first filling the screen with nothing above it. Tap a wall to open it; inside, swipe left or right to the next ranked wall with the photo pinned (from the stage option), and the pieces in it as rows with spot, price and reason (from the pieces-first option). Rejected: the stage (one wall pinned, alternatives as a thumbnail strip; thumbs unreadable at 390 and the list becomes a control), pieces first (answers "what do I buy" before "what does it look like"), build-up (rejected Sept 30, and conflicts with the first wall being finished). Jason: "if you think A is the best we can go with that, I guess." Reopen if: the first real build of the feed on the sample wall doesn't feel right; the stage is a rearrangement of the same parts.
+
 - 2026-09-30: Direction not picked. Compare structure options first, then visual directions, on real screens. The pitch deck's bone, serif and blue look does not carry over by default.
 - 2026-09-30: Picked for the demo (Jason: "you are the expert"): structure 1, wall first, with the three layouts as tabs above a full-width drawing and the pieces beside it. Direction: the hanging diagram, a framer's measured drawing at true scale, tape-measure red for every measurement, nail spot and action. Archivo for text, Archivo Narrow for measurements. Rejected for now: compare view and build-up view; museum label and painter's tape directions. Reopen: after Jason reviews the live demo.
 
