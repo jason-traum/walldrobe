@@ -147,6 +147,7 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 - 2026-10-02: The taste test is on the feed, not behind Change: "Make these yours. Pick between pairs of art" before, "Ranked for your taste" with what it learned after. More pairs add to the earlier picks; the profile says how many it's built from. Jason: "Change isn't clear that it's how you get prompted."
 - 2026-10-02: Frames on Get it. Each new piece gets a suggested frame from what it is: black and white in black, classic or old-world in brass, warm and earthy in oak, soft and light in white, everything else black; a mat on photos and lighter pieces under 24 in, none on bigger ones. "Matched set" (the default) puts the whole wall in one finish: the one most pieces suit, black on a tie or when your own frames are up. "Each its own" uses each suggestion. Any piece can be changed. The hanging drawing shows the frames and each Find a frame link searches for that size, finish and mat. Ordering frames is later. Jason: "standard framing options for each? Pick styles that work with each piece and as a collection."
 - 2026-10-02: The art choice reads Shop prints / Free art / Both / Just mine. Before, Photos meant free art and nobody could tell.
+- 2026-10-02: v2 is live on main and the real link; the first version stays at /v1/, branch v1 and tag v1. Jason: "can we push this to the real link and save the old one somewhere else as a v1."
 
 ## Design
 

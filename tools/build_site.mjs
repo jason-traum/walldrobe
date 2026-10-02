@@ -30,7 +30,9 @@ const html = readFileSync(join(root, 'web/index.html'), 'utf8')
   .replace('{{CATALOG}}', () => json)
   .replace('{{APP}}', () => app.replace(/<\/script/gi, '<\\/script'));
 
-rmSync(join(root, 'docs'), { recursive: true, force: true });
+// Rebuilt each time, except docs/v1, the first version of the site, kept as it was.
+rmSync(join(root, 'docs/art'), { recursive: true, force: true });
+rmSync(join(root, 'docs/index.html'), { force: true });
 mkdirSync(join(root, 'docs'), { recursive: true });
 cpSync(join(root, 'demo/art'), join(root, 'docs/art'), { recursive: true });
 writeFileSync(join(root, 'docs/index.html'), html);

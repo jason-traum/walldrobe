@@ -110,7 +110,11 @@ Open risks (need a real iPhone or real use):
 | Desktop feed | One column; the open wall has two |
 | Color reasons | Sometimes say left or right wrongly |
 
-## 5d. After v2 (2026-10-02, overnight, all on `v2`, not merged)
+## 5e. v2 is live (2026-10-02, noon)
+
+Jason said to switch. `main` is v2 (e2ae9ea) and the site at jason-traum.github.io/walldrobe is v2. The first version is kept three ways: branch `v1`, tag `v1` (both at 6f3fe32), and a working copy at jason-traum.github.io/walldrobe/v1/ (`docs/v1/`, which the build leaves alone). Pushes go from Jason's Mac with a bundle, as before.
+
+## 5d. After v2 (2026-10-02, overnight, all on `v2`, then merged)
 
 Built, each with a DECISIONS line:
 
