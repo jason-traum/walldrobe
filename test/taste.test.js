@@ -87,6 +87,8 @@ test('the quiz is deterministic', () => {
 });
 
 test('every demo wall gets three layouts from the real catalog, quickly', () => {
+  // One cold run first: the limit is for the engine, not the JIT warming up.
+  layout({ ...WALLS[0], catalog: items, taste: scoreTaste(null, items) });
   const t0 = performance.now();
   for (const w of WALLS) {
     const r = layout({ ...w, catalog: items, taste: scoreTaste(null, items) });

@@ -160,15 +160,23 @@ function engineInput() {
     palette: p.palette && p.palette.length ? p.palette : p.color ? [{ hex: p.color, weight: 1 }] : undefined,
   }));
   const keptIds = new Set(keepList().map((k) => k.id));
-  // Prints from shops; your own pieces only, when asked.
-  const catalog = d.justMine ? [] : CATALOG.filter((c) => keptIds.has(c.id) || (c.offers && c.offers.length));
+  // Prints from shops, free photos, or both (prints lean ahead a little); your own pieces only, when asked.
+  const mode = artMode();
+  const isShop = (c) => c.offers && c.offers.length > 0;
+  const catalog = d.justMine ? [] : CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c))));
   const taste = tasteScores(catalog);
+  if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
-  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: WALLS_ASKED, prefs: { fullness: d.fullness || 'balanced' } };
+  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined,
+    // The piece count is everything on the wall, pieces that stay put included.
+    prefs: { fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
 }
 const keepList = () => (S.draft.justMine ? [] : S.draft.kept || []);
+const ART_MODES = ['prints', 'both', 'photos'];
+const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
+const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style, S.draft.pieces, artMode()]);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped]);
 
 const picksOf = (list) => (list || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
@@ -206,14 +214,29 @@ function run() {
   if (S.view.rankKey !== rankKey()) rank();
   return S.view;
 }
-function build(key) {
+function build(key0) {
+  let key = key0; // changes below when a pick that doesn't fit is let go
   // Pieces you keep that can't all go up: the engine leaves out as few as it can, smallest first, and says which.
-  const r = layout({ ...engineInput(), keep: keepList(), prefs: { ...engineInput().prefs, dropFewest: true } });
+  const ask = () => layout({ ...engineInput(), keep: keepList(), prefs: { ...engineInput().prefs, dropFewest: true } });
+  let r = ask();
+  // A count this kind can't make here: the nearest one it can, said plainly.
+  const off = r.problems.find((p) => p.code === 'COUNT_DOESNT_FIT');
+  if (!r.layouts.length && off && off.near) { S.draft.pieces = off.near; persist(); S.flashNext = null; S.flash = off.message; r = ask(); }
+  // Still nothing with a kind or a count picked: show what does fit, and say so.
+  if (!r.layouts.length && (S.draft.pieces || S.draft.style)) {
+    const was = [S.draft.style === 'gallery' ? 'loose' : S.draft.style, S.draft.pieces ? `${S.draft.pieces} pieces` : null].filter(Boolean).join(', ');
+    const keepStyle = S.draft.style, keepPieces = S.draft.pieces;
+    S.draft.style = null; S.draft.pieces = null;
+    const r2 = ask();
+    if (r2.layouts.length) { persist(); S.flash = `Nothing ${was} fits here, so these are what does.`; r = r2; key = viewKey(); }
+    else { S.draft.style = keepStyle; S.draft.pieces = keepPieces; }
+  }
   const problems = [...r.problems];
   let all = r.layouts;
+  const counts = (r.counts || []).map((c) => c + stayCount());
   // A tight wall makes few walls at one fullness: add the ones the other two
   // make, after these, so there's always a real list to choose from.
-  if (all.length && rerank(all, { distinct: true }).length < 8) {
+  if (all.length && !S.draft.style && !S.draft.pieces && !S.stepBase && rerank(all, { distinct: true }).length < 8) {
     const mine = S.draft.fullness || 'balanced';
     for (const f of ['full', 'calm', 'balanced'].filter((x) => x !== mine)) {
       const more = layout({ ...engineInput(), prefs: { fullness: f, dropFewest: true }, keep: keepList() }).layouts;
@@ -224,7 +247,13 @@ function build(key) {
   // A saved wall opens on the wall you chose, if it still fits.
   const chosen = S.draft.chosen;
   if (chosen && chosen.inputKey === key) all = [chosen.layout, ...all.filter((L) => L.key !== chosen.layout.key)];
-  S.view = { key, all, list: [], rankKey: null, problems: problems.concat(r.problems.filter((p) => !problems.includes(p))) };
+  S.view = { key, all, list: [], rankKey: null, counts, problems: problems.concat(r.problems.filter((p) => !problems.includes(p))) };
+  // One more or one fewer from the open wall: open on the wall that keeps its frames, first in the list.
+  if (S.stepBase) {
+    const lead = all.filter((L) => (L.keeps || 0) >= 0.99).sort((a, b) => b.score - a.score)[0] || all[0];
+    if (lead) { S.openKey = lead.key; S.view.hold = { key: lead.key, i: 0 }; }
+    S.stepBase = null;
+  }
   for (const L of all) remember(L);
 }
 function rank() {
@@ -1183,6 +1212,7 @@ function feed() {
   return `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Change</button>')}
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
+    ${shapeChips()}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
@@ -1227,7 +1257,10 @@ function wallScreen() {
     <div class="drawing-wrap${S.edit ? ' is-editing' : ''}" id="drawing-wrap">
       <div class="drawing" id="drawing">${drawWall(L, pxNow(), { selected: S.selected, measure: S.measure || S.edit, label: `Wall ${i + 1} of ${v.list.length}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
     </div>
-    <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">Wall ${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button></div>
+    <div class="wall-tools">
+      <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button></div>
+      ${L.variant === 'asis' ? '' : stepper(L)}
+    </div>
     ${S.edit ? editBar(L) : ''}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
@@ -1280,11 +1313,56 @@ function legend(L) {
   return `<p class="legend">Tape: ${parts.join(', ')}.</p>`;
 }
 
+// ---------- Shape: the four choices that change which walls are made ----------
+
+const KINDS = [[null, 'Either', 'Every kind, best first'], ['structured', 'Structured', 'Edges and rows line up: grids, rows, a big piece with sides'], ['gallery', 'Loose', 'Mixed sizes, a gallery wall']];
+const ARTS = [['prints', 'Prints', 'From shops, to buy'], ['both', 'Prints + photos', 'Shop prints and free photos'], ['photos', 'Photos', 'Free photos you print yourself']];
+const FULLS = [['calm', 'Calm', 'Fewer, bigger pieces, more bare wall'], ['balanced', 'Balanced', 'In between'], ['full', 'Full', 'More pieces, less bare wall']];
+const kindLabel = () => ({ structured: 'Structured', gallery: 'Loose' }[S.draft.style] || 'Any kind');
+const countLabel = () => (S.draft.pieces ? `${S.draft.pieces} pieces` : 'Any count');
+const artLabel = () => (S.draft.justMine ? 'Just mine' : ARTS.find(([k]) => k === artMode())[1]);
+const fullLabel = () => FULLS.find(([k]) => k === (S.draft.fullness || 'balanced'))[1];
+// One row of chips, each showing what's picked; a chip that isn't the default is filled.
+function shapeChips() {
+  const d = S.draft;
+  const chip = (k, label, on) => `<button type="button" class="chip-btn${on ? ' is-on' : ''}" data-chip="${k}" aria-haspopup="dialog">${esc(label)}</button>`;
+  return `<div class="chips-row" role="group" aria-label="What kind of walls">
+    ${chip('kind', kindLabel(), !!d.style)}${chip('count', countLabel(), !!d.pieces)}${chip('art', artLabel(), artMode() !== 'prints' || !!d.justMine)}${chip('full', fullLabel(), (d.fullness || 'balanced') !== 'balanced')}
+  </div>`;
+}
+function chipSheet(k) {
+  const d = S.draft;
+  const opt = (attr, val, label, sub, on) => `<li><button type="button" class="opt" data-${attr}="${esc(val)}" aria-pressed="${on}"><span class="opt-name">${esc(label)}</span>${sub ? `<span class="opt-sub">${esc(sub)}</span>` : ''}</button></li>`;
+  if (k === 'kind') return `<h2 id="sheet-h">Kind of wall</h2><ul class="opts">${KINDS.map(([v, l, sub]) => opt('style', v || '', l, sub, (d.style || null) === v)).join('')}</ul>`;
+  if (k === 'art') return `<h2 id="sheet-h">Art</h2><ul class="opts">${ARTS.map(([v, l, sub]) => opt('art', v, l, sub, !d.justMine && artMode() === v)).join('')}${keptOwned().length ? opt('just', '1', 'Just my pieces', 'Nothing new, only what you own', !!d.justMine) : ''}</ul>`;
+  if (k === 'full') return `<h2 id="sheet-h">How full</h2><ul class="opts">${FULLS.map(([v, l, sub]) => opt('fullness', v, l, sub, (d.fullness || 'balanced') === v)).join('')}</ul>`;
+  if (k === 'count') {
+    const counts = (S.view && S.view.counts) || [];
+    return `<h2 id="sheet-h">How many pieces</h2>
+      <p class="pencil small">The numbers that make a wall here${d.style ? `, ${kindLabel().toLowerCase()}` : ''}.</p>
+      <div class="num-grid">${counts.map((n) => `<button type="button" class="num-btn" data-count="${n}" aria-pressed="${d.pieces === n}">${n}</button>`).join('')}</div>
+      <button type="button" class="opt opt-wide" data-count="any" aria-pressed="${!d.pieces}"><span class="opt-name">Any number</span></button>`;
+  }
+  return '';
+}
+// Under the open wall: start from this one and add a piece or take one away.
+function stepper(L) {
+  const counts = (S.view && S.view.counts) || [];
+  const n = L.pieces.length;
+  const fewer = counts.filter((c) => c < n).pop(), more = counts.find((c) => c > n);
+  const dis = S.busy ? ' disabled' : '';
+  return `<span class="stepper" role="group" aria-label="Pieces on this wall">
+    <button type="button" class="icon-btn" data-step="${fewer || ''}" aria-label="One fewer piece"${fewer && !dis ? '' : ' disabled'}>−</button>
+    <span class="step-n">${n} piece${n === 1 ? '' : 's'}</span>
+    <button type="button" class="icon-btn" data-step="${more || ''}" aria-label="One more piece"${more && !dis ? '' : ' disabled'}>+</button>
+  </span>`;
+}
+
 // ---------- Sheets ----------
 
 function sheetHtml() {
   if (!S.sheet) return '';
-  const body = S.sheet === 'change' ? changeSheet() : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
+  const body = S.sheet === 'change' ? changeSheet() : S.sheet.chip ? chipSheet(S.sheet.chip) : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
   if (!body) return '';
   return `<div class="backdrop" data-act="close-sheet"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" id="sheet">
@@ -1296,25 +1374,26 @@ function changeSheet() {
   const d = S.draft;
   const onWall = route()[0] === 'wall';
   const L = onWall ? shown() : null;
-  const dis = S.busy ? ' disabled' : '';
   const asIs = S.view && S.view.list.find((x) => x.variant === 'asis');
+  const item = (inner) => `<li>${inner}</li>`;
+  const wallItems = [
+    onWall && L && L.pieces.some(movable) ? item(`<button type="button" class="sheet-item" data-act="edit">${S.edit ? 'Done moving' : 'Move pieces'}</button>`) : '',
+    onWall ? item(`<button type="button" class="sheet-item" data-act="measure">${S.measure ? 'Hide measurements' : 'Show measurements'}</button>`) : '',
+    onWall && L && S.view.orig && S.view.orig[L.key] ? item('<button type="button" class="sheet-item" data-act="put-back">Put it back</button>') : onWall && L && L.history && L.history.length ? item('<button type="button" class="sheet-item" data-act="undo-all">Put the pieces back</button>') : '',
+    asIs && (!onWall || asIs.key !== (L && L.key)) ? item(`<a class="sheet-item" href="#/wall" data-wall="${esc(asIs.key)}">As it hangs now</a>`) : '',
+  ].join('');
+  const tasteItems = [
+    item('<a class="sheet-item" href="#/taste">Taste test</a>'),
+    d.taste && d.taste.source === 'yours' ? item('<a class="sheet-item" href="#/profile">What we learned</a>') : '',
+  ].join('');
   return `<h2 id="sheet-h">Change</h2>
-    <div class="sheet-row"><span class="label" id="full-l">How full</span>
-      <span class="seg" role="group" aria-labelledby="full-l">${[['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']].map(([k, l]) => `<button type="button" data-fullness="${k}" aria-pressed="${(d.fullness || 'balanced') === k}"${dis}>${l}</button>`).join('')}</span></div>
-    ${keptOwned().length ? `<div class="sheet-row"><span class="label">Your pieces</span><span class="seg" role="group" aria-label="Which art"><button type="button" data-just="0" aria-pressed="${!d.justMine}"${dis}>With new art</button><button type="button" data-just="1" aria-pressed="${!!d.justMine}"${dis}>Just mine</button></span></div>` : ''}
-    <ul class="sheet-list">
-      ${onWall && L && L.pieces.some(movable) ? `<li><button type="button" class="sheet-item" data-act="edit">${S.edit ? 'Stop moving pieces' : 'Move pieces by hand'}</button></li>` : ''}
-      ${onWall && L && S.view.orig && S.view.orig[L.key] ? '<li><button type="button" class="sheet-item" data-act="put-back">Put this wall back the way it was</button></li>' : onWall && L && L.history && L.history.length ? '<li><button type="button" class="sheet-item" data-act="undo-all">Put the pieces back the way they were</button></li>' : ''}
-      ${asIs && (!onWall || asIs.key !== (L && L.key)) ? `<li><a class="sheet-item" href="#/wall" data-wall="${esc(asIs.key)}">Show it as it hangs now</a></li>` : ''}
-      ${onWall ? `<li><button type="button" class="sheet-item" data-act="measure">${S.measure ? 'Hide measurements' : 'Show measurements and nails'}</button></li>` : ''}
-      <li><a class="sheet-item" href="#/taste">Make it mine: pick between pairs of art</a></li>
-      ${d.taste && d.taste.source === 'yours' ? '<li><a class="sheet-item" href="#/profile">What we learned about your taste</a></li>' : ''}
-      <li><a class="sheet-item" href="${d.photo ? '#/check' : '#/things'}">Check what's marked on the wall</a></li>
-      <li><a class="sheet-item" href="#/new">Start a new wall</a></li>
-      <li><a class="sheet-item" href="#/browse">Browse every print</a></li>
-      <li><a class="sheet-item" href="#/saved">Saved pieces${ME.saved.length ? ` (${ME.saved.length})` : ''}</a></li>
-      <li><a class="sheet-item" href="#/walls">Your walls</a></li>
-    </ul>`;
+    <p class="sheet-label">Which walls</p>
+    ${shapeChips()}
+    ${wallItems ? `<p class="sheet-label">This wall</p><ul class="sheet-list">${wallItems}</ul>` : ''}
+    <p class="sheet-label">Your taste</p><ul class="sheet-list">${tasteItems}</ul>
+    <nav class="sheet-links" aria-label="Go to">
+      <a href="${d.photo ? '#/check' : '#/things'}">Fix what's marked</a><a href="#/browse">Browse</a><a href="#/saved">Saved${ME.saved.length ? ` (${ME.saved.length})` : ''}</a><a href="#/walls">Your walls</a><a href="#/new">New wall</a>
+    </nav>`;
 }
 function pieceSheet(id) {
   const d = S.draft;
@@ -1752,7 +1831,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -2343,7 +2422,20 @@ document.addEventListener('click', (e) => {
     }
     return;
   }
-  if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; rebuild('fullness'); return; }
+  if (t.dataset.chip) { S.sheet = { chip: t.dataset.chip }; render(); return; }
+  if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; S.draft.pieces = null; logE('shape', { fullness: t.dataset.fullness }); rebuild('fullness'); return; }
+  if (t.dataset.style !== undefined) { S.draft.style = t.dataset.style || null; logE('shape', { style: S.draft.style }); rebuild('style'); return; }
+  if (t.dataset.art) { S.draft.art = t.dataset.art; S.draft.justMine = false; logE('shape', { art: t.dataset.art }); rebuild('art'); return; }
+  if (t.dataset.count !== undefined) { S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count); logE('shape', { pieces: S.draft.pieces }); rebuild('count'); return; }
+  if (t.dataset.step !== undefined) {
+    if (!t.dataset.step) return;
+    // One more or one fewer keeps the frames already up where they are.
+    const L = shown();
+    S.stepBase = L ? L.pieces.filter((p) => p.role !== 'pinned').map((p) => (p.slot ? { ...p.slot } : { x: p.x, y: p.y, w: p.w, h: p.h })) : null;
+    S.draft.pieces = Number(t.dataset.step);
+    logE('step', { from: L ? L.pieces.length : null, to: S.draft.pieces });
+    S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '.stepper .step-n'; persist(); render(); return;
+  }
   if (t.dataset.just !== undefined) { S.draft.justMine = t.dataset.just === '1'; rebuild('just'); return; }
   if (t.dataset.axis) {
     const d = S.draft, axis = t.dataset.axis, v = t.dataset.lean;
