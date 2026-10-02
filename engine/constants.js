@@ -51,6 +51,31 @@ export const STYLES = Object.freeze({ structured: ['flow', 'statement', 'line', 
 // The arrangement (fit and design) carries half the score; taste and color share the rest.
 export const WEIGHTS = Object.freeze({ comp: 0.5, taste: 0.25, color: 0.25 });
 
+// The deeper taste test (engine/taste.js, ENGINE.md "Taste, deeper"). Axis leans are
+// fit from picks with a weak prior; an axis gets words once it leans and the picks
+// have tested it enough.
+export const PROFILE = Object.freeze({
+  prior: 0.1,      // how hard axis weights are pulled to no lean, and the prior that "sure" counts from
+  leanMin: 0.25,   // |lean| at least this to get a word
+  sureMin: 0.55,   // sure at least this to get a word: two pairs that split the axis, not one
+  correct: 0.8,    // the lean a correction sets when it names a side ("actually cool")
+  blend: 0.5,      // share of scoreProfile from the axes when tag weights exist too
+  hold: 0.6,       // pair picking: cost per unit the two pieces differ on the other axes
+  repeat: 0.08,    // pair picking: cost per earlier piece of the same subject already shown
+});
+
+// Pieces that go together (taste.js complement, rank.js rerank). The wall term is the
+// mean complement of neighboring pieces, centered on 0.5, times weight, so two walls
+// trade places only when their scores are within weight of each other.
+export const COMPLEMENT = Object.freeze({
+  weight: 0.05,    // share of the rank score; small, so it reorders close walls without overriding fit
+  near: 6,         // frames within this many inches of each other are neighbors
+  color: 0.45,     // shared or complementary hues, and palettes that sit together
+  mood: 0.15,
+  style: 0.1,
+  busy: 0.3,       // one busy piece beside calm ones is good; two busy side by side is not
+});
+
 // Outer frame sizes in inches, [width, height]. New pieces only come in these,
 // so a swapped print always fits the frame already on the wall.
 export const SIZES = Object.freeze({

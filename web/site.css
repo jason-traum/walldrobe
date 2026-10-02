@@ -402,7 +402,55 @@ svg.is-dragging .measure { opacity: 0.25; }
 .wall-meta { display: grid; gap: 8px; min-width: 0; }
 @media (max-width: 420px) { .wall-item { grid-template-columns: 1fr; } }
 
+/* ---------- Browse ---------- */
+.home-browse a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter { display: block; min-width: 0; max-width: 100%; }
+/* On a phone the controls wrap and fill each row, so the row edges line up. */
+@media (max-width: 599px) { .filter { flex: 1 1 auto; } .filter select { width: 100%; } }
+.select { position: relative; display: block; }
+.select select { -webkit-appearance: none; appearance: none; max-width: 100%; min-height: 44px; padding: 0 28px 0 10px; border: 1px solid var(--field); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font-weight: 500; cursor: pointer; }
+.select::after { content: ""; position: absolute; right: 11px; top: 50%; width: 7px; height: 7px; margin-top: -6px; border-right: 2px solid var(--pencil); border-bottom: 2px solid var(--pencil); transform: rotate(45deg); pointer-events: none; }
+.filter.is-on select { background: var(--tape-soft); color: var(--tape); border-color: var(--tape-soft); font-weight: 600; }
+.filter.is-on .select::after { border-color: var(--tape); }
+.browse-count { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; min-height: 44px; margin-top: -8px; }
+.browse-count .link { padding: 0; }
+.tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 12px; }
+.tile { min-width: 0; }
+.tile-open { display: grid; gap: 2px; align-content: start; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: var(--r-thumb); }
+.tile-wall { position: relative; display: block; aspect-ratio: 4 / 5; margin-bottom: 8px; background: var(--wall); border-radius: var(--r-thumb); transition: transform 120ms var(--ease); }
+.tile-open:active .tile-wall { transform: scale(0.97); }
+.tile-in { position: absolute; inset: 12%; display: flex; align-items: center; justify-content: center; }
+/* The mat is a border on a content box, so the image box keeps the art's own shape exactly. */
+.tile-art, .big-art { display: block; box-sizing: content-box; border: 4px solid var(--mat); background: var(--mat); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); overflow: hidden; }
+.tile-art img, .big-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.big-art { border-width: 6px; }
+.tile-saved { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--mat); }
+.tile-saved svg { width: 16px; height: 16px; }
+.tile-saved .heart-on { fill: var(--on-wall-marker); stroke: var(--on-wall-marker); }
+.tile-name { font-weight: 500; font-size: 16px; line-height: 22px; overflow-wrap: anywhere; }
+.tile .meta { overflow-wrap: anywhere; }
+/* A piece whose image didn't load: its title in the mat. */
+.is-missing[data-title]::after { content: attr(data-title); padding: 6px; font-size: 12px; line-height: 15px; overflow: hidden; }
+.tile-art.is-missing, .big-art.is-missing { min-height: 0; }
+.browse-more { justify-content: center; margin-top: 16px; }
+.keep-note { display: grid; justify-items: start; }
+.keep-note .link { padding: 0; }
+.browse-end { text-align: center; margin-top: 16px; }
+@media (min-width: 600px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 16px; } }
+@media (min-width: 1000px) {
+  body.on-browse .bar, body.on-browse .demo-note, .page.browse, body.on-browse .credits { max-width: 1120px; }
+  .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
+}
+
 @media print {
   .bar, .demo-note, .acts, .credits, .drop-form .help { display: none; }
   body { background: #FFFFFF; color: #000000; }
 }
+
+/* What we learned: one line per taste axis, the choice under the name on a phone. */
+.rows .row.axis-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: center; }
+.rows .row.axis-row > * { grid-column: auto; grid-row: auto; }
+.axis-row .seg { display: flex; width: 100%; }
+.axis-row .seg button { flex: 1 1 0; padding: 0 8px; }
+@media (min-width: 600px) { .rows .row.axis-row { grid-template-columns: minmax(0, 1fr) auto; } .axis-row .seg { width: auto; } .axis-row .seg button { flex: 0 0 auto; padding: 0 14px; } }

@@ -6,8 +6,9 @@
 
 import { layout, refill, rerank, RULES } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
-import { fitTaste, scoreTaste, nextPair } from '../engine/taste.js';
+import { fitTaste, scoreTaste, nextAxisPair, tasteProfile, correctProfile, scoreProfile, AXES } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
+import { normalizePalette, paletteSimilarity } from '../engine/color.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
@@ -16,7 +17,7 @@ import * as store from './store.js';
 import { segment, modelCached, warm } from './segment.js';
 import { packLabels, unpackLabels } from './segcore.js';
 
-const QUIZ_LENGTH = 10;
+const QUIZ_LENGTH = 14; // about two clean pairs per taste axis
 const WALLS_ASKED = 24; // walls built once per wall; the list shows the distinct ones
 const CATALOG = activeRecords(window.WALLDROBE_CATALOG.items).map((r) => ({ ...toCandidate(r), imageData: r.image.data, aspect: r.image.aspect }));
 const byId = new Map(CATALOG.map((c) => [c.id, c]));
@@ -29,6 +30,8 @@ const clone = (v) => JSON.parse(JSON.stringify(v));
 // You: saves, swaps and art that isn't up, shared by every wall.
 const ME = store.loadMe();
 function syncMe() { store.saveMe(ME); }
+// One line in the device's event log (store.logEvent): ids and wall keys only, never a photo or a name.
+function logE(type, data = {}) { store.logEvent(type, S.draft && S.draft.sample ? { ...data, sample: true } : data); }
 
 const S = {
   draft: store.loadDraft(),
@@ -159,24 +162,42 @@ function engineInput() {
   const keptIds = new Set(keepList().map((k) => k.id));
   // Prints from shops; your own pieces only, when asked.
   const catalog = d.justMine ? [] : CATALOG.filter((c) => keptIds.has(c.id) || (c.offers && c.offers.length));
-  const taste = scoreTaste(d.taste.weights, catalog);
+  const taste = tasteScores(catalog);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
   return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: WALLS_ASKED, prefs: { fullness: d.fullness || 'balanced' } };
 }
 const keepList = () => (S.draft.justMine ? [] : S.draft.kept || []);
 const keptSet = () => new Set(keepList().map((k) => k.id));
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine]);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped]);
 
+const picksOf = (list) => (list || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
+// Your taste as a profile: the quiz, any extra pairs (saves over swaps), then your corrections on top.
+function profileNow(extra = []) {
+  const t = S.draft.taste;
+  if (!t || t.source !== 'yours') return null;
+  const picks = [...picksOf(t.picks), ...extra];
+  if (!picks.length && !(t.corrections || []).length) return null;
+  let prof = tasteProfile(picks, CATALOG);
+  for (const c of t.corrections || []) { try { prof = correctProfile(prof, c); } catch { /* an axis that's gone */ } }
+  return prof;
+}
+// What each piece scores for you, 0 to 1: your profile when you have one, else the sample's taste.
+function tasteScores(catalog, extra = []) {
+  const prof = profileNow(extra);
+  if (prof) return scoreProfile(prof, catalog);
+  const t = S.draft.taste;
+  if (extra.length) return scoreTaste(fitTaste([...picksOf(t.picks), ...extra]), catalog);
+  return scoreTaste(t.weights, catalog);
+}
 // Saves and swaps tell us what you like: a saved piece beats one you swapped away.
 function rankTaste() {
   const d = S.draft;
   const pairs = [];
   for (const w of d.saved) for (const l of d.skipped) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
   if (!pairs.length) return null;
-  const quiz = (d.taste.picks || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
   const ids = new Set(S.view.all.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => p.ref.id)));
-  return scoreTaste(fitTaste([...quiz, ...pairs]), CATALOG.filter((c) => ids.has(c.id)));
+  return tasteScores(CATALOG.filter((c) => ids.has(c.id)), pairs);
 }
 
 function run() {
@@ -209,7 +230,7 @@ function build(key) {
 function rank() {
   const v = S.view;
   const before = v.list.map((L) => L.key);
-  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, hung: S.draft.owned.filter((o) => o.at), want: S.draft.justMine ? [] : keptOwned().map((o) => o.id), distinct: true });
+  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, hung: S.draft.owned.filter((o) => o.at), want: S.draft.justMine ? [] : keptOwned().map((o) => o.id), art: [...CATALOG, ...S.draft.owned], distinct: true });
   // A saved wall leads, the way it was left.
   const chosen = S.draft.chosen && v.all[0] && S.draft.chosen.layout.key === v.all[0].key ? v.list.findIndex((L) => L.key === v.all[0].key) : -1;
   if (chosen > 0) { const [c] = v.list.splice(chosen, 1); v.list.unshift(c); v.list.forEach((L, i) => { L.rank = i + 1; }); }
@@ -241,6 +262,11 @@ function replaceWall(key, next) {
   v.rankKey = null;
   S.openKey = key;
 }
+// Which wall was opened, and where it sat in the list.
+function logWallOpen(key, how) {
+  const i = S.view && S.view.list ? S.view.list.findIndex((L) => L.key === key) : -1;
+  logE('wall-open', { wall: key, rank: i >= 0 ? i + 1 : null, of: S.view && S.view.list ? S.view.list.length : null, how });
+}
 // A wall you're changing keeps its place in the list while you change it.
 function holdOpen(key) {
   const v = S.view;
@@ -264,6 +290,7 @@ function swapPiece(id) {
   if (!wasSkipped) { d.skipped = [...d.skipped, id]; ME.skipped = d.skipped; syncMe(); }
   replaceWall(L.key, next);
   remember(next);
+  logE('swap', { from: id, to: came ? came.ref.id : null, wall: L.key });
   S.ui.saved = null; persist();
   S.undo = {
     label: `Swapped ${gone ? gone.title : 'that piece'}${came ? ` for ${byId.get(came.ref.id).title}` : ''}.`,
@@ -271,13 +298,15 @@ function swapPiece(id) {
   };
 }
 function toggleSave(id) {
-  const d = S.draft;
+  // With no wall yet (saving from Browse), the save is still yours.
+  const d = S.draft || { saved: ME.saved, skipped: ME.skipped };
   if (route()[0] === 'wall' && S.view) holdOpen(S.openKey);
   const on = d.saved.includes(id);
   d.saved = on ? d.saved.filter((x) => x !== id) : [...d.saved, id];
   // Saving a piece you'd swapped away takes it off the swapped list.
   if (!on) d.skipped = d.skipped.filter((x) => x !== id);
   ME.saved = d.saved; ME.skipped = d.skipped; syncMe();
+  logE(on ? 'unsave' : 'save', { id, from: route()[0] || 'home' });
   persist();
 }
 function toggleKeep(id) {
@@ -286,6 +315,7 @@ function toggleKeep(id) {
   const list = S.draft.kept || [];
   const on = list.some((k) => k.id === id);
   S.draft.kept = on ? list.filter((k) => k.id !== id) : p ? [...list, { id: p.ref.id, w: p.w, h: p.h }] : list;
+  logE('keep', { id, on: !on, wall: L ? L.key : null });
   // The wall on screen stays; the others are built again around it.
   if (L) S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() };
   persist();
@@ -359,6 +389,7 @@ function home() {
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
       <p class="how">One photo, then check what we found. Pick a wall from the list. Tape it up, step back, hang it.</p>
+      <p class="home-browse"><a href="#/browse">Or just browse every print</a></p>
     </div>
   </main>
   ${credits()}`;
@@ -994,12 +1025,42 @@ async function addPieceFromRect(r) {
 
 // ---------- Make it mine: the taste test ----------
 
+// The same pairs for the same wall, so a reload doesn't reshuffle the test.
+const quizSeed = () => { let h = 7; for (const ch of String(S.draft && S.draft.id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return (h % 9973) + 1; };
+
+// What the test learned, in words you can correct.
+function profileScreen() {
+  if (need()) { go(need()); return ''; }
+  const prof = profileNow();
+  const corr = new Map(((S.draft.taste && S.draft.taste.corrections) || []).map((c) => [c.axis, c.lean]));
+  const cap = (w) => w[0].toUpperCase() + w.slice(1);
+  const rows = AXES.map((a) => {
+    const x = prof && prof.axes.find((y) => y.axis === a.axis);
+    const now = x && x.words ? x.words : null;
+    const picked = corr.has(a.axis) ? (corr.get(a.axis) === null ? 'none' : corr.get(a.axis)) : now || 'none';
+    const btn = (val, label) => `<button type="button" data-axis="${a.axis}" data-lean="${esc(val)}" aria-pressed="${picked === val}">${esc(label)}</button>`;
+    return `<li class="row axis-row"><span class="row-text"><span class="name">${esc(cap(a.low))} or ${esc(a.high)}</span>
+      <span class="meta">${corr.has(a.axis) ? 'You set this.' : x && x.sure >= 0.55 ? 'From your picks.' : 'Not sure yet.'}</span></span>
+      <span class="seg" role="group" aria-label="${esc(cap(a.low))} or ${esc(a.high)}">${btn(a.low, cap(a.low))}${btn('none', 'Either')}${btn(a.high, cap(a.high))}</span></li>`;
+  }).join('');
+  return `${bar(back('#/layouts', 'Your walls'))}
+  <main class="page">
+    <h1>What we learned</h1>
+    <p class="lede">${esc(prof ? prof.summary : 'No lean yet: pick a few pairs and this fills in.')}</p>
+    <p class="pencil small">Wrong about something? Set it here and every wall ranks for it.</p>
+    <ul class="rows">${rows}</ul>
+    <div class="acts left"><a class="btn" href="#/layouts">Show my walls</a><a class="btn quiet" href="#/taste">Pick more pairs</a></div>
+  </main>`;
+}
+
 function taste() {
   if (need()) { go(need()); return ''; }
   if (!S.quiz) S.quiz = restoreQuiz();
   if (!S.quiz) {
     const shownIds = new Set();
-    S.quiz = { picks: [], shown: shownIds, n: 0, pair: nextPair(CATALOG, [], shownIds) };
+    const before = S.draft.taste && S.draft.taste.source === 'yours' ? picksOf(S.draft.taste.picks) : [];
+    for (const x of before) { shownIds.add(x.winner.id); shownIds.add(x.loser.id); }
+    S.quiz = { picks: before, shown: shownIds, n: 0, pair: nextAxisPair(CATALOG, before, shownIds, { seed: quizSeed() }) };
   }
   const q = S.quiz;
   const [a, b] = q.pair;
@@ -1030,18 +1091,19 @@ function restoreQuiz() {
 }
 function finishQuiz() {
   const q = S.quiz;
-  if (q && q.picks.length) S.draft.taste = { source: 'yours', weights: fitTaste(q.picks), picks: q.picks.map((x) => [x.winner.id, x.loser.id]) };
+  const was = S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste.corrections || [] : [];
+  if (q && q.picks.length) S.draft.taste = { source: 'yours', weights: fitTaste(q.picks), picks: q.picks.map((x) => [x.winner.id, x.loser.id]), corrections: was };
   S.quiz = null;
   S.draft.quizState = null;
   resetLayouts();
   persist();
-  go('#/layouts');
+  go(S.draft.taste.source === 'yours' ? '#/profile' : '#/layouts');
 }
 function advanceQuiz(picked) {
   const q = S.quiz;
   q.pair.forEach((it) => q.shown.add(it.id));
   if (picked) q.n++;
-  const next = q.n < QUIZ_LENGTH && q.shown.size < 40 ? nextPair(CATALOG, q.picks, q.shown) : null;
+  const next = q.n < QUIZ_LENGTH ? nextAxisPair(CATALOG, q.picks, q.shown, { seed: quizSeed() + q.n }) : null;
   if (!next) { finishQuiz(); return; }
   q.pair = next;
   saveQuiz();
@@ -1222,7 +1284,7 @@ function legend(L) {
 
 function sheetHtml() {
   if (!S.sheet) return '';
-  const body = S.sheet === 'change' ? changeSheet() : S.sheet.piece ? pieceSheet(S.sheet.piece) : '';
+  const body = S.sheet === 'change' ? changeSheet() : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
   if (!body) return '';
   return `<div class="backdrop" data-act="close-sheet"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" id="sheet">
@@ -1246,8 +1308,10 @@ function changeSheet() {
       ${asIs && (!onWall || asIs.key !== (L && L.key)) ? `<li><a class="sheet-item" href="#/wall" data-wall="${esc(asIs.key)}">Show it as it hangs now</a></li>` : ''}
       ${onWall ? `<li><button type="button" class="sheet-item" data-act="measure">${S.measure ? 'Hide measurements' : 'Show measurements and nails'}</button></li>` : ''}
       <li><a class="sheet-item" href="#/taste">Make it mine: pick between pairs of art</a></li>
+      ${d.taste && d.taste.source === 'yours' ? '<li><a class="sheet-item" href="#/profile">What we learned about your taste</a></li>' : ''}
       <li><a class="sheet-item" href="${d.photo ? '#/check' : '#/things'}">Check what's marked on the wall</a></li>
       <li><a class="sheet-item" href="#/new">Start a new wall</a></li>
+      <li><a class="sheet-item" href="#/browse">Browse every print</a></li>
       <li><a class="sheet-item" href="#/saved">Saved pieces${ME.saved.length ? ` (${ME.saved.length})` : ''}</a></li>
       <li><a class="sheet-item" href="#/walls">Your walls</a></li>
     </ul>`;
@@ -1350,6 +1414,7 @@ function savedScreen() {
     <p class="lede">${items.length ? 'Pieces you saved, from any wall. Saving tells us what you like, so they rank the walls too.' : 'Nothing saved yet. Tap the heart on any piece and it lands here, and the walls rank for it.'}</p>
     ${flashHtml()}
     ${items.length ? `<ul class="rows">${rows}</ul>` : ''}
+    <div class="acts left"><a class="btn quiet" href="#/browse">Browse every print</a></div>
   </main>`;
 }
 // A saved piece, tried on the wall: kept in every wall at a size it comes in.
@@ -1359,12 +1424,144 @@ function tryOnWall(id) {
   const d = S.draft;
   const list = d.kept || [];
   if (!list.some((k) => k.id === id)) d.kept = [...list, { id, w: z.w, h: z.h }];
+  // A kept piece is new art, so the walls show new art again.
+  d.justMine = false;
+  logE('try-on-wall', { id, from: route()[0] || 'saved', w: z.w, h: z.h });
   d.chosen = null; S.openKey = null;
   persist();
   const item = byId.get(id);
   S.flashNext = `${item ? item.title : 'It'} is in every wall now, at ${z.w} x ${z.h} in. Tap it on a wall to change that.`;
   go('#/layouts');
 }
+// ---------- Browse: every print, apart from any wall ----------
+
+const BROWSE_STEP = 48;
+// Fits in, by the long side of any size a piece comes in.
+const SIZE_BANDS = [['any', 'Any size', 0, Infinity], ['s', 'Up to 12 in', 0, 12], ['m', '12 to 20 in', 12, 20], ['l', '20 to 30 in', 20, 30], ['xl', 'Over 30 in', 30, Infinity]];
+// The catalog's color families (CATALOG.md, color.shares), on the painter's wheel, then the neutrals.
+const COLOR_FAMS = [['any', 'Any color'], ['red', 'Red'], ['pink', 'Pink'], ['orange', 'Orange'], ['yellow', 'Yellow'], ['brown', 'Brown'], ['green', 'Green'], ['teal', 'Teal'], ['blue', 'Blue'], ['purple', 'Purple'], ['black', 'Black'], ['white', 'White'], ['bw', 'Black and white']];
+const SHOPS = [['any', 'Every shop'], ['Desenio', 'Desenio'], ['House of Spoils', 'House of Spoils'], ['free', 'Free photos']];
+S.browse = { size: 'any', color: 'any', shop: 'any', sort: null, shown: BROWSE_STEP };
+
+// What each piece offers to the filters, worked out once.
+let browseFacts = null;
+function facts() {
+  if (browseFacts) return browseFacts;
+  browseFacts = CATALOG.map((c) => {
+    const shop = c.offers && c.offers.length;
+    const sizes = (shop ? c.offers.filter((o) => o.w) : c.sizes || []).map((z) => Math.max(z.w, z.h));
+    const col = c.record.color, sh = col.shares || {};
+    const fams = new Set();
+    if (col.bw) fams.add('bw');
+    else for (const f of ['red', 'pink', 'orange', 'yellow', 'brown', 'green', 'teal', 'blue', 'purple']) if ((sh[f] || 0) >= 0.2) fams.add(f);
+    for (const f of ['black', 'white']) if ((sh[f] || 0) >= 0.3) fams.add(f);
+    const prices = shop ? c.offers.map((o) => o.price).filter((v) => v != null) : [];
+    return { c, sizes, fams, shop: shop ? c.source : 'free', price: prices.length ? Math.min(...prices) : null, many: new Set(prices).size > 1, cur: shop && c.offers[0].currency, az: c.title.replace(/^[^\p{L}\p{N}]+/u, '').toLowerCase() };
+  });
+  return browseFacts;
+}
+const browseWall = () => !!(S.draft && !need());
+const browseSort = () => S.browse.sort && (S.browse.sort !== 'best' || browseWall()) ? S.browse.sort : browseWall() ? 'best' : 'az';
+// Best for this wall: the taste score the feed ranks with (the quiz, then
+// saves over swaps), with how well the piece's colors sit with the room.
+let bestCache = null;
+function bestScores() {
+  const d = S.draft;
+  const key = JSON.stringify([d.id, d.taste && d.taste.weights, d.taste && d.taste.picks, d.taste && d.taste.corrections, d.saved, d.skipped, d.room]);
+  if (bestCache && bestCache.key === key) return bestCache.score;
+  const quiz = ((d.taste && d.taste.picks) || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
+  const pairs = [];
+  for (const w of d.saved || []) for (const l of d.skipped || []) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
+  void quiz;
+  const taste = tasteScores(CATALOG, pairs);
+  const room = d.room && d.room.length ? normalizePalette(d.room) : null;
+  const score = new Map(CATALOG.map((c) => {
+    const roomFit = room ? paletteSimilarity(normalizePalette(c.palette), room) : 0.5;
+    const q = typeof c.quality === 'number' ? (c.quality - 1) / 4 : 0.5;
+    return [c.id, 0.7 * taste[c.id] + 0.2 * roomFit + 0.1 * q];
+  }));
+  bestCache = { key, score };
+  return score;
+}
+function browseList() {
+  const b = S.browse;
+  const band = SIZE_BANDS.find((x) => x[0] === b.size) || SIZE_BANDS[0];
+  let list = facts().filter((f) => (b.size === 'any' || f.sizes.some((L) => L > band[2] && L <= band[3]))
+    && (b.color === 'any' || f.fams.has(b.color))
+    && (b.shop === 'any' || f.shop === b.shop));
+  const sort = browseSort();
+  const az = (x, y) => x.az.localeCompare(y.az) || x.c.id.localeCompare(y.c.id);
+  if (sort === 'best') { const sc = bestScores(); list = list.sort((x, y) => sc.get(y.c.id) - sc.get(x.c.id) || az(x, y)); }
+  else if (sort === 'price') list = list.sort((x, y) => (x.price ?? 0) - (y.price ?? 0) || az(x, y));
+  else list = list.sort(az);
+  return list;
+}
+const fromPrice = (f) => (f.shop === 'free' ? 'free photo' : f.price == null ? `At ${f.c.source}` : `${f.many ? 'from ' : ''}${money(f.price, f.cur || 'USD')}`);
+// A piece at its own shape, in a mat, on a bit of wall. The box always matches
+// the art, so nothing is stretched: wide pieces fill the width, tall ones the height.
+function tileArt(c) {
+  const a = c.aspect || 0.8, B = 0.8;
+  const pct = a >= B ? 100 : Math.round((a / B) * 1000) / 10;
+  return `<span class="tile-art" style="width:calc(${pct}% - 8px);aspect-ratio:${a}" data-title="${esc(c.title)}"><img src="${c.imageData}" alt="" loading="lazy" decoding="async"></span>`;
+}
+function browseScreen() {
+  const b = S.browse;
+  const wall = browseWall();
+  const list = browseList();
+  const shown = list.slice(0, b.shown);
+  const left = list.length - shown.length;
+  const sort = browseSort();
+  const sel = (name, label, opts, val, filter = true) => `<label class="filter${filter && val !== 'any' ? ' is-on' : ''}"><span class="sr">${label}</span><span class="select"><select id="f-${name}" data-filter="${name}">${opts.map(([v, l]) => `<option value="${v}"${v === val ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></span></label>`;
+  const sorts = [...(wall ? [['best', 'Best for this wall']] : []), ['az', 'A to Z'], ['price', 'Price, low to high']];
+  const filtered = b.size !== 'any' || b.color !== 'any' || b.shop !== 'any';
+  const saved = new Set(ME.saved);
+  const tiles = shown.map((f, i) => {
+    const c = f.c, on = saved.has(c.id);
+    return `<li class="tile"${i === b.focusFrom ? ' data-first-new' : ''}><button type="button" class="tile-open" data-browse="${esc(c.id)}" aria-haspopup="dialog" aria-label="${esc(c.title)}, ${esc(c.artist)}. ${esc(fromPrice(f))}${on ? '. Saved' : ''}">
+      <span class="tile-wall"><span class="tile-in">${tileArt(c)}</span>${on ? `<span class="tile-saved" aria-hidden="true">${heart(true)}</span>` : ''}</span>
+      <span class="tile-name">${esc(c.title)}</span>
+      <span class="meta">${esc(c.artist)}, ${esc(fromPrice(f))}</span>
+    </button></li>`;
+  }).join('');
+  const n = list.length.toLocaleString('en-US');
+  return `${bar(back(wall ? '#/layouts' : '#/', wall ? 'Your walls' : 'Walldrobe'), ME.saved.length ? `<a class="btn quiet small" href="#/saved">Saved (${ME.saved.length})</a>` : '')}
+  <main class="page browse">
+    <h1>Every print</h1>
+    <div class="filters" role="group" aria-label="Filter and sort">
+      ${sel('size', 'Size, on the long side', SIZE_BANDS, b.size)}
+      ${sel('color', 'Color', COLOR_FAMS, b.color)}
+      ${sel('shop', 'Shop', SHOPS, b.shop)}
+      ${sel('sort', 'Sort', sorts, sort, false)}
+    </div>
+    <p class="browse-count"><span class="count" id="browse-count">${n} print${list.length === 1 ? '' : 's'}</span>${filtered ? '<button type="button" class="link" data-act="browse-clear">Clear filters</button>' : ''}</p>
+    ${flashHtml()}
+    ${list.length ? `<ul class="tiles">${tiles}</ul>` : '<p class="note">Nothing matches all of these. Clear a filter or two to see more.</p>'}
+    ${left > 0 ? `<div class="acts browse-more"><button type="button" class="btn quiet" data-act="browse-more">Show ${Math.min(BROWSE_STEP, left)} more</button></div>` : list.length > BROWSE_STEP ? `<p class="pencil small browse-end">That's all ${n}.</p>` : ''}
+  </main>${credits()}${sheetHtml()}`;
+}
+function browseSheet(id) {
+  const c = byId.get(id);
+  if (!c) return '';
+  const d = S.draft;
+  const shop = c.offers && c.offers.length;
+  const saved = ME.saved.includes(id);
+  const kept = d && !d.justMine && (d.kept || []).some((k) => k.id === id);
+  const canTry = browseWall() && !kept && trySize(id);
+  const a = c.aspect || 0.8;
+  const link = shop ? (offersAt(c, 0, 0).main || {}).url || c.url : c.url;
+  return `<h2 id="sheet-h">${esc(c.title)}</h2>
+    <div class="sheet-art"><span class="big-art" style="width:min(calc(100% - 12px), ${Math.round(a * 320)}px);aspect-ratio:${a}" data-title="${esc(c.title)}"><img src="${c.imageData}" alt="${esc(c.title)}"></span></div>
+    <p class="meta">${shop ? `Art by ${esc(c.artist)}, sold by ${esc(c.source)}` : `Photo by ${esc(c.artist)} on ${esc(c.source)}`}</p>
+    <p class="meta">${esc(sizesLine(c))}</p>
+    ${c.record.description ? `<p>${esc(c.record.description)}.</p>` : ''}
+    ${kept ? '<p class="pencil small">Kept in every wall.</p>' : ''}
+    <div class="acts left">
+      ${canTry ? `<button type="button" class="btn" data-try="${esc(id)}">See it on my wall</button>` : ''}
+      <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} ${saved ? 'Saved' : 'Save'}</button>
+    </div>
+    ${link ? `<a class="btn quiet small fit" href="${esc(link)}" target="_blank" rel="noopener">See it ${shop ? 'at' : 'on'} ${esc(c.source)}</a>` : ''}`;
+}
+
 // Art you added before that isn't on this wall: offer it again.
 function pastArtHtml() {
   const d = S.draft;
@@ -1536,6 +1733,7 @@ function walls() {
   <main class="page">
     <h1>Your walls</h1>
     <p class="lede">Saved on this device. Walls and photos stay here and are never uploaded.</p>
+    ${store.demoMode ? '' : `<div class="keep-note"><p class="pencil small">This device also keeps a list of the pieces you save, swap, skip and pick, with no photos and nothing about you, so Walldrobe can learn what people like. Nothing is sent anywhere yet.</p>${store.listEvents().length ? '<button type="button" class="link" data-act="clear-events">Clear that list</button>' : ''}</div>`}
     ${flashHtml()}
     ${all.length ? `<ul class="wall-list">${all.map((w) => `<li class="wall-item">
       <span class="drawing small-drawing">${wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles, photo: w.photo && (w.photo.clean || w.photo.flat), layout: w.chosen && w.chosen.layout, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: (id) => { const o = w.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color } : null; }, hideObstacles: !!(w.photo && w.photo.flat), pxWide: 320, still: true, label: w.name })}</span>
@@ -1554,7 +1752,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1568,9 +1766,9 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, saved: savedScreen };
+  const screens = { profile: profileScreen, '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, saved: savedScreen, browse: browseScreen };
   const fn = screens[r0] || home;
-  document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', saved: 'Saved · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', saved: 'Saved · Walldrobe', browse: 'Every print · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe', profile: 'Your taste · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -1584,6 +1782,7 @@ function render() {
   document.body.classList.toggle('has-sheet', !!S.sheet);
   document.body.classList.toggle('on-wall', r0 === 'wall');
   document.body.classList.toggle('on-home', !r0);
+  document.body.classList.toggle('on-browse', r0 === 'browse');
   if (S.sheet) { const s = $('#sheet'); if (s && !s.contains(document.activeElement)) (s.querySelector('h2') || s).setAttribute('tabindex', '-1'), (s.querySelector('h2') || s).focus({ preventScroll: true }); }
   else if (sel) { const again = document.querySelector(sel); if (again) again.focus({ preventScroll: true }); }
   wire(r0);
@@ -1631,7 +1830,7 @@ function wireSwipe() {
     if (Math.abs(dx) < 50 || Math.abs(dy) > 40) return;
     const v = run(), i = v.list.findIndex((L) => L.key === S.openKey);
     const to = v.list[i + (dx < 0 ? 1 : -1)];
-    if (to) { S.openKey = to.key; S.selected = null; S.undo = null; render(); }
+    if (to) { logWallOpen(to.key, 'swipe'); S.openKey = to.key; S.selected = null; S.undo = null; render(); }
   });
   wrap.addEventListener('pointercancel', () => { start = null; });
 }
@@ -1980,6 +2179,12 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset && t.dataset.filter && S.browse) {
+    S.browse[t.dataset.filter] = t.value; S.browse.shown = BROWSE_STEP;
+    logE('browse-filter', { filter: t.dataset.filter, value: t.value, count: browseList().length });
+    render(); announceCount();
+    return;
+  }
   if (t.id === 'drop') {
     const v = Number(t.value);
     if (Number.isFinite(v) && v >= 0 && v <= 12) { S.draft.drop = Math.round(v * 4) / 4; persist(); render(); const again = $('#drop'); if (again) again.focus({ preventScroll: true }); }
@@ -2030,6 +2235,18 @@ document.addEventListener('change', (e) => {
   if (t.dataset.rename) { store.renameWall(t.dataset.rename, t.value.trim() || 'My wall'); if (S.draft && S.draft.id === t.dataset.rename) { S.draft.name = t.value.trim() || 'My wall'; persist(); } }
 });
 
+// Close the open sheet and put focus back on what opened it.
+function closeSheet() {
+  const was = S.sheet; S.sheet = null; S.selected = null; render();
+  const back = was && was.piece ? document.querySelector(`[data-piece="${CSS.escape(was.piece)}"]`)
+    : was && was.browse ? document.querySelector(`[data-browse="${CSS.escape(was.browse)}"]`)
+    : document.querySelector('[data-act="change"]');
+  if (back) back.focus({ preventScroll: true });
+}
+
+// Browse says how many pieces a filter left, out loud too.
+function announceCount() { const c = $('#browse-count'), live = $('#live'); if (c && live) live.textContent = c.textContent; }
+
 // What changing the wall's inputs does to the list: build it again, keep the open wall's place.
 function rebuild(name, undo = null) { S.flash = null; S.undo = undo; S.openKey = null; S.sheet = null; S.focusAfter = undo ? '[data-act="undo"]' : '[data-act="change"]'; persist(); render(); }
 
@@ -2037,8 +2254,8 @@ document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .art, a[data-act], a[data-wall], .backdrop');
   if (!t) return;
   const a = t.dataset.act;
-  if (t.dataset.wall) { S.openKey = t.dataset.wall; S.selected = null; S.undo = null; S.edit = false; S.sheet = null; if (location.hash === '#/wall') { e.preventDefault(); render(); } return; }
-  if (t.dataset.goto !== undefined) { if (t.dataset.goto) { S.openKey = t.dataset.goto; S.selected = null; S.undo = null; S.edit = false; render(); } return; }
+  if (t.dataset.wall) { logWallOpen(t.dataset.wall, 'tap'); S.openKey = t.dataset.wall; S.selected = null; S.undo = null; S.edit = false; S.sheet = null; if (location.hash === '#/wall') { e.preventDefault(); render(); } return; }
+  if (t.dataset.goto !== undefined) { if (t.dataset.goto) { logWallOpen(t.dataset.goto, 'next'); S.openKey = t.dataset.goto; S.selected = null; S.undo = null; S.edit = false; render(); } return; }
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
   if (t.dataset.add) {
@@ -2105,8 +2322,11 @@ document.addEventListener('click', (e) => {
   if (t.dataset.keep && t.dataset.oid) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.oid);
     if (o) {
+      const was = o.keep;
       o.keep = t.dataset.keep === 'skip' ? 'skip' : 'must';
       if (o.keep === 'skip') o.pinned = false;
+      // A piece of yours: only that it was kept or skipped, never its name or photo.
+      if (was !== o.keep) logE(o.keep === 'skip' ? 'skip' : 'keep', { own: true, from: route()[0] || '' });
       S.mem.clean = null;
       if (route()[0] === 'wall') { S.sheet = null; rebuild('keep'); return; }
       resetLayouts(); persist(); render();
@@ -2118,12 +2338,20 @@ document.addEventListener('click', (e) => {
     if (o) {
       const was = { pinned: o.pinned, keep: o.keep }, chosen = S.draft.chosen;
       o.pinned = !o.pinned; o.keep = 'must'; S.mem.clean = null;
+      logE('pin', { own: true, on: o.pinned, wall: S.openKey || null });
       rebuild('pin', { label: o.pinned ? `Your ${o.title} stays where it hangs. The walls were built again around it.` : `Your ${o.title} can move again.`, run: () => { Object.assign(o, was); S.draft.chosen = chosen; S.mem.clean = null; S.openKey = chosen ? chosen.layout.key : null; persist(); } });
     }
     return;
   }
   if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; rebuild('fullness'); return; }
   if (t.dataset.just !== undefined) { S.draft.justMine = t.dataset.just === '1'; rebuild('just'); return; }
+  if (t.dataset.axis) {
+    const d = S.draft, axis = t.dataset.axis, v = t.dataset.lean;
+    if (!d.taste || d.taste.source !== 'yours') d.taste = { source: 'yours', weights: null, picks: [], corrections: [] };
+    d.taste.corrections = [...(d.taste.corrections || []).filter((c) => c.axis !== axis), { axis, lean: v === 'none' ? null : v }];
+    logE('taste-set', { axis, lean: v });
+    resetLayouts(); persist(); render(); return;
+  }
   if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
   if (t.dataset.turn) { const o = S.draft.owned.find((x) => x.id === t.dataset.turn); if (o) { [o.w, o.h] = [o.h, o.w]; resetLayouts(); persist(); render(); } return; }
   if (t.dataset.try) { tryOnWall(t.dataset.try); return; }
@@ -2133,10 +2361,13 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.forgetArt) { ME.art = ME.art.filter((x) => x.id !== t.dataset.forgetArt); syncMe(); render(); return; }
+  if (t.dataset.browse) { S.sheet = { browse: t.dataset.browse }; render(); return; }
   if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; S.selected = t.dataset.piece; render(); return; }
   if (t.dataset.pick) {
     const q = S.quiz; const [x, y] = q.pair; const winner = x.id === t.dataset.pick ? x : y;
-    q.picks.push({ winner, loser: winner === x ? y : x }); advanceQuiz(true); return;
+    q.picks.push({ winner, loser: winner === x ? y : x });
+    logE('quiz-pick', { winner: winner.id, loser: (winner === x ? y : x).id });
+    advanceQuiz(true); return;
   }
   if (t.dataset.open) {
     const w = store.getWall(t.dataset.open);
@@ -2168,11 +2399,11 @@ document.addEventListener('click', (e) => {
       S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: freeTitle(new Set(S.draft.owned.map((o) => o.title))), w: 16, h: 20, keep: 'must', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });
       resetLayouts(); persist(); render(); break;
     }
-    case 'quiz-skip': advanceQuiz(false); break;
+    case 'quiz-skip': if (S.quiz) logE('skip', { ids: S.quiz.pair.map((x) => x.id), from: 'quiz' }); advanceQuiz(false); break;
     case 'quiz-done': finishQuiz(); break;
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;
     case 'change': S.sheet = 'change'; render(); break;
-    case 'close-sheet': { const was = S.sheet; S.sheet = null; S.selected = null; render(); const back = was && was.piece ? document.querySelector(`[data-piece="${CSS.escape(was.piece)}"]`) : document.querySelector('[data-act="change"]'); if (back) back.focus({ preventScroll: true }); break; }
+    case 'close-sheet': closeSheet(); break;
     case 'keep': {
       const id = t.dataset.id, prevKept = clone(S.draft.kept || []), prevChosen = S.draft.chosen ? clone(S.draft.chosen) : null;
       toggleKeep(id);
@@ -2199,15 +2430,30 @@ document.addEventListener('click', (e) => {
     case 'undo-move': case 'undo-all': { const L = shown(); if (L) undoMove(L, a === 'undo-all'); S.sheet = null; S.flash = null; render(); break; }
     case 'retry': resetLayouts(); S.mem.clean = null; render(); break;
     case 'save': saveThisWall(); render(); break;
-    case 'get': S.draft.chosen = { layout: bareLayout(shown()), inputKey: viewKey() }; persist(); go('#/get'); break;
+    case 'get': { const G = shown(); if (G) logE('get-wall', { wall: G.key, pieces: G.pieces.filter((p) => p.ref.source === 'catalog').map((p) => p.ref.id), own: G.pieces.filter((p) => p.ref.source !== 'catalog').length }); }
+      S.draft.chosen = { layout: bareLayout(shown()), inputKey: viewKey() }; persist(); go('#/get'); break;
     case 'print': window.print(); break;
     case 'cancel-delete': S.ui.confirmDelete = null; render(); break;
+    case 'browse-more': {
+      const from = S.browse.shown;
+      S.browse.shown += BROWSE_STEP; S.browse.focusFrom = from; render(); S.browse.focusFrom = null;
+      // Focus goes to the first of the new pieces, so a keyboard carries on from there.
+      const first = document.querySelector('[data-first-new] .tile-open');
+      if (first) first.focus({ preventScroll: true });
+      break;
+    }
+    case 'browse-clear': {
+      Object.assign(S.browse, { size: 'any', color: 'any', shop: 'any', shown: BROWSE_STEP });
+      logE('browse-filter', { filter: 'clear', count: browseList().length });
+      render(); announceCount(); const f = $('#f-size'); if (f) f.focus({ preventScroll: true }); break;
+    }
+    case 'clear-events': store.clearEvents(); S.flash = 'Cleared.'; render(); break;
     default: break;
   }
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && S.sheet) { const was = S.sheet; S.sheet = null; S.selected = null; render(); const back = was && was.piece ? document.querySelector(`[data-piece="${CSS.escape(was.piece)}"]`) : document.querySelector('[data-act="change"]'); if (back) back.focus({ preventScroll: true }); return; }
+  if (e.key === 'Escape' && S.sheet) { closeSheet(); return; }
   // Focus stays inside an open sheet.
   if (e.key === 'Tab' && S.sheet) {
     const s = $('#sheet'); if (!s) return;
@@ -2226,7 +2472,7 @@ document.addEventListener('keydown', (e) => {
   if (route()[0] === 'wall' && !S.sheet && !S.edit && !(e.target.closest && e.target.closest('input, textarea, select')) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
     const v = run(), i = v.list.findIndex((L) => L.key === S.openKey);
     const to = v.list[i + (e.key === 'ArrowRight' ? 1 : -1)];
-    if (to) { S.openKey = to.key; S.selected = null; S.undo = null; render(); }
+    if (to) { logWallOpen(to.key, 'key'); S.openKey = to.key; S.selected = null; S.undo = null; render(); }
   }
 });
 
@@ -2240,7 +2486,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('error', (e) => {
   const img = e.target;
   if (!(img instanceof HTMLImageElement)) return;
-  const box = img.closest('.thumb, .art-big, .pick-art');
+  const box = img.closest('.thumb, .art-big, .pick-art, .tile-art, .big-art');
   if (box) { box.classList.add('is-missing'); img.remove(); }
 }, true);
 // iOS needs a touch listener for :active press states.

@@ -40,3 +40,31 @@ export const newId = () => `w${Date.now().toString(36)}${Math.random().toString(
 const ME = 'walldrobe.me.v1';
 export const loadMe = () => { const m = read(ME, null) || {}; return { saved: m.saved || [], skipped: m.skipped || [], art: m.art || [] }; };
 export const saveMe = (m) => write(ME, m);
+
+// What people do, kept on this device so Walldrobe can learn from everyone
+// later (PRODUCT.md, "Learning from everyone"): saves, swaps, skips, keeps,
+// pins, walls opened, quiz picks, browse filters. Piece ids and wall keys only:
+// never a photo, never a name or anything typed. The newest 2,000 are kept.
+// Nothing is written in ?demo, and nothing is sent anywhere yet.
+const EVENTS = 'walldrobe.events.v1';
+export const EVENTS_CAP = 2000;
+// Plain values only: a long string or a data URL (a photo) is dropped, whatever the caller passed.
+function plain(v) {
+  if (typeof v === 'string') return v.length <= 200 && !/^data:/i.test(v) ? v : undefined;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+  if (typeof v === 'boolean' || v === null) return v;
+  if (Array.isArray(v)) return v.map(plain).filter((x) => x !== undefined).slice(0, 40);
+  return undefined;
+}
+export function logEvent(type, data = {}) {
+  if (demoMode || !type) return false;
+  const ev = { t: new Date().toISOString(), type: String(type) };
+  for (const [k, v] of Object.entries(data || {})) { if (k === 't' || k === 'type') continue; const p = plain(v); if (p !== undefined) ev[k] = p; }
+  const list = read(EVENTS, []);
+  const all = Array.isArray(list) ? list : [];
+  all.push(ev);
+  if (all.length > EVENTS_CAP) all.splice(0, all.length - EVENTS_CAP);
+  return write(EVENTS, all);
+}
+export const listEvents = () => { const l = read(EVENTS, []); return Array.isArray(l) ? l : []; };
+export function clearEvents() { if (demoMode) return; try { localStorage.removeItem(EVENTS); } catch { /* nothing to clear */ } }

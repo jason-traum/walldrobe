@@ -3,7 +3,8 @@
 // test, a new taste score) the list is re-ordered here in a few milliseconds.
 // Pure: no DOM, no clock, no randomness.
 
-import { WEIGHTS } from './constants.js';
+import { WEIGHTS, COMPLEMENT } from './constants.js';
+import { wallComplement } from './taste.js';
 
 const SAVE_BONUS = 0.05;   // each saved piece on a wall
 const SAVE_CAP = 0.15;
@@ -28,11 +29,15 @@ const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
  * @param {{ taste?: Object<string, number>|null, saved?: string[], skipped?: string[], hung?: {id: string, at: {x: number, y: number}}[] }} prefs
  *   want: ids of your pieces you said to keep. A wall that leaves one out ranks lower, and the first wall keeps as many as any wall with new art does.
  *   hung: pieces of yours that are up now, with where they hang. A wall that moves one ranks a little lower, more the farther it moves; rehanging means new holes.
+ *   art: the catalog items and pieces of yours on these walls (an array, or a Map by id). With it, a wall whose neighboring
+ *   pieces go together ranks a little higher: COMPLEMENT.weight x (mean complement - 0.5), so it only reorders close walls.
  * @returns {object[]} the same layouts, re-ordered, with rank and rankScore set
  */
-export function rerank(layouts, { taste = null, saved = [], skipped = [], hung = [], want = [], distinct = false } = {}) {
+export function rerank(layouts, { taste = null, saved = [], skipped = [], hung = [], want = [], distinct = false, art = null } = {}) {
   if (!Array.isArray(layouts)) throw new TypeError('rerank() needs the layouts layout() returned.');
   const sv = new Set(saved), sk = new Set(skipped);
+  const lookup = art instanceof Map ? art : Array.isArray(art) ? new Map(art.filter((a) => a && a.id != null).map((a) => [a.id, a])) : null;
+  const pairCache = new Map();
   const up = new Map((hung || []).filter((h) => h && h.at && typeof h.at.x === 'number' && typeof h.at.y === 'number').map((h) => [h.id, h.at]));
   const scored = layouts.map((L, i) => {
     const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
@@ -42,7 +47,8 @@ export function rerank(layouts, { taste = null, saved = [], skipped = [], hung =
     const skippedN = fresh.filter((p) => sk.has(p.ref.id)).length;
     const moved = up.size ? L.pieces.reduce((t, p) => { const a = p.ref.source !== 'catalog' && up.get(p.ref.id); if (!a) return t; const d = Math.hypot(p.x - a.x, p.y - a.y); return t + (d < 1 ? 0 : Math.min(MOVE_CAP, MOVE_PENALTY * d / 12)); }, 0) : 0;
     const missing = want.length ? want.filter((id) => !L.pieces.some((p) => p.ref.id === id)).length : 0;
-    const s = (L.score || 0) + WEIGHTS.taste * (now - was) + Math.min(SAVE_CAP, SAVE_BONUS * savedN) - SKIP_PENALTY * skippedN - moved - WANT_PENALTY * missing - ORDER_PRIOR * i;
+    const fits = lookup && COMPLEMENT.weight ? COMPLEMENT.weight * (wallComplement(L.pieces, lookup, pairCache) - 0.5) : 0;
+    const s = (L.score || 0) + fits + WEIGHTS.taste * (now - was) + Math.min(SAVE_CAP, SAVE_BONUS * savedN) - SKIP_PENALTY * skippedN - moved - WANT_PENALTY * missing - ORDER_PRIOR * i;
     return { L, s, i, fresh: fresh.length, asis: L.variant === 'asis', missing };
   });
   scored.sort((a, b) => b.s - a.s || a.i - b.i);
