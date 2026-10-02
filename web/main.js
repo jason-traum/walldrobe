@@ -1414,8 +1414,17 @@ function wallScreen() {
   if (!L) return noWalls(v);
   S.openKey = L.key;
   if (S.selected && !L.pieces.some((p) => p.ref.id === S.selected)) S.selected = null;
-  const order = [...L.pieces].sort((a, b) => (b.ref.source === 'owned') - (a.ref.source === 'owned') || b.w * b.h - a.w * a.h);
+  const order = [...L.pieces].filter((p) => p.ref.source === 'catalog').sort((a, b) => b.w * b.h - a.w * a.h);
   const kept = keptSet();
+  // Your own pieces aren't a decision here: one row of thumbnails, one line on what moves.
+  const mine = L.pieces.filter((p) => p.ref.source !== 'catalog').sort((a, b) => a.x - b.x);
+  const moving = mine.filter((p) => /^Moves/.test(moveNote(p))).length, staying = mine.filter((p) => /^Stays/.test(moveNote(p))).length;
+  const mineLine = !mine.length ? '' : moving && staying ? `${staying} stay where they hang, ${moving} move. Every nail is on the Hang step.`
+    : moving ? `${moving === 1 ? 'It moves' : `All ${moving} move`} to new spots. Every nail is on the Hang step.`
+    : staying ? (staying === 1 ? 'It stays where it hangs.' : 'They stay where they hang.') : 'Not up yet. Every nail is on the Hang step.';
+  const mineHtml = mine.length ? `<div class="mine"><h2 id="mine-h">Yours <span class="pencil">${mine.length}</span></h2>
+    <div class="mine-row" role="group" aria-labelledby="mine-h">${mine.map((p) => { const o = d.owned.find((x) => x.id === p.ref.id); return `<button type="button" class="mine-pc" data-piece="${esc(p.ref.id)}" aria-haspopup="dialog" aria-label="Your ${esc(p.title)}${o && o.loosen ? ', maybe' : ''}"><span class="thumb" style="aspect-ratio:${p.w}/${p.h}">${o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>${o && o.loosen ? '<span class="mine-tag">Maybe</span>' : ''}</button>`; }).join('')}</div>
+    <p class="pencil small">${esc(mineLine)} Tap one to make it a maybe or leave it out.</p></div>` : '';
   const rows = order.map((p) => {
     const own = p.ref.source !== 'catalog';
     const item = own ? null : byId.get(p.ref.id);
@@ -1451,12 +1460,12 @@ function wallScreen() {
       <a class="btn" href="#/frames">${L.pieces.some((p) => p.ref.source === 'catalog') ? 'Frames next' : 'Hang it next'}</a>
       <button type="button" class="btn quiet" data-act="adjust" aria-haspopup="dialog">Adjust</button>
     </div>
-    <p class="pencil small">Tap a piece below to keep it, swap it or let it go. Suggestions, top right, has every other wall that fits.</p>
+    ${order.length ? '<p class="pencil small">Tap a new piece to keep it, swap it or let it go.</p>' : ''}
     ${versionsRow(L)}
     </div>
-    <section class="wall-side" aria-labelledby="in-h">
-    <h2 id="in-h">In this wall</h2>
-    <ul class="rows">${rows}</ul>
+    <section class="wall-side" aria-label="In this wall">
+    ${mineHtml}
+    ${order.length ? `<h2 id="in-h">New ${order.length === 1 ? 'piece' : 'pieces'}</h2><ul class="rows">${rows}</ul>` : ''}
     ${L.left && L.left.length ? `<p class="pencil small">Left off this wall: ${L.left.map((l) => `your ${esc(l.title)}`).join(', ')}. ${esc(L.left[0].reason)}</p>` : ''}
     </section>
   </main>${sheetHtml()}`;
@@ -1615,7 +1624,6 @@ function pieceSheet(id) {
     return `<h2 id="sheet-h">Your ${esc(p.title)}</h2>
       <div class="sheet-art"><span class="art-big" style="aspect-ratio:${p.w}/${p.h}">${o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span></div>
       <p class="meta">${p.w} x ${p.h} in. ${moveNote(p)}</p>
-      <p>${esc(cleanReason(p.reason))}</p>
       <p class="nail-line">${p.role === 'pinned' ? 'Already up.' : `Nail ${esc(inches(p.nail.y))} up, ${esc(inches(p.nail.x))} from the left end.`}</p>
       ${o ? KEEP_SEG(o) : ''}
       <p class="pencil small">Keep: in every wall. Maybe: in a wall when it earns its place. Skip: out.</p>

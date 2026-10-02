@@ -1,6 +1,6 @@
 # Walldrobe
 
-Read before changing anything, in this order: PRODUCT.md, ENGINE.md (for engine work), STATES.md, DESIGN.md, DECISIONS.md. If a request conflicts with them, say so before changing anything. Record every product call as a dated line in DECISIONS.md.
+Read before changing anything, in this order: PRODUCT.md, ENGINE.md (for engine work), STATES.md, DESIGN.md, DECISIONS.md. If a request conflicts with them, say so before changing anything. Record every product call as a dated line in DECISIONS.md, and every piece of Jason's feedback (and every call you make on your own) as a row in FEEDBACK.md: what he said, what changed, who decided, why, status.
 
 - The engine (`engine/`) is pure: no DOM, no network, no clock, seeded randomness only. Run `node --test` after every engine change.
 - Layout and geometry are rules and scoring. Models only for taste and image understanding.
