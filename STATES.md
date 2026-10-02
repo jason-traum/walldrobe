@@ -101,8 +101,8 @@ After the first wall, never before it. Reached from Change.
 | State | What they see | Action |
 |---|---|---|
 | Building | The bare wall, "Finding every wall that fits…" | Wait |
-| Art filters | In the Art chip, under the modes: People (Fine, No people), Price (Any, Under $50, $100, $250), Color (Any, Color only, Black and white), From (each shop on or off). The chip reads "Prints · 2 filters" | Tap, Clear the filters |
-| Chips | One row above the list: Any kind, Any count, Prints, Balanced. Each opens a sheet of options with one line each. A chip that isn't the default is filled | Tap a chip, pick |
+| Art filters | Behind "Filters" beside the stepper: People (Fine, No people), Price (Any, Under $50, $100, $250), Color (Any, Color only, Black and white), From (each shop on or off). The link reads "2 filters" when any are on | Tap, Clear the filters |
+| Choices | Above the list and under the open wall: Either / Structured / Loose, Calm / Balanced / Full, Prints / Both / Photos / Mine, and minus, plus with the count ("3 pieces", the top wall's, or the open wall's). "Any" lets a set count go. "Filters" opens the art pool filters | One tap each |
 | A count this kind can't make | Moves to the nearest one that works and says so: "6 pieces don't make a structured layout here. 5 do." | |
 | Nothing fits the picks | Kind and count let go: "Nothing structured, 6 pieces fits here, so these are what does." | |
 | Ready | A ranked list, best first. Each wall at full width, then "1 of 12", the why line ("Both of yours, one new. Lined up over the couch, 73½ in across."), the cost. The first wall always has new art in it | Tap a wall to open it, Change |
@@ -121,7 +121,7 @@ Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full)
 
 | State | What they see | Action |
 |---|---|---|
-| One more or fewer | Minus and plus under the drawing, starting from this wall; frames already up stay where they are | Tap minus or plus |
+| One more or fewer | Minus and plus in the strip under the drawing, starting from this wall; frames already up stay where they are | Tap minus or plus |
 | Default | The drawing at true scale, "Wall 3 of 12" with back and next, the why line, the cost, "Get this wall", "Save this wall". Under it, "In this wall": your pieces first, then the new ones, each with thumbnail, size, price and shop, one reason, a heart | Swipe or back and next, tap a piece, save a piece, Get this wall, Change |
 | Desktop | Drawing and actions on the left, the piece rows on the right | |
 | As it hangs now | Your pieces where they are, always in the list when every piece has a spot. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: [the first two]." | |
