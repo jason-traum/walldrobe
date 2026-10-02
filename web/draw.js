@@ -18,7 +18,7 @@ export function feet(v) {
 
 export const KIND_NAME = {
   couch: 'Couch', headboard: 'Bed', dresser: 'Dresser', console: 'Console', window: 'Window', door: 'Door',
-  tv: 'TV', outlet: 'Outlet', switch: 'Switch', lamp: 'Lamp', plant: 'Plant', shelf: 'Shelf', furniture: 'Furniture', mirror: 'Mirror',
+  tv: 'TV', outlet: 'Outlet', switch: 'Switch', lamp: 'Lamp', plant: 'Plant', shelf: 'Shelf', furniture: 'Furniture', mirror: 'Mirror', edge: 'Wall edge',
 };
 export const obName = (o) => o.label || KIND_NAME[o.kind] || o.kind;
 
@@ -71,6 +71,9 @@ function furniture(o, H) {
       return `<g class="tv"><rect ${base} rx="1"/></g>`;
     case 'outlet': case 'switch':
       return `<rect ${base} rx="0.4" class="fixture"/>`;
+    // A corner or step in the wall: a line from floor to ceiling. Art doesn't cross it.
+    case 'edge':
+      return `<line x1="${o.x + o.w / 2}" y1="${y}" x2="${o.x + o.w / 2}" y2="${y + o.h}" class="wall-edge"/>`;
     default:
       return `<rect ${base} class="furn"/>`;
   }

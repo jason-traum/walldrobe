@@ -501,3 +501,6 @@ svg.is-dragging .measure { opacity: 0.25; }
 .size-price { display: block; font: 400 13px/16px var(--font); color: var(--pencil); }
 .size-btn[aria-pressed="true"] .size-price { color: var(--tape); }
 .pool { display: grid; gap: 12px; }
+
+/* A corner or step in the wall: a dashed line, floor to ceiling. */
+.wall-edge { stroke: var(--on-wall); stroke-width: 0.6; stroke-dasharray: 2 1.5; opacity: 0.7; }
