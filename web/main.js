@@ -35,6 +35,7 @@ function logE(type, data = {}) { store.logEvent(type, S.draft && S.draft.sample 
 
 const S = {
   draft: store.loadDraft(),
+  memo: new Map(), // views by key, so a step back shows the same walls
   quiz: null,
   view: null, // { key, all, list, rankKey, problems }
   openKey: null, // the wall that's open
@@ -65,7 +66,7 @@ function persist() {
   S.saveFailed = !ok;
   return ok;
 }
-function resetLayouts() { S.view = null; S.openKey = null; S.selected = null; S.edit = false; S.sheet = null; S.undo = null; S.seen = new Map(); S.ui.saved = null; }
+function resetLayouts() { S.view = null; S.memo = new Map(); S.openKey = null; S.selected = null; S.edit = false; S.sheet = null; S.undo = null; S.seen = new Map(); S.ui.saved = null; }
 // Back to your own wall after looking at a sample.
 function resumeDraft() {
   const d = store.loadDraft();
@@ -235,7 +236,13 @@ function rankTaste() {
 
 function run() {
   const key = viewKey();
-  if (!(S.view && S.view.key === key)) build(key);
+  if (!(S.view && S.view.key === key)) {
+    // Walls seen at this count (or kind, or how full) come back as they were, swaps and all.
+    if (S.view) S.memo.set(S.view.key, { view: S.view, openKey: S.openKey });
+    const back = S.memo.get(key);
+    if (back) { S.view = { ...back.view, key }; S.memo.delete(key); S.openKey = back.openKey; S.stepBase = null; }
+    else build(key);
+  }
   if (S.view.rankKey !== rankKey()) rank();
   return S.view;
 }
@@ -1336,6 +1343,7 @@ function feed() {
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${shapeStrip(v.list[0])}
+    ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
@@ -1382,7 +1390,6 @@ function wallScreen() {
     </div>
     <div class="wall-tools">
       <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button></div>
-      ${L.pieces.some((p) => p.ref.source === 'catalog' && !kept.has(p.ref.id)) ? `<button type="button" class="btn quiet small" data-act="refresh"${S.busy ? ' disabled' : ''}>${S.busy === 'refresh' ? 'Picking…' : 'New art'}</button>` : ''}
     </div>
     ${shapeStrip(L.variant === 'asis' ? null : L)}
     ${S.edit ? editBar(L) : ''}
@@ -1471,6 +1478,9 @@ function shapeStrip(L) {
         <button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button>
       </span>
       ${d.pieces ? `<button type="button" class="link" data-count="any"${dis}>Any</button>` : ''}
+    </div>
+    <div class="strip-row">
+      ${d.justMine ? '' : `<button type="button" class="btn quiet small" data-act="refresh"${dis}>${S.busy === 'refresh' ? 'Picking new art…' : 'Refresh the art'}</button>`}
       <button type="button" class="link${poolCount() ? ' is-on' : ''}" data-chip="art"${dis}>${poolCount() ? `${poolCount()} filter${poolCount() === 1 ? '' : 's'}` : 'Filters'}</button>
     </div>
   </div>`;
@@ -1488,6 +1498,56 @@ function chipSheet(k) {
       ${shops.length > 1 ? `<div class="sheet-row"><span class="label">From</span><span class="seg" role="group" aria-label="Shops">${shops.map(([v, l]) => `<button type="button" data-pool="shops" data-v="${v}" aria-pressed="${!f.shops.includes(v)}">${l}</button>`).join('')}</span></div>` : ''}
       ${poolCount(f) ? '<button type="button" class="link" data-pool="clear">Clear the filters</button>' : ''}
     </div>`;
+}
+
+// ---------- Refresh the art: the same walls, new picks ----------
+
+// New art in every frame that isn't kept or yours: the open wall, or every wall
+// in the list from the feed. Layouts stay; only the picks change.
+function refreshArt() {
+  if (route()[0] !== 'wall') { refreshAll(); return; }
+  const L = shown();
+  if (!L) return;
+  const input = engineInput();
+  const fresh = L.pieces.filter((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)).map((p) => p.ref.id);
+  if (!fresh.length) { S.flash = 'Every piece here is kept or yours, so there is nothing to refresh.'; return; }
+  const exclude = [...new Set([...(S.seen.get(L.key) || []), ...fresh])].filter((x) => !keptSet().has(x));
+  let r = refill({ ...input, keep: keepList(), exclude }, L, {});
+  if (!r.layouts.length) r = refill({ ...input, keep: keepList(), exclude: fresh }, L, {});
+  if (!r.layouts.length) { S.flash = r.problems[0] ? r.problems[0].message : 'No other art fits these frames.'; return; }
+  const prev = L;
+  const next = { ...r.layouts[0], history: L.history, moved: L.moved };
+  replaceWall(L.key, next); remember(next);
+  logE('refresh', { wall: L.key, n: fresh.length });
+  S.ui.saved = null; persist();
+  S.undo = { label: `New art in ${fresh.length === 1 ? 'the one open frame' : `all ${fresh.length} frames`}.`, run: () => { replaceWall(prev.key, prev); persist(); } };
+}
+function refreshAll() {
+  const v = S.view;
+  if (!v) return;
+  const input = engineInput();
+  const before = v.all;
+  let n = 0;
+  v.all = v.all.map((L) => {
+    const fresh = L.pieces.filter((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)).map((p) => p.ref.id);
+    if (!fresh.length || L.variant === 'asis') return L;
+    const exclude = [...new Set([...(S.seen.get(L.key) || []), ...fresh])].filter((x) => !keptSet().has(x));
+    let r;
+    try { r = refill({ ...input, keep: keepList(), exclude }, L, {}); if (!r.layouts.length) r = refill({ ...input, keep: keepList(), exclude: fresh }, L, {}); } catch { return L; }
+    if (!r.layouts.length) return L;
+    n++;
+    const next = { ...r.layouts[0], key: L.key, history: L.history, moved: L.moved };
+    remember(next);
+    return next;
+  });
+  // Same walls in the same order: only the picks changed.
+  const byKey = new Map(v.all.map((L) => [L.key, L]));
+  v.list = v.list.map((L) => byKey.get(L.key) || L); v.rankKey = rankKey();
+  if (!n) { S.flash = 'Every piece here is kept or yours, so there is nothing to refresh.'; return; }
+  logE('refresh', { wall: null, n });
+  S.ui.saved = null; persist();
+  const list = v.list;
+  S.undo = { label: `New art on ${n === 1 ? 'one wall' : `${n} walls`}, same layouts.`, run: () => { const was = new Map(before.map((L) => [L.key, L])); v.all = before; v.list = list.map((L) => was.get(L.key) || L); v.rankKey = rankKey(); persist(); } };
 }
 
 // ---------- Sheets ----------
@@ -2643,6 +2703,8 @@ document.addEventListener('click', (e) => {
     const onWall = route()[0] === 'wall', L = onWall ? shown() : (S.view && S.view.list[0]) || null;
     // On an open wall, one more or one fewer keeps the frames already up where they are.
     S.stepBase = L && t.dataset.count !== 'any' ? L.pieces.filter((p) => p.role !== 'pinned').map((p) => (p.slot ? { ...p.slot } : { x: p.x, y: p.y, w: p.w, h: p.h })) : null;
+    // Stepping away from "any count": these walls also count as the walls at this number, so a step back lands here.
+    if (!S.draft.pieces && L && S.view && t.dataset.count !== 'any') { const was = S.draft.pieces; S.draft.pieces = L.pieces.length; S.memo.set(viewKey(), { view: S.view, openKey: S.openKey }); S.draft.pieces = was; }
     S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count);
     logE('shape', { pieces: S.draft.pieces, from: L ? L.pieces.length : null });
     if (onWall && L) { S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '.stepper .step-n'; persist(); render(); } else { S.openKey = null; rebuild('count'); S.focusAfter = '.stepper .step-n'; }
