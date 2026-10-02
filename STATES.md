@@ -102,7 +102,7 @@ After the first wall, never before it. Reached from Change.
 |---|---|---|
 | Building | The bare wall, "Finding every wall that fits…" | Wait |
 | Art filters | Behind "Filters" beside the stepper: People (Fine, No people), Price (Any, Under $50, $100, $250), Color (Any, Color only, Black and white), From (each shop on or off). The link reads "2 filters" when any are on | Tap, Clear the filters |
-| Choices | Above the list and under the open wall: Either / Structured / Loose, Calm / Balanced / Full, Prints / Both / Photos / Mine, and minus, plus with the count ("3 pieces", the top wall's, or the open wall's). "Any" lets a set count go. "Filters" opens the art pool filters | One tap each |
+| Choices | Above the list and under the open wall: Either / Structured / Loose, Calm / Balanced / Full, Prints / Both / Photos / Mine, and Any number / Set number; Set number shows minus, plus and the count, starting from the open wall's. "Filters" opens the art pool filters | One tap each |
 | A count this kind can't make | Moves to the nearest one that works and says so: "6 pieces don't make a structured layout here. 5 do." | |
 | Nothing fits the picks | Kind and count let go: "Nothing structured, 6 pieces fits here, so these are what does." | |
 | Ready | A ranked list, best first. Each wall at full width, then "1 of 12", the why line ("Both of yours, one new. Lined up over the couch, 73½ in across."), the cost. The first wall always has new art in it | Tap a wall to open it, Change |

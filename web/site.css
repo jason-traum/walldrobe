@@ -490,7 +490,7 @@ svg.is-dragging .measure { opacity: 0.25; }
 
 /* Under the open wall: which wall of how many, and one more or one fewer piece. */
 .wall-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
-.stepper { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--field); border-radius: 22px; padding: 0 4px; background: var(--surface); }
+.stepper { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--field); border-radius: 22px; padding: 0 8px; background: var(--surface); overflow: hidden; }
 .stepper .icon-btn { font-size: 22px; }
 .step-n { min-width: 72px; text-align: center; font: 600 15px/20px var(--font); font-variant-numeric: tabular-nums; }
 
