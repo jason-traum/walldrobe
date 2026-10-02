@@ -98,20 +98,23 @@ def furniture(style):
 
 # ---------- the three drawings ----------
 def draw_tape(wall, px_per_in, seed=3):
-    """D1: new prints taped up unframed with readable corner tabs; yours framed."""
+    """1 + 3: the finished room, yours framed with a soft shadow, new prints taped up unframed."""
     rnd = random.Random(seed)
-    s = [f'<rect width="{WW}" height="{WH}" fill="var(--wall)"/>',
-         f'<rect y="{WH - 1.2}" width="{WW}" height="1.2" fill="var(--floor)"/>', furn_flat()]
+    s = ['<defs><linearGradient id="light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--wall-hi)"/><stop offset="1" stop-color="var(--wall-lo)"/></linearGradient>'
+         '<filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="0.5" stdDeviation="0.5" flood-color="#5B5245" flood-opacity="0.26"/></filter>'
+         '<filter id="shp" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="0.25" stdDeviation="0.3" flood-color="#5B5245" flood-opacity="0.18"/></filter></defs>',
+         f'<rect width="{WW}" height="{WH}" fill="url(#light)"/>',
+         f'<rect y="{WH - 3}" width="{WW}" height="3" fill="var(--base)"/>', furniture('room')]
     tabT = max(1.41, 5 / px_per_in); tabL = max(3.2, 15 / px_per_in)  # the real roll's width, never under 5 px on screen
     for i, p in enumerate(wall['pieces']):
         x, y, w, h = p['x'], top(p), p['w'], p['h']
         if p['own']:
-            f = max(0.9, 2.2 / px_per_in)
-            s.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="var(--frame)"/>')
-            s.append(f'<rect x="{x + f}" y="{y + f}" width="{w - 2 * f}" height="{h - 2 * f}" fill="var(--mat)"/>')
-            s.append(image(p, f + min(w, h) * 0.09, f'c{i}'))
+            fw = 0.9
+            s.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="var(--frame)" filter="url(#sh)"/>')
+            s.append(f'<rect x="{x + fw}" y="{y + fw}" width="{w - 2 * fw}" height="{h - 2 * fw}" fill="var(--mat)"/>')
+            s.append(image(p, fw + min(w, h) * 0.1, f'c{i}'))
         else:
-            s.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="var(--paper)"/>')
+            s.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="var(--paper)" filter="url(#shp)"/>')
             s.append(image(p, min(w, h) * 0.045, f'c{i}'))
             col = 'var(--tape-keep)' if p.get('kept') else 'var(--tape-strip)'
             for cx, ang in ((x, -42 + rnd.uniform(-5, 5)), (x + w, 42 + rnd.uniform(-5, 5))):
@@ -178,8 +181,8 @@ DIRS = {
  'd1': dict(name='Taped up', fonts='https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600&display=swap',
     family='"Familjen Grotesk", -apple-system, sans-serif', draw=draw_tape,
     tokens='--canvas:#F2F2EF;--surface:#FFFFFF;--ink:#1B1C1E;--pencil:#5C6064;--hairline:#DADBD7;--action:#1A5FA6;--on-action:#FFFFFF;'
-           '--wall:#E7E6E1;--floor:#CFCDC6;--furn-line:#9EA2A5;--furn-fill:#D9D7D1;--frame:#1B1B1B;--mat:#FBFBF9;--paper:#FCFCFA;'
-           '--tape-strip:#2F7FD0;--tape-keep:#2F8A4E;--marker:#9C3A66;',
+           '--wall-hi:#EFEDE8;--wall-lo:#E3E0D9;--base:#F7F6F2;--wood:#5B3A2E;--wood-2:#6A4636;--linen:#F1F0EC;--linen-2:#E6E4DE;--pillow:#FAF9F6;--shade:#F4EFE3;--metal:#2B2B2B;--frame:#1E1E1E;--mat:#FBFBF8;--paper:#FDFDFB;'
+           '--tape-strip:#1A5FA6;--tape-keep:#2F8A4E;--marker:#9C3A66;',
     word='<span class="wm"><span class="tab" aria-hidden="true"></span>walldrobe</span>'),
  'd2': dict(name='Hanging plan', fonts='https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&display=swap',
     family='"Schibsted Grotesk", -apple-system, sans-serif', draw=draw_plan,
@@ -209,13 +212,13 @@ body{font-family:%(family)s;color:var(--ink);-webkit-font-smoothing:antialiased;
 .count{color:var(--pencil);font-size:14px;font-variant-numeric:tabular-nums}
 .why{font-size:20px;line-height:26px;font-weight:500;margin:6px 16px 4px;text-wrap:balance;letter-spacing:-0.005em}
 .cost{color:var(--pencil);font-size:14px;margin:0 16px;font-variant-numeric:tabular-nums}
-.feed .item{margin-bottom:28px}
+.feed .item{margin-bottom:20px}
 .feed .count{margin:12px 16px 0}
-.pager{display:flex;align-items:center;margin:4px 8px 0 8px}
+.pager{display:flex;align-items:center;margin:6px 16px 0 4px}
 .pager .nav{width:44px;height:44px;border:0;background:none;color:var(--ink);font-size:22px}
 .pager .nav[disabled]{color:var(--hairline)}
 .pager .acts{margin-left:auto;display:flex;gap:6px;align-items:center}
-.small{font:inherit;font-size:15px;font-weight:500;height:36px;margin:4px 0;padding:0 14px;border-radius:6px;border:1px solid var(--hairline);background:var(--surface);color:var(--ink)}
+.small{font:inherit;font-size:15px;font-weight:500;height:44px;margin:0;padding:0 14px;border-radius:6px;border:1px solid var(--hairline);background:var(--surface);color:var(--ink)}
 .small.primary{background:var(--action);border-color:var(--action);color:var(--on-action)}
 .undo{margin:10px 16px 0;font-size:15px;line-height:22px}
 .undo button{font:inherit;color:var(--action);background:none;border:0;padding:0 0 0 6px;text-decoration:underline;text-underline-offset:3px;position:relative}
@@ -237,9 +240,19 @@ ul.rows{list-style:none;margin:16px 0 0;padding:0 16px;border-top:1px solid var(
 """
 
 EXTRA = {
- 'd1': """.wm{position:relative;padding-left:2px}.tab{position:absolute;left:-3px;top:3px;width:15px;height:5px;background:var(--tape-strip);transform:rotate(-38deg)}
+ 'd1': """ul.tiles{list-style:none;margin:20px 16px 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:24px 16px}
+.tile{position:relative;display:flex;flex-direction:column;align-items:center}
+.tile .art{height:156px;display:flex;align-items:flex-end;justify-content:center;padding-top:6px}
+.tile .cap{align-self:stretch;margin-top:8px;padding-right:40px}
+.tile .name{font-size:14px;line-height:19px;color:var(--pencil);display:block;font-weight:400;overflow-wrap:anywhere}
+.tile .meta{font-size:13px;line-height:18px;color:var(--pencil);display:block;font-variant-numeric:tabular-nums}
+.tile .heart{position:absolute;right:-8px;bottom:-6px}
+.yours{margin-top:20px}
+.thumbnew{box-shadow:0 1px 2px rgba(91,82,69,.25)}
+.thumbown{box-shadow:0 0 0 2px var(--frame),0 1px 3px rgba(91,82,69,.3)}
+.wm{position:relative;padding-left:2px}.tab{position:absolute;left:-3px;top:3px;width:15px;height:5px;background:var(--tape-strip);transform:rotate(-38deg)}
 .thumbnew{position:relative;background:var(--paper);padding:2px;box-shadow:0 0 0 1px var(--hairline)}
-.thumbnew::before,.thumbnew::after{content:"";position:absolute;top:-2px;width:12px;height:4px;background:var(--tape-strip)}
+.thumbnew::before,.thumbnew::after{content:"";position:absolute;top:-3px;width:15px;height:5px;background:var(--tape-strip)}
 .thumbnew::before{left:-5px;transform:rotate(-40deg)}.thumbnew::after{right:-5px;transform:rotate(40deg)}
 .thumbnew.k::before,.thumbnew.k::after{background:var(--tape-keep)}
 .thumbown{padding:4px;background:var(--mat);box-shadow:0 0 0 2px var(--frame)}""",
@@ -255,13 +268,13 @@ EXTRA = {
 .thumbnew,.thumbown{padding:3px;background:var(--mat);box-shadow:0 0 0 1.5px var(--frame),0 1px 2px rgba(60,50,40,.25)}""",
 }
 
-def thumb(p, d):
+def thumb(p, d, size=52):
     ar = p['w'] / p['h']
-    hgt = 52 if ar < 1 else 52 / ar
+    hgt = size if ar < 1 else size / ar
     wid = hgt * ar
     cls = 'thumbown' if p['own'] else ('thumbnew k' if p.get('kept') else 'thumbnew')
     return (f'<span class="{cls}" style="display:inline-block;width:{wid:.0f}px;height:{hgt:.0f}px">'
-            f'<img src="{esc(p["img"])}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></span>')
+            f'<img src="{esc(p["img"])}" alt="{esc(p["title"])}" style="width:100%;height:100%;object-fit:cover;display:block"></span>')
 
 def svg(dkey, wall, px_per_in):
     return (f'<div class="dwrap"><svg viewBox="0 0 {WW} {WH}" role="img" aria-label="Sample wall">{DIRS[dkey]["draw"](wall, px_per_in)}</svg><span class="sample">Sample wall</span></div>')
@@ -282,8 +295,8 @@ def feed(dkey, width):
         return f'{money(sum(p["price"] for p in new))} for {len(new)} new print{"s" if len(new) > 1 else ""}'
     body = (f'<header class="bar">{DIRS[dkey]["word"]}<span class="r"><a href="#">Your walls 2</a><button>Adjust</button></span></header>'
             f'<main class="feed"><div class="item"><div class="draw">{svg(dkey, w1, ppi)}</div>'
-            f'<p class="count">1 of 24</p></div>'
-            f'<div class="item"><div class="draw">{svg(dkey, w2, ppi)}</div><p class="count">2 of 24</p></div></main>')
+            f'</div>'
+            f'<div class="item"><div class="draw">{svg(dkey, w2, ppi)}</div></div></main>')
     return page(dkey, body)
 
 def wallpage(dkey, width):
@@ -294,19 +307,18 @@ def wallpage(dkey, width):
     total = sum(p['price'] for p in new)
     reasons = {'Still Life with Fake Cake': 'Its red repeats in two other pieces.'}
     rows = ''.join(
-        f'<li class="row"><span class="t">{thumb(p, dkey)}</span><span class="txt"><span class="name">{esc(p["title"])}</span>'
-        f'<span class="meta">{inch(p["w"])} x {inch(p["h"])} in, at {esc(p["shop"])}{" <span class=kept>Kept</span>" if p.get("kept") else ""}</span>'
-        +
-        f'</span><button class="heart" aria-label="Favorite">{HEART}</button></li>' for p in new)
-    yours = ''.join(thumb(p, dkey) for p in own)
+        f'<li class="tile"><span class="art">{thumb(p, dkey, 150)}</span>'
+        f'<span class="cap"><span class="name">{esc(p["title"])}</span>{'<span class="meta">Kept</span>' if p.get("kept") else ''}</span>'
+        f'<button class="heart" aria-label="Favorite {esc(p['title'])}">{HEART}</button></li>' for p in new)
+    yours = ''.join(thumb(p, dkey, 56) for p in own)
     body = (f'<header class="bar"><a class="back" href="#">‹ All walls</a><span class="r"><a href="#">Your walls 2</a><button>Adjust</button></span></header>'
             f'<main><div class="draw">{svg(dkey, w, ppi)}</div>'
             f'<div class="pager"><button class="nav" aria-label="Wall before">‹</button><span class="count">3 of 24</span><button class="nav" aria-label="Next wall">›</button>'
-            f'<span class="acts"><button class="small">Save</button><button class="small primary">Get</button></span></div>'
+            f'<span class="acts"><button class="small">Save</button><button class="small primary">Get it</button></span></div>'
             f'<p class="undo">Swapped.<button>Undo</button></p>'
             f''
             f'<div class="yours"><span class="lab">Yours</span>{yours}</div>'
-            f'<ul class="rows">{rows}</ul></main>')
+            f'<ul class="tiles">{rows}</ul></main>')
     return page(dkey, body)
 
 if __name__ == '__main__':
