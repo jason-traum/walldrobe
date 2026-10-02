@@ -9,6 +9,8 @@ import { flatten, aspectFromCorners, homography, apply } from './photo.js';
 const SMALL = 220; // detection runs on a copy about this wide
 // A side wall's edge runs a good part of the photo's height; a shading line or a frame edge doesn't.
 const SIDE_VOTES = 0.16;
+// How far a side edge may lean (x per y): a phone tilted up a little, not a shadow running across the wall.
+const SIDE_SLOPE = 0.2;
 
 function toLab(r, g, b) {
   const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -181,6 +183,7 @@ group(G.MOVES, [12, 126, 92, 115, 67, 98, 142, 137, 147, 138, 139, 120, 119]); /
 export const groupOf = (id) => ADE_GROUP[id] || G.OTHER;
 // What a couch or a bed is made of, in the model's labels (sofa, armchair, bed, cushion, pillow, chair): never a TV.
 const SEATS = [23, 30, 7, 39, 57, 19];
+const FIREPLACE = [49];
 // Things that sit on or in front of a wall: their edges are never the wall's own.
 const ON_WALL = new Set([G.ART, G.TV, G.MIRROR, G.WINDOW, G.LAMP, G.PLANT, G.FURNITURE, G.MOVES]);
 // What a piece of furniture is called, by the label it mostly has.
@@ -226,11 +229,11 @@ function meet(row, col) {
 // that run left to right (true) or top to bottom (false), each as v = a + b t
 // with t along the line. Steep slopes are left out: a wall seen from the front
 // has edges close to level and close to upright.
-function houghLines(pts, w, h, across, keep = 12) {
+function houghLines(pts, w, h, across, keep = 12, maxSlope = 0.32) {
   const T = across ? w : h, V = across ? h : w, mid = T / 2;
   const slopes = [];
-  for (let b = -0.32; b <= 0.32 + 1e-9; b += 0.008) slopes.push(b);
-  const pad = Math.ceil(0.32 * mid) + 2, rows = V + 2 * pad;
+  for (let b = -maxSlope; b <= maxSlope + 1e-9; b += 0.008) slopes.push(b);
+  const pad = Math.ceil(maxSlope * mid) + 2, rows = V + 2 * pad;
   const acc = new Uint16Array(slopes.length * rows);
   for (let i = 0; i < w * h; i++) {
     if (!pts[i]) continue;
@@ -333,7 +336,8 @@ export function findWall(img, opts = {}) {
       // The next wall over is labeled wall too: a step in color still marks the corner.
       // Only the room's own surfaces end a wall; a lamp or a frame in front of it doesn't.
       // With labels, the edge of a frame, a TV, a window or furniture on the wall is not the wall's edge.
-      if (Gm && ON_WALL.has(Gm[io])) continue;
+      // The model's mask often sits a little inside the thing, so look a few steps out, not one.
+      if (Gm && (ON_WALL.has(Gm[io]) || ON_WALL.has(Gm[px(x - dx * OFF * 2, y - dy * OFF * 2)]) || ON_WALL.has(Gm[px(x - dx * OFF * 3, y - dy * OFF * 3)]))) continue;
       if (wallAt(ii) && ((Gm && (Gm[io] === G.CEILING || Gm[io] === G.FLOOR || Gm[io] === G.DOOR)) || differ(col(ii), col(io)))) m[i] = 1;
     }
     return m;
@@ -355,8 +359,27 @@ export function findWall(img, opts = {}) {
   const best = (lines, side, at, mid, min, ok = () => true) => lines
     .filter((c) => (side < 0 ? c.a + c.b * at < mid - 4 : c.a + c.b * at > mid + 4) && c.votes >= min && ok(c))
     .sort((p, q) => q.votes - p.votes)[0] || null;
-  const Lf = best(houghLines(marks(1, 0), w, h, false), -1, cy, cx, h * SIDE_VOTES);
-  const Rf = best(houghLines(marks(-1, 0), w, h, false), 1, cy, cx, h * SIDE_VOTES);
+  // A thin strip on the wall (a pipe, a panel joint, a frame's edge the model
+  // missed) has the wall's own color again a little way past it. Past the wall's
+  // real edge there's the next wall, lit differently, or something else.
+  const resumes = (c, side) => {
+    let n = 0, k = 0;
+    for (let t = 0; t < h; t += 2) {
+      const v = c.a + c.b * t;
+      if (v < OFF * 5 || v >= w - OFF * 5) continue;
+      // The line can sit a pixel or two off, on the strip itself, so the wall's color is taken a little further in too.
+      const ci = col(px(v - side * OFF, t)), ci2 = col(px(v - side * OFF * 3, t));
+      n++;
+      for (let u = 2; u <= 5; u++) { const j = px(v + side * OFF * u, t); const cj = col(j); if ((!Gm || Gm[j] === G.WALL) && (!differ(ci, cj) || !differ(ci2, cj))) { k++; break; } }
+    }
+    return n ? k / n : 0;
+  };
+  // A wall's side is upright in the world, so it leans only as far as the camera tilts.
+  const leftLines = houghLines(marks(1, 0), w, h, false, 12, SIDE_SLOPE), rightLines = houghLines(marks(-1, 0), w, h, false, 12, SIDE_SLOPE);
+  // Without labels the next wall over can look like this one carrying on, so the test only runs with the model.
+  const Lf = best(leftLines, -1, cy, cx, h * SIDE_VOTES, (c) => !Gm || resumes(c, -1) < 0.5);
+  const Rf = best(rightLines, 1, cy, cx, h * SIDE_VOTES, (c) => !Gm || resumes(c, 1) < 0.5);
+  if (opts.debug) opts.debug.sideCandidates = { left: leftLines.map((c) => ({ ...c, resumes: resumes(c, -1) })), right: rightLines.map((c) => ({ ...c, resumes: resumes(c, 1) })) };
   const lo = Lf ? Lf.a + Lf.b * cy : 0, hi = Rf ? Rf.a + Rf.b * cy : w - 1;
   // A ceiling or a soffit is painted, light and about the wall's tint; the bottom
   // of a row of frames is a frame (often black) or a print.
@@ -767,9 +790,10 @@ export function readWall(img, opts = {}) {
     // A screen that's off and evenly black is a TV even when the model calls it a
     // painting (a wall-mounted TV often gets that label). A couch back is not a TV:
     // when the model sees furniture there, it isn't one.
-    const classicOk = classicTv && shareRaw(classicTv.box, SEATS) < 0.4 && (classicTv.shows ? share(classicTv.box, [G.ART, G.TV]) > 0.5
+    // A fireplace is dark, wide and sits on the floor like a screen on a stand: never a TV.
+    const classicOk = classicTv && shareRaw(classicTv.box, SEATS) < 0.4 && shareRaw(classicTv.box, FIREPLACE) < 0.4 && (classicTv.shows ? share(classicTv.box, [G.ART, G.TV]) > 0.5
       : share(classicTv.box, [G.TV]) > 0.4 || (classicTv.blank && share(classicTv.box, [G.WINDOW, G.MIRROR, G.DOOR]) < 0.15)
-      || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15));
+      || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15 && share(classicTv.box, [G.WALL]) < 0.5));
     if (onTv && (!classicOk || (inside(classicTv.box, onTv.box) > 0.8 && area4(onTv.box) > area4(classicTv.box) * 1.3))) { out.push(onTv); tvBox = onTv.box; }
     else if (classicOk) { out.push(classicTv); tvBox = classicTv.box; }
     else if (tvs.length) {
@@ -788,7 +812,8 @@ export function readWall(img, opts = {}) {
         for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) { const i = y * w + x; sub[i] = loose[i] && Gs[i] === G.ART ? 1 : 0; }
         for (const p of fillHolesComps(sub)) {
           const pb = [p.x0, p.y0, p.x1, p.y1];
-          if (p.n < area * 0.003 || p.n / ((p.x1 - p.x0 + 1) * (p.y1 - p.y0 + 1)) < 0.6 || arts.some((a) => iou(a.box, pb) > 0.25) || (tvBox && iou(pb, tvBox) > 0.2)) continue;
+          // A piece inside a frame already kept is the print in it, not another frame.
+          if (p.n < area * 0.003 || p.n / ((p.x1 - p.x0 + 1) * (p.y1 - p.y0 + 1)) < 0.6 || arts.some((a) => iou(a.box, pb) > 0.25 || inside(pb, a.box) > 0.8) || (tvBox && iou(pb, tvBox) > 0.2)) continue;
           arts.push({ kind: 'art', box: pb, confidence: 0.6 });
         }
         continue;
@@ -797,16 +822,30 @@ export function readWall(img, opts = {}) {
       if (arts.some((a) => iou(a.box, b) > 0.25)) continue;
       arts.push({ kind: 'art', box: b, confidence: 0.7 });
     }
-    out.push(...arts);
     // A mirror on the wall is planned around; leaning on the floor, it stands there.
+    // A screen reflects the room, so the model sees a mirror in part of a TV: that's the TV.
+    const inTv = (b) => tvBox && inside(b, tvBox) > 0.8;
+    const mirrors = [];
     for (const c of compsOf([G.MIRROR]).comps) {
-      if (c.n < area * 0.01) continue;
+      const b = [c.x0, c.y0, c.x1, c.y1];
+      if (c.n < area * 0.01 || inTv(b)) continue;
       const toFloor = c.y1 >= floorY - h * 0.04;
-      out.push({ kind: 'mirror', box: [c.x0, c.y0, c.x1, toFloor ? floorY : c.y1], confidence: 0.6 });
+      mirrors.push({ kind: 'mirror', box: [c.x0, c.y0, c.x1, toFloor ? floorY : c.y1], confidence: 0.6 });
     }
+    // The model calls the glass of a mirror a painting and the frame of a painting
+    // a mirror: one piece, not two. The bigger box stays and keeps its name.
+    const dup = (a, b) => iou(a.box, b.box) > 0.5 || inside(a.box, b.box) > 0.8 || inside(b.box, a.box) > 0.8;
+    for (const m of mirrors.slice()) {
+      for (const a of arts.slice()) {
+        if (!dup(a, m)) continue;
+        if (area4(a.box) > area4(m.box)) { mirrors.splice(mirrors.indexOf(m), 1); break; }
+        arts.splice(arts.indexOf(a), 1);
+      }
+    }
+    out.push(...arts, ...mirrors);
     // Windows and doors in this wall.
-    for (const c of compsOf([G.WINDOW]).comps) if (c.n >= area * 0.01) out.push({ kind: 'window', box: [c.x0, c.y0, c.x1, c.y1], confidence: 0.6 });
-    for (const c of compsOf([G.DOOR]).comps) if (c.n >= area * 0.01) out.push({ kind: 'door', box: [c.x0, c.y0, c.x1, floorY], confidence: 0.6 });
+    for (const c of compsOf([G.WINDOW]).comps) if (c.n >= area * 0.01 && !inTv([c.x0, c.y0, c.x1, c.y1])) out.push({ kind: 'window', box: [c.x0, c.y0, c.x1, c.y1], confidence: 0.6 });
+    for (const c of compsOf([G.DOOR]).comps) if (c.n >= area * 0.01 && !inTv([c.x0, c.y0, c.x1, c.y1])) out.push({ kind: 'door', box: [c.x0, c.y0, c.x1, floorY], confidence: 0.6 });
     // What stands in front: furniture, lamps (shade and all) and plants.
     const furn = compsOf([G.FURNITURE], 2).comps.filter((c) => c.n >= area * 0.004);
     const onFurniture = (c) => furn.some((f) => f.x0 <= c.x1 && f.x1 >= c.x0 && f.y0 >= c.y1 - h * 0.02 && f.y0 - c.y1 <= h * 0.06);
@@ -871,15 +910,155 @@ export function tvDepthFactor(tvPhotoWidthPx, photoDiagPx, tvInches = 55, focalP
   return (dist + 12) / dist;
 }
 
+// ---------- The wall's scale, from everything in the photo ----------
+
+// What each kind of reference is taken to measure, in inches, and how sure that
+// is on its own (0 to 1). A door is nearly always 80 in; a TV could be any of
+// the sizes in TV_SIZES; a couch or a ceiling is a loose guess.
+const REF = {
+  tv: { name: 'the TV', confidence: 0.5 },
+  door: { name: 'the door', inches: 80, confidence: 0.8, note: 'a standard 6 ft 8 in door' },
+  bed: { name: 'the bed', inches: 64, confidence: 0.5, note: 'a queen bed, 5 ft 4 in with its frame' },
+  couch: { name: 'the couch', inches: 84, confidence: 0.4, note: 'a couch about 7 ft wide' },
+  ceiling: { name: 'the ceiling', inches: 96, confidence: 0.4, note: 'an 8 ft ceiling' },
+  outlet: { name: 'the outlet', inches: 4.5, confidence: 0.9, note: 'a single-gang cover plate, 2.75 by 4.5 in' },
+  measure: { name: 'your measurement', confidence: 1 },
+};
+// An outlet plate is a tight size but small in the photo: under about 40 px tall
+// its edges are a pixel or two off either way, so it counts for little.
+const OUTLET_FULL_PX = 80;
+const TOO_LOW = 0.2; // an estimate under this confidence is noted but never counted
+const feetIn = (v) => { const ft = Math.floor(v / 12), inch = Math.round(v - ft * 12); return inch === 12 ? `${ft + 1} ft` : inch ? `${ft} ft ${inch} in` : `${ft} ft`; };
+const tvSize = (dg) => (TV_SIZES.find(([d]) => d === dg) || TV_SIZES[2])[0];
+
+/**
+ * Every reference to the wall's scale that the photo offers, each as pixels per
+ * inch of wall. `found` is readWall's result or its items (in the read's pixels).
+ * `photo`: { w, h: the read's size; tvInches (55), depth (1), depthFor(dg);
+ * tvPicked: the person chose the TV size; ceiling: the photo shows the ceiling
+ * and no soffit; widthInches: a width the person typed }.
+ * Returns [{ from, ppi, inches, px, confidence, note }], biggest reference of
+ * each kind, most confident first. Outlets and switches count when an item of
+ * that kind has a box in pixels (the reader doesn't find them yet).
+ */
+export function scaleEstimates(found, photo = {}) {
+  const items = (Array.isArray(found) ? found : (found && found.items) || []).filter((i) => !i.removed);
+  const rw = photo.w || 0, rh = photo.h || 0;
+  const out = [];
+  // A couch or a bed cut off by the read's side, or a door cut off by its top, isn't seen whole: its size says nothing.
+  const whole = (i, dim) => (dim === 'w' ? !rw || (i.x > 0.5 && i.x + i.w < rw - 0.5) : i.y > 0.5);
+  const biggest = (kinds, dim) => items.filter((i) => kinds.includes(i.kind) && i[dim] > 0 && whole(i, dim)).sort((a, b) => b[dim] - a[dim])[0];
+  if (photo.widthInches > 0 && rw > 0) out.push({ from: 'measure', ppi: rw / photo.widthInches, inches: photo.widthInches, px: rw, confidence: 1, note: `the width you gave, ${feetIn(photo.widthInches)}` });
+  const tv = items.find((i) => i.kind === 'tv' && i.alone && i.w > 0);
+  if (tv) {
+    const dg = tvSize(photo.tvInches || 55), depth = photo.depth || 1;
+    out.push({ from: 'tv', ppi: tv.w / (setWidth(dg) * depth), inches: setWidth(dg), px: tv.w, depth, tvInches: dg, confidence: photo.tvPicked ? 0.9 : REF.tv.confidence, note: `a ${dg} in TV, ${setWidth(dg)} in wide${depth > 1.001 ? ', standing out from the wall' : ''}` });
+  }
+  const door = biggest(['door'], 'h');
+  if (door && (!rh || door.h > rh * 0.4)) out.push({ from: 'door', ppi: door.h / REF.door.inches, inches: REF.door.inches, px: door.h, confidence: REF.door.confidence, note: REF.door.note });
+  const bed = biggest(['headboard', 'bed'], 'w');
+  if (bed && (!rw || bed.w > rw * 0.15)) out.push({ from: 'bed', ppi: bed.w / REF.bed.inches, inches: REF.bed.inches, px: bed.w, confidence: REF.bed.confidence, note: REF.bed.note });
+  const couch = biggest(['couch'], 'w');
+  if (couch && (!rw || couch.w > rw * 0.2)) out.push({ from: 'couch', ppi: couch.w / REF.couch.inches, inches: REF.couch.inches, px: couch.w, confidence: REF.couch.confidence, note: REF.couch.note });
+  if (photo.ceiling && rh > 0) out.push({ from: 'ceiling', ppi: rh / REF.ceiling.inches, inches: REF.ceiling.inches, px: rh, confidence: REF.ceiling.confidence, note: REF.ceiling.note });
+  for (const o of items.filter((i) => (i.kind === 'outlet' || i.kind === 'switch') && i.h > 0)) {
+    const confidence = REF.outlet.confidence * Math.min(1, o.h / OUTLET_FULL_PX);
+    out.push({ from: 'outlet', ppi: o.h / REF.outlet.inches, inches: REF.outlet.inches, px: o.h, confidence, note: `${REF.outlet.note}${o.h < OUTLET_FULL_PX / 2 ? ', small in the photo' : ''}` });
+  }
+  return out.sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * One scale from all the estimates. A typed measurement is the whole answer.
+ * Otherwise: the TV's size is picked from TV_SIZES to agree with the others when
+ * they disagree with it by more than 15% (tvInches, tvWhy 'others'); an estimate
+ * more than 25% off the weighted median is dropped when two others agree; the
+ * rest average (geometric mean, weighted by confidence). `agree` is false when
+ * the ones that count still span more than 15%. `from` is the most confident
+ * reference that counted. The note is a sentence or two for the confirm screen.
+ * Returns { ppi, from, agree, spread, used, dropped, note, tvInches?, tvWhy? }.
+ */
+export function reconcileScale(estimates, opts = {}) {
+  const ratio = (a, b) => Math.max(a / b, b / a);
+  const none = { ppi: null, from: null, agree: false, spread: 1, used: [], dropped: [], note: 'Nothing in the photo sets the size. Measure the wall.' };
+  const all = (estimates || []).filter((e) => e && e.ppi > 0 && isFinite(e.ppi)).map((e) => ({ ...e }));
+  if (!all.length) return none;
+  const measure = all.find((e) => e.from === 'measure');
+  if (measure) {
+    const dropped = all.filter((e) => e !== measure).map((e) => ({ ...e, why: 'measured instead' }));
+    return { ppi: measure.ppi, from: 'measure', agree: true, spread: 1, used: [measure], dropped, note: 'From your measurement.' };
+  }
+  const dropped = [];
+  let use = [];
+  for (const e of all) (e.confidence >= TOO_LOW ? use : dropped).push(e.confidence >= TOO_LOW ? e : { ...e, why: 'too small to trust' });
+  if (!use.length) return { ...none, dropped };
+  const wmean = (xs) => { let sw = 0, sl = 0; for (const e of xs) { sw += e.confidence; sl += e.confidence * Math.log(e.ppi); } return Math.exp(sl / sw); };
+  const wmedian = (xs) => { const s = xs.slice().sort((a, b) => a.ppi - b.ppi); const half = s.reduce((t, e) => t + e.confidence, 0) / 2; let acc = 0; for (const e of s) { acc += e.confidence; if (acc >= half - 1e-9) return e.ppi; } return s[s.length - 1].ppi; };
+  // The TV's size: when the others disagree with the size assumed, the size
+  // from the list that agrees with them best, unless the person picked it.
+  let tvInches = null, tvWhy = null;
+  const tv = use.find((e) => e.from === 'tv');
+  const others = use.filter((e) => e.from !== 'tv');
+  if (tv && others.length && !opts.tvPicked && ratio(tv.ppi, wmean(others)) > 1.15) {
+    const target = wmean(others), depthFor = opts.depthFor || (() => tv.depth || 1);
+    const pick = TV_SIZES.map(([dg, wide]) => ({ dg, wide, ppi: tv.px / (wide * depthFor(dg)) })).sort((a, b) => ratio(a.ppi, target) - ratio(b.ppi, target))[0];
+    if (pick.dg !== tv.tvInches) {
+      tvInches = pick.dg; tvWhy = 'others';
+      Object.assign(tv, { ppi: pick.ppi, inches: pick.wide, tvInches: pick.dg, depth: depthFor(pick.dg), confidence: Math.min(tv.confidence, 0.35), note: `taken as a ${pick.dg} in TV to agree with ${others.map((e) => REF[e.from].name).join(' and ')}` });
+    }
+  }
+  // An outlier: more than 25% off the weighted median while two others agree with it.
+  if (use.length >= 3) {
+    const med = wmedian(use);
+    const near = use.filter((e) => ratio(e.ppi, med) <= 1.25);
+    for (const e of use.slice()) {
+      if (ratio(e.ppi, med) <= 1.25 || near.filter((n) => n !== e).length < 2) continue;
+      use = use.filter((x) => x !== e);
+      dropped.push({ ...e, why: 'disagrees with the others' });
+    }
+  }
+  const ppi = wmean(use);
+  const ppis = use.map((e) => e.ppi);
+  const spread = Math.max(...ppis) / Math.min(...ppis);
+  const agree = spread <= 1.15;
+  const from = use.slice().sort((a, b) => b.confidence - a.confidence)[0].from;
+  // The note, in wall widths (feet and inches) when a width is known.
+  const name = (e) => (e.from === 'tv' && tvWhy ? `the TV, taken as ${tvInches} in,` : REF[e.from].name);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const joinAnd = (xs) => (xs.length > 2 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs.join(' and '));
+  const says = (e) => (opts.w > 0 ? `${name(e)} says ${feetIn(opts.w / e.ppi)}` : `${name(e)} gives ${e.ppi.toFixed(2)} px an inch`);
+  const left = dropped.filter((d) => d.why === 'disagrees with the others');
+  let note;
+  if (use.length === 1) note = `Only ${REF[use[0].from].name} sets the size. Measure to be sure.`;
+  else if (agree) note = `${cap(joinAnd(use.map((e) => REF[e.from].name)))} agree on the size${tvWhy ? `, with the TV taken as ${tvInches} in` : ''}.`;
+  else note = `${cap(joinAnd(use.map(says)))}. Measure to be sure.`;
+  if (left.length) note += ` ${cap(joinAnd(left.map((e) => REF[e.from].name)))} ${left.length > 1 ? 'disagree' : 'disagrees'} and ${left.length > 1 ? 'were' : 'was'} left out.`;
+  const r = { ppi, from, agree, spread, used: use, dropped, note };
+  if (tvWhy) { r.tvInches = tvInches; r.tvWhy = tvWhy; }
+  return r;
+}
+
 // A first guess at the wall's width, in inches, from a TV found on its own: its
 // width against the wall's, times `depth` when it stands out from the wall.
-// A 55 in set unless the person says otherwise. With no TV clear of everything
-// else there is no honest guess, so it's null and the person gives one measurement.
-export function guessWidth(items, wallWidthPx, tvInches = 55, depth = 1) {
+// A 55 in set unless the person says otherwise, and the size from TV_SIZES that
+// agrees with the door, bed, couch or outlets in the photo when they disagree
+// with it by more than 15% (then tvInches changes and tvWhy is 'others'; pass
+// photo.tvPicked when the person chose the size, and it stays). With no TV clear
+// of everything else there is no honest guess, so it's null and the person gives
+// one measurement. `photo` is scaleEstimates' second argument, less w, tvInches
+// and depth, which come from the other arguments.
+// Returns { inches, from, tvInches, tvWhy, ppi, agree, spread, refs, note }:
+// `from` is the most confident reference that counted, `refs` every reference
+// found with how it was taken, `note` a sentence for the confirm screen.
+export function guessWidth(items, wallWidthPx, tvInches = 55, depth = 1, photo = {}) {
   const tv = items.find((i) => i.kind === 'tv' && i.alone);
   if (!tv) return null;
-  const d = (TV_SIZES.find(([dg]) => dg === tvInches) || TV_SIZES[2])[0];
-  return { inches: Math.round((wallWidthPx / tv.w) * setWidth(d) * depth), from: 'tv', tvInches: d };
+  const d = tvSize(tvInches);
+  const est = scaleEstimates(items, { ...photo, w: wallWidthPx, tvInches: d, depth });
+  const r = reconcileScale(est, { w: wallWidthPx, tvPicked: !!photo.tvPicked, depthFor: photo.depthFor });
+  const short = (e, counted) => ({ from: e.from, inches: Math.round(wallWidthPx / e.ppi), confidence: Math.round(e.confidence * 100) / 100, px: Math.round(e.px), note: e.note, counted, ...(counted ? {} : { why: e.why }) });
+  const refs = [...r.used.map((e) => short(e, true)), ...r.dropped.map((e) => short(e, false))];
+  return { inches: Math.round(wallWidthPx / r.ppi), from: r.from, tvInches: r.tvInches || d, tvWhy: r.tvWhy || null, ppi: r.ppi, agree: r.agree, spread: Math.round(r.spread * 1000) / 1000, refs, note: r.note };
 }
 
 // TV stands are mostly 20 to 24 in tall. When the floor is hidden but a TV

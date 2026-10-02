@@ -2,3 +2,5 @@ node_modules/
 out/
 .DS_Store
 .cache/
+tools/health.dry.json
+tools/health.json

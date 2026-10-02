@@ -8,6 +8,8 @@ import { MODEL, prepare, labelsFrom } from './segcore.js';
 const ORT = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
 const CACHE = 'walldrobe-model-v1';
 let loading = null;
+let watchers = []; // progress callbacks from everyone waiting on the same download
+let last = null; // the last progress fraction, for a watcher that joins late
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -46,18 +48,27 @@ export async function modelCached() {
 }
 
 export function ready(onProgress) {
+  if (onProgress) { watchers.push(onProgress); if (last != null) onProgress(last); }
   if (!loading) {
     loading = (async () => {
       await loadScript(`${ORT}ort.wasm.min.js`);
       const ort = window.ort;
       ort.env.wasm.wasmPaths = ORT;
       ort.env.wasm.numThreads = 1; // GitHub Pages can't turn on the headers threads need
-      const bytes = await modelBytes(onProgress);
+      const bytes = await modelBytes((f) => { last = f; for (const w of watchers) w(f); });
       return ort.InferenceSession.create(bytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
     })();
-    loading.catch(() => { loading = null; });
+    loading.catch(() => { loading = null; last = null; });
+    loading.finally(() => { watchers = []; });
   }
   return loading;
+}
+
+// Start the download early, while the person is still picking a photo, so the
+// wait comes off the first photo. Skipped when the browser says data is dear.
+export function warm() {
+  try { if (navigator.connection && navigator.connection.saveData) return; } catch { /* no hint */ }
+  ready().catch(() => {});
 }
 
 // Labels for a photo: { w, h, labels } covering the whole photo.
