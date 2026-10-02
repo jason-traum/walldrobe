@@ -66,15 +66,17 @@ Use: wall, piece, print, original, frame, hang, swap, keep, skip, save, pin, you
 
 Avoid in the interface: curate, elevate, AI, algorithm, SKU, inventory, "gallery wall solution", layout (say wall), hype words, exclamation points, em dashes.
 
-## v1 flow
+## The flow (v3, 2026-10-02)
 
-Four screens between the photo and the hanging guide. The fewest that still give someone a wall they'd trust enough to hang.
+Five named steps, shown on every screen past the photo: Wall, Taste, Pick, Frames, Hang. One decision per step. Every lever lives one level down, inside the step it belongs to, never on the screen beside the wall.
 
-1. Photo. Take or choose a photo of one wall. The photo reader runs on the phone. No sign-up in the beta.
-2. Corners. Check the four dots on the wall's corners, drag any that are off. Their own gesture, so their own screen.
-3. Confirm. One screen: the flattened photo with everything found drawn on it (TV, furniture, windows, your art), the wall's width with where it came from, and Keep or Skip on each of your pieces. Tap anything to fix it, add anything we missed, add art that isn't up yet. This replaces today's Check, What's in the way and Your art.
-4. The wall. One finished wall on your photo, at true scale, filling the screen. Scroll for the ranked list of other walls, each with its one line of why. Tap a piece for what it is, why it's there, save, swap or keep. One Change action holds the rest: how full, just my pieces, as it hangs now, move pieces, make it mine (the quiz).
-5. Get it. The nail spots and the hanging guide, printable, with the wire drop and the estimate note. Each new piece links to where you get it, with the frame size. Save the wall.
+1. Wall. Photo, corners, then one confirm screen: the flattened photo with everything found, the width and where it came from, Keep or Skip on each of your pieces.
+2. Taste. Pairs for about a minute, skippable. "What we learned" shows each lean as one dropdown.
+3. Pick. Your wall: the one you're building, drawn full width. Tap a piece to Keep it (it is then in every suggestion), swap it for one of four others for that spot, let it go (one fewer, built around the rest), or save it for later. Every wall you have had stays as a version under the drawing; tap one to bring it back, and the one on screen is kept too. Suggestions is the ranked list of every wall that fits, each with your kept pieces; tapping one makes it your wall. Adjust is one sheet: how many pieces, how full, kind of wall, which art, people, price, color, shop; and this wall's own tools (new art in the open frames, move by hand, measurements, put it back).
+4. Frames. The wall drawn with frames. One look for the set; details one level down; tap a piece to change just that one.
+5. Hang. What to get, with each frame in words, the nails, the guide, save and share.
+
+Why: people build a wall over a few passes. They like a layout and two of the pieces, swap the third, try one fewer, want the earlier one back. The app has to keep up and never lose a version.
 
 ## Walls with sections, and a whole home (proposed, not built)
 

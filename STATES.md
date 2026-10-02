@@ -98,60 +98,68 @@ After the first wall, never before it. Reached from Change.
 | Image failed | The failed one shows its title | Pick the other, or Neither |
 | Done | Back to the feed, ranked again for the picks | |
 
-## 8. The feed (your walls, ranked)
+## 8. Suggestions (every wall that fits, ranked)
+
+Reached from "Suggestions" at the top of your wall. The five-step bar shows Pick as the current step.
 
 | State | What they see | Action |
 |---|---|---|
 | Building | The bare wall, "Finding every wall that fits…" | Wait |
-| Art filters | Behind "Filters" beside the stepper: People (Fine, No people), Price (Any, Under $50, $100, $250), Color (Any, Color only, Black and white), From (each shop on or off). The link reads "2 filters" when any are on | Tap, Clear the filters |
-| Choices | Above the list and under the open wall: Either / Structured / Loose, Calm / Balanced / Full, Prints / Both / Photos / Mine, and Any number / Set number; Set number shows minus, plus and the count, starting from the open wall's. "Filters" opens the art pool filters | One tap each |
-| A count this kind can't make | Moves to the nearest one that works and says so: "6 pieces don't make a structured layout here. 5 do." | |
-| Nothing fits the picks | Kind and count let go: "Nothing structured, 6 pieces fits here, so these are what does." | |
-| Ready | A ranked list, best first. Each wall at full width, then "1 of 12", the why line ("Both of yours, one new. Lined up over the couch, 73½ in across."), the cost. The first wall always has new art in it | Tap a wall to open it, Change |
+| Ready | "Every wall that fits, best first, each with the 2 pieces you keep. Tap one to make it your wall; the one you have now is kept as a version." Then the list: each wall at full width, "1 of 12", the why line, the cost | Tap a wall, Adjust |
+| The one you have | "3 of 12 · the one you have now" | |
 | Has a piece you saved | "1 of 12 · has a piece you saved" | |
-| Ranked again | After saves, swaps or the quiz: "Ranked again for what you saved and swapped." | |
-| Kept pieces don't all fit | The engine leaves out as few as it can, smallest first, and says which at the top; each wall says what it left off and why | Change one to Skip, Just mine |
-| Few walls at this fullness | The walls from the other two fullness levels come after, so the list is never two walls long | |
-| End of the list | "That's every wall that fits." and a link to Change | Change |
-| No room for art | The bare wall, "There isn't room for art on this wall." and the reason. "Not every wall needs art." | Check what's marked, Try another wall |
-| Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again, Check what's marked, Start a new wall |
-| Sample | "Sample wall" chip on each drawing | |
+| Kept pieces don't all fit | The engine leaves out as few as it can and says which at the top | |
+| A count this kind can't make | Moves to the nearest one that works and says so | |
+| Nothing fits the picks | Kind and count let go: "Nothing structured, 6 pieces fits here, so these are what does." | |
+| End of the list | "That's every wall that fits." and a link to Adjust | |
+| No room for art | The bare wall, "There isn't room for art on this wall." and the reason | Check what's marked, Try another wall |
+| Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again |
 
-Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full); With new art / Just mine (when you have pieces you keep); Move pieces by hand; Put this wall back the way it was; Show it as it hangs now; Show measurements and nails; Make it mine; Check what's marked; Start a new wall; Browse every print; Saved pieces; Your walls.
+Adjust (one sheet, from your wall and from Suggestions): "Any change here builds the walls again. The one you have now stays as a version." How many pieces (minus, the count, plus; "Any number" when a count is set); dropdowns for How full (Calm, Balanced, Full), Kind of wall (Any, Structured, Loose), Which art (Shop prints, Free photos, Both, Just my pieces), People in the art (Fine, Leave them out), Price per print, Color (Any, Color only, Black and white only), From (when Both). This wall: New art in the open frames, Move pieces by hand, Show measurements, Put it back, See it as it hangs now. Links: Fix what's marked, Taste test, What we learned, New wall.
 
-## 9. One wall, open
-
-| State | What they see | Action |
-|---|---|---|
-| One more or fewer | Minus and plus in the strip under the drawing, starting from this wall; frames already up stay where they are | Tap minus or plus |
-| Default | The drawing at true scale, "Wall 3 of 12" with back and next, the why line, the cost, "Get this wall", "Save this wall". Under it, "In this wall": your pieces first, then the new ones, each with thumbnail, size, price and shop, one reason, a heart | Swipe or back and next, tap a piece, save a piece, Get this wall, Change |
-| Desktop | Drawing and actions on the left, the piece rows on the right | |
-| As it hangs now | Your pieces where they are, always in the list when every piece has a spot. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: [the first two]." | |
-| Tape colors on screen | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
-| A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." Or "Stays where it hangs now." or "Not up yet: hang it here." | |
-| New piece sheet | Image, title, artist and shop, frame size and price, every size the shop sells with its price, reason, nail spot | Pick a size, Save, Swap this one, Keep it in every wall, See it at [shop] |
-| Refresh the art | In the strip: the same frames with new picks, kept pieces and yours stay. "New art in all 6 frames. Undo" On the feed, every wall at once: "New art on 22 walls, same layouts. Undo" | Undo |
-| Step and step back | Minus then plus, or plus then minus, brings back the walls you had, swaps and all | |
-| Your piece sheet | Thumbnail, size, move note, reason, nail spot ("Already up." when pinned) | Pin it where it hangs (or Let it move), Leave it out |
-| Swapped | The new piece fades in, the wall keeps its place in the list. "Swapped [title] for [title]. Undo" | Undo |
-| No other art fits | "No other art fits this frame." | |
-| Kept in every wall | Green tape on it. "[title] is kept in every wall. The others were built again around it. Undo" | Undo |
-| Pinned | Orange strip on its corner, the walls built again around it | Let it move |
-| Saved a piece | Heart fills. The list re-ranks, the open wall stays where it is | Unsave |
-| Moving pieces | Change, "Move pieces by hand": the drawing becomes an editor. Drag a frame, or focus it and use the arrow keys (Shift for 3 in). Snaps to frame edges and centers, the spacing, the middle of the wall, 57 in, and the edges of what's in the way, with the guide drawn | Done, Undo, Put them back |
-| Moved to a spot that breaks a rule | The frame turns to the error style with the reason under the drawing; on letting go it goes back: "Too close to the TV, so it went back." | Drag again |
-| Moved by hand | The why line reads "Placed by you: 6 pieces, 92 in across." | Put them back |
-| Changed, want it back | Change, "Put this wall back the way it was" | |
-| Saved wall | "Saved on this device. Find it under Your walls." In `?demo`: "Sample mode: nothing is saved." | |
-| Save failed | "Didn't save. This device's storage may be full. Try again after deleting an old wall." | Try again |
-
-Undo stays until you open another wall or leave the screen.
-
-## 10. Get it (the hanging guide)
+## 9. Your wall (the Pick step)
 
 | State | What they see | Action |
 |---|---|---|
-| Default | "Get it, tape it, hang it", the why line, "What to get": each new piece with artist, shop, print size and price, then the total | Buy at [shop], Find a frame (both quiet) |
+| Default | The step bar (3 Pick), the drawing at true scale, the why line, the cost, "Frames next" (or "Hang it next" with nothing new), "Adjust". "Tap a piece below to keep it, swap it or let it go." Under it, "In this wall": your pieces first, each with a state (Yours, Kept, New), thumbnail, size, price and shop, one reason, a heart | Tap a piece, Frames next, Adjust, Suggestions |
+| Versions | Once the wall has changed: "Every version so far. Tap one to bring it back." and a row of small drawings, newest first, the one on screen marked "Now", the others "3 pieces" | Tap a version |
+| Brought back | The version is on screen; the one you had joins the row | |
+| New piece sheet | Title, size and price, the reason, then Keep it, Let it go, Save for later. "Swap it for": four other pieces for this spot at this size. Then the image, artist and shop, the sizes the shop sells, the nail spot | Keep it, Let it go, Save, tap a swap, pick a size, See it at [shop] |
+| Finding swaps | Opening a new piece's sheet takes a moment while the other art for its spot is found | Wait |
+| No swaps | "No other art comes in this size for this spot." | |
+| Kept | Green tape on the piece, "Kept" by its name. "[title] is kept in every wall. The others were built again around it. Undo". The sheet says "Kept: it is in every suggestion. Tap Kept to let it change again." | Undo, tap Kept |
+| Swapped | "Swapped [title] for [title]. Undo"; the wall you had is a version | Undo |
+| Let go | One fewer, the other frames stay where they are: "[title] is out. 3 pieces now. Undo" | Undo |
+| Last piece | "That is the last piece. Pick another wall from Suggestions instead." | |
+| Your piece sheet | Thumbnail, size, move note, reason, nail spot | Pin it where it hangs (or Let it move), Leave it out |
+| One more or fewer | In Adjust, minus and plus from this wall; frames already up stay where they are | |
+| As it hangs now | From Adjust. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: ..." | |
+| Tape colors | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
+| A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." | |
+| New art in the open frames | From Adjust: the same frames, new picks; kept and yours stay. "New art in all 6 frames. Undo" | Undo |
+| Saved a piece | Heart fills | Unsave |
+| Moving pieces | Adjust, "Move pieces by hand": drag a frame or use the arrow keys; snaps as before | Done, Undo, Put them back |
+| Moved to a spot that breaks a rule | The frame turns to the error style with the reason; on letting go it goes back | |
+| Changed, want it back | A version in the row, or Adjust, "Put it back as it was built" | |
+| Sample | "Sample wall" chip on the drawing | |
+
+Undo stays until the next change. Versions stay with the wall, on this device.
+
+## 9b. Frames (the Frames step)
+
+| State | What they see | Action |
+|---|---|---|
+| Default | The wall drawn with its frames. Six looks (Classic, Gallery, Warm wood, Clean, Gold, Color pop), the one in use pressed; color chips under Color pop. "Details: matched or each its own, finish, weight, mat" folded. "Each piece": every new piece with its frame in words ("Black frame, a slim mat") | Tap a look, open Details, tap a piece, Hang it next |
+| Mostly black and white | "Mostly black and white: one color frame across the set, a color pop, can tie it together." | |
+| A piece's sheet | The image, "20 x 28 in. Black frame, a mat now.", Finish and Mat dropdowns, why the set's choice was made | Change either, Back to the set's frame |
+| Set by you | The row reads "Blue frame, a wide mat, set by you." | |
+| Nothing new | Skips straight to Hang | |
+
+## 10. Hang it (the hanging guide)
+
+| State | What they see | Action |
+|---|---|---|
+| Default | The step bar (5 Hang), "Get it, tape it, hang it", the why line, "What to get": each new piece with artist, shop, print size and price, its frame in words with a Change link back to Frames, then the total | Buy at [shop], Find a frame, Change |
 | Free photo | "Photo by [artist] on Unsplash. Print it 8 x 10 in for an 11 x 14 in frame with a mat. Free under the Unsplash License." | Get it on [site], Find a frame |
 | Nothing new | "Tape it, hang it", no buy list | |
 | Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |

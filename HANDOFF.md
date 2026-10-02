@@ -114,6 +114,15 @@ Open risks (need a real iPhone or real use):
 
 Jason said to switch. `main` is v2 (e2ae9ea) and the site at jason-traum.github.io/walldrobe is v2. The first version is kept three ways: branch `v1`, tag `v1` (both at 6f3fe32), and a working copy at jason-traum.github.io/walldrobe/v1/ (`docs/v1/`, which the build leaves alone). Pushes go from Jason's Mac with a bundle, as before.
 
+## 5f. v3, the flow (2026-10-02, afternoon, on branch `v3`, not live)
+
+Jason: the app "doesn't tell you what the process is", "too many things you have to pick all at once", "reverting back to slop", "think thru how a real person would be using this". Same redo process as v2 (review against the playbook's six questions, keep/rework/drop, three structures, his pick). He picked the consultation: five named steps, one decision per step, and the Pick step as a wall you build with versions. See PRODUCT.md "The flow (v3)".
+
+- `web/main.js`: `stepBar(i)` on every screen past the photo; `wallScreen` is your wall (versions row, Frames next, Adjust, tap a piece); `suggestScreen` (`#/suggest`) is the old feed; `adjustSheet` replaces the strip, Filters and Change (selects, a count stepper, this wall's tools); `pieceSheet` has Keep, Let it go, Save and "Swap it for" (four `swapOptions` found with `refill` when the sheet opens); `letGo`; versions: `noteVersion`, `openVersion`, `versionsRow`, `S.versions` persisted as `draft.versions`, `S.injected` brings a version back into the view; `framesScreen` (`#/frames`) with `frameSheet` per piece; `frameWords`; `#/layouts` redirects to `#/wall`; the profile's axes are selects.
+- Removed: `shapeStrip`, `tasteLine`, `chipSheet`, `changeSheet`, `swapPiece`, swipe between walls, arrow keys between walls, `framePicker` on Get it.
+- Checked with Playwright at 320 and 390 (scratchpad `v3/walk3.py`): keep, swap for an alternative, let go, versions back, Adjust (fullness), Suggestions pick, Frames look and per-piece mat, Hang, Taste, profile. No console errors, no sideways scroll. 193 tests pass.
+- Not merged. Preview from the `v3` branch via raw.githack.
+
 ## 5d. After v2 (2026-10-02, overnight, all on `v2`, then merged)
 
 Built, each with a DECISIONS line:
