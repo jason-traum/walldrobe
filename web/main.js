@@ -163,7 +163,7 @@ function engineInput() {
   // Prints from shops, free photos, or both (prints lean ahead a little); your own pieces only, when asked.
   const mode = artMode();
   const isShop = (c) => c.offers && c.offers.length > 0;
-  const catalog = d.justMine ? [] : CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c))));
+  const catalog = d.justMine ? [] : applyPool(CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c)))), keptIds);
   const taste = tasteScores(catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
@@ -173,10 +173,35 @@ function engineInput() {
 }
 const keepList = () => (S.draft.justMine ? [] : S.draft.kept || []);
 const ART_MODES = ['prints', 'both', 'photos'];
+// Take art out of the pool the way a shop's filters do. A kept piece always stays in.
+const NO_POOL = { people: 'any', maxPrice: null, color: 'any', shops: [] };
+const pool = () => ({ ...NO_POOL, ...((S.draft && S.draft.pool) || {}) });
+const poolCount = (f = pool()) => (f.people !== 'any') + (f.maxPrice != null) + (f.color !== 'any') + f.shops.length;
+const SHOP_OF = (c) => (c.offers && c.offers.length ? c.record.source.provider : 'free');
+const PRICES = [[null, 'Any'], [50, 'Under $50'], [100, 'Under $100'], [250, 'Under $250']];
+function applyPool(list, keptIds) {
+  const f = pool();
+  if (!poolCount(f)) return list;
+  const out = [];
+  for (const c of list) {
+    if (keptIds.has(c.id)) { out.push(c); continue; }
+    const r = c.record;
+    if (f.people === 'none' && r.tags && r.tags.people) continue;
+    if (f.color === 'color' && r.color && r.color.bw) continue;
+    if (f.color === 'bw' && !(r.color && r.color.bw)) continue;
+    if (f.shops.includes(SHOP_OF(c))) continue;
+    if (f.maxPrice != null && c.offers && c.offers.length) {
+      const sizes = c.sizes.filter((z) => z.price == null || z.price <= f.maxPrice);
+      if (!sizes.length) continue;
+      out.push(sizes.length === c.sizes.length ? c : { ...c, sizes });
+    } else out.push(c);
+  }
+  return out;
+}
 const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style, S.draft.pieces, artMode()]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => [k.id, k.w, k.h]), S.draft.fullness, S.draft.justMine, S.draft.style, S.draft.pieces, artMode(), pool()]);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped]);
 
 const picksOf = (list) => (list || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
@@ -756,9 +781,14 @@ function check() {
   if (!p) { go('#/things'); return ''; }
   const auto = p.mode === 'auto' && p.auto;
   const H = d.height, s = labelSize(d.width, editPx());
+  // Each box can be picked, then its corners dragged to resize it and its middle dragged to move it.
+  const hr = s * 0.9; // handle radius, in wall inches at this size
+  const handles = (b) => [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].map(([x, y], i) => `<g class="box-h" data-hcorner="${i}"><circle cx="${x}" cy="${y}" r="${hr * 2.2}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${hr}" class="handle-dot"/></g>`).join('');
+  const sizeTag = (b, w, h) => `<text x="${b.x + b.w / 2}" y="${b.y + b.h + s * 1.1}" font-size="${s * 0.85}" class="box-size">${r2(w)} x ${r2(h)} in</text>`;
+  const picked = S.ui.fix;
   const boxes = [
-    ...d.obstacles.map((o) => `<g class="ob"><rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}</g>`),
-    ...d.owned.filter((o) => o.at).map((o) => `<g class="owned-mark${o.keep === 'skip' ? ' is-skip' : ''}"><rect x="${o.at.x}" y="${H - o.at.y - o.h}" width="${o.w}" height="${o.h}" class="owned-box-mark"/></g>`),
+    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
+    ...d.owned.filter((o) => o.at).map((o) => { const b = { x: o.at.x, y: H - o.at.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="owned-mark box${o.keep === 'skip' ? ' is-skip' : ''}${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="own"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="owned-box-mark"/>${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
   ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const from = auto && p.auto.guess ? p.auto.guess.from : null;
@@ -793,7 +823,8 @@ function check() {
     <h1>Here's your wall</h1>
     <p class="lede">${esc(foundSentence(d))} Fix anything that's off, and say which of your pieces to keep.</p>
     ${S.ui.quality ? `<p class="note">${esc(S.ui.quality)}</p>` : ''}
-    <div class="drawing photo-check">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened, with what we found marked' })}</div>
+    <div class="drawing photo-check" id="check-wall">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened, with what we found marked' })}</div>
+    <p class="small pencil">Tap a box to pick it. Drag a corner to resize it, or the middle to move it.</p>
     ${auto ? `<form id="dims-form" class="fields dims">
       <fieldset><legend>Wall width</legend>
         <span class="pair"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
@@ -813,6 +844,89 @@ function check() {
     <div class="acts left"><a class="btn quiet small" href="#/things">Mark something we missed</a></div>
     <div class="dock"><a class="btn wide" href="#/layouts">Show me my wall</a></div>
   </main>`;
+}
+
+// ---------- The confirm screen: fix a box by dragging ----------
+
+// A box on the flattened photo, in wall inches with y up from the floor:
+// a piece of yours (at, w, h) or something in the way (x, y, w, h).
+function boxOf(id) {
+  const d = S.draft;
+  const o = d.obstacles.find((x) => x.id === id);
+  if (o) return { kind: 'ob', o, get: () => ({ x: o.x, y: o.y, w: o.w, h: o.h }), set: (b) => { o.x = b.x; o.y = b.y; o.w = b.w; o.h = b.h; } };
+  const a = d.owned.find((x) => x.id === id && x.at);
+  if (a) return { kind: 'own', o: a, get: () => ({ x: a.at.x, y: a.at.y, w: a.w, h: a.h }), set: (b) => { a.at = { x: b.x, y: b.y }; a.w = b.w; a.h = b.h; } };
+  return null;
+}
+// A box read from the photo keeps its pixel box in step, so a later re-read
+// (the TV size, a corner) starts from the fixed box, not the first guess.
+function syncItem(box) {
+  const d = S.draft, p = d.photo, a = p && p.auto;
+  const o = box.o;
+  if (!a || !o.autoId) return;
+  const it = a.items.find((i) => i.id === o.autoId);
+  if (!it) return;
+  const rw = a.rw || p.w, rh = a.rh || a.floorPx, sc = d.width / rw;
+  const k = it.kind === 'tv' && a.depth ? 1 / a.depth : 1;
+  const b = box.get();
+  it.w = b.w / (sc * k); it.h = b.h / sc;
+  it.x = b.x / sc - (it.w * (1 - k)) / 2; it.y = rh - b.y / sc - it.h;
+  it.fixed = true;
+  if (box.kind === 'own' && S.mem.photo && rw) { try { Object.assign(it, thumbAndPalette(regionImg(), it)); o.thumb = it.thumb; o.palette = it.palette; o.color = it.palette && it.palette[0] ? it.palette[0].hex : o.color; } catch { /* keep the old thumb */ } }
+  if (box.kind === 'own' && p.ppi) o.rect = { x: o.at.x * p.ppi, y: (d.height - o.at.y - o.h) * p.ppi, w: o.w * p.ppi, h: o.h * p.ppi };
+  if (box.kind === 'ob' && o.fuzz) o.fuzz = 0; // fixed by hand: no longer a guess
+}
+function wireCheck() {
+  const svg = document.querySelector('#check-wall svg');
+  if (!svg) return;
+  const d = S.draft, H = d.height, p = d.photo;
+  const loupe = p && p.flat ? loupeFor(svg, p.flat, d.width, H) : null;
+  const toPt = (b) => [b.x, H - b.y - b.h]; // top left, svg coordinates
+  const paint = (box) => {
+    const g = svg.querySelector(`[data-box="${CSS.escape(box.o.id)}"]`);
+    if (!g) return;
+    const b = box.get(), top = H - b.y - b.h;
+    const r = g.querySelector('rect'); r.setAttribute('x', b.x); r.setAttribute('y', top); r.setAttribute('width', b.w); r.setAttribute('height', b.h);
+    const lab = g.querySelector('.ob-label'); if (lab) { lab.setAttribute('x', b.x + b.w / 2); lab.setAttribute('y', top + b.h / 2); }
+    const pts = [[b.x, top], [b.x + b.w, top], [b.x + b.w, top + b.h], [b.x, top + b.h]];
+    g.querySelectorAll('.box-h').forEach((h, i) => h.querySelectorAll('circle').forEach((c) => { c.setAttribute('cx', pts[i][0]); c.setAttribute('cy', pts[i][1]); }));
+    const t = g.querySelector('.box-size'); if (t) { t.setAttribute('x', b.x + b.w / 2); t.setAttribute('y', top + b.h + Number(t.getAttribute('font-size')) * 1.3); t.textContent = `${r2(b.w)} x ${r2(b.h)} in`; }
+    const row = document.querySelector(`.row [data-oid="${CSS.escape(box.o.id)}"], .row [data-obid="${CSS.escape(box.o.id)}"]`);
+    if (row) { const inW = document.querySelector(`input[data-ok="w"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="w"][data-obid="${CSS.escape(box.o.id)}"]`); const inH = document.querySelector(`input[data-ok="h"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="h"][data-obid="${CSS.escape(box.o.id)}"]`); if (inW) inW.value = r2(b.w); if (inH) inH.value = r2(b.h); }
+  };
+  dragOn(svg, (e) => {
+    const g = e.target.closest('[data-box]');
+    if (!g) return null;
+    const id = g.dataset.box;
+    if (S.ui.fix !== id) { S.ui.fix = id; render(); return null; } // first tap picks it; the next render has handles
+    const box = boxOf(id);
+    if (!box) return null;
+    const h = e.target.closest('[data-hcorner]');
+    const at = wallPoint(svg, e);
+    return { box, corner: h ? Number(h.dataset.hcorner) : null, start: at, orig: box.get() };
+  }, (ctx, e) => {
+    const at = wallPoint(svg, e);
+    const dx = at.x - ctx.start.x, dy = at.y - ctx.start.y, o = ctx.orig;
+    let b;
+    if (ctx.corner === null) b = { x: o.x + dx, y: o.y + dy, w: o.w, h: o.h };
+    else {
+      // Corner i: 0 top left, 1 top right, 2 bottom right, 3 bottom left (svg order); y is up from the floor.
+      const left = ctx.corner === 0 || ctx.corner === 3, top = ctx.corner === 0 || ctx.corner === 1;
+      const x0 = left ? o.x + dx : o.x, x1 = left ? o.x + o.w : o.x + o.w + dx;
+      const y0 = top ? o.y : o.y + dy, y1 = top ? o.y + o.h + dy : o.y + o.h;
+      b = { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.max(2, Math.abs(x1 - x0)), h: Math.max(2, Math.abs(y1 - y0)) };
+    }
+    b.x = Math.max(0, Math.min(d.width - b.w, b.x)); b.y = Math.max(0, Math.min(H - b.h, b.y));
+    for (const k of ['x', 'y', 'w', 'h']) b[k] = Math.round(b[k] * 4) / 4;
+    ctx.box.set(b); ctx.moved = true; paint(ctx.box);
+    if (loupe) { const [px, py] = ctx.corner === null ? [b.x + b.w / 2, H - b.y - b.h / 2] : [[b.x, H - b.y - b.h], [b.x + b.w, H - b.y - b.h], [b.x + b.w, H - b.y], [b.x, H - b.y]][ctx.corner]; loupe.show(e, [px, py]); }
+  }, (ctx) => {
+    if (loupe) loupe.hide();
+    if (!ctx.moved) return;
+    syncItem(ctx.box);
+    if (ctx.box.kind === 'ob') clampOb(ctx.box.o);
+    S.mem.clean = null; resetLayouts(); persist(); render();
+  });
 }
 
 // ---------- Corners ----------
@@ -839,11 +953,20 @@ function corners() {
       <svg id="corner-svg" viewBox="0 0 ${p.w} ${p.h}" data-w="${p.w}" data-h="${p.h}" class="photo-svg${err ? ' has-error' : ''}" role="group" aria-label="Wall photo with four corner handles">
         <image href="${p.src}" x="0" y="0" width="${p.w}" height="${p.h}"/>
         <polygon points="${c.map((x) => x.join(',')).join(' ')}" class="quad"/>
-        ${c.map(([x, y], i) => `<g class="handle" data-corner="${i}" tabindex="0" role="button" aria-label="${names[i]} corner. Drag it, or use the arrow keys.">
+        ${c.map(([x, y], i) => `<g class="handle${(S.ui.corner || 0) === i ? ' is-picked' : ''}" data-corner="${i}" tabindex="0" role="button" aria-label="${names[i]} corner. Drag it, or use the arrow keys.">
           <circle cx="${x}" cy="${y}" r="${r * 2.2}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${r}" class="handle-dot"/></g>`).join('')}
       </svg>
     </div>
-    <p class="${err ? 'error' : 'small pencil'}" id="corner-msg">${esc(err || S.ui.cornerErr || 'Arrow keys nudge a selected corner.')}</p>
+    <p class="${err ? 'error' : 'small pencil'}" id="corner-msg">${esc(err || S.ui.cornerErr || 'Drag a dot, and a close-up shows what is under your finger. Tap a dot, then nudge it.')}</p>
+    <div class="nudge" id="nudge" role="group" aria-label="Nudge the selected corner">
+      <span class="nudge-who" id="nudge-who">${esc(names[S.ui.corner || 0])} corner</span>
+      <span class="nudge-pad">
+        <button type="button" class="icon-btn" data-nudge="0,-1" aria-label="Up">↑</button>
+        <button type="button" class="icon-btn" data-nudge="-1,0" aria-label="Left">←</button>
+        <button type="button" class="icon-btn" data-nudge="1,0" aria-label="Right">→</button>
+        <button type="button" class="icon-btn" data-nudge="0,1" aria-label="Down">↓</button>
+      </span>
+    </div>
     ${S.ui.quality || misses.length ? `<ul class="notes">${[S.ui.quality, ...misses].filter(Boolean).map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
     <div class="acts end">
       <a class="btn quiet" href="#/start">Use another photo</a>
@@ -1260,6 +1383,7 @@ function wallScreen() {
     <div class="wall-tools">
       <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button></div>
       ${L.variant === 'asis' ? '' : stepper(L)}
+      ${L.pieces.some((p) => p.ref.source === 'catalog' && !kept.has(p.ref.id)) ? `<button type="button" class="btn quiet small" data-act="refresh"${S.busy ? ' disabled' : ''}>${S.busy === 'refresh' ? 'Picking…' : 'New art'}</button>` : ''}
     </div>
     ${S.edit ? editBar(L) : ''}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
@@ -1320,21 +1444,34 @@ const ARTS = [['prints', 'Prints', 'From shops, to buy'], ['both', 'Prints + pho
 const FULLS = [['calm', 'Calm', 'Fewer, bigger pieces, more bare wall'], ['balanced', 'Balanced', 'In between'], ['full', 'Full', 'More pieces, less bare wall']];
 const kindLabel = () => ({ structured: 'Structured', gallery: 'Loose' }[S.draft.style] || 'Any kind');
 const countLabel = () => (S.draft.pieces ? `${S.draft.pieces} pieces` : 'Any count');
-const artLabel = () => (S.draft.justMine ? 'Just mine' : ARTS.find(([k]) => k === artMode())[1]);
+const artLabel = () => (S.draft.justMine ? 'Just mine' : `${ARTS.find(([k]) => k === artMode())[1]}${poolCount() ? ` · ${poolCount()} filter${poolCount() === 1 ? '' : 's'}` : ''}`);
 const fullLabel = () => FULLS.find(([k]) => k === (S.draft.fullness || 'balanced'))[1];
 // One row of chips, each showing what's picked; a chip that isn't the default is filled.
 function shapeChips() {
   const d = S.draft;
   const chip = (k, label, on) => `<button type="button" class="chip-btn${on ? ' is-on' : ''}" data-chip="${k}" aria-haspopup="dialog">${esc(label)}</button>`;
   return `<div class="chips-row" role="group" aria-label="What kind of walls">
-    ${chip('kind', kindLabel(), !!d.style)}${chip('count', countLabel(), !!d.pieces)}${chip('art', artLabel(), artMode() !== 'prints' || !!d.justMine)}${chip('full', fullLabel(), (d.fullness || 'balanced') !== 'balanced')}
+    ${chip('kind', kindLabel(), !!d.style)}${chip('count', countLabel(), !!d.pieces)}${chip('art', artLabel(), artMode() !== 'prints' || !!d.justMine || poolCount() > 0)}${chip('full', fullLabel(), (d.fullness || 'balanced') !== 'balanced')}
   </div>`;
 }
 function chipSheet(k) {
   const d = S.draft;
   const opt = (attr, val, label, sub, on) => `<li><button type="button" class="opt" data-${attr}="${esc(val)}" aria-pressed="${on}"><span class="opt-name">${esc(label)}</span>${sub ? `<span class="opt-sub">${esc(sub)}</span>` : ''}</button></li>`;
   if (k === 'kind') return `<h2 id="sheet-h">Kind of wall</h2><ul class="opts">${KINDS.map(([v, l, sub]) => opt('style', v || '', l, sub, (d.style || null) === v)).join('')}</ul>`;
-  if (k === 'art') return `<h2 id="sheet-h">Art</h2><ul class="opts">${ARTS.map(([v, l, sub]) => opt('art', v, l, sub, !d.justMine && artMode() === v)).join('')}${keptOwned().length ? opt('just', '1', 'Just my pieces', 'Nothing new, only what you own', !!d.justMine) : ''}</ul>`;
+  if (k === 'art') {
+    const f = pool(), mode = artMode();
+    const seg = (name, pairs, cur) => `<span class="seg" role="group" aria-label="${esc(name)}">${pairs.map(([v, l]) => `<button type="button" data-pool="${name}" data-v="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</span>`;
+    const shops = [['desenio', 'Desenio'], ['houseofspoils', 'House of Spoils'], ['free', 'Free photos']].filter(([v]) => mode === 'both' || (mode === 'prints' ? v !== 'free' : v === 'free'));
+    return `<h2 id="sheet-h">Art</h2><ul class="opts">${ARTS.map(([v, l, sub]) => opt('art', v, l, sub, !d.justMine && artMode() === v)).join('')}${keptOwned().length ? opt('just', '1', 'Just my pieces', 'Nothing new, only what you own', !!d.justMine) : ''}</ul>
+      ${d.justMine ? '' : `<p class="sheet-label">Leave out</p>
+      <div class="pool">
+        <div class="sheet-row"><span class="label">People</span>${seg('people', [['any', 'Fine'], ['none', 'No people']], f.people)}</div>
+        ${mode !== 'photos' ? `<div class="sheet-row"><span class="label">Price</span>${seg('maxPrice', PRICES, f.maxPrice)}</div>` : ''}
+        <div class="sheet-row"><span class="label">Color</span>${seg('color', [['any', 'Any'], ['color', 'Color only'], ['bw', 'Black and white']], f.color)}</div>
+        ${shops.length > 1 ? `<div class="sheet-row"><span class="label">From</span><span class="seg" role="group" aria-label="Shops">${shops.map(([v, l]) => `<button type="button" data-pool="shops" data-v="${v}" aria-pressed="${!f.shops.includes(v)}">${l}</button>`).join('')}</span></div>` : ''}
+        ${poolCount(f) ? '<button type="button" class="link" data-pool="clear">Clear the filters</button>' : ''}
+      </div>`}`;
+  }
   if (k === 'full') return `<h2 id="sheet-h">How full</h2><ul class="opts">${FULLS.map(([v, l, sub]) => opt('fullness', v, l, sub, (d.fullness || 'balanced') === v)).join('')}</ul>`;
   if (k === 'count') {
     const counts = (S.view && S.view.counts) || [];
@@ -1344,6 +1481,24 @@ function chipSheet(k) {
       <button type="button" class="opt opt-wide" data-count="any" aria-pressed="${!d.pieces}"><span class="opt-name">Any number</span></button>`;
   }
   return '';
+}
+// The same wall with new art in every frame that isn't kept or yours.
+function refreshArt() {
+  const L = shown();
+  if (!L) return;
+  const input = engineInput();
+  const fresh = L.pieces.filter((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)).map((p) => p.ref.id);
+  if (!fresh.length) { S.flash = 'Every piece here is kept or yours, so there is nothing to refresh.'; return; }
+  const exclude = [...new Set([...(S.seen.get(L.key) || []), ...fresh])].filter((x) => !keptSet().has(x));
+  let r = refill({ ...input, keep: keepList(), exclude }, L, {});
+  if (!r.layouts.length) r = refill({ ...input, keep: keepList(), exclude: fresh }, L, {});
+  if (!r.layouts.length) { S.flash = r.problems[0] ? r.problems[0].message : 'No other art fits these frames.'; return; }
+  const prev = L;
+  const next = { ...r.layouts[0], history: L.history, moved: L.moved };
+  replaceWall(L.key, next); remember(next);
+  logE('refresh', { wall: L.key, n: fresh.length });
+  S.ui.saved = null; persist();
+  S.undo = { label: `New art in ${fresh.length === 1 ? 'the one open frame' : `all ${fresh.length} frames`}.`, run: () => { replaceWall(prev.key, prev); persist(); } };
 }
 // Under the open wall: start from this one and add a piece or take one away.
 function stepper(L) {
@@ -1420,6 +1575,7 @@ function pieceSheet(id) {
     <div class="sheet-art"><span class="art-big" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt="${esc(item.title)}"></span></div>
     <p class="meta">${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}</p>
     <p class="meta">${p.w} x ${p.h} in frame${c && c.price != null ? `. ${money(c.price, c.currency)}` : ''}</p>
+    ${sizeRow(item, p)}
     <p>${esc(cleanReason(p.reason))}</p>
     ${item.record && item.record.description ? `<p class="pencil small">${esc(item.record.description)}.</p>` : ''}
     <p class="nail-line">Nail ${esc(inches(p.nail.y))} up, ${esc(inches(p.nail.x))} from the left end.</p>
@@ -1431,6 +1587,16 @@ function pieceSheet(id) {
     ${c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
 }
 
+// The sizes a piece comes in, as buttons; the one on the wall is pressed. Picking
+// another keeps the piece in every wall at that size and builds the walls again.
+function sizeRow(item, p) {
+  const by = new Map();
+  const list = item.offers && item.offers.length ? item.offers.filter((o) => o.w) : (item.sizes || []);
+  for (const o of list) { const k = `${o.w}x${o.h}`; if (!by.has(k) || (o.price != null && (by.get(k).price == null || o.price < by.get(k).price))) by.set(k, { w: o.w, h: o.h, price: o.price, currency: o.currency }); }
+  const sizes = [...by.values()].sort((a, b) => a.w * a.h - b.w * b.h);
+  if (sizes.length < 2) return '';
+  return `<div class="sizes" role="group" aria-label="Size">${sizes.map((z) => `<button type="button" class="size-btn" data-size="${z.w}x${z.h}" data-id="${esc(item.id)}" aria-pressed="${(z.w === p.w && z.h === p.h) || (z.w === p.h && z.h === p.w)}"${S.busy ? ' disabled' : ''}>${z.w} x ${z.h}${z.price != null ? `<span class="size-price">${esc(money(z.price, z.currency))}</span>` : ''}</button>`).join('')}</div>`;
+}
 function saveThisWall() {
   const L = shown();
   S.draft.chosen = L ? { layout: bareLayout(L), inputKey: viewKey() } : null;
@@ -1831,7 +1997,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1888,6 +2054,7 @@ function brokeScreen() {
 
 function wire(r) {
   if (r === 'start' && !S.warmed) { S.warmed = true; setTimeout(warm, 800); }
+  if (r === 'check') wireCheck();
   if (r === 'corners') wireCorners();
   if (r === 'things') wireThings();
   if (r === 'pieces' && S.draft && S.draft.photo) wireDraw();
@@ -1914,6 +2081,34 @@ function wireSwipe() {
   wrap.addEventListener('pointercancel', () => { start = null; });
 }
 
+// A close-up above the finger while dragging on a photo, since the finger hides
+// the very spot being placed. Shows the photo at 2.5x around the point, with a cross.
+// Only for touch and pen; a mouse pointer doesn't cover anything.
+function loupeFor(svg, src, imgW, imgH) {
+  let el = null;
+  const ZOOM = 2.5, SIZE = 120, LIFT = 90;
+  const make = () => {
+    el = document.createElement('div');
+    el.className = 'loupe'; el.setAttribute('aria-hidden', 'true');
+    el.style.backgroundImage = `url("${src}")`;
+    document.body.appendChild(el);
+  };
+  return {
+    show(e, pt) {
+      if (e.pointerType === 'mouse') return;
+      if (!el) make();
+      const box = (svg.querySelector('image') || svg).getBoundingClientRect();
+      const scale = (box.width / imgW) * ZOOM; // screen px per image px, in the loupe
+      el.style.backgroundSize = `${imgW * scale}px ${imgH * scale}px`;
+      el.style.backgroundPosition = `${SIZE / 2 - pt[0] * scale}px ${SIZE / 2 - pt[1] * scale}px`;
+      const x = Math.max(SIZE / 2 + 4, Math.min(window.innerWidth - SIZE / 2 - 4, e.clientX));
+      const y = e.clientY - LIFT < SIZE / 2 + 4 ? e.clientY + LIFT : e.clientY - LIFT;
+      el.style.left = `${x - SIZE / 2}px`; el.style.top = `${y - SIZE / 2}px`;
+      el.style.display = 'block';
+    },
+    hide() { if (el) el.style.display = 'none'; },
+  };
+}
 function dragOn(svg, onDown, onMove, onUp) {
   svg.addEventListener('pointerdown', (e) => {
     const ctx = onDown(e);
@@ -2136,19 +2331,39 @@ function wireCorners() {
     svg.querySelectorAll('.handle').forEach((g, i) => g.querySelectorAll('circle').forEach((ci) => { ci.setAttribute('cx', c[i][0]); ci.setAttribute('cy', c[i][1]); }));
     const err = cornerProblem(c, p.w, p.h);
     svg.classList.toggle('has-error', !!err);
-    const msg = $('#corner-msg'); msg.textContent = err || 'Tip: arrow keys nudge a selected corner.'; msg.className = err ? 'error' : 'muted small';
+    const msg = $('#corner-msg'); msg.textContent = err || 'Drag a dot, and a close-up shows what is under your finger. Tap a dot, then nudge it.'; msg.className = err ? 'error' : 'small pencil';
     const ok = document.querySelector('[data-act="corners-ok"]'); if (ok) ok.disabled = !!err;
   };
+  const names = ['Top left', 'Top right', 'Bottom right', 'Bottom left'];
+  const pick = (i) => {
+    S.ui.corner = i;
+    svg.querySelectorAll('.handle').forEach((g, j) => g.classList.toggle('is-picked', j === i));
+    const who = $('#nudge-who'); if (who) who.textContent = `${names[i]} corner`;
+  };
+  const loupe = loupeFor(svg, p.src, p.w, p.h);
   dragOn(svg, (e) => {
     const h = e.target.closest('.handle');
-    if (h) return { i: Number(h.dataset.corner) };
-    // A tap on the photo moves the nearest corner there.
-    const pt = toImg(e);
-    let i = 0, bd = Infinity;
-    p.corners.forEach((c, j) => { const dd = Math.hypot(c[0] - pt[0], c[1] - pt[1]); if (dd < bd) { bd = dd; i = j; } });
-    p.corners[i] = pt; update();
-    return { i, tapped: true };
-  }, (ctx, e) => { p.corners[ctx.i] = toImg(e); ctx.moved = true; update(); }, (ctx) => { if (ctx.moved || ctx.tapped) cornersChanged(); });
+    let ctx;
+    if (h) ctx = { i: Number(h.dataset.corner) };
+    else {
+      // A tap on the photo moves the nearest corner there.
+      const pt = toImg(e);
+      let i = 0, bd = Infinity;
+      p.corners.forEach((c, j) => { const dd = Math.hypot(c[0] - pt[0], c[1] - pt[1]); if (dd < bd) { bd = dd; i = j; } });
+      p.corners[i] = pt; update();
+      ctx = { i, tapped: true };
+    }
+    pick(ctx.i);
+    loupe.show(e, p.corners[ctx.i]);
+    return ctx;
+  }, (ctx, e) => { p.corners[ctx.i] = toImg(e); ctx.moved = true; update(); loupe.show(e, p.corners[ctx.i]); }, (ctx) => { loupe.hide(); if (ctx.moved || ctx.tapped) cornersChanged(); });
+  document.querySelectorAll('[data-nudge]').forEach((b) => b.addEventListener('click', () => {
+    const i = S.ui.corner || 0, [dx, dy] = b.dataset.nudge.split(',').map(Number);
+    const step = Math.max(1, Math.round(p.w / 400)); // about one screen pixel at phone size
+    p.corners[i] = [Math.max(0, Math.min(p.w, p.corners[i][0] + dx * step)), Math.max(0, Math.min(p.h, p.corners[i][1] + dy * step))];
+    update(); cornersChanged();
+  }));
+  svg.querySelectorAll('.handle').forEach((g) => g.addEventListener('focus', () => pick(Number(g.dataset.corner))));
   svg.querySelectorAll('.handle').forEach((g) => g.addEventListener('keydown', (e) => {
     const i = Number(g.dataset.corner), step = e.shiftKey ? 20 : 4;
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
@@ -2423,6 +2638,28 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.chip) { S.sheet = { chip: t.dataset.chip }; render(); return; }
+  if (t.dataset.size && t.dataset.id) {
+    const id = t.dataset.id, [w, h] = t.dataset.size.split('x').map(Number);
+    const L = shown(), p = L && L.pieces.find((x) => x.ref.id === id);
+    // Keep the piece's orientation on the wall.
+    const land = p && p.w > p.h, W = land ? Math.max(w, h) : Math.min(w, h), H = land ? Math.min(w, h) : Math.max(w, h);
+    const prevKept = clone(S.draft.kept || []), prevChosen = S.draft.chosen ? clone(S.draft.chosen) : null, prevOpen = S.openKey;
+    S.draft.kept = [...(S.draft.kept || []).filter((k) => k.id !== id), { id, w: W, h: H }];
+    S.draft.chosen = null; S.openKey = null; S.sheet = null; S.flash = null;
+    const item = byId.get(id);
+    logE('size', { id, w: W, h: H });
+    S.undo = { label: `${item ? item.title : 'That piece'} is ${W} x ${H} in now, kept in every wall. The walls were built again around it.`, run: () => { S.draft.kept = prevKept; S.draft.chosen = prevChosen; S.openKey = prevOpen; persist(); } };
+    S.focusAfter = '[data-act="undo"]'; persist(); render(); return;
+  }
+  if (t.dataset.pool) {
+    const f = pool(), k = t.dataset.pool, v = t.dataset.v;
+    if (k === 'clear') S.draft.pool = null;
+    else if (k === 'shops') { f.shops = f.shops.includes(v) ? f.shops.filter((x) => x !== v) : [...f.shops, v]; S.draft.pool = f; }
+    else if (k === 'maxPrice') { f.maxPrice = v === '' ? null : Number(v); S.draft.pool = f; }
+    else { f[k] = v; S.draft.pool = f; }
+    logE('shape', { pool: k, v });
+    S.openKey = null; resetLayouts(); persist(); render(); return;
+  }
   if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; S.draft.pieces = null; logE('shape', { fullness: t.dataset.fullness }); rebuild('fullness'); return; }
   if (t.dataset.style !== undefined) { S.draft.style = t.dataset.style || null; logE('shape', { style: S.draft.style }); rebuild('style'); return; }
   if (t.dataset.art) { S.draft.art = t.dataset.art; S.draft.justMine = false; logE('shape', { art: t.dataset.art }); rebuild('art'); return; }
@@ -2514,6 +2751,11 @@ document.addEventListener('click', (e) => {
       const id = t.dataset.id; S.flash = null;
       S.busy = `swap:${id}`; render();
       setTimeout(() => { try { swapPiece(id); } finally { S.busy = null; S.sheet = null; S.selected = null; render(); const u = document.querySelector('[data-act="undo"]') || document.querySelector('#drawing-wrap'); if (u) u.focus({ preventScroll: true }); } }, 30);
+      break;
+    }
+    case 'refresh': {
+      S.flash = null; S.busy = 'refresh'; render();
+      setTimeout(() => { try { refreshArt(); } finally { S.busy = null; S.sheet = null; S.selected = null; render(); const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } }, 30);
       break;
     }
     case 'undo': if (S.undo) { S.undo.run(); S.undo = null; S.flash = null; render(); } break;

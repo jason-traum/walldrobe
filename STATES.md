@@ -46,6 +46,7 @@ States that apply everywhere:
 |---|---|---|
 | Getting the reader | First photo only: "Getting the photo reader ready… 45%" on the button while the image model downloads (about 30 MB) | Wait |
 | Reader didn't load | The corners screen says "The photo reader didn't load, so these are rougher guesses than usual." | Drag, "Looks right" |
+| Dragging a dot | A round close-up floats above the finger showing the spot under it, with a cross. The picked dot is filled, and a nudge pad under the photo moves it a pixel at a time | Drag, nudge |
 | Checking | The photo with a dot on each corner of the wall where we found it. A note when the ceiling or the floor wasn't in the photo, or when a soffit is over the wall | Drag, "Looks right" |
 | Reading | "Reading your wall…" on the button while the wall inside the corners is flattened and read | Wait |
 | Corners crossed or off photo | Handles turn to the error style, "Corners should go clockwise from top left." | Fix |
@@ -70,6 +71,7 @@ One screen after the corners: the flattened photo with what we found marked, the
 
 | State | What they see | Action |
 |---|---|---|
+| A box picked | Tap any box on the photo: four corner handles and its size under it. Drag a corner to resize, the middle to move; the same close-up follows the finger. The row's fields follow | Drag, Fix |
 | Found art | Each piece as a row: thumbnail cut from the photo, "Your [title]", size, Keep / Skip (Keep is on) | Keep, Skip, Fix |
 | Fixing a piece | Name, wide and tall in the row, and a photo button for art that isn't up | Done, Remove |
 | None found | "We didn't find any art on this wall." | Add art that isn't up yet, Mark art we missed |
@@ -99,6 +101,7 @@ After the first wall, never before it. Reached from Change.
 | State | What they see | Action |
 |---|---|---|
 | Building | The bare wall, "Finding every wall that fits…" | Wait |
+| Art filters | In the Art chip, under the modes: People (Fine, No people), Price (Any, Under $50, $100, $250), Color (Any, Color only, Black and white), From (each shop on or off). The chip reads "Prints · 2 filters" | Tap, Clear the filters |
 | Chips | One row above the list: Any kind, Any count, Prints, Balanced. Each opens a sheet of options with one line each. A chip that isn't the default is filled | Tap a chip, pick |
 | A count this kind can't make | Moves to the nearest one that works and says so: "6 pieces don't make a structured layout here. 5 do." | |
 | Nothing fits the picks | Kind and count let go: "Nothing structured, 6 pieces fits here, so these are what does." | |
@@ -124,7 +127,8 @@ Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full)
 | As it hangs now | Your pieces where they are, always in the list when every piece has a spot. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: [the first two]." | |
 | Tape colors on screen | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." Or "Stays where it hangs now." or "Not up yet: hang it here." | |
-| New piece sheet | Image, title, artist and shop, frame size and price, reason, nail spot | Save, Swap this one, Keep it in every wall, See it at [shop] |
+| New piece sheet | Image, title, artist and shop, frame size and price, every size the shop sells with its price, reason, nail spot | Pick a size, Save, Swap this one, Keep it in every wall, See it at [shop] |
+| New art | "New art" under the drawing: the same frames with new picks, kept pieces and yours stay. "New art in all 6 frames. Undo" | Undo |
 | Your piece sheet | Thumbnail, size, move note, reason, nail spot ("Already up." when pinned) | Pin it where it hangs (or Let it move), Leave it out |
 | Swapped | The new piece fades in, the wall keeps its place in the list. "Swapped [title] for [title]. Undo" | Undo |
 | No other art fits | "No other art fits this frame." | |
