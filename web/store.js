@@ -68,3 +68,10 @@ export function logEvent(type, data = {}) {
 }
 export const listEvents = () => { const l = read(EVENTS, []); return Array.isArray(l) ? l : []; };
 export function clearEvents() { if (demoMode) return; try { localStorage.removeItem(EVENTS); } catch { /* nothing to clear */ } }
+
+// Walls people shared: before, after, the others they considered, the pieces.
+// For now they live on this device; the public feed comes with the server.
+const SHARED = 'walldrobe.shared.v1';
+export const listShared = () => read(SHARED, []);
+export function addShared(post) { const all = listShared().filter((x) => x.id !== post.id); all.unshift(post); return write(SHARED, all); }
+export function removeShared(id) { return write(SHARED, listShared().filter((x) => x.id !== id)); }

@@ -189,6 +189,15 @@ Every piece in the catalog, apart from any wall: shop prints (Desenio, House of 
 | Already kept | "Kept in every wall." in the sheet, no See it on my wall | |
 | Closing the sheet | Focus goes back to the piece that opened it | |
 
+## 10d. Walls people hung
+
+| State | What they see | Action |
+|---|---|---|
+| None | "Share a wall from its Get it screen and it lands here." | |
+| Posts | Name, room, date, a line; Before and After drawings; Also considered, three small walls with their why lines; the pieces with hearts | Save a piece, Try these on my wall, Remove |
+| Share sheet (Get it) | What goes up, a name field, a line | Share, Not now |
+| Try these on my wall | Their new pieces kept in every wall of yours at their sizes: "3 pieces from that wall, kept in every wall of yours." | |
+
 ## 11. Your walls
 
 | State | What they see | Action |

@@ -450,6 +450,7 @@ function home() {
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
       <p class="how">One photo, then check what we found. Pick a wall from the list. Tape it up, step back, hang it.</p>
+    <p class="how"><a href="#/community">See what people hung</a>${store.listShared().length ? ` (${store.listShared().length})` : ''}</p>
       <p class="home-browse"><a href="#/browse">Or just browse every print</a></p>
     </div>
   </main>
@@ -1575,7 +1576,7 @@ function refreshAll() {
 
 function sheetHtml() {
   if (!S.sheet) return '';
-  const body = S.sheet === 'change' ? changeSheet() : S.sheet.chip ? chipSheet(S.sheet.chip) : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
+  const body = S.sheet === 'change' ? changeSheet() : S.sheet === 'share' ? shareSheet() : S.sheet.chip ? chipSheet(S.sheet.chip) : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
   if (!body) return '';
   return `<div class="backdrop" data-act="close-sheet"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" id="sheet">
@@ -1603,7 +1604,7 @@ function changeSheet() {
     ${wallItems ? `<p class="sheet-label">This wall</p><ul class="sheet-list">${wallItems}</ul>` : ''}
     <p class="sheet-label">Your taste</p><ul class="sheet-list">${tasteItems}</ul>
     <nav class="sheet-links" aria-label="Go to">
-      <a href="${d.photo ? '#/check' : '#/things'}">Fix what's marked</a><a href="#/browse">Browse</a><a href="#/saved">Saved${ME.saved.length ? ` (${ME.saved.length})` : ''}</a><a href="#/walls">Your walls</a><a href="#/new">New wall</a>
+      <a href="${d.photo ? '#/check' : '#/things'}">Fix what's marked</a><a href="#/browse">Browse</a><a href="#/saved">Saved${ME.saved.length ? ` (${ME.saved.length})` : ''}</a><a href="#/walls">Your walls</a><a href="#/community">Walls people hung</a><a href="#/new">New wall</a>
     </nav>`;
 }
 function pieceSheet(id) {
@@ -2102,9 +2103,10 @@ function getScreen() {
     </section>
     <div class="acts left">
       <button type="button" class="btn" data-act="save">${S.ui.saved === d.id && !store.demoMode ? 'Saved on this device' : 'Save this wall'}</button>
+      <button type="button" class="btn quiet" data-act="share">Share this wall</button>
       <a class="btn quiet" href="#/wall">Back to this wall</a>
     </div>
-  </main>${credits()}`;
+  </main>${credits()}${sheetHtml()}`;
 }
 
 // The frames for the new pieces: one finish and mat or not, for the whole wall.
@@ -2152,6 +2154,74 @@ function frameRow(id, p) {
   </span>`;
 }
 
+// ---------- Walls: what people hung, before and after ----------
+
+// A share card: the wall as it was, the wall they hung, the others they considered, the pieces.
+// Only the flattened wall goes in, never the room photo; your own pieces as sizes and thumbs.
+function makePost(note, name) {
+  const d = S.draft, L = shown(), v = S.view;
+  if (!L) return null;
+  const others = (v ? v.list : []).filter((x) => x.key !== L.key && x.variant !== 'asis').slice(0, 3);
+  const bare = (X) => ({ ...bareLayout(X), why: X.why || null });
+  return {
+    id: `post${Date.now().toString(36)}`, at: new Date().toISOString(), name: (name || '').trim().slice(0, 40), note: (note || '').trim().slice(0, 240),
+    wall: { width: d.width, height: d.height }, obstacles: d.obstacles,
+    before: d.photo && d.photo.flat ? d.photo.flat : null, clean: d.photo && d.photo.flat ? cleanWall() : null,
+    after: bare(L), considered: others.map(bare),
+    owned: d.owned.filter((o) => o.keep !== 'skip').map((o) => ({ id: o.id, title: o.title, w: o.w, h: o.h, at: o.at || null, thumb: o.thumb || null, color: o.color || null })),
+    frames: L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => ({ id: p.ref.id, ...frameFor(p.ref.id, p) })),
+    kept: keepList(), sample: !!d.sample, room: d.name,
+  };
+}
+function postSvg(post, L, px, opts = {}) {
+  const ownedFor = (id) => { const o = post.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color } : null; };
+  const fr = post.frames ? new Map(post.frames.map((f) => [f.id, f])) : new Map();
+  return wallSvg({ wall: post.wall, obstacles: post.obstacles, photo: opts.before ? post.before : post.clean, hideObstacles: !!post.before, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor, keptIds: new Set((post.kept || []).map((k) => k.id)), still: true, pxWide: px, frames: L && opts.framed ? (p) => { const f = fr.get(p.ref.id); return f ? frameDraw(f, p) : null; } : null, label: opts.label || post.room });
+}
+function communityScreen() {
+  const posts = store.listShared();
+  const px = pxNow();
+  const date = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };
+  const cards = posts.map((post) => {
+    const fresh = post.after.pieces.filter((p) => p.ref.source === 'catalog');
+    const pieces = fresh.map((p) => { const it = byId.get(p.ref.id); if (!it) return ''; const saved = ME.saved.includes(it.id); return `<li class="row piece-row">
+        <button type="button" class="row-open" data-browse="${esc(it.id)}"><span class="thumb" style="aspect-ratio:${it.aspect || p.w / p.h}"><img src="${it.imageData}" alt=""></span><span class="row-text"><span class="name">${esc(it.title)}</span><span class="meta">${p.w} x ${p.h} in${it.offers && it.offers.length ? `, ${esc(it.source)}` : ', free photo'}</span></span></button>
+        <button type="button" class="heart" data-save="${esc(it.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Saved' : 'Save'} ${esc(it.title)}">${heart(saved)}</button></li>`; }).join('');
+    return `<li class="post" id="${esc(post.id)}">
+      <p class="post-head"><span class="post-who">${esc(post.name || 'Someone')}</span> <span class="pencil">${esc(post.room)}, ${esc(date(post.at))}${post.sample ? ', a sample wall' : ''}</span></p>
+      ${post.note ? `<p class="post-note">${esc(post.note)}</p>` : ''}
+      <div class="post-pair">
+        ${post.before ? `<figure><div class="drawing">${postSvg(post, null, px, { before: true, label: 'Before' })}</div><figcaption>Before</figcaption></figure>` : ''}
+        <figure><div class="drawing">${postSvg(post, post.after, px, { framed: true, label: 'After' })}</div><figcaption>After. ${esc((post.after.why && post.after.why.text) || post.after.summary || '')}</figcaption></figure>
+      </div>
+      ${post.considered.length ? `<p class="sheet-label">Also considered</p><div class="post-others">${post.considered.map((L) => `<figure><div class="drawing">${postSvg(post, L, Math.round(px / 2), { label: 'Considered' })}</div><figcaption>${esc((L.why && L.why.text) || L.summary || '')}</figcaption></figure>`).join('')}</div>` : ''}
+      ${fresh.length ? `<p class="sheet-label">The pieces</p><ul class="rows">${pieces}</ul>` : ''}
+      <div class="acts left">
+        ${fresh.length && S.draft && !need() ? `<button type="button" class="btn quiet small" data-try-set="${esc(post.id)}">Try these on my wall</button>` : ''}
+        <button type="button" class="link" data-unshare="${esc(post.id)}">Remove</button>
+      </div>
+    </li>`;
+  }).join('');
+  return `${bar(back('#/', 'Walldrobe'), S.draft && !need() ? '<a class="btn quiet small" href="#/wall">My wall</a>' : '<a class="btn quiet small" href="#/new">Start a wall</a>')}
+  <main class="page">
+    <h1>Walls</h1>
+    <p class="lede">What people hung: the wall before, the wall after, and the others they thought about. ${posts.length ? '' : 'Share a wall from its Get it screen and it lands here.'}</p>
+    <p class="note">For now, shared walls stay on this device. The public feed is next.</p>
+    ${flashHtml()}
+    ${posts.length ? `<ul class="posts">${cards}</ul>` : ''}
+  </main>${sheetHtml()}`;
+}
+function shareSheet() {
+  const d = S.draft;
+  return `<h2 id="sheet-h">Share this wall</h2>
+    <p class="pencil small">What goes up: the flattened wall (not your room photo), the wall you picked, the three you also considered, and the pieces. Your pieces as sizes and small thumbnails. You can remove it any time.</p>
+    <form id="share-form" class="fields">
+      <label class="name-in"><span>Your name, or leave it blank</span><input type="text" name="who" maxlength="40" value="${esc(ME.name || '')}"></label>
+      <label class="name-in"><span>A line about it, if you like</span><input type="text" name="note" maxlength="240" placeholder="Why this one?"></label>
+      <div class="acts left"><button class="btn" type="submit">Share</button><button class="btn quiet" type="button" data-act="close-sheet">Not now</button></div>
+    </form>`;
+}
+
 // ---------- Your walls ----------
 
 function walls() {
@@ -2180,7 +2250,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['trySet', 'unshare', 'look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -2194,9 +2264,9 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { profile: profileScreen, '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, saved: savedScreen, browse: browseScreen };
+  const screens = { community: communityScreen, profile: profileScreen, '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, saved: savedScreen, browse: browseScreen };
   const fn = screens[r0] || home;
-  document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', saved: 'Saved · Walldrobe', browse: 'Every print · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe', profile: 'Your taste · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', community: 'Walls people hung · Walldrobe', saved: 'Saved · Walldrobe', browse: 'Every print · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe', profile: 'Your taste · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -2612,6 +2682,18 @@ document.addEventListener('submit', (e) => {
   const f = e.target;
   if (f.id === 'drop-form') { const i = $('#drop'); if (i) i.dispatchEvent(new Event('change', { bubbles: true })); return; }
   if (f.id === 'dims-form') { changeDims(f); return; }
+  if (f.id === 'share-form') {
+    const who = f.elements.who.value, note = f.elements.note.value;
+    const post = makePost(note, who);
+    if (!post) return;
+    ME.name = who.trim().slice(0, 40); syncMe();
+    logE('share', { wall: post.after.key, considered: post.considered.length, note: !!post.note });
+    const ok = store.addShared(post);
+    S.sheet = null;
+    S.flashNext = ok ? 'Shared. For now it lives on this device; the public feed is next.' : store.demoMode ? 'Sample mode: nothing is shared.' : "Didn't save; this device's storage may be full.";
+    go('#/community');
+    return;
+  }
   if (f.id === 'size-form') {
     const v = (n) => Number(f.elements[n].value || 0);
     const W = v('wft') * 12 + v('win'), H = v('hft') * 12 + v('hin');
@@ -2884,6 +2966,33 @@ document.addEventListener('click', (e) => {
     if (onWall && L) { S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '.stepper .step-n'; persist(); render(); } else { S.openKey = null; rebuild('count'); S.focusAfter = '.stepper .step-n'; }
     return;
   }
+  if (t.dataset.axis) {
+    const d = S.draft, axis = t.dataset.axis, v = t.dataset.lean;
+    if (!d.taste || d.taste.source !== 'yours') d.taste = { source: 'yours', weights: null, picks: [], corrections: [] };
+    d.taste.corrections = [...(d.taste.corrections || []).filter((c) => c.axis !== axis), { axis, lean: v === 'none' ? null : v }];
+    logE('taste-set', { axis, lean: v });
+    resetLayouts(); persist(); render(); return;
+  }
+  if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
+  if (t.dataset.unshare) { store.removeShared(t.dataset.unshare); S.flash = 'Removed.'; render(); return; }
+  if (t.dataset.trySet) {
+    const post = store.listShared().find((x) => x.id === t.dataset.trySet);
+    if (!post || !S.draft) return;
+    // Their new pieces, kept in every one of your walls at the sizes they used.
+    const fresh = post.after.pieces.filter((p) => p.ref.source === 'catalog' && byId.get(p.ref.id));
+    S.draft.kept = [...(S.draft.kept || []).filter((k) => !fresh.some((p) => p.ref.id === k.id)), ...fresh.map((p) => ({ id: p.ref.id, w: p.w, h: p.h }))];
+    S.draft.justMine = false; S.draft.chosen = null; S.openKey = null; resetLayouts(); persist();
+    logE('try-set', { post: post.id, n: fresh.length });
+    S.flashNext = `${fresh.length} piece${fresh.length === 1 ? '' : 's'} from that wall, kept in every wall of yours. Tap one to let it go.`;
+    go('#/layouts'); return;
+  }
+  if (t.dataset.turn) { const o = S.draft.owned.find((x) => x.id === t.dataset.turn); if (o) { [o.w, o.h] = [o.h, o.w]; resetLayouts(); persist(); render(); } return; }
+  if (t.dataset.try) { tryOnWall(t.dataset.try); return; }
+  if (t.dataset.addPast) {
+    const a = ME.art.find((x) => x.id === t.dataset.addPast);
+    if (a) { S.draft.owned.push({ id: a.id, title: a.title, w: a.w, h: a.h, keep: 'must', pinned: false, thumb: a.thumb || undefined, color: a.color || '#8A8F94', palette: a.palette || [{ hex: a.color || '#8A8F94', weight: 1 }], fromPhoto: false }); resetLayouts(); persist(); render(); }
+    return;
+  }
   if (t.dataset.forgetArt) { ME.art = ME.art.filter((x) => x.id !== t.dataset.forgetArt); syncMe(); render(); return; }
   if (t.dataset.browse) { S.sheet = { browse: t.dataset.browse }; render(); return; }
   if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; S.selected = t.dataset.piece; render(); return; }
@@ -2927,6 +3036,7 @@ document.addEventListener('click', (e) => {
     case 'quiz-done': finishQuiz(); break;
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;
     case 'change': S.sheet = 'change'; render(); break;
+    case 'share': S.sheet = 'share'; render(); break;
     case 'close-sheet': closeSheet(); break;
     case 'keep': {
       const id = t.dataset.id, prevKept = clone(S.draft.kept || []), prevChosen = S.draft.chosen ? clone(S.draft.chosen) : null;

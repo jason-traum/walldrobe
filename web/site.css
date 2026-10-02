@@ -527,3 +527,15 @@ svg.is-dragging .measure { opacity: 0.25; }
 .frame-pick .seg button { flex: 1 0 auto; border-top: 1px solid var(--hairline); margin-top: -1px; }
 .frame-row select { max-width: 100%; }
 .fine .label { font: 500 14px/20px var(--font); color: var(--pencil); margin-top: 4px; }
+
+/* Walls people hung: one post per wall, before and after side by side on wide screens. */
+.posts { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px; }
+.post { display: grid; gap: 12px; }
+.post-head { margin: 0; }
+.post-who { font-weight: 600; }
+.post-note { margin: 0; font: 500 17px/24px var(--font); }
+.post-pair { display: grid; gap: 12px; }
+.post-pair figure, .post-others figure { margin: 0; display: grid; gap: 6px; }
+.post-pair figcaption, .post-others figcaption { color: var(--pencil); font-size: 14px; line-height: 20px; }
+.post-others { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 700px) { .post-pair { grid-template-columns: 1fr 1fr; } }
