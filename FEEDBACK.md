@@ -62,3 +62,22 @@ Status: Live (on the real link), v3 (on branch v3, not live), To do, Reversed (a
 | 42 | "I'm really not sold on this... the UI was better before, it was just lacking features... last night after the really big run... it slowly drifted... so many decisions and too many buttons." | Pause on v3. Proposed: go back to the a63c921 build (Oct 1, 11:19 pm) as the frozen base and add features back one at a time inside its structure, no new button on the main screen, keep or cut after each. | Jason | Three UI rebuilds in one day (strip, steps, lenses) were the drift; the features weren't the problem. | Open, waiting on Jason |
 | 43 | "Save this wall and Get this wall can be MUCH smaller icons." | To do in the rebuild: Save and Get as small icon buttons, not full-width buttons. | Jason | They took the space the wall should have. | To do |
 | 44 | "First lock in a layout preference, then curate the art, then save a wall with the pieces in it, then keep playing, make another, then compare them." | The order for the rebuild: feed is for picking a layout, the open wall is for the art, Save keeps a wall, and Your walls gets a side by side compare. Compare is new. | Jason | Matches how he actually works on a wall. | To do |
+
+## Backfilled (said earlier on 2026-10-02, missing from the rows above)
+
+| # | Jason said | What changed | Who | Why | Status |
+|---|---|---|---|---|---|
+| 45 | "Review the marketplace of prints and the various sizes they come in... view my favorites." | Browse page (every print, sizes, filters) and the Saved page. | Jason | | Live |
+| 46 | "A more detailed test, preferences refined including complementary... train our model but know people have differentiated preferences." | Seven style measures, pieces that pair well in ranking, an on-device log of what people do. Learning from everyone is not built. | Jason | | Partly live |
+| 47 | "Make the algos better: scaling from perspective, estimating wall height, friction in setup." | Scale from every reference in the photo, reconciled; door and ceiling only when the floor shows; the photo model downloads early. | Claude | | Live |
+| 48 | "Track if art disappears from these websites... good metadata... scrape the needed data for existing art." | Catalog health check drops gone pieces. Metadata clean-up and filling gaps not done. | Claude | | Partly live |
+| 49 | "A large wall with two sections or a bump-out... a full house at once, walls near each other talk to one another." | Wall edge (art never crosses it). Proper sections and a whole home are not built. | Jason | | To do |
+| 50 | "Use subagents... run tests on the apartments... compare the algo to what you can find with your natural LLM." | A reader benchmark on 40 stock photos plus his bedroom, read by eye; fixes from it. | Jason | | Done once |
+| 51 | (his bedroom wall) "Why might mine feel better? The variance? It's a bit playful." | Free-form rules from his wall: anchor the biggest, neighbors line up, centered over two pieces of furniture. | Claude | | Live |
+| 52 | "I still had to relabel like everything by hand." | Reader fixes from the benchmark. Still open on his couch photo: couch and shelf merge, the curtain hides a corner. | Claude | | Partly live |
+| 53 | "Too many words, and these choices all look equal even though they mean very different things." | Shorter labels; not fully solved. | Jason | | Open |
+| 54 | "Should I add an advanced decisions option?" | No advanced mode; levers went into Change, then Adjust. | Claude | Two modes double the interface. | Live |
+| 55 | "An easy way to modestly adjust the art sizes or bed on the frame." | Drag any corner of any box on the confirm photo. | Jason | | Live |
+| 56 | "When placing the corner on iPhone, your fingers are on top of the photo." | A close-up above the finger and a nudge pad. | Jason | | Live |
+| 57 | "Can you point to both versions of the app via links?" | Links to v1, v2 and v3 given. | Jason | | Done |
+| 58 | "We need to start from scratch and do a huge planning session like we did before... with the UI/UX review folder, the anti-slop flow and checklist." | design/REDO_V4_PROMPT.md: the v2 redo process with the playbook, starting from a63c921, a control budget per screen, features added one at a time with keep or cut, and guardrails against drift. To run in a fresh chat. | Jason | The v2 redo process worked; drift came from skipping it. | Ready |
