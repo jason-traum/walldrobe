@@ -504,3 +504,13 @@ svg.is-dragging .measure { opacity: 0.25; }
 
 /* A corner or step in the wall: a dashed line, floor to ceiling. */
 .wall-edge { stroke: var(--on-wall); stroke-width: 0.6; stroke-dasharray: 2 1.5; opacity: 0.7; }
+
+/* Your taste, on the feed: one line and one action. */
+.taste-line { display: grid; gap: 8px; margin: 0 0 16px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-control); }
+.taste-line p { margin: 0; }
+.taste-h { font-weight: 600; }
+.taste-line .acts { gap: 8px 16px; align-items: center; }
+.frame-pick { display: grid; gap: 8px; margin: 0 0 16px; }
+.frame-light { stroke: #C9C7C0; stroke-width: 0.15; }
+.frame-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; }
+.frame-row select { min-height: 44px; }

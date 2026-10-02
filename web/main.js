@@ -1212,6 +1212,7 @@ function profileScreen() {
   <main class="page">
     <h1>What we learned</h1>
     <p class="lede">${esc(prof ? prof.summary : 'No lean yet: pick a few pairs and this fills in.')}</p>
+    ${prof && prof.picks < 14 ? `<p class="pencil small">From ${prof.picks} pick${prof.picks === 1 ? '' : 's'}. About 14 gives every line a word; each pick adds to the ones before.</p>` : prof ? `<p class="pencil small">From ${prof.picks} picks. More picks keep sharpening it.</p>` : ''}
     <p class="pencil small">Wrong about something? Set it here and every wall ranks for it.</p>
     <ul class="rows">${rows}</ul>
     <div class="acts left"><a class="btn" href="#/layouts">Show my walls</a><a class="btn quiet" href="#/taste">Pick more pairs</a></div>
@@ -1230,7 +1231,8 @@ function taste() {
   const q = S.quiz;
   const [a, b] = q.pair;
   const card = (it) => `<button type="button" class="pick" data-pick="${esc(it.id)}" aria-label="${esc(it.title)}"><span class="pick-art" style="aspect-ratio:${it.aspect || 0.8}"><img src="${it.imageData}" alt=""></span><span class="pick-name">${esc(it.title)}</span></button>`;
-  return `${bar(back('#/layouts', 'Your walls'), `<span class="count">${q.n + 1} of ${QUIZ_LENGTH}</span>`)}
+  const before = q.picks.length - q.n;
+  return `${bar(back('#/layouts', 'Your walls'), `<span class="count">${q.n + 1} of ${QUIZ_LENGTH}${before > 0 ? `, ${before} picked before` : ''}</span>`)}
   <main class="page quiz">
     <h1>Which would you rather have on your wall?</h1>
     <div class="pair-picks">${card(a)}${card(b)}</div>
@@ -1349,6 +1351,7 @@ function feed() {
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${shapeStrip(v.list[0])}
+    ${tasteLine()}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
     ${flashHtml()}
@@ -1469,7 +1472,7 @@ function shapeStrip(L) {
   // The count shown is the wall's own when none is set, so minus and plus step from it.
   const n = d.pieces || (L ? L.pieces.length : null);
   const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
-  const arts = [['prints', 'Prints'], ['both', 'Both'], ['photos', 'Photos'], ...(keptOwned().length ? [['mine', 'Mine']] : [])];
+  const arts = [['prints', 'Shop prints'], ['photos', 'Free art'], ['both', 'Both'], ...(keptOwned().length ? [['mine', 'Just mine']] : [])];
   const artCur = d.justMine ? 'mine' : artMode();
   return `<div class="strip" role="group" aria-label="Which walls">
     <div class="strip-row">
@@ -1507,6 +1510,15 @@ function chipSheet(k) {
       ${shops.length > 1 ? `<div class="sheet-row"><span class="label">From</span><span class="seg" role="group" aria-label="Shops">${shops.map(([v, l]) => `<button type="button" data-pool="shops" data-v="${v}" aria-pressed="${!f.shops.includes(v)}">${l}</button>`).join('')}</span></div>` : ''}
       ${poolCount(f) ? '<button type="button" class="link" data-pool="clear">Clear the filters</button>' : ''}
     </div>`;
+}
+
+// Your taste, right on the feed: start the test, or see what it learned and keep going.
+function tasteLine() {
+  const t = S.draft.taste;
+  const mine = t && t.source === 'yours' && ((t.picks || []).length || (t.corrections || []).length);
+  if (!mine) return `<div class="taste-line"><p><span class="taste-h">Make these yours.</span> Pick between pairs of art, about a minute, and the walls rank for your taste.</p><a class="btn small" href="#/taste">Start the taste test</a></div>`;
+  const prof = profileNow();
+  return `<div class="taste-line"><p><span class="taste-h">Ranked for your taste.</span> ${esc(prof ? prof.summary : '')}</p><span class="acts left"><a class="btn quiet small" href="#/taste">Pick more pairs</a><a class="link" href="#/profile">What we learned</a></span></div>`;
 }
 
 // ---------- Refresh the art: the same walls, new picks ----------
@@ -1913,7 +1925,49 @@ function costLine(c, long) {
   if (c.unpriced) bits.push(`${c.unpriced} without a listed price`);
   return bits.join('. ');
 }
-const frameLink = (w, h) => `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} picture frame with mat`)}`;
+const FINISH_NAME = { black: 'black', white: 'white', oak: 'oak', brass: 'brass' };
+const FINISH_LABEL = { black: 'Black', white: 'White', oak: 'Oak', brass: 'Brass' };
+// The frame a piece suits, from what it is: black and white photos in black with
+// a mat; warm, painted or earthy pieces in oak; vintage, botanical and old-master
+// prints in brass; bright, graphic posters in white or black, no mat. Big pieces
+// (over 24 in on the long side) go without a mat; small ones get one.
+function suggestFrame(item, p) {
+  const r = (item && item.record) || {}, c = r.color || {}, t = r.tags || {};
+  const words = new Set([...(t.style || []), ...(t.vibe || []), ...(t.mood || []), ...(t.subjects || []), r.category, t.theme].filter(Boolean).map((x) => String(x).toLowerCase()));
+  const has = (...w) => w.some((x) => words.has(x));
+  const big = Math.max(p.w, p.h) > 24;
+  const photo = !(item && item.offers && item.offers.length) || has('film', 'documentary', 'aerial', 'portrait');
+  let finish, why;
+  if (c.bw || has('monochrome')) { finish = 'black'; why = 'black and white wants a black frame'; }
+  else if (has('classic', 'luxe', 'vintage', 'botanical', 'antique') || (has('painterly') && has('moody', 'dramatic'))) { finish = 'brass'; why = 'a classic or old-world piece suits brass'; }
+  else if (has('painterly', 'earthy', 'warm', 'western', 'rustic') || ((c.warmth ?? 0.5) >= 0.7 && (c.saturation ?? 0.5) < 0.5)) { finish = 'oak'; why = 'warm, earthy colors sit well in oak'; }
+  else if (has('pastel', 'soft', 'airy', 'dreamy', 'serene', 'fresh', 'riviera', 'summer', 'tropical') && (c.brightness ?? 0.5) >= 0.55) { finish = 'white'; why = 'a light, soft piece stays light in white'; }
+  else { finish = 'black'; why = 'black frames graphic and photo pieces cleanly'; }
+  const mat = big ? false : photo || (c.brightness ?? 0.5) >= 0.5;
+  return { finish, mat, why };
+}
+// Frames for the new pieces on this wall: matched (one finish for the set) or each its own, with any you changed by hand.
+function frameFor(id, p) {
+  const d = S.draft, f = (d && d.frames) || {};
+  const own = f.each && f.each[id];
+  if (own) return own;
+  const sug = suggestFrame(byId.get(id), p);
+  if (f.mode === 'each') return sug;
+  return { finish: f.finish || setFinish(), mat: f.mat === undefined ? sug.mat : f.mat };
+}
+// The finish most of the pieces suit; black when your own frames are on the wall, since most are black.
+function setFinish() {
+  const L = shown();
+  if (!L) return 'black';
+  if (L.pieces.some((p) => p.ref.source !== 'catalog')) return 'black';
+  const count = {};
+  for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) { const k = suggestFrame(byId.get(p.ref.id), p).finish; count[k] = (count[k] || 0) + 1; }
+  // A tie goes to black, which works with anything.
+  const top = Object.entries(count).sort((a, b) => b[1] - a[1] || (a[0] === 'black' ? -1 : b[0] === 'black' ? 1 : 0));
+  return top.length && (top.length === 1 || top[0][1] > top[1][1]) ? top[0][0] : 'black';
+}
+const frameStyle = () => ({ finish: 'black', mat: true, ...((S.draft && S.draft.frames) || {}) });
+const frameLink = (w, h, id) => { const f = id ? frameFor(id, { w, h }) : frameStyle(); return `https://www.amazon.com/s?k=${encodeURIComponent(`${Math.min(w, h)}x${Math.max(w, h)} ${FINISH_NAME[f.finish]} picture frame${f.mat ? ' with mat' : ''}`)}`; };
 
 // The wall's size is measured when you typed it or set it by tape; a size
 // worked out from a TV or a door in the photo is an estimate.
@@ -1971,12 +2025,14 @@ function getScreen() {
       const o = shop.main;
       return `<li class="row buy">${thumb}<span class="row-text"><span class="name">${esc(item.title)}</span>
         <span class="meta">Art by ${esc(item.artist)}, ${esc(item.source)}. ${o.w ? `${o.w} x ${o.h} in print${o.framed ? ', framed' : `, fits ${aOrAn(o.w)} ${o.w} x ${o.h} in frame`}` : `${p.w} x ${p.h} in frame`}${o.price != null ? `. ${money(o.price, o.currency)}` : ''}</span>
-        <span class="row-acts"><a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>${o.framed ? '' : `<a class="btn quiet small" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>`}</span></span></li>`;
+        ${o.framed ? '' : frameRow(item.id, p)}
+        <span class="row-acts"><a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>${o.framed ? '' : `<a class="btn quiet small" href="${frameLink(p.w, p.h, p.ref.id)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>`}</span></span></li>`;
     }
-    const ps = printSize(p.w, p.h);
+    const ps = frameFor(p.ref.id, p).mat ? printSize(p.w, p.h) : [p.w, p.h];
     return `<li class="row buy">${thumb}<span class="row-text"><span class="name">${esc(item.title)}</span>
       <span class="meta">Photo by ${esc(item.artist)} on ${esc(item.source)}. ${ps ? `Print it ${ps[0]} x ${ps[1]} in for a ${p.w} x ${p.h} in frame with a mat` : `${p.w} x ${p.h} in frame`}. Free under the ${esc(item.record.source.license)}.</span>
-      <span class="row-acts"><a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a><a class="btn quiet small" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a></span></span></li>`;
+      ${frameRow(item.id, p)}
+      <span class="row-acts"><a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a><a class="btn quiet small" href="${frameLink(p.w, p.h, p.ref.id)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a></span></span></li>`;
   }).join('');
   return `${bar(back('#/wall', 'This wall'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
   <main class="page get">
@@ -1990,13 +2046,14 @@ function getScreen() {
     </section>` : ''}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <h2 id="guide-h">Where the nails go</h2>
+      ${fresh.length ? framePicker() : ''}
       ${estimate ? `<p class="note">These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : ''}
       <form class="fields drop-form" id="drop-form">
         <label for="drop">Wire or hanger sits</label>
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
         <span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>
       </form>
-      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: keptSet(), measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
+      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, photo: d.photo && d.photo.flat ? cleanWall() : null, hideObstacles: !!(d.photo && d.photo.flat), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: keptSet(), measure: true, still: true, pxWide: pxNow(), frames: (p) => frameFor(p.ref.id, p), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">Frame</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
         <tbody>${hangOrder.map((p) => `<tr><td>${esc(nameOf(p))}${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.w} x ${p.h} in</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
@@ -2011,6 +2068,27 @@ function getScreen() {
       <a class="btn quiet" href="#/wall">Back to this wall</a>
     </div>
   </main>${credits()}`;
+}
+
+// The frames for the new pieces: one finish and mat or not, for the whole wall.
+function framePicker() {
+  const f = (S.draft && S.draft.frames) || {};
+  const mode = f.mode === 'each' ? 'each' : 'set';
+  const seg = (name, pairs, cur, attr) => `<span class="seg" role="group" aria-label="${esc(name)}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</span>`;
+  const fin = f.finish || setFinish();
+  return `<div class="frame-pick">
+    <p class="sheet-label">Frames for the new pieces</p>
+    <div class="strip-row">${seg('Frames', [['set', 'Matched set'], ['each', 'Each its own']], mode, 'fmode')}</div>
+    ${mode === 'set' ? `<div class="strip-row">${seg('Finish', [['black', 'Black'], ['white', 'White'], ['oak', 'Oak'], ['brass', 'Brass']], fin, 'finish')}${seg('Mat', [['1', 'Mat'], ['0', 'No mat']], f.mat === undefined ? '' : f.mat ? '1' : '0', 'mat')}</div>
+    <p class="pencil small">${f.finish ? '' : `${FINISH_LABEL[fin]} ${fin === 'black' ? 'ties the set together' : 'suits most of these pieces'}${shown() && shown().pieces.some((p) => p.ref.source !== 'catalog') ? ' and matches your own frames' : ''}. `}${f.mat === undefined ? 'Mats where a piece wants one. ' : ''}Change any piece below.</p>`
+    : '<p class="pencil small">Each piece in the frame that suits it best. Change any piece below.</p>'}
+  </div>`;
+}
+// One piece's frame, under its name in the buy list: what it is, and why, with the choices.
+function frameRow(id, p) {
+  const f = frameFor(id, p), sug = suggestFrame(byId.get(id), p);
+  const own = S.draft.frames && S.draft.frames.each && S.draft.frames.each[id];
+  return `<span class="frame-row"><label class="inline"><span>Frame</span><select data-fpiece="${esc(id)}" aria-label="Frame for ${esc(byId.get(id).title)}">${['black', 'white', 'oak', 'brass'].flatMap((k) => [`${k}|1`, `${k}|0`]).map((v) => { const [k, m] = v.split('|'); return `<option value="${v}"${f.finish === k && (f.mat ? '1' : '0') === m ? ' selected' : ''}>${FINISH_LABEL[k]}${m === '1' ? ', mat' : ', no mat'}</option>`; }).join('')}</select></label>${own ? '' : `<span class="pencil small">${f.finish === sug.finish ? `Suggested: ${esc(sug.why)}.` : `Matched to the set. On its own, ${FINISH_LABEL[sug.finish].toLowerCase()}: ${esc(sug.why)}.`}</span>`}</span>`;
 }
 
 // ---------- Your walls ----------
@@ -2041,7 +2119,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['fmode', 'fpiece', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -2556,6 +2634,13 @@ document.addEventListener('change', (e) => {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
     if (o) { if (o.autoId) forgetAuto(o.autoId); o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
   }
+  if (t.dataset.fpiece) {
+    const [finish, m] = t.value.split('|');
+    const fr = S.draft.frames || {};
+    S.draft.frames = { ...fr, each: { ...(fr.each || {}), [t.dataset.fpiece]: { finish, mat: m === '1' } } };
+    logE('frames', { piece: t.dataset.fpiece, finish, mat: m });
+    persist(); setTimeout(render, 0); return;
+  }
   if (t.dataset.obkind) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obkind);
     if (o) {
@@ -2693,6 +2778,9 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.chip) { S.sheet = { chip: t.dataset.chip }; render(); return; }
+  if (t.dataset.fmode) { S.draft.frames = { ...(S.draft.frames || {}), mode: t.dataset.fmode, each: {} }; logE('frames', { mode: t.dataset.fmode }); persist(); render(); return; }
+  if (t.dataset.finish) { S.draft.frames = { ...(S.draft.frames || {}), mode: 'set', finish: t.dataset.finish, each: {} }; logE('frames', { finish: t.dataset.finish }); persist(); render(); return; }
+  if (t.dataset.mat !== undefined) { S.draft.frames = { ...(S.draft.frames || {}), mode: 'set', mat: t.dataset.mat === '1', each: {} }; logE('frames', { mat: t.dataset.mat }); persist(); render(); return; }
   if (t.dataset.size && t.dataset.id) {
     const id = t.dataset.id, [w, h] = t.dataset.size.split('x').map(Number);
     const L = shown(), p = L && L.pieces.find((x) => x.ref.id === id);
