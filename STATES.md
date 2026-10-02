@@ -128,7 +128,8 @@ Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full)
 | Tape colors on screen | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." Or "Stays where it hangs now." or "Not up yet: hang it here." | |
 | New piece sheet | Image, title, artist and shop, frame size and price, every size the shop sells with its price, reason, nail spot | Pick a size, Save, Swap this one, Keep it in every wall, See it at [shop] |
-| New art | "New art" under the drawing: the same frames with new picks, kept pieces and yours stay. "New art in all 6 frames. Undo" | Undo |
+| Refresh the art | In the strip: the same frames with new picks, kept pieces and yours stay. "New art in all 6 frames. Undo" On the feed, every wall at once: "New art on 22 walls, same layouts. Undo" | Undo |
+| Step and step back | Minus then plus, or plus then minus, brings back the walls you had, swaps and all | |
 | Your piece sheet | Thumbnail, size, move note, reason, nail spot ("Already up." when pinned) | Pin it where it hangs (or Let it move), Leave it out |
 | Swapped | The new piece fades in, the wall keeps its place in the list. "Swapped [title] for [title]. Undo" | Undo |
 | No other art fits | "No other art fits this frame." | |
