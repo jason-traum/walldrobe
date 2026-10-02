@@ -233,3 +233,10 @@ Family `flow`, in both Structured (neat runs) and Loose (loose runs), and first 
 8. **Shortlist and repair.** The best of each kind (groups, neat or loose, light/right/full, which thirds of the wall, own pieces used), then a repair pass on the best: drop a piece, shift a group 1.5 or 3 in, move the least attached piece, swap a frame's size.
 
 Every layout's fit is the shape score (free-form) or half the old zone fit and half the shape score (set shapes). Composition = 0.55 fit + 0.45 design; score = 0.5 composition + 0.25 taste + 0.25 color + reuse 0.08 x share of happy pieces used. Layouts more than 0.15 below the best composition are dropped when enough remain.
+
+## Many walls, ranked again (v2 site, 2026-10-01)
+
+- `layout({ ..., count: 24 })` returns up to 24 walls, not 3. The site asks for 24 once per wall and keeps them. On the three sample walls this takes 0.1 to 0.9 s on a laptop.
+- Each wall has `why`: `{ who, shape, where, across, text }`, e.g. "Both of yours, one new. Lined up over the couch, 73½ in across." Built by `whyLine()` in engine/reasons.js from the pieces (yours and new), the family, and the furniture or TV the group sits over.
+- `rerank(layouts, { taste, saved, skipped, distinct })` in engine/rank.js re-orders the list without building anything: the wall's own score, plus the change in taste (a new taste test, a new score map), plus 0.05 for each saved piece on it (at most 0.15), minus 0.06 for each piece swapped away from, minus a tiny amount by its place in layout()'s order so the order holds when nothing has changed. The first wall always adds new art when any wall does, and "as it hangs now" is never first. `distinct: true` keeps only the best of walls that look the same at a glance (`look()`: family, piece count, yours, size to 6 in).
+- Fullness, the pieces you own and what's marked on the wall still build the list again; they change which walls exist, not only their order.
