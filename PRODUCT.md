@@ -4,6 +4,8 @@ Walldrobe is Rent the Runway, for art: a wardrobe for your walls. You show it on
 
 Rotation is the product. The layout is the service that makes it fit.
 
+Status: v2 reset, 2026-10-01. The v1 flow below replaces the one that shipped on 2026-10-01 (see DECISIONS, "v2 reset").
+
 ## Who it's for
 
 People who just moved, or just moved in with someone, in their late twenties to late thirties. Mostly renters. They own a few pieces they like and have rehung in every apartment, and the wall still doesn't look right. They are not art buyers. They don't know what size to buy, how high to hang it, or how far apart, and that is where most of the mistakes happen. Jason's New York wall took two years to get right, and nearly every mistake was size and spacing, not taste.
@@ -18,9 +20,19 @@ People who just moved, or just moved in with someone, in their late twenties to 
 
 "What would this wall look like finished, with the things I already own?"
 
+Finished means with new art in it. The first wall a person sees always adds new pieces around what they own. "Just my pieces" and "as it hangs now" exist, but never first.
+
 ## The decision they make before leaving
 
-Which layout to hang, which of their pieces stay, and which new pieces to get. In v1 that means picking a layout and tapping through to buy at least one piece, or saving the wall for later.
+Which wall to hang. Then: which of their pieces stay, which new pieces to get, and where each nail goes. In v1 that means picking a wall from the ranked list, tapping through to buy at least one piece, or saving the wall for later.
+
+## How choosing works
+
+Not knobs. Walldrobe generates every layout that fits the space, ranks them best to worst for this wall, and shows them as one scrollable list: the wall drawn at true scale, and one line on why it fits ("Two of yours, three new, lined up over the couch at eye level"). Some walls get 3 options, some get 10. The person scrolls and picks; they don't push Structured or 6 pieces or Balanced to coax an alternative out.
+
+- Every change is reversible. Swapping a piece, changing a wall, moving a frame: there is always a visible way back, never a disappearing toast as the only record.
+- Any piece can be saved. Saves feed taste from then on. Swaps and skips count as weak signals. The 10-pick quiz still exists as "Make it mine", one tap from the wall, for people who want to tell us more at once.
+- Your own pieces: Keep or Skip on the confirm screen. Keep means it's in every wall and may move. "Pin it where it hangs" is one tap deeper, on the wall, for a piece that can't move. (Default, not settled; see DECISIONS.)
 
 ## Facts that change the decision
 
@@ -45,28 +57,31 @@ Rehang the same prints. Or Pinterest, a tape measure and painter's tape. Or a ma
 ## Surface types
 
 - First screen and demo: persuade. Show a finished wall right away, before any piece list.
-- The wall preview: experience. The art is the content, and the interface gets out of the way.
-- Marking pieces, the quiz, adjusting a layout: operate. Plain, fast, familiar controls.
+- The wall and the list of walls: experience. The art is the content, and the interface gets out of the way.
+- Corners, the confirm screen, the quiz, moving a piece: operate. Plain, fast, familiar controls.
 
 ## Words
 
-Use: wall, piece, print, original, frame, hang, swap, keep, must keep, happy to move, don't care, your Walldrobe ("pick out something new from your Walldrobe").
+Use: wall, piece, print, original, frame, hang, swap, keep, skip, save, pin, your Walldrobe ("pick out something new from your Walldrobe").
 
-Avoid in the interface: curate, elevate, AI, algorithm, SKU, inventory, "gallery wall solution", hype words, exclamation points, em dashes.
+Avoid in the interface: curate, elevate, AI, algorithm, SKU, inventory, "gallery wall solution", layout (say wall), hype words, exclamation points, em dashes.
 
 ## v1 flow
 
-1. Sign up. The demo skips this.
-2. Upload a photo of one wall. Tap its four corners and give one known measurement: the wall's width, a standard door (80 in) or an outlet cover.
-3. Mark what's in the way: furniture below the art, windows, doors, outlets, switches, a TV.
-4. Mark the art you already own on that wall: must keep, happy to move or don't care. A separate "pin where it is" toggle is for a piece that can't move.
-5. Taste quiz: pairwise "which one do you like more."
-6. Get ranked layouts on your own wall, each with specific pieces, sizes, positions and one sentence on why each piece is there.
-7. Buy: link out to each piece's product page. No shipping and no payments in v1. For now: the photo on Unsplash and a store search for the frame size, plus a printable hanging guide.
+Four screens between the photo and the hanging guide. The fewest that still give someone a wall they'd trust enough to hang.
+
+1. Photo. Take or choose a photo of one wall. The photo reader runs on the phone. No sign-up in the beta.
+2. Corners. Check the four dots on the wall's corners, drag any that are off. Their own gesture, so their own screen.
+3. Confirm. One screen: the flattened photo with everything found drawn on it (TV, furniture, windows, your art), the wall's width with where it came from, and Keep or Skip on each of your pieces. Tap anything to fix it, add anything we missed, add art that isn't up yet. This replaces today's Check, What's in the way and Your art.
+4. The wall. One finished wall on your photo, at true scale, filling the screen. Scroll for the ranked list of other walls, each with its one line of why. Tap a piece for what it is, why it's there, save, swap or keep. One Change action holds the rest: how full, just my pieces, as it hangs now, move pieces, make it mine (the quiz).
+5. Get it. The nail spots and the hanging guide, printable, with the wire drop and the estimate note. Each new piece links to where you get it, with the frame size. Save the wall.
 
 ## Not in v1
 
-Shipping, payments, the printable hanging template, print swaps, renting originals as a transaction, whole-apartment scanning and the native iPhone scanner. Renting originals is still part of the core product (DECISIONS, Sept 21). In v1, local originals appear only with the artist's OK, and anything else is labeled as an example.
+- Picking a style (Structured / Loose) or a piece count by hand. The ranked list covers it.
+- The Art switch (Prints / Both / Photos) and the filter panel. The catalog is picked for the room.
+- Sign-up, sign-in, accounts. Walls save on the device.
+- Shipping, payments, print swaps, renting originals as a transaction, whole-apartment scanning and the native iPhone scanner. Renting originals is still part of the core product (DECISIONS, Sept 21). In v1, local originals appear only with the artist's OK, and anything else is labeled as an example.
 
 ## Privacy
 
@@ -88,15 +103,17 @@ Shipping, payments, the printable hanging template, print swaps, renting origina
 - How accurate is one photo plus one measurement? Target: within 2 in across a 10 ft wall.
 - Do rule-based layouts produce walls people would actually hang? Test on five real walls before tuning any weights.
 - Which buy-link sources allow showing their images (Etsy API, Desenio affiliate, poster shops with feeds)?
+- How many walls should the ranked list show before it stops being a list and becomes noise? Start with everything that passes the composition gate, watch where people stop scrolling.
 
 ## Build order
 
-1. Layout engine: a pure module with tests and no UI. Spec in ENGINE.md. Done (v0.1).
-2. Demo UI: three sample walls, free-to-show modern art, embeddable at jason-traum.github.io/projects/walldrobe.html. First version done: `npm run demo` builds `out/index.html`.
+1. Layout engine: a pure module with tests and no UI. Spec in ENGINE.md. Done (v0.2, free-form).
+2. Demo UI: three sample walls, free-to-show modern art, embeddable at jason-traum.github.io/projects/walldrobe.html. Done.
 3. Wall geometry from a photo: corner taps, one known measurement, perspective correction, obstacle marking. Done in `web/` (the site on GitHub Pages).
-4. Taste: the pairwise quiz, image embeddings and palettes precomputed for the catalog, and a small preference model that runs in the browser.
-5. Preview: warp each chosen piece onto the original photo at true scale.
-6. Accounts and storage: Supabase auth, a private photo bucket, write functions.
-7. A catalog of buyable pieces with link-outs.
-8. Offline tuning pipeline: a cheaper model tags catalog art (colors, subject, mood, composition) and reviews sample layouts the engine generates; the reviews tune the scoring weights. It runs offline, never at request time.
-9. Native iPhone scanner (RoomPlan with LiDAR) for whole apartments, feeding the same engine.
+4. Taste: the pairwise quiz, image embeddings and palettes precomputed for the catalog, and a small preference model that runs in the browser. Quiz done; saves as signals are v2 work.
+5. v2 rebuild of the site on the flow above (branch `v2`): structure, then visual direction, then one flow at a time.
+6. Preview: warp each chosen piece onto the original photo at true scale.
+7. Accounts and storage: Supabase auth, a private photo bucket, write functions.
+8. A catalog of buyable pieces with link-outs.
+9. Offline tuning pipeline: a cheaper model tags catalog art (colors, subject, mood, composition) and reviews sample layouts the engine generates; the reviews tune the scoring weights. It runs offline, never at request time.
+10. Native iPhone scanner (RoomPlan with LiDAR) for whole apartments, feeding the same engine.
