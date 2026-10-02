@@ -146,7 +146,7 @@ function engineInput() {
   const taste = scoreTaste(d.taste.weights, catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
-  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: 3, prefs: { style: d.style || undefined, pieces: d.pieces || undefined, place: d.place || undefined } };
+  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: 3, prefs: { style: d.style || undefined, pieces: d.pieces || undefined } };
 }
 const keepList = () => S.draft.kept || [];
 
@@ -210,7 +210,7 @@ function filterPanel() {
 }
 const ART_MODES = ['prints', 'both', 'photos'];
 const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.style, S.draft.pieces, S.draft.place, artMode(), filters()]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.style, S.draft.pieces, artMode(), filters()]);
 
 function remember(layouts) {
   for (const L of layouts) {
@@ -224,11 +224,6 @@ function run() {
   const key = viewKey();
   if (S.view && S.view.key === key) return S.view;
   let r = layout({ ...engineInput(), keep: keepList() });
-  // A place on the wall that's no longer there (the TV moved, say): anywhere.
-  if (S.draft.place && !(r.zones || []).some((z) => z.place === S.draft.place)) {
-    S.draft.place = null; persist();
-    r = layout({ ...engineInput(), keep: keepList() });
-  }
   // A count that this style can't make here: go to the nearest one that it can, and say so.
   const off = r.problems.find((p) => p.code === 'COUNT_DOESNT_FIT');
   if (!r.layouts.length && off && off.near) {
@@ -734,6 +729,7 @@ function check() {
     <div class="acts">
       <a class="btn" href="#/layouts">Show me my wall</a>
     </div>
+    <div class="not-up"><p><strong>Art that isn't up yet?</strong> Prints in a closet or leaning on the floor count. Add them by size and they go into the layouts.</p><button type="button" class="btn-quiet small-btn" data-act="add-not-up">Add art that isn't up yet</button></div>
     <p class="small muted">Something missed or wrong? <a href="#/things">Move or add things</a>, <a href="#/pieces">add art we missed</a>, or <a href="#/corners">move the corners</a>.</p>
   </main>${footer()}`;
 }
@@ -926,10 +922,10 @@ function pieces() {
   const odd = (o) => o.w / o.h > 4 || o.h / o.w > 4 || o.w * o.h < 16;
   return `${header()}${steps('pieces')}
   <main class="flow">
-    <h1>Any art on this wall already?</h1>
-    <p class="lede">${photo ? 'Drag a box around each piece in the photo. We read its size from the wall and its colors from the picture.' : 'Add each piece you have for this wall, with its size in the frame.'} Then say how much you want to keep it.</p>
+    <h1>Your art</h1>
+    <p class="lede">${photo ? 'Drag a box around each piece hanging in the photo. We read its size from the wall and its colors from the picture.' : 'Add each piece you have for this wall, with its size in the frame.'} Art you have that isn't up yet counts too: add it by size, with a photo of it if you have one. Then say how much you want to keep it.</p>
     ${photo ? `<div class="wall-edit has-photo draw-mode" id="draw-wall">${wallSvg({ wall: { width: d.width, height: d.height }, photo, obstacles: [], extra: `${marks}<rect id="draw-rect" class="draw-rect" x="0" y="0" width="0" height="0"/>`, pxWide: editPx(), label: 'Your wall photo' })}</div>` : ''}
-    <div class="acts"><button type="button" class="btn-quiet" data-act="add-piece">${photo ? 'Add one by size instead' : 'Add a piece'}</button></div>
+    <div class="acts"><button type="button" class="btn-quiet" data-act="add-piece">${photo ? "Add art that isn't up yet" : 'Add a piece'}</button></div>
     ${d.owned.length ? `<ul class="owned-edit">${d.owned.map((o) => `<li>
       <div class="owned-top">
         <span class="owned-thumb">${o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc(o.color || '#8A8F94')}"></span>`}</span>
@@ -942,7 +938,7 @@ function pieces() {
       ${odd(o) ? `<p class="error">This reads as ${o.w} x ${o.h} in. Check it.</p>` : ''}
       <span class="seg seg-full" role="group" aria-label="Keep setting for your ${esc(o.title)}">${opts.map(([v, label]) => `<button type="button" data-keep="${v}" data-oid="${esc(o.id)}" aria-pressed="${o.keep === v}">${label}</button>`).join('')}</span>
       <div class="owned-foot">
-        ${o.at ? `<label class="toggle"><input type="checkbox" data-pin="${esc(o.id)}"${o.pinned ? ' checked' : ''}> Pin where it hangs now</label>` : '<span></span>'}
+        ${o.at ? `<label class="toggle"><input type="checkbox" data-pin="${esc(o.id)}"${o.pinned ? ' checked' : ''}> Pin where it hangs now</label>` : `<label class="btn-quiet small-btn file-btn">${o.thumb ? 'New photo of it' : 'Add a photo of it'}<input type="file" accept="image/*" data-art-photo="${esc(o.id)}"></label>`}
         <button type="button" class="linklike" data-remove-owned="${esc(o.id)}">Remove</button>
       </div>
     </li>`).join('')}</ul>` : ''}
@@ -1054,6 +1050,7 @@ function familyName(L) {
   if (L.family === 'grid') return `${L.meta.rows} by ${L.meta.cols} grid`;
   if (L.family === 'line') return `Row of ${L.pieces.length}`;
   if (L.family === 'column') return `Stack of ${L.pieces.length}`;
+  if (L.family === 'flow') return L.variant === 'neat' ? 'Lined up' : 'Free-form';
   if (L.family === 'salon') {
     const mid = L.group.y + L.group.h / 2;
     const top = L.pieces.filter((p) => p.cy > mid).length;
@@ -1063,20 +1060,9 @@ function familyName(L) {
 }
 // The two kinds of wall a person picks between, and how many pieces.
 const STYLE_HINT = {
-  structured: 'Lined up: grids, rows, a stack, or one big piece with matching sides.',
-  gallery: 'A loose gallery wall: mixed sizes in two rows.',
+  structured: 'Lined up: edges and rows line up, wherever the open wall is.',
+  gallery: 'A loose gallery wall: mixed sizes, wherever the open wall is.',
 };
-// Where on the wall, when there's open wall beside the TV or furniture as well as over it.
-const PLACE_NAME = { left: 'Left side', right: 'Right side' };
-function placeControl(zones) {
-  if (!zones || zones.length < 2) return '';
-  const d = S.draft;
-  const main = zones[0];
-  const over = main.anchor ? `Over the ${main.anchor.kind === 'tv' ? 'TV' : (KIND_NAME[main.anchor.kind] || 'furniture').toLowerCase()}` : 'Open wall';
-  const opts = [[null, 'Anywhere'], ...zones.map((z) => [z.place, z.place === main.place ? over : PLACE_NAME[z.place] || z.place])];
-  const dis = S.busy ? ' disabled' : '';
-  return `<span class="seg" role="group" aria-label="Where on the wall">${opts.map(([v, l]) => `<button type="button" data-place="${v || ''}" aria-pressed="${(d.place || null) === v}"${dis}>${esc(l)}</button>`).join('')}</span>`;
-}
 function shapeControls(L, counts, zones) {
   const d = S.draft;
   const n = d.pieces || L.pieces.length;
@@ -1091,7 +1077,7 @@ function shapeControls(L, counts, zones) {
       </span>
       ${d.pieces ? `<button type="button" class="linklike small" data-count="any"${dis}>Any number</button>` : ''}
     </div>
-    ${zones && zones.length > 1 ? `<div class="shape">${placeControl(zones)}</div>` : ''}
+
     ${d.style ? `<p class="muted small shape-hint">${esc(STYLE_HINT[d.style])}</p>` : ''}`;
 }
 const ownedInfo = (id) => { const o = S.draft.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color } : null; };
@@ -1187,7 +1173,7 @@ function layoutsScreen() {
   if (S.selected && !L.pieces.some((p) => p.ref.id === S.selected)) S.selected = null;
   const seen = new Map();
   // Two tabs with the same arrangement are told apart by their frames, then by their art.
-  const base = result.layouts.map((x) => familyName(x) + (!d.place && PLACE_NAME[x.place] ? `, ${PLACE_NAME[x.place].toLowerCase()}` : ''));
+  const base = result.layouts.map(familyName);
   const frames = (x) => { const big = [...x.pieces].sort((a, b) => b.w * b.h - a.w * a.h)[0]; return `${inches(big.w).replace(/ in$/, "")} x ${inches(big.h)}`; };
   const names = result.layouts.map((x, i) => {
     const same = base.filter((n) => n === base[i]).length > 1;
@@ -1661,6 +1647,23 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset && t.dataset.artPhoto && t.files && t.files[0]) {
+    // A photo of a piece that isn't up: its colors, a thumbnail, and its shape.
+    const o = S.draft.owned.find((x) => x.id === t.dataset.artPhoto);
+    if (!o) return;
+    loadFile(t.files[0], 240).then((img) => {
+      const pal = palette(img, 5);
+      o.thumb = img.url; o.palette = pal; o.color = pal[0] ? pal[0].hex : o.color;
+      // Still at the starting size: take the photo's shape, the long side kept.
+      if (o.w === 16 && o.h === 20) {
+        const long = 20, a = img.width / img.height;
+        [o.w, o.h] = a >= 1 ? [long, Math.round((long / a) * 2) / 2] : [Math.round(long * a * 2) / 2, long];
+        S.flash = `Shaped like the photo: ${o.w} x ${o.h} in. Put in the frame's real size.`;
+      }
+      resetLayouts(); persist(); render();
+    }).catch((err) => { S.flash = err.message; render(); });
+    return;
+  }
   if (t.id === 'tv-size') {
     // A different TV size changes the scale of the whole wall.
     const p = S.draft.photo, a = p.auto;
@@ -1781,7 +1784,6 @@ document.addEventListener('click', (e) => {
     act('scale', () => run()); return;
   }
   if (t.dataset.art) { S.draft.art = t.dataset.art; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
-  if (t.dataset.place !== undefined) { S.draft.place = t.dataset.place || null; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.style !== undefined) { S.draft.style = t.dataset.style || null; S.rank = 1; S.selected = null; S.flash = null; persist(); act('scale', () => run()); return; }
   if (t.dataset.count !== undefined) {
     if (!t.dataset.count) return;
@@ -1815,6 +1817,10 @@ document.addEventListener('click', (e) => {
     }
     case 'pin-musts': for (const o of S.draft.owned) if (o.keep === 'must' && o.at) o.pinned = true; S.mem.clean = null; resetLayouts(); persist(); render(); break;
     case 'loosen-musts': for (const o of S.draft.owned) if (o.keep === 'must') { o.keep = 'happy'; o.pinned = false; } S.mem.clean = null; resetLayouts(); persist(); render(); break;
+    case 'add-not-up': {
+      S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: freeTitle(new Set(S.draft.owned.map((o) => o.title))), w: 16, h: 20, keep: 'happy', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });
+      resetLayouts(); persist(); go('#/pieces'); break;
+    }
     case 'add-piece': {
       const n = S.draft.owned.length + 1;
       S.draft.owned.push({ id: `own${Date.now().toString(36)}`, title: freeTitle(new Set(S.draft.owned.map((o) => o.title))), w: 16, h: 20, keep: 'happy', pinned: false, color: '#8A8F94', palette: [{ hex: '#8A8F94', weight: 1 }], fromPhoto: false });

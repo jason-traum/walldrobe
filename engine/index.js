@@ -11,6 +11,7 @@ import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
+import { flowStructures, openSpace } from './flow.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
 import { designScore, lookalike, lookPenalty } from './design.js';
@@ -128,6 +129,7 @@ function prepare(input) {
   const regions = blockedRegions(obstacles, pinned);
   const zones = findZones(wall, obstacles, regions);
   const zone = zones[0] || null;
+  const space = openSpace(wall, regions);
 
   const palettes = new Map();
   for (const p of owned) palettes.set(p.id, normalizePalette(p.palette));
@@ -153,7 +155,7 @@ function prepare(input) {
 
   return {
     input, wall, obstacles, owned, catalog, prefs: readPrefs(input.prefs), exclude, kept, keptIds,
-    pinned, loose, regions, zone, zones, palettes, hasRoom, pairSim, profiles,
+    pinned, loose, regions, zone, zones, space, palettes, hasRoom, pairSim, profiles,
     roomProfile: hasRoom ? profileFromPalette(room) : null,
     catalogCands, ownedById: new Map(owned.map((p) => [p.id, p])), catalogById: byId, tasteOf,
     look: lookFactory(profiles),
@@ -265,7 +267,7 @@ function fill(struct, index, pairSim, hasRoom, banned, look) {
     }
     if (!next.length) return null;
     next.sort((a, b) => b.value - a.value || cmpStr(a.key, b.key));
-    beam = next.slice(0, SEARCH.beam).map((n) => {
+    beam = next.slice(0, open.length > 8 ? SEARCH.beam / 2 : SEARCH.beam).map((n) => {
       const used = new Set(n.parent.used); used.add(n.pick.cand.id);
       const artists = new Set(n.parent.artists); if (n.pick.cand.artist) artists.add(n.pick.cand.artist);
       return { picks: [...n.parent.picks, n.pick], used, artists, value: n.value, key: n.key };
@@ -310,7 +312,28 @@ function buildPieces(st, place, bySlot) {
 
 // ---------- Judging a whole wall ----------
 
+// A free-form layout's own zone: the whole open wall.
+function flowZone(ctx, g) {
+  return { type: 'flow', place: 'flow', anchor: null, base: null, cx: g.x + g.w / 2, refW: ctx.wall.width, target: ctx.wall.width * RULES.wallRatio, ratio: RULES.wallRatio, range: RULES.wallRange, interval: { x0: RULES.edge, x1: ctx.wall.width - RULES.edge, w: ctx.wall.width - 2 * RULES.edge }, maxH: ctx.wall.height, space: ctx.space };
+}
+
+// Free-form: how much of the open wall it uses, how tight the group is, whether
+// it sits near eye level, and pieces you keep near its middle.
+function flowFit(L, zone) {
+  const g = L.group;
+  const area = L.pieces.reduce((s, p) => s + p.w * p.h, 0);
+  const fc = clamp01(area / Math.max(1, zone.space.area) / 0.3);
+  const fd = clamp01((area / (g.w * g.h) - 0.35) / 0.35);
+  const cy = L.pieces.reduce((s, p) => s + (p.y + p.h / 2) * p.w * p.h, 0) / area;
+  const fv = clamp01(1 - Math.max(0, Math.abs(cy - RULES.centerline - 3) - 6) / 18);
+  const gcx = g.x + g.w / 2;
+  const musts = L.pieces.filter((p) => p.keep === 'must' && p.fixed);
+  const fm = musts.length ? clamp01(1 - musts.reduce((s, p) => s + Math.abs(p.cx - gcx) / (g.w / 2), 0) / musts.length) : 1;
+  return 0.35 * fc + 0.3 * fd + 0.25 * fv + 0.1 * fm;
+}
+
 function fitScore(L, zone) {
+  if (zone.type === 'flow') return flowFit(L, zone);
   const g = L.group;
   const ratio = g.w / zone.refW;
   const target = zone.ratio;
@@ -390,7 +413,9 @@ function improve(R, ctx, banned) {
   let best = R;
   const open = R.st.slots.map((s, i) => ({ s, i })).filter(({ s }) => !s.fixed)
     .sort((a, b) => b.s.w * b.s.h - a.s.w * a.s.h || a.i - b.i);
-  for (let pass = 0; pass < SEARCH.passes; pass++) {
+  // Big walls get a lighter pass, so they stay quick.
+  const big = open.length > 8;
+  for (let pass = 0; pass < (big ? 1 : SEARCH.passes); pass++) {
     let changed = false;
     for (const { s, i } of open) {
       const current = best.bySlot.get(i).cand.id;
@@ -401,7 +426,7 @@ function improve(R, ctx, banned) {
         .filter((o) => !onWall.has(o.cand.id) && !(banned && banned.has(o.cand.id)))
         .map((o) => ({ o, v: pickValue(o.cand, others, ctx.pairSim, ctx.look) }))
         .sort((a, b) => b.v - a.v || cmpStr(a.o.cand.id, b.o.cand.id))
-        .slice(0, SEARCH.alternatives);
+        .slice(0, big ? SEARCH.alternatives / 2 : SEARCH.alternatives);
       for (const { o } of alts) {
         const bySlot = new Map(best.bySlot); bySlot.set(i, o);
         const pieces = buildPieces(R.st, best.group, bySlot);
@@ -466,8 +491,10 @@ export function layout(input) {
   const ctx = prepare(input);
   const { prefs, loose, kept } = ctx;
   // The places to try: the one asked for, or all of them.
+  // The places to try for the set shapes: the one asked for, or the main one. Free-form
+  // layouts look at the whole open wall on their own.
   const asked = prefs.place ? ctx.zones.filter((z) => z.place === prefs.place) : [];
-  const zones = asked.length ? asked : ctx.zones;
+  const zones = asked.length ? asked : ctx.zones.slice(0, 1);
   const zone = zones[0] || null;
   const count = num(input.count) && input.count >= 1 ? Math.floor(input.count) : 3;
   const avoid = new Set(idList(input.avoid, 'avoid'));
@@ -475,7 +502,7 @@ export function layout(input) {
 
   const must = [...loose.filter((p) => p.keep === 'must'), ...kept];
   const happy = loose.filter((p) => p.keep === 'happy');
-  if (!zone) {
+  if (!zone && !(prefs.families.includes('flow') && ctx.space.area >= 150)) {
     const short = ctx.wall.height - RULES.ceilingHard - RULES.centerline < 4;
     problems.push({
       code: 'NO_OPEN_SPACE',
@@ -489,7 +516,37 @@ export function layout(input) {
   const mismatch = new Map(); // family -> number of variants it was skipped in, with its message
   const results = [];
 
-  for (const z of zones) {
+  // Free-form layouts over all the open wall.
+  if (prefs.families.includes('flow') && !asked.length) {
+    // One pass with every piece you'd keep or move: one that doesn't fit is left out as it goes.
+    for (const fixed of variants.slice(0, 1)) {
+      const fixedIds = new Set(fixed.map((p) => p.id));
+      const cands = [...ctx.catalogCands, ...loose.filter((p) => !fixedIds.has(p.id) && p.keep !== 'must').map(ownedCand)];
+      const index = indexCandidates(cands);
+      const avail = new Map();
+      for (const [k, list] of index.bySize) avail.set(k, list.length);
+      const os = offeredSizes(avail);
+      const sizes = [...new Set([...os.salon, ...os.large].map(([w, h]) => sizeKey(w, h)))].map((k) => k.split('x').map(Number));
+      const fr = flowStructures({ wall: ctx.wall, obstacles: ctx.obstacles, space: ctx.space, pinned: ctx.pinned, fixed, sizes, avail, pieces: prefs.pieces, style: prefs.style });
+      for (const n of fr.counts) counts.add(n);
+      for (const st of fr.structures) {
+        const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look);
+        if (!picked) continue;
+        const base = { x: st.at.x, y: st.at.y, w: st.W, h: st.H, shift: 0 };
+        const zc = { ...ctx, zone: flowZone(ctx, base) };
+        const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
+        const done = place(st, bySlot, base, zc);
+        if (!done) continue;
+        const L = {
+          family: st.family, variant: st.variant || null, meta: st.meta, group: done.where, shift: 0,
+          pieces: done.pieces, happyTotal: happy.length, st, index, bySlot, key: `${structureKey(st)}@${q(st.at.x)},${q(st.at.y)}`, zc,
+        };
+        results.push({ ...L, ...judge(L, zc) });
+      }
+    }
+  }
+
+  for (const z of zone ? zones : []) {
   const zc = { ...ctx, zone: z };
   for (const fixed of variants) {
     const fixedIds = new Set(fixed.map((p) => p.id));
@@ -508,12 +565,13 @@ export function layout(input) {
       for (let n = 1; n <= RULES.maxCount; n++) {
         if (counts.has(n)) continue;
         const c = { ...sctx, scale: 0, pieces: n };
-        if (prefs.families.some((fam) => fam !== 'salon' && structuresFor(fam, c).structures.length)) counts.add(n);
+        if (prefs.families.some((fam) => fam !== 'salon' && fam !== 'flow' && structuresFor(fam, c).structures.length)) counts.add(n);
       }
     }
 
     const structs = [];
     for (const fam of prefs.families) {
+      if (fam === 'flow') continue;
       const r = structuresFor(fam, sctx);
       structs.push(...r.structures);
       if (r.skipped) mismatch.set(fam, { n: (mismatch.get(fam)?.n || 0) + 1, message: r.skipped });
@@ -579,6 +637,13 @@ export function layout(input) {
   const mostOwn = happy.length && valid.length ? Math.max(...valid.map(ownUse)) : 0;
   const ownLead = mostOwn ? valid.find((L) => ownUse(L) === mostOwn) : null;
   if (ownLead) order.push(ownLead);
+  // Then free-form layouts over the whole open wall, a light, a medium and a full
+  // one, before the set shapes.
+  const flows = valid.filter((L) => L.family === 'flow');
+  for (const band of [[5, 8], [9, RULES.flowMax], [2, 4]]) {
+    const L = flows.find((x) => !order.includes(x) && x.pieces.length >= band[0] && x.pieces.length <= band[1]);
+    if (L) order.push(L);
+  }
   // With more than one place, the best layout in each place comes next, if it's
   // close to the best overall. Only one side, so most stay in the main place.
   const placesSeen = new Set(order.map((L) => L.zc.zone.place));
@@ -614,7 +679,7 @@ export function layout(input) {
   chosen.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
   // First: the one with your pieces, else the best in the main place (over the TV
   // or furniture); the rest by score.
-  const lead = (ownLead && chosen.find((L) => L.key === ownLead.key && ownUse(L) === mostOwn)) || chosen.find((L) => L.zc.zone === zones[0]);
+  const lead = (ownLead && chosen.find((L) => L.key === ownLead.key && ownUse(L) === mostOwn)) || chosen.find((L) => L.family === 'flow') || chosen.find((L) => L.zc.zone === zones[0]);
   if (lead) chosen.splice(0, chosen.length, lead, ...chosen.filter((L) => L !== lead));
 
   const present = new Set(results.map((L) => L.family));
@@ -627,6 +692,7 @@ export function layout(input) {
       grid: 'No grid fits this wall with the art available.',
       statement: 'No statement piece fits this wall with the art available.',
       column: 'No stack of pieces fits this wall with the art available.',
+      flow: 'No free-form layout fits this wall with the art available.',
     }[fam];
     problems.push({ code: 'FAMILY_SKIPPED', family: fam, message });
   }
@@ -636,10 +702,12 @@ export function layout(input) {
     const near = fits.length ? fits.reduce((b, n) => (Math.abs(n - prefs.pieces) < Math.abs(b - prefs.pieces) ? n : b), fits[0]) : null;
     const style = { structured: 'a structured layout', gallery: 'a gallery wall' }[prefs.style] || 'a layout';
     problems.unshift({ code: 'COUNT_DOESNT_FIT', pieces: prefs.pieces, near, message: near ? `${prefs.pieces} pieces don't make ${style} here. ${near} do.` : `${prefs.pieces} pieces don't fit here.` });
-  } else if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) problems.unshift(whyNothing(must, zone, ctx.catalogCands, loose));
+  } else if (!chosen.length && !problems.some((p) => p.code === 'BUDGET_TOO_LOW')) {
+    problems.unshift(zone ? whyNothing(must, zone, ctx.catalogCands, loose) : { code: 'NO_OPEN_SPACE', message: "There's no stretch of wall wide enough to hang on." });
+  }
 
   const layouts = chosen.map((L, i) => finish(L, i + 1, L.zc));
-  return { layouts, problems, zone: zoneOut(zone), zones: ctx.zones.map(zoneOut), counts: fits };
+  return { layouts, problems, zone: zone ? zoneOut(zone) : null, zones: ctx.zones.map(zoneOut), counts: fits };
 }
 
 /**
@@ -652,7 +720,7 @@ export function refill(input, prev, opts = {}) {
   if (!prev || !Array.isArray(prev.pieces) || !prev.group) throw new TypeError('refill() needs a layout that layout() returned.');
   const all = prepare(input);
   // The layout's own place on the wall.
-  const ctx = { ...all, zone: all.zones.find((z) => z.place === (prev.place || 'over')) || all.zone };
+  const ctx = { ...all, zone: prev.family === 'flow' ? flowZone(all, prev.group) : all.zones.find((z) => z.place === (prev.place || 'over')) || all.zone };
   const problems = [];
   if (!ctx.zone) return { layouts: [], problems: [{ code: 'NO_OPEN_SPACE', message: "There's no stretch of wall wide enough to hang on." }], zone: null };
   const keepIds = new Set([...idList(opts.keep, 'keep'), ...ctx.keptIds]);

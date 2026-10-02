@@ -28,7 +28,9 @@ export const RULES = Object.freeze({
   anchorShift: 0.15,     // a group may slide at most this share of the furniture's width off center
   centerlineSoftMax: 66, // over tall furniture the center may rise; above this it's marked down
   countRange: [0.35, 0.9], // with an exact piece count asked for, widths generated over this share of the furniture or open span
-  maxCount: 12,          // the most pieces a person can ask for
+  maxCount: 20,          // the most pieces a person can ask for
+  flowLow: 20,           // free-form layouts: no frame's bottom lower than this from the floor
+  flowMax: 20,           // free-form layouts: the most pieces one wall gets
   minSideWidth: 20,      // an open stretch beside the TV or furniture narrower than this isn't offered
   sideRatio: 0.75,       // group width in a stretch beside the TV or furniture, share of the stretch
   sideRange: [0.5, 0.95],
@@ -38,7 +40,7 @@ export const RULES = Object.freeze({
 });
 
 // The two styles a person picks between.
-export const STYLES = Object.freeze({ structured: ['statement', 'line', 'grid', 'column'], gallery: ['salon'] });
+export const STYLES = Object.freeze({ structured: ['flow', 'statement', 'line', 'grid', 'column'], gallery: ['flow', 'salon'] });
 
 export const WEIGHTS = Object.freeze({ fit: 0.25, taste: 0.25, color: 0.25, design: 0.25 });
 
@@ -65,4 +67,4 @@ export const SEARCH = Object.freeze({
   passes: 2,
 });
 
-export const FAMILIES = Object.freeze(['statement', 'line', 'grid', 'column', 'salon']);
+export const FAMILIES = Object.freeze(['flow', 'statement', 'line', 'grid', 'column', 'salon']);

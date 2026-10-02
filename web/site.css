@@ -352,3 +352,7 @@ input[type="number"], input[type="text"] { font-size: 16px; }
   #guide { position: absolute; left: 0; top: 0; width: 100%; border: 0; }
   #guide button { display: none; }
 }
+.file-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; cursor: pointer; }
+.file-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.not-up { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line, #d9d6cf); border-radius: 8px; margin-block: 16px; }
+.not-up p { margin: 0; flex: 1 1 260px; min-width: 0; }
