@@ -1,0 +1,376 @@
+{
+ "wall": {
+  "width": 120,
+  "height": 96
+ },
+ "obstacles": [
+  {
+   "id": "bed",
+   "kind": "headboard",
+   "x": 18,
+   "y": 0,
+   "w": 62,
+   "h": 40
+  },
+  {
+   "id": "lamp",
+   "kind": "lamp",
+   "x": 84,
+   "y": 0,
+   "w": 10,
+   "h": 64
+  },
+  {
+   "id": "dresser",
+   "kind": "dresser",
+   "x": 96,
+   "y": 0,
+   "w": 22,
+   "h": 36
+  },
+  {
+   "id": "switch",
+   "kind": "switch",
+   "x": 4,
+   "y": 46,
+   "w": 3,
+   "h": 5
+  }
+ ],
+ "name": "Bedroom",
+ "walls": [
+  {
+   "why": "Both of yours, one new. Lined up, 56¾ in across.",
+   "pieces": [
+    {
+     "id": "des-jaron-su-aiqinhai",
+     "own": false,
+     "title": "Aiqinhai",
+     "x": 11.25,
+     "y": 46,
+     "w": 20,
+     "h": 28,
+     "img": "https://media.desenio.com/site_images/685db79a6938583ba8275d3c_1577571346_PRE0125-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 0.7143,
+     "artist": "Jaron Su",
+     "shop": "Desenio",
+     "price": 73.45,
+     "reason": "Its pink picks up the pink in your pink photo, on the left."
+    },
+    {
+     "id": "blue",
+     "own": true,
+     "title": "blue print",
+     "x": 34.5,
+     "y": 46,
+     "w": 20,
+     "h": 28,
+     "img": "art/photo-1580826237584-fda5b612e1bc.jpg",
+     "aspect": 0.5624,
+     "artist": "Jerome",
+     "price": null,
+     "reason": "Your blue print is in it, in the middle, because you said you'd keep it."
+    },
+    {
+     "id": "pink",
+     "own": true,
+     "title": "pink photo",
+     "x": 57,
+     "y": 46,
+     "w": 11,
+     "h": 14,
+     "img": "art/photo-1655841251398-c4133f836680.jpg",
+     "aspect": 0.8,
+     "artist": "Nass Walkin",
+     "price": null,
+     "reason": "Your pink photo works with the rest, so it's in it, on the right."
+    }
+   ]
+  },
+  {
+   "why": "Both of yours, one new. A loose gallery wall over the bed, 56 in across.",
+   "pieces": [
+    {
+     "id": "blue",
+     "own": true,
+     "title": "blue print",
+     "x": 35.25,
+     "y": 46.25,
+     "w": 20,
+     "h": 28,
+     "img": "art/photo-1580826237584-fda5b612e1bc.jpg",
+     "aspect": 0.5624,
+     "artist": "Jerome",
+     "price": null,
+     "reason": "Your blue print is in it, in the middle, because you said you'd keep it."
+    },
+    {
+     "id": "des-kit-agar-cherries",
+     "own": false,
+     "title": "Cherries",
+     "x": 57.75,
+     "y": 46.25,
+     "w": 20,
+     "h": 28,
+     "img": "https://media.desenio.com/site_images/699c65ad3774fc761496c787_747836793_pre0682-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 0.7143,
+     "artist": "Kit Agar",
+     "shop": "Desenio",
+     "price": 91.95,
+     "reason": "Close to what you picked in the quiz; the one red piece, for contrast."
+    },
+    {
+     "id": "pink",
+     "own": true,
+     "title": "pink photo",
+     "x": 21.75,
+     "y": 46.25,
+     "w": 11,
+     "h": 14,
+     "img": "art/photo-1655841251398-c4133f836680.jpg",
+     "aspect": 0.8,
+     "artist": "Nass Walkin",
+     "price": null,
+     "reason": "Your pink photo works with the rest, so it's in it, on the left."
+    }
+   ]
+  },
+  {
+   "why": "Both of yours, three new. Lined up over the bed, 49 in across.",
+   "pieces": [
+    {
+     "id": "blue",
+     "own": true,
+     "title": "blue print",
+     "x": 39,
+     "y": 46,
+     "w": 20,
+     "h": 28,
+     "img": "art/photo-1580826237584-fda5b612e1bc.jpg",
+     "aspect": 0.5624,
+     "artist": "Jerome",
+     "price": null,
+     "reason": "Your blue print is in it, in the middle, because you said you'd keep it."
+    },
+    {
+     "id": "des-hannah-durham-peaches-and-cream",
+     "own": false,
+     "title": "Peaches and Cream",
+     "x": 24.5,
+     "y": 46,
+     "w": 12,
+     "h": 16,
+     "img": "https://media.desenio.com/site_images/685df2748fdef2fa155e1cc4_1487415683_pre0617-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 0.7143,
+     "artist": "Hannah Durham",
+     "shop": "Desenio",
+     "price": 55.95,
+     "reason": "Its pink picks up the pink in your pink photo, on the left."
+    },
+    {
+     "id": "des-lindsey-cherek-still-life-with-fake-",
+     "own": false,
+     "title": "Still Life with Fake Cake",
+     "x": 24.5,
+     "y": 64.5,
+     "w": 12,
+     "h": 16,
+     "img": "https://media.desenio.com/site_images/685dec7697bfddc5cb9dbd3f_485245685_pre0385-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 0.7143,
+     "artist": "Lindsey Cherek",
+     "shop": "Desenio",
+     "price": 55.95,
+     "reason": "Close to what you picked in the quiz; its red repeats in 2 other pieces."
+    },
+    {
+     "id": "des-laura-page-swedish-cafe",
+     "own": false,
+     "title": "Swedish Cafe",
+     "x": 61.5,
+     "y": 62.5,
+     "w": 12,
+     "h": 16,
+     "img": "https://media.desenio.com/site_images/685db7e6e909f459d7324fa7_945287030_PRE0137-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 0.7143,
+     "artist": "Laura Page",
+     "shop": "Desenio",
+     "price": 45.95,
+     "reason": "Close to what you picked in the quiz; its yellow repeats in 2 other pieces."
+    },
+    {
+     "id": "pink",
+     "own": true,
+     "title": "pink photo",
+     "x": 61.5,
+     "y": 46,
+     "w": 11,
+     "h": 14,
+     "img": "art/photo-1655841251398-c4133f836680.jpg",
+     "aspect": 0.8,
+     "artist": "Nass Walkin",
+     "price": null,
+     "reason": "Your pink photo works with the rest, so it's in it, on the right."
+    }
+   ]
+  },
+  {
+   "why": "Both of yours, one new. Lined up over the bed, 55½ in across.",
+   "pieces": [
+    {
+     "id": "blue",
+     "own": true,
+     "title": "blue print",
+     "x": 35.25,
+     "y": 46.25,
+     "w": 20,
+     "h": 28,
+     "img": "art/photo-1580826237584-fda5b612e1bc.jpg",
+     "aspect": 0.5624,
+     "artist": "Jerome",
+     "price": null,
+     "reason": "Your blue print is in it, in the middle, because you said you'd keep it."
+    },
+    {
+     "id": "hos-harry-mark-fantastic-las-vegas",
+     "own": false,
+     "title": "Fantastic Las Vegas",
+     "x": 57.75,
+     "y": 48.25,
+     "w": 19.5,
+     "h": 26,
+     "img": "https://cdn.shopify.com/s/files/1/0115/7385/4270/files/HM-PC-007.jpg?width=560",
+     "aspect": 0.6667,
+     "artist": "Harry Mark",
+     "shop": "House of Spoils",
+     "price": 400,
+     "reason": "Close to what you picked in the quiz; it sits well with the rest."
+    },
+    {
+     "id": "pink",
+     "own": true,
+     "title": "pink photo",
+     "x": 21.75,
+     "y": 60.25,
+     "w": 11,
+     "h": 14,
+     "img": "art/photo-1655841251398-c4133f836680.jpg",
+     "aspect": 0.8,
+     "artist": "Nass Walkin",
+     "price": null,
+     "reason": "Your pink photo works with the rest, so it's in it, on the left."
+    }
+   ]
+  },
+  {
+   "why": "Both of yours, two new. Two groups, 56¾ in across.",
+   "pieces": [
+    {
+     "id": "des-print-the-ten-largest-childhood-no2-",
+     "own": false,
+     "title": "The Ten Largest, Childhood No2",
+     "x": 12.75,
+     "y": 46,
+     "w": 20,
+     "h": 28,
+     "img": "https://media.desenio.com/site_images/685c3d52fc772173309908e5_88127683_15940-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 0.7143,
+     "artist": "Hilma af Klint",
+     "shop": "Desenio",
+     "price": 44.07,
+     "reason": "Close to what you picked in the quiz; its blue repeats in 2 other pieces."
+    },
+    {
+     "id": "blue",
+     "own": true,
+     "title": "blue print",
+     "x": 36,
+     "y": 46,
+     "w": 20,
+     "h": 28,
+     "img": "art/photo-1580826237584-fda5b612e1bc.jpg",
+     "aspect": 0.5624,
+     "artist": "Jerome",
+     "price": null,
+     "reason": "Your blue print is in it, in the middle, because you said you'd keep it."
+    },
+    {
+     "id": "des-kamisaka-sekka-ocean-waves-from-momo",
+     "own": false,
+     "title": "Ocean Waves",
+     "x": 16.75,
+     "y": 76.5,
+     "w": 16,
+     "h": 12,
+     "img": "https://media.desenio.com/site_images/685d7b068b7ca77dcb8ae5e5_19415635_18385-8.jpg?auto=compress%2Cformat&fit=max&w=640",
+     "aspect": 1.4004,
+     "artist": "Kamisaka Sekka",
+     "shop": "Desenio",
+     "price": 27.57,
+     "reason": "Close to what you picked in the quiz; the one black and white piece, for contrast."
+    },
+    {
+     "id": "pink",
+     "own": true,
+     "title": "pink photo",
+     "x": 58.5,
+     "y": 46,
+     "w": 11,
+     "h": 14,
+     "img": "art/photo-1655841251398-c4133f836680.jpg",
+     "aspect": 0.8,
+     "artist": "Nass Walkin",
+     "price": null,
+     "reason": "Your pink photo works with the rest, so it's in it, on the right."
+    }
+   ]
+  },
+  {
+   "why": "Both of yours, one new. A loose gallery wall over the bed, 50½ in across.",
+   "pieces": [
+    {
+     "id": "blue",
+     "own": true,
+     "title": "blue print",
+     "x": 38.25,
+     "y": 46.25,
+     "w": 20,
+     "h": 28,
+     "img": "art/photo-1580826237584-fda5b612e1bc.jpg",
+     "aspect": 0.5624,
+     "artist": "Jerome",
+     "price": null,
+     "reason": "Your blue print is in it, in the middle, because you said you'd keep it."
+    },
+    {
+     "id": "hos-natalie-obradovich-before-dusk",
+     "own": false,
+     "title": "Before Dusk",
+     "x": 21.25,
+     "y": 51,
+     "w": 14.5,
+     "h": 18.5,
+     "img": "https://cdn.shopify.com/s/files/1/0115/7385/4270/products/NO27-PDP.jpg?width=560",
+     "aspect": 0.6667,
+     "artist": "Natalie Obradovich",
+     "shop": "House of Spoils",
+     "price": 225,
+     "reason": "Close to what you picked in the quiz; the one brown piece, for contrast."
+    },
+    {
+     "id": "pink",
+     "own": true,
+     "title": "pink photo",
+     "x": 60.75,
+     "y": 60.25,
+     "w": 11,
+     "h": 14,
+     "img": "art/photo-1655841251398-c4133f836680.jpg",
+     "aspect": 0.8,
+     "artist": "Nass Walkin",
+     "price": null,
+     "reason": "Your pink photo works with the rest, so it's in it, on the right."
+    }
+   ]
+  }
+ ]
+}
