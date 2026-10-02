@@ -77,6 +77,8 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 - 2026-10-01: How full: Calm, Balanced (default) and Full set the target share of the open wall covered by art (0.15, 0.28, 0.45), with penalties for too little and too much. A lead piece is only expected when the sizes differ a lot; an equal set is fine.
 - 2026-10-01: New prints come in a core of 7 shop sizes that nest (12x16, 14.5x18.5, 19.5x26, 20x28, 24.5x33.5, 31.5x44, 39.5x56, either way up) when the catalog offers at least 3 of them. Owned art stays at its real size. Why: fewer sizes that add up to each other line up better (two 14.5 in frames plus a 2.5 in gap make 31.5 in).
 - 2026-10-01: "Must keep" is split. A piece already hanging can be "Stays put" (exactly where it is), "Must use" (in every layout, free to move), "Happy to move" or "Don't care". The piece count includes pieces that stay put. One more or one fewer keeps the frames already up where they are. Art that isn't up yet can be added by size, with an optional photo of it for its colors and shape.
+- 2026-10-01: Photo reader, from a run on 81 stock room photos: a screen that's off and evenly black inside (dark, little texture, about 16:9) is the TV even when the image model calls it a painting, so wall-mounted TVs are found; a dark rectangle the model labels as a sofa, armchair, bed, cushion or chair is never the TV (couch backs were being read as TVs and setting the wall's size); and the edge of a frame, TV, window, lamp, plant or furniture is never taken as the wall's own side or top edge.
+- 2026-10-01: Things read from a photo get 1.5 in more clearance (`fuzz`), for the error in reading their edges. Once a person moves or retypes a box, the extra room goes.
 
 ## Design
 

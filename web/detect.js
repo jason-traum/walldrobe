@@ -7,6 +7,8 @@
 import { flatten, aspectFromCorners, homography, apply } from './photo.js';
 
 const SMALL = 220; // detection runs on a copy about this wide
+// A side wall's edge runs a good part of the photo's height; a shading line or a frame edge doesn't.
+const SIDE_VOTES = 0.16;
 
 function toLab(r, g, b) {
   const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -177,6 +179,10 @@ group(G.DOOR, [14, 58]);
 group(G.MIRROR, [27]);
 group(G.MOVES, [12, 126, 92, 115, 67, 98, 142, 137, 147, 138, 139, 120, 119]); // people, animals and things that get moved
 export const groupOf = (id) => ADE_GROUP[id] || G.OTHER;
+// What a couch or a bed is made of, in the model's labels (sofa, armchair, bed, cushion, pillow, chair): never a TV.
+const SEATS = [23, 30, 7, 39, 57, 19];
+// Things that sit on or in front of a wall: their edges are never the wall's own.
+const ON_WALL = new Set([G.ART, G.TV, G.MIRROR, G.WINDOW, G.LAMP, G.PLANT, G.FURNITURE, G.MOVES]);
 // What a piece of furniture is called, by the label it mostly has.
 const FURN_KIND = { 23: 'couch', 30: 'couch', 7: 'headboard', 44: 'dresser', 35: 'dresser', 24: 'shelf', 62: 'shelf' };
 
@@ -326,6 +332,8 @@ export function findWall(img, opts = {}) {
       const ii = i + (dy * w + dx) * OFF, io = i - (dy * w + dx) * OFF;
       // The next wall over is labeled wall too: a step in color still marks the corner.
       // Only the room's own surfaces end a wall; a lamp or a frame in front of it doesn't.
+      // With labels, the edge of a frame, a TV, a window or furniture on the wall is not the wall's edge.
+      if (Gm && ON_WALL.has(Gm[io])) continue;
       if (wallAt(ii) && ((Gm && (Gm[io] === G.CEILING || Gm[io] === G.FLOOR || Gm[io] === G.DOOR)) || differ(col(ii), col(io)))) m[i] = 1;
     }
     return m;
@@ -347,8 +355,8 @@ export function findWall(img, opts = {}) {
   const best = (lines, side, at, mid, min, ok = () => true) => lines
     .filter((c) => (side < 0 ? c.a + c.b * at < mid - 4 : c.a + c.b * at > mid + 4) && c.votes >= min && ok(c))
     .sort((p, q) => q.votes - p.votes)[0] || null;
-  const Lf = best(houghLines(marks(1, 0), w, h, false), -1, cy, cx, h * 0.16);
-  const Rf = best(houghLines(marks(-1, 0), w, h, false), 1, cy, cx, h * 0.16);
+  const Lf = best(houghLines(marks(1, 0), w, h, false), -1, cy, cx, h * SIDE_VOTES);
+  const Rf = best(houghLines(marks(-1, 0), w, h, false), 1, cy, cx, h * SIDE_VOTES);
   const lo = Lf ? Lf.a + Lf.b * cy : 0, hi = Rf ? Rf.a + Rf.b * cy : w - 1;
   // A ceiling or a soffit is painted, light and about the wall's tint; the bottom
   // of a row of frames is a frame (often black) or a print.
@@ -546,9 +554,15 @@ export function readWall(img, opts = {}) {
       if (!n || k / n > 0.7) { y0 = top; shows = true; }
     }
     const ar = (x1 - x0 + 1) / (y1 - y0 + 1);
+    // A screen that's off is evenly black inside; a dark painting has texture.
+    let sL = 0, sLL = 0, nL = 0;
+    const ix = Math.max(1, Math.round((x1 - x0) * 0.08)), iy = Math.max(1, Math.round((y1 - y0) * 0.08));
+    for (let y = y0 + iy; y <= y1 - iy; y++) for (let x = x0 + ix; x <= x1 - ix; x++) { const L = lab[(y * w + x) * 3]; sL += L; sLL += L * L; nL++; }
+    const meanL = nL ? sL / nL : 100, sdL = nL ? Math.sqrt(Math.max(0, sLL / nL - meanL * meanL)) : 100;
+    const blankScreen = !shows && meanL < 24 && sdL < 7 && ar > 1.5 && ar < 2.05;
     // A plant or a speaker touching one side doesn't change the screen's width.
     const alone = (clear(side(x0 - 2)) > 0.8 || clear(side(x1 + 2)) > 0.8) && (clearTop || shows) && ar > 1.5 && ar < 2.05;
-    tv = { x0, y0, x1, y1, alone, shows };
+    tv = { x0, y0, x1, y1, alone, shows, blank: blankScreen };
   }
   // A TV that's on: its bezel is a dark outline around a bright picture, like a
   // framed print, but a print hangs with wall under it and a TV stands on
@@ -569,7 +583,7 @@ export function readWall(img, opts = {}) {
 
   const items = [];
   const area = w * h;
-  const tvItem = tv ? { kind: 'tv', box: [tv.x0, tv.y0, tv.x1, tv.y1], confidence: tv.alone ? 0.85 : 0.6, alone: tv.alone, onStand: false, shows: !!tv.shows } : null;
+  const tvItem = tv ? { kind: 'tv', box: [tv.x0, tv.y0, tv.x1, tv.y1], confidence: tv.alone ? 0.85 : 0.6, alone: tv.alone, onStand: false, shows: !!tv.shows, blank: !!tv.blank } : null;
   if (tvItem) items.push(tvItem);
   // What hangs on the wall: blobs that don't reach the floor, solid and roughly rectangular.
   for (const c of comps) {
@@ -718,6 +732,7 @@ export function readWall(img, opts = {}) {
       raw[y * w + x] = id; Gs[y * w + x] = groupOf(id);
     }
     for (let y = hy; y < h; y++) for (let x = 0; x < w; x++) { Gs[y * w + x] = Gs[(hy - 1) * w + x]; raw[y * w + x] = raw[(hy - 1) * w + x]; }
+    const shareRaw = (box, ids) => { let n = 0, k = 0; for (let y = box[1]; y <= box[3]; y++) for (let x = box[0]; x <= box[2]; x++) { n++; if (ids.includes(raw[y * w + x])) k++; } return n ? k / n : 0; };
     const share = (box, groups) => { let n = 0, k = 0; for (let y = box[1]; y <= box[3]; y++) for (let x = box[0]; x <= box[2]; x++) { n++; if (groups.includes(Gs[y * w + x])) k++; } return n ? k / n : 0; };
     const compsOf = (groups, r = 1) => { const m = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) m[i] = groups.includes(Gs[i]) ? 1 : 0; return components(r ? close(m, w, h, r) : m, w, h); };
     const fillHolesComps = (m) => components(fillHoles(m, w, h), w, h).comps;
@@ -749,7 +764,12 @@ export function readWall(img, opts = {}) {
     // A dark 16:9 rectangle is a screen unless the model says it's a print or a window.
     // (The model sometimes calls a TV on a stand a cabinet: then the stand under it decides.)
     // A TV that's on (found from its dark part) only if the model sees a screen or a picture there.
-    const classicOk = classicTv && (classicTv.shows ? share(classicTv.box, [G.ART, G.TV]) > 0.5 : share(classicTv.box, [G.TV]) > 0.4 || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15));
+    // A screen that's off and evenly black is a TV even when the model calls it a
+    // painting (a wall-mounted TV often gets that label). A couch back is not a TV:
+    // when the model sees furniture there, it isn't one.
+    const classicOk = classicTv && shareRaw(classicTv.box, SEATS) < 0.4 && (classicTv.shows ? share(classicTv.box, [G.ART, G.TV]) > 0.5
+      : share(classicTv.box, [G.TV]) > 0.4 || (classicTv.blank && share(classicTv.box, [G.WINDOW, G.MIRROR, G.DOOR]) < 0.15)
+      || (classicTv.onStand && share(classicTv.box, [G.ART, G.WINDOW, G.MIRROR, G.DOOR]) < 0.15));
     if (onTv && (!classicOk || (inside(classicTv.box, onTv.box) > 0.8 && area4(onTv.box) > area4(classicTv.box) * 1.3))) { out.push(onTv); tvBox = onTv.box; }
     else if (classicOk) { out.push(classicTv); tvBox = classicTv.box; }
     else if (tvs.length) {
