@@ -19,7 +19,15 @@ The tape is drawn as tape, not as a blue border:
 - Flat color. No gradient, no shadow, no texture overlay.
 - The art sits inside the tape with a thin paper-white mat; the tape covers the mat's edge.
 
-Tape means "proposed". It never outlines a piece you own, a piece of furniture, or a control. A button is a solid tape-blue rectangle, not a tape strip.
+Tape is a code. Three colors, each a real roll, each with one meaning, the same on every screen including the hanging guide:
+
+| Tape | Token | Hex | Means | Where |
+|---|---|---|---|---|
+| Blue, the standard roll | `--tape-strip` | #2F7FD0 | New, proposed | Around every new piece |
+| Green, FrogTape | `--tape-keep` | #2F8A4E | New and kept: in every wall, survives re-ranking | Replaces the blue on that piece |
+| Orange, rough-surface tape | `--tape-pin` | #C8551A | Stays put: a piece of yours pinned where it hangs | One short strip across a corner of its frame |
+
+All three pass 3:1 on the drawn wall (3.3, 3.5, 3.5). Yellow tape fails (1.6) and is not used. Your other pieces are plain frames: they are real and need no tape. Never a fourth color. The first time two colors appear on a screen, one line under the wall says what they mean ("Blue is new, green is kept, orange stays put"). The saved heart is the marker color in lists and never becomes a tape. Tape never outlines furniture or a control. A button is a solid tape-blue rectangle, not a tape strip.
 
 ## Tokens
 
@@ -33,6 +41,9 @@ Light, on `:root`:
 | `--pencil` | #585C5F | Secondary text and every measurement. |
 | `--hairline` | #D9DBD8 | Rules between rows. Never around cards. |
 | `--tape` | #1B62AC | Action, selection, focus, proposed frames. |
+| `--tape-strip` | #2F7FD0 | Blue tape on the drawing: new. 3:1 on the wall is the bar; it is never text. |
+| `--tape-keep` | #2F8A4E | Green tape on the drawing: new and kept. |
+| `--tape-pin` | #C8551A | Orange tape on the drawing: yours, stays put. |
 | `--tape-soft` | #D6E6F7 | Selected background. |
 | `--on-tape` | #FFFFFF | Text on a tape button. |
 | `--marker` | #9C3A66 | The china marker. Small things only: the saved heart, nail marks, the tick on a piece that's yours. Never a button, never a measurement, never text longer than a word. |
@@ -42,7 +53,7 @@ Light, on `:root`:
 | `--frame` | #1B1B1B | Frames on pieces you own and in the hanging guide. |
 | `--mat` | #FBFBF9 | Mats. |
 
-Dark (`prefers-color-scheme: dark`): `--canvas` #1C1D1C, `--surface` #242624, `--ink` #ECEDEB, `--pencil` #A9ADB1, `--hairline` #343635, `--tape` #7FB3EC, `--tape-soft` #203247, `--on-tape` #0E1A28, `--marker` #E08DB4, `--marker-soft` #3A2430, `--error` #FF9C85. The drawn wall, frames and mats do not change: a wall is light in both themes.
+Dark (`prefers-color-scheme: dark`): `--canvas` #1C1D1C, `--surface` #242624, `--ink` #ECEDEB, `--pencil` #A9ADB1, `--hairline` #343635, `--tape` #7FB3EC, `--tape-soft` #203247, `--on-tape` #0E1A28, `--marker` #E08DB4, `--marker-soft` #3A2430, `--error` #FF9C85. The drawn wall, frames, mats and the three tape strips do not change: a wall is light in both themes.
 
 Contrast, WCAG 2.2 (computed):
 
