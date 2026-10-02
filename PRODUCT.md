@@ -81,6 +81,16 @@ Avoid in the interface: curate, elevate, AI, algorithm, SKU, inventory, "gallery
 
 Before the loop: the photo, the corners and one confirm screen (as built). After it: Get it (what to buy, the nails). A feature that serves no step waits.
 
+### Structure: A, the Oct 1 build extended (picked 2026-10-02)
+
+Feed of ranked walls, full width, to choose a layout. The open wall, a stable place to curate one. Your walls, to compare saved walls. Wireframes in design/v4-structures.md. Three rules on top (Astra, via Jason):
+
+- Previous and next on the open wall mean "try another arrangement with my kept pieces". Every wall you have touched keeps its edits, so going back to it finds your swaps and keeps where you left them.
+- Your walls is reachable straight from the open wall (it takes the open wall's spare), shown once at least one wall is saved.
+- Save adds this wall, as it is now, to Your walls. It is a copy: editing afterwards changes the working wall, never the saved one. Saving again adds another.
+
+First thing to test in the build: after swapping and keeping pieces, can someone try another arrangement and come back without wondering what happened to their work?
+
 ### Structure kept from a63c921
 
 The feed of ranked walls is where a layout is chosen. The open wall is where the art is curated. Get it is where you buy and hang. Every lever lives one level down, behind one door per screen. Nothing new goes on a main screen unless the budget below allows it or something comes off.
@@ -146,7 +156,7 @@ Visible controls per main screen. Content (wall cards, drawn pieces, piece rows,
 | Screen | a63c921 | v4 budget | On the screen | One level down |
 |---|---|---|---|---|
 | Feed | 3 | 4 | Wordmark, one door, Your walls once one is saved, one spare | Layout preferences, taste test, your pieces, fix what's marked, favorites, new wall |
-| Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, one spare | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
+| Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, Your walls once one is saved (the spare, spent) | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
 | Piece sheet | 5 | 6 plus the choices | Choices (favorites first), See all that fit, Keep in every wall, Remove this frame, heart, sizes; for yours: Stays where it hangs, Leave it out | The full list for that spot |
 | Your walls | none | 4 plus wall cards | Back, Compare, New wall, one spare | Rename, delete |
 | Get it | 7 | 7 | As a63c921, with each frame in words | none |
