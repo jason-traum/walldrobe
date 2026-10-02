@@ -31,10 +31,12 @@ export function expand(r, d) {
 // only a small one. Unknown kinds are treated as blockers, the safe default.
 export function blockedRegions(obstacles, pinned = []) {
   const regions = obstacles.map((o) => {
+    // fuzz: how far off a box read from a photo might be; the art keeps that much more clear.
+    const f = typeof o.fuzz === 'number' && o.fuzz > 0 ? Math.min(6, o.fuzz) : 0;
     if (FURNITURE.has(o.kind)) {
-      return { x: o.x, y: o.y, w: o.w, h: o.h + RULES.clearanceMin, id: o.id, kind: o.kind };
+      return { x: o.x - f, y: o.y, w: o.w + 2 * f, h: o.h + RULES.clearanceMin + f, id: o.id, kind: o.kind };
     }
-    const d = FIXTURES.has(o.kind) ? RULES.fixtureClear : RULES.blockerClear;
+    const d = (FIXTURES.has(o.kind) ? RULES.fixtureClear : RULES.blockerClear) + f;
     return { ...expand(o, d), id: o.id, kind: o.kind };
   });
   for (const p of pinned) {

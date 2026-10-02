@@ -547,6 +547,7 @@ function setScale(W, H) {
 function freeTitle(taken) {
   for (let n = 1; ; n++) { const t = n === 1 ? 'print' : `print ${n}`; if (!taken.has(t)) return t; }
 }
+const RULES_FUZZ = 1.5; // inches added around things read from a photo, for the error in reading them
 const AUTO_KIND = (k) => (KIND_NAME[k] ? k : 'furniture');
 const AUTO_LABEL = (k, model) => (k === 'lamp' && !model ? 'Lamp or plant' : KIND_NAME[AUTO_KIND(k)]);
 const r2 = (v) => Math.round(v * 2) / 2;
@@ -567,7 +568,8 @@ function applyAuto() {
   const live = a.items.filter((i) => !i.removed);
   d.obstacles = [
     ...d.obstacles.filter((o) => !o.autoId),
-    ...live.filter((i) => i.kind !== 'art').map((i) => clampOb({ id: i.id, autoId: i.id, kind: AUTO_KIND(i.kind), label: AUTO_LABEL(i.kind, p.seen && p.seen.model), ...inch(i) })),
+    // Read from the photo, a box can be an inch or two off: art keeps a little more clear of it.
+    ...live.filter((i) => i.kind !== 'art').map((i) => clampOb({ id: i.id, autoId: i.id, kind: AUTO_KIND(i.kind), label: AUTO_LABEL(i.kind, p.seen && p.seen.model), fuzz: RULES_FUZZ, ...inch(i) })),
   ];
   const prev = new Map(d.owned.filter((o) => o.autoId).map((o) => [o.autoId, o]));
   const arts = live.filter((i) => i.kind === 'art');
@@ -641,7 +643,8 @@ function forgetAuto(id) {
   if (!a) return;
   const it = a.items.find((i) => i.id === id);
   if (it) it.removed = true;
-  for (const o of [...S.draft.obstacles, ...S.draft.owned]) if (o.autoId === id) delete o.autoId;
+  // Checked by hand now: no extra room for reading error.
+  for (const o of [...S.draft.obstacles, ...S.draft.owned]) if (o.autoId === id) { delete o.autoId; delete o.fuzz; }
 }
 
 async function changeDims(f) {
