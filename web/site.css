@@ -486,3 +486,30 @@ svg.is-dragging .measure { opacity: 0.25; }
 .stepper { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--field); border-radius: 22px; padding: 0 4px; background: var(--surface); }
 .stepper .icon-btn { font-size: 22px; }
 .step-n { min-width: 72px; text-align: center; font: 600 15px/20px var(--font); font-variant-numeric: tabular-nums; }
+
+/* The close-up above a finger on a photo. Fixed size, round, a thin cross at its middle. */
+.loupe { position: fixed; z-index: 30; width: 120px; height: 120px; border-radius: 50%; border: 2px solid var(--tape-strip); box-shadow: 0 8px 24px rgba(20, 24, 28, 0.25); background-color: var(--wall); background-repeat: no-repeat; pointer-events: none; display: none; }
+.loupe::before, .loupe::after { content: ""; position: absolute; left: 50%; top: 50%; background: var(--tape-strip); }
+.loupe::before { width: 1px; height: 28px; transform: translate(-50%, -50%); }
+.loupe::after { width: 28px; height: 1px; transform: translate(-50%, -50%); }
+.handle.is-picked .handle-dot { fill: var(--tape-strip); }
+.nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 0 0; }
+.nudge-who { color: var(--pencil); font: 500 14px/20px var(--font); }
+.nudge-pad { display: inline-flex; border: 1px solid var(--field); border-radius: 22px; background: var(--surface); }
+.nudge-pad .icon-btn { font-size: 18px; }
+
+/* Boxes on the confirm photo: tap to pick, then corner handles and the size under it. */
+.photo-check .box { cursor: pointer; }
+.photo-check .box.is-picked .ob-box, .photo-check .box.is-picked .owned-box-mark { stroke-width: 3; }
+.photo-check .box.is-picked .ob-box { stroke: var(--on-wall-tape); }
+.photo-check .box-h { cursor: grab; }
+.photo-check .box-size { fill: var(--on-wall); font-weight: 600; text-anchor: middle; paint-order: stroke; stroke: var(--mat); stroke-width: 0.6; }
+.photo-check .box rect { pointer-events: all; }
+
+/* Sizes a piece comes in, in its sheet. */
+.sizes { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.size-btn { display: grid; gap: 0; min-height: 44px; padding: 4px 12px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: 500 15px/20px var(--font); font-variant-numeric: tabular-nums; cursor: pointer; text-align: center; }
+.size-btn[aria-pressed="true"] { background: var(--tape-soft); border-color: var(--tape); color: var(--tape); }
+.size-price { display: block; font: 400 13px/16px var(--font); color: var(--pencil); }
+.size-btn[aria-pressed="true"] .size-price { color: var(--tape); }
+.pool { display: grid; gap: 12px; }
