@@ -76,6 +76,24 @@ Four screens between the photo and the hanging guide. The fewest that still give
 4. The wall. One finished wall on your photo, at true scale, filling the screen. Scroll for the ranked list of other walls, each with its one line of why. Tap a piece for what it is, why it's there, save, swap or keep. One Change action holds the rest: how full, just my pieces, as it hangs now, move pieces, make it mine (the quiz).
 5. Get it. The nail spots and the hanging guide, printable, with the wire drop and the estimate note. Each new piece links to where you get it, with the frame size. Save the wall.
 
+## Walls with sections, and a whole home (proposed, not built)
+
+Most walls aren't one clean rectangle, and walls in one home are seen together. In the 81 stock photos, 33 show a second wall at a corner, 14 have two sections on one plane (panels, slats, two-tone, wainscot), 6 a soffit, 5 an alcove, 3 a sloped ceiling. The shape we'd build to:
+
+- **A wall is one or more sections.** Each section is a rectangle on the wall's plane with its own height and depth: a bump-out sits forward, an alcove back, a soffit lowers the top. Art never crosses a section edge that isn't flush. Each section gets its own layout, and the wall is scored as a whole: a shared center line or top line across sections, the bigger section carrying the bigger group.
+- **A home is walls seen together.** Walls that are visible from one spot (a corner, an open plan) share a score: one color story across them, no piece on two walls, different kinds of wall side by side, the biggest group on the wall you see first. Your art and your taste are already per person, so a home just draws on them.
+- **Your art across the home.** Which piece goes on which wall comes first (an assignment by fit, size and color), then each wall's layout. A piece can be pinned to a wall.
+- **Photos.** One photo per wall is simplest and stays the default. A corner photo could be read as two walls later; today the reader merges the two in 22 of the 33 corner photos.
+
+Order to build: sections on one wall (the soffit is already half of it), then two walls from one corner photo, then a home.
+
+## Side pages (planned)
+
+- **Saved** (built): your hearts from any wall, the sizes each comes in, "See it on my wall".
+- **Browse:** every print, by size, price, color and shop; each with its sizes and "See it on my wall". A page of its own, so the wall screen stays free of filters.
+- **Taste, deeper:** a longer test whose pairs split one thing at a time (warm or cool, busy or calm, figurative or abstract), then a summary in words you can correct ("You lean warm and calm"). Complementary pairs (pieces that go together, not just each one alone) in the rank pass.
+- **Learning from everyone:** log every save, swap, skip and "Get this wall" from day one, so a shared prior exists when there are people; each person's own picks then move them off it.
+
 ## Not in v1
 
 - Picking a style (Structured / Loose) or a piece count by hand. The ranked list covers it.

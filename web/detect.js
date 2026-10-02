@@ -10,7 +10,7 @@ const SMALL = 220; // detection runs on a copy about this wide
 // A side wall's edge runs a good part of the photo's height; a shading line or a frame edge doesn't.
 const SIDE_VOTES = 0.16;
 // How far a side edge may lean (x per y): a phone tilted up a little, not a shadow running across the wall.
-const SIDE_SLOPE = 0.2;
+const SIDE_SLOPE = 0.12;
 
 function toLab(r, g, b) {
   const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -188,6 +188,8 @@ const FIREPLACE = [49];
 const ON_WALL = new Set([G.ART, G.TV, G.MIRROR, G.WINDOW, G.LAMP, G.PLANT, G.FURNITURE, G.MOVES]);
 // What a piece of furniture is called, by the label it mostly has.
 const FURN_KIND = { 23: 'couch', 30: 'couch', 7: 'headboard', 44: 'dresser', 35: 'dresser', 24: 'shelf', 62: 'shelf' };
+// Which piece a label belongs to when two pieces touch (a pillow is part of the bed).
+const FURN_CLASS = { 23: 'couch', 30: 'couch', 7: 'headboard', 57: 'headboard', 44: 'dresser', 35: 'dresser', 24: 'shelf', 62: 'shelf' };
 
 // The model's label at a photo point. seg: { w, h, labels } covering the whole photo.
 function labelAt(seg, photoW, photoH, x, y) {
@@ -377,9 +379,33 @@ export function findWall(img, opts = {}) {
   // A wall's side is upright in the world, so it leans only as far as the camera tilts.
   const leftLines = houghLines(marks(1, 0), w, h, false, 12, SIDE_SLOPE), rightLines = houghLines(marks(-1, 0), w, h, false, 12, SIDE_SLOPE);
   // Without labels the next wall over can look like this one carrying on, so the test only runs with the model.
-  const Lf = best(leftLines, -1, cy, cx, h * SIDE_VOTES, (c) => !Gm || resumes(c, -1) < 0.5);
-  const Rf = best(rightLines, 1, cy, cx, h * SIDE_VOTES, (c) => !Gm || resumes(c, 1) < 0.5);
-  if (opts.debug) opts.debug.sideCandidates = { left: leftLines.map((c) => ({ ...c, resumes: resumes(c, -1) })), right: rightLines.map((c) => ({ ...c, resumes: resumes(c, 1) })) };
+  let Lf = best(leftLines, -1, cy, cx, h * SIDE_VOTES, (c) => !Gm || resumes(c, -1) < 0.5);
+  let Rf = best(rightLines, 1, cy, cx, h * SIDE_VOTES, (c) => !Gm || resumes(c, 1) < 0.5);
+  // An inside corner between two walls of the same paint has no step in color:
+  // light falls off toward it from both sides, so it shows as a soft dark crease
+  // running up the wall. A thin dark line (a panel joint, a pipe's shadow) is as
+  // deep close up as further out; a crease keeps deepening for a hand's width.
+  // A crease between the middle and the side found means the wall turns there.
+  let valleyLines = [];
+  if (Gm) {
+    const V = new Uint8Array(w * h), D1 = OFF, D4 = OFF * 4;
+    for (let y = OFF; y < h - OFF; y++) for (let x = D4; x < w - D4; x++) {
+      const i = y * w + x;
+      if (Gm[i] !== G.WALL || Gm[i - D4] !== G.WALL || Gm[i + D4] !== G.WALL) continue;
+      const l = L[i];
+      if (l > L[i - 1] || l > L[i + 1]) continue;
+      const dip1 = Math.min(L[i - D1], L[i + D1]) - l, dip4 = Math.min(L[i - D4], L[i + D4]) - l;
+      if (dip4 >= 2.5 && dip4 >= dip1 * 1.8 && mag[i] < 2.5) V[i] = 1;
+    }
+    valleyLines = houghLines(V, w, h, false, 12, SIDE_SLOPE).filter((c) => c.votes >= h * SIDE_VOTES);
+    const at = (c) => c.a + c.b * cy;
+    // Which side a crease is on goes by the photo's middle: with a window in the
+    // middle of the wall, most of the wall color is to one side of it.
+    const inner = (side, f) => valleyLines.filter((c) => (side < 0 ? at(c) < w / 2 - 4 && (!f || at(c) > at(f) + 2) : at(c) > w / 2 + 4 && (!f || at(c) < at(f) - 2))).sort((p, q) => q.votes - p.votes)[0];
+    Lf = inner(-1, Lf) || Lf;
+    Rf = inner(1, Rf) || Rf;
+  }
+  if (opts.debug) opts.debug.sideCandidates = { left: leftLines.map((c) => ({ ...c, resumes: resumes(c, -1) })), right: rightLines.map((c) => ({ ...c, resumes: resumes(c, 1) })), valleys: valleyLines };
   const lo = Lf ? Lf.a + Lf.b * cy : 0, hi = Rf ? Rf.a + Rf.b * cy : w - 1;
   // A ceiling or a soffit is painted, light and about the wall's tint; the bottom
   // of a row of frames is a frame (often black) or a print.
@@ -406,6 +432,24 @@ export function findWall(img, opts = {}) {
     return n ? ok / n : 0;
   };
   const T0 = best(houghLines(topMarks, w, h, true), -1, cx, cy, (hi - lo) * (Gm ? 0.35 : 0.55), Gm ? (c) => outerIs(c, G.CEILING, 1, lo, hi) > 0.5 : (c) => beyond(c, -1, lo, hi) < 0.3 && painted(c) > 0.6);
+  // Upright edges in a photo lean by the camera's roll (the ceiling line's tilt
+  // says how much) plus a part that grows away from the middle (the camera
+  // tipped up or down). When the two sides disagree about that second part, the
+  // one leaning more is wrong about its lean (a mirror leaning on the wall, a
+  // shadow): it keeps its place and takes the lean the other one implies. A
+  // sheared wall makes every frame on it read wider than it is.
+  // Only with a ceiling line close to level: a steep one is another wall's, seen at an angle.
+  if (T0 && Math.abs(T0.b) < 0.05 && Lf && Rf) {
+    const roll = -T0.b, xl = Lf.a + Lf.b * cy - w / 2, xr = Rf.a + Rf.b * cy - w / 2;
+    if (xl < -4 && xr > 4) {
+      const [bad, good, xb, xg] = Math.abs(Lf.b - roll) > Math.abs(Rf.b - roll) ? [Lf, Rf, xl, xr] : [Rf, Lf, xr, xl];
+      const want = roll + (good.b - roll) * (xb / xg);
+      if (Math.abs(bad.b - want) > 0.08) {
+        const mid = bad.a + bad.b * cy, fixed = { ...bad, b: want, a: mid - want * cy };
+        if (bad === Lf) Lf = fixed; else Rf = fixed;
+      }
+    }
+  }
   const floorLines = houghLines(marks(0, -1), w, h, true, 30);
   const top = T0 || { a: by0, b: 0 }, left = Lf || { a: bx0, b: 0 }, right = Rf || { a: bx1, b: 0 };
   // Grow the wall inside the lines found so far, then read the floor off it:
@@ -819,8 +863,39 @@ export function readWall(img, opts = {}) {
         continue;
       }
       if (c.n < area * 0.003 || c.y1 >= floorY - h * 0.03 || (tvBox && iou(b, tvBox) > 0.2)) continue;
+      // The model's labels are coarse, so frames hung a few inches apart come out
+      // as one solid patch. Where the wall shows between them, in straight gaps,
+      // they're separate pieces: each one a solid rectangle, none overlapping.
+      const parts = framesIn(c);
+      if (parts) {
+        // A box found above that holds two or more of them was the same patch.
+        for (const a of arts.slice()) if (parts.filter((q) => inside(q, a.box) > 0.8).length >= 2) arts.splice(arts.indexOf(a), 1);
+        for (const q of parts) if (!arts.some((a) => iou(a.box, q) > 0.25 || inside(q, a.box) > 0.8)) arts.push({ kind: 'art', box: q, confidence: 0.65 });
+        continue;
+      }
       if (arts.some((a) => iou(a.box, b) > 0.25)) continue;
       arts.push({ kind: 'art', box: b, confidence: 0.7 });
+    }
+    function framesIn(c) {
+      const sub = new Uint8Array(w * h);
+      for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) { const i = y * w + x; sub[i] = loose[i] && Gs[i] === G.ART ? 1 : 0; }
+      // A thin frame can break a pixel here and there, which a closing mends; but
+      // frames hung close together then join up. Both ways are tried, and the one
+      // that gives more clean pieces wins.
+      const tryParts = (m) => {
+        let ps = fillHolesComps(m).filter((p) => p.n >= area * 0.003).map((p) => ({ box: [p.x0, p.y0, p.x1, p.y1], n: p.n }));
+        // A frame whose ring has a break doesn't fill in, so the print inside it
+        // comes out on its own: it's part of the frame around it.
+        ps = ps.filter((p) => { const o = ps.find((q) => q !== p && q.n > 0 && inside(p.box, q.box) > 0.9); if (!o) return true; o.n += p.n; return false; });
+        for (const p of ps) p.fill = p.n / area4(p.box);
+        if (ps.length < 2 || ps.some((p) => p.fill < 0.65)) return null;
+        for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) if (inside(ps[i].box, ps[j].box) > 0.05 || inside(ps[j].box, ps[i].box) > 0.05) return null;
+        // Together they are most of the patch, not a few bits of one picture.
+        if (ps.reduce((t, p) => t + p.n, 0) < c.n * 0.6) return null;
+        return ps.map((p) => p.box);
+      };
+      const a = tryParts(sub), b = tryParts(close(sub, w, h, 1));
+      return (a && b ? (a.length >= b.length ? a : b) : a || b) || null;
     }
     // A mirror on the wall is planned around; leaning on the floor, it stands there.
     // A screen reflects the room, so the model sees a mirror in part of a TV: that's the TV.
@@ -847,7 +922,21 @@ export function readWall(img, opts = {}) {
     for (const c of compsOf([G.WINDOW]).comps) if (c.n >= area * 0.01 && !inTv([c.x0, c.y0, c.x1, c.y1])) out.push({ kind: 'window', box: [c.x0, c.y0, c.x1, c.y1], confidence: 0.6 });
     for (const c of compsOf([G.DOOR]).comps) if (c.n >= area * 0.01 && !inTv([c.x0, c.y0, c.x1, c.y1])) out.push({ kind: 'door', box: [c.x0, c.y0, c.x1, floorY], confidence: 0.6 });
     // What stands in front: furniture, lamps (shade and all) and plants.
-    const furn = compsOf([G.FURNITURE], 2).comps.filter((c) => c.n >= area * 0.004);
+    // Two pieces that touch (a bed and the dresser beside it) are one patch of
+    // furniture labels: when two named kinds each hold a good part of it, they're
+    // split by their own labels, so each keeps its own width.
+    const furn = [];
+    for (const f of compsOf([G.FURNITURE], 2).comps.filter((c) => c.n >= area * 0.004)) {
+      const byKind = new Map();
+      for (let y = f.y0; y <= f.y1; y++) for (let x = f.x0; x <= f.x1; x++) { const k = FURN_CLASS[raw[y * w + x]]; if (k) byKind.set(k, (byKind.get(k) || 0) + 1); }
+      const big = [...byKind].filter(([, n]) => n >= f.n * 0.2);
+      if (big.length < 2) { furn.push(f); continue; }
+      for (const [k] of big) {
+        const m = new Uint8Array(w * h);
+        for (let y = f.y0; y <= f.y1; y++) for (let x = f.x0; x <= f.x1; x++) m[y * w + x] = FURN_CLASS[raw[y * w + x]] === k ? 1 : 0;
+        for (const c of components(close(m, w, h, 2), w, h).comps) if (c.n >= area * 0.004) furn.push(c);
+      }
+    }
     const onFurniture = (c) => furn.some((f) => f.x0 <= c.x1 && f.x1 >= c.x0 && f.y0 >= c.y1 - h * 0.02 && f.y0 - c.y1 <= h * 0.06);
     for (const f of furn) {
       const toFloor = f.y1 >= floorY - h * 0.04;
@@ -859,7 +948,16 @@ export function readWall(img, opts = {}) {
       const main = [...tally].sort((a, b) => b[1] - a[1])[0];
       const underTv = tvBox && f.x0 < tvBox[2] && f.x1 > tvBox[0] && Math.abs(f.y0 - tvBox[3]) <= Math.max(3, h * 0.04);
       const kind = underTv ? 'console' : toFloor ? FURN_KIND[main && main[0]] || 'furniture' : 'shelf';
-      out.push({ kind, box: [f.x0, f.y0, f.x1, toFloor ? floorY : f.y1], confidence: 0.6 });
+      let [bx0, bx1] = [f.x0, f.x1];
+      // A bed's foot is nearer the camera than its headboard and looks wider; what
+      // stands against the wall is the top of it.
+      if (kind === 'headboard') {
+        const band = Math.max(1, Math.round((f.y1 - f.y0 + 1) * 0.3));
+        const xs = [];
+        for (let y = f.y0; y < f.y0 + band; y++) { let a = -1, b = -1; for (let x = f.x0; x <= f.x1; x++) if (FURN_CLASS[raw[y * w + x]] === 'headboard') { if (a < 0) a = x; b = x; } if (a >= 0) xs.push([a, b]); }
+        if (xs.length) { const q = (arr, t) => arr.slice().sort((u, v) => u - v)[Math.floor((arr.length - 1) * t)]; bx0 = q(xs.map((v) => v[0]), 0.5); bx1 = q(xs.map((v) => v[1]), 0.5); }
+      }
+      out.push({ kind, box: [bx0, f.y0, bx1, toFloor ? floorY : f.y1], confidence: 0.6 });
       if (underTv) { const t = out.find((o) => o.kind === 'tv'); if (t) t.onStand = true; }
     }
     for (const [g, kind] of [[G.LAMP, 'lamp'], [G.PLANT, 'plant']]) {
@@ -878,10 +976,75 @@ export function readWall(img, opts = {}) {
   }
   const up = (v) => v / s;
   if (opts.debug) opts.debug.out = { w, h, wallLike: fg.map((v) => 1 - v), solid, dark, floorY, seed: model.seed };
-  return {
-    wallColor: model.at(w / 2, h * 0.3),
-    items: final.map((it) => ({ kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: up(it.box[0]), y: up(it.box[1]), w: up(it.box[2] - it.box[0] + 1), h: up(it.box[3] - it.box[1] + 1) })),
+  // The boxes so far come from a coarse grid (the model's labels, or the small
+  // copy): a frame's box can be a cell too big on every side. Each side of a
+  // piece or a TV is moved to the frame's real outer edge, read off the full
+  // image: where wall stops and something clearly not wall starts. A weak step
+  // (a thin light frame, a pale canvas) leaves the side where it was.
+  let reach = Math.max(3, Math.ceil(2 / s));
+  if (opts.labels) {
+    const { seg, toPhoto, photoW } = opts.labels;
+    const a = apply(toPhoto, img.width / 2, img.height / 2), b = apply(toPhoto, img.width / 2 + 10, img.height / 2);
+    const photoPerRead = Math.hypot(b[0] - a[0], b[1] - a[1]) / 10;
+    if (photoPerRead > 0) reach = Math.max(reach, Math.ceil((2 * photoW) / seg.w / photoPerRead));
+  }
+  const items2 = final.map((it) => {
+    let box = [up(it.box[0]), up(it.box[1]), up(it.box[2] + 1), up(it.box[3] + 1)];
+    if (it.kind === 'art' || it.kind === 'tv') box = snapEdges(img, box, reach, (x, y) => model.at(x * s, y * s));
+    return { kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1] };
+  });
+  return { wallColor: model.at(w / 2, h * 0.3), items: items2 };
+}
+
+// Move each side of a box [x0, y0, x1, y1] (full image pixels, x1 and y1 just
+// past the box) to the strongest wall-to-frame step within `reach` of it.
+// wallAt(x, y) is the wall's Lab color there. A side moves only when the step
+// shows along most of its length, and only inward: the box never grows.
+function snapEdges(img, box, reach, wallAt) {
+  const W = img.width, H = img.height;
+  const cache = new Map();
+  const lab = (x, y) => {
+    const X = Math.max(0, Math.min(W - 1, Math.round(x))), Y = Math.max(0, Math.min(H - 1, Math.round(y))), k = Y * W + X;
+    let v = cache.get(k);
+    if (!v) { const o = k * 4; v = toLab(img.data[o], img.data[o + 1], img.data[o + 2]); cache.set(k, v); }
+    return v;
   };
+  const dist = (p, q) => Math.hypot(p[0] - q[0], (p[1] - q[1]) * 1.4, (p[2] - q[2]) * 1.4);
+  // A step at a position: two pixels outside look like wall, one pixel inside
+  // doesn't, and the two differ clearly.
+  const step = (out, inn, wall) => { const dO = dist(out, wall), dI = dist(inn, wall); return dO < 12 && dI > dO + 10 && dist(out, inn) > 14; };
+  const [x0, y0, x1, y1] = box;
+  const bw = x1 - x0, bh = y1 - y0;
+  if (bw < 6 || bh < 6) return box;
+  const along = (lo, hi) => { const a = Math.round(lo + (hi - lo) * 0.15), b = Math.round(hi - (hi - lo) * 0.15), out = []; for (let t = a; t <= b; t += Math.max(1, Math.round((b - a) / 40))) out.push(t); return out; };
+  const rows = along(y0, y1), cols = along(x0, x1);
+  // side: 0 left, 1 top, 2 right, 3 bottom. dir points from outside to inside.
+  const side = (pos, k) => {
+    const dir = k < 2 ? 1 : -1, ts = k % 2 === 0 ? rows : cols;
+    let best = null; const curve = [];
+    for (let d = -reach; d <= reach; d++) {
+      const e = (dir > 0 ? Math.round(pos) : Math.round(pos) - 1) + d * dir; // the box's outermost pixel at this position
+      let n = 0;
+      for (const t of ts) {
+        const [ox, oy, ix, iy] = k % 2 === 0 ? [e - 2 * dir, t, e + dir, t] : [t, e - 2 * dir, t, e + dir];
+        if (step(lab(ox, oy), lab(ix, iy), wallAt(ox, oy))) n++;
+      }
+      const f = n / ts.length;
+      curve.push({ f, d, e });
+      if (!best || f > best.f) best = { f, d, e };
+    }
+    if (!best || best.f < 0.5) return pos;
+    // The test holds over a few positions around the real edge (it looks two
+    // pixels out and one in): the edge is the middle of that run.
+    const run = curve.filter((c) => c.f >= best.f * 0.9 && Math.abs(c.d - best.d) <= 4);
+    const mid = run[Math.floor((run.length - 1) / 2)];
+    if (mid.d < 0) return pos;
+    return dir > 0 ? mid.e : mid.e + 1;
+  };
+  const nb = [side(x0, 0), side(y0, 1), side(x1, 2), side(y1, 3)];
+  // A side that ran away (the frame's ring read as the wall's edge) leaves the box as it was.
+  if (nb[2] - nb[0] < bw * 0.6 || nb[3] - nb[1] < bh * 0.6) return box;
+  return nb;
 }
 
 // Lab back to an sRGB triple, for filling wall beyond the photo.

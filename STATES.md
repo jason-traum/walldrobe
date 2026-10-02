@@ -49,6 +49,7 @@ States that apply everywhere:
 | Reading | "Reading your wall…" on the button while the wall inside the corners is flattened and read | Wait |
 | Corners crossed or off photo | Handles turn to the error style, "Corners should go clockwise from top left." | Fix |
 | Sized from a TV | On the check screen: "Worked out from your TV, taken as a 55 in TV." with the TV size to change | Change the TV size, type the width |
+| Things agree on the size | No TV, but two or more of the door, a queen bed, the couch and an 8 ft ceiling agree within 15%: "Use 9 ft 2 in wide" first, with "The bed and an 8 ft ceiling agree on it." | Tap it, measure, pick one |
 | Measurement empty | Only when no TV is clear of everything else: "Give us one real measurement." Wall width, or its height when the ceiling is in the photo. Under it, "No tape measure?" with what's in the photo: the door (6 ft 8 in), a queen bed, the couch (about 7 ft), an 8 ft ceiling, or just guess | Enter feet and inches, or pick one |
 | Measurement doesn't add up | "That makes the wall 31 ft tall. Check the number." | Edit |
 | Done | Straight to the confirm screen (section 6) | Next |
@@ -74,6 +75,9 @@ One screen after the corners: the flattened photo with what we found marked, the
 | A piece might be the TV | "It's the TV" link on the biggest wide piece when no TV was found | Tap it |
 | Sized from a TV | Under the width: "From your TV, taken as a 55 in TV. Measure the wall to be exact." and a TV size picker | Change the TV size, type the width |
 | Size doesn't add up | "That makes the wall 31 ft wide and 8 ft tall. Check the number." | Edit |
+| References disagree | Under the width: "The TV says 11 ft 2 in and the door says 9 ft 8 in. Measure to be sure." | Measure, change the TV size |
+| Art from before | "Your art from before": pieces added on another wall that aren't up yet | Add it to this wall, Forget it |
+| Adding art that isn't up | A frame size picker (standard sizes) with Turn it sideways or upright, and wide and tall fields | Pick, turn, type |
 | Skipped piece | Its mark on the photo goes faint | Keep again |
 
 Pinning (stays exactly where it hangs) is not here. It lives one tap deeper, in the piece sheet on the open wall (section 9).
@@ -97,7 +101,7 @@ After the first wall, never before it. Reached from Change.
 | Ready | A ranked list, best first. Each wall at full width, then "1 of 12", the why line ("Both of yours, one new. Lined up over the couch, 73½ in across."), the cost. The first wall always has new art in it | Tap a wall to open it, Change |
 | Has a piece you saved | "1 of 12 · has a piece you saved" | |
 | Ranked again | After saves, swaps or the quiz: "Ranked again for what you saved and swapped." | |
-| Kept pieces don't fit | "Your [title] doesn't fit with new art here, so some walls leave it out." | Change it to Skip, Just mine |
+| Kept pieces don't all fit | The engine leaves out as few as it can, smallest first, and says which at the top; each wall says what it left off and why | Change one to Skip, Just mine |
 | Few walls at this fullness | The walls from the other two fullness levels come after, so the list is never two walls long | |
 | End of the list | "That's every wall that fits." and a link to Change | Change |
 | No room for art | The bare wall, "There isn't room for art on this wall." and the reason. "Not every wall needs art." | Check what's marked, Try another wall |
@@ -112,6 +116,7 @@ Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full)
 |---|---|---|
 | Default | The drawing at true scale, "Wall 3 of 12" with back and next, the why line, the cost, "Get this wall", "Save this wall". Under it, "In this wall": your pieces first, then the new ones, each with thumbnail, size, price and shop, one reason, a heart | Swipe or back and next, tap a piece, save a piece, Get this wall, Change |
 | Desktop | Drawing and actions on the left, the piece rows on the right | |
+| As it hangs now | Your pieces where they are, always in the list when every piece has a spot. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: [the first two]." | |
 | Tape colors on screen | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." Or "Stays where it hangs now." or "Not up yet: hang it here." | |
 | New piece sheet | Image, title, artist and shop, frame size and price, reason, nail spot | Save, Swap this one, Keep it in every wall, See it at [shop] |
@@ -142,6 +147,15 @@ Undo stays until you open another wall or leave the screen.
 | Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows | Type a number |
 | Size from the photo | "These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. Measure the wall's width once and every spot firms up." | Measure |
 | Leaving the site | Opens in a new tab; the wall stays | |
+
+## 10b. Saved
+
+| State | What they see | Action |
+|---|---|---|
+| None | "Nothing saved yet. Tap the heart on any piece and it lands here, and the walls rank for it." | |
+| Saved pieces | Each with its thumbnail, artist, the sizes it comes in with the price at each, and where it is ("On the wall you have open", "Kept in every wall") | See it on my wall, See it at [shop], unsave |
+| See it on my wall | Back to the feed, the piece kept in every wall at a size it comes in: "[title] is in every wall now, at 20 x 28 in." | |
+| No wall yet | The list, without See it on my wall | Start a wall |
 
 ## 11. Your walls
 

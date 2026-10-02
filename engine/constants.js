@@ -75,3 +75,26 @@ export const SEARCH = Object.freeze({
 });
 
 export const FAMILIES = Object.freeze(['flow', 'statement', 'line', 'grid', 'column', 'salon']);
+
+// Free-form walls (flow.js shapeScore), from hanging Jason's own bedroom wall
+// against the engine's (ENGINE.md, "His wall against the engine's"). Set a weight
+// to 0 to switch its rule off.
+export const FREEFORM = Object.freeze({
+  // The biggest frame anchors the group: near its center line and not in its top
+  // part. Share of the shape score; the other parts share the rest.
+  anchor: 0.08,
+  anchorMin: 5,            // only in a gallery wall of at least this many pieces; fewer may balance a big piece off to one side
+  anchorLead: [1.1, 1.4],  // how much bigger than the next frame the biggest must be to count as the anchor (none to full)
+  // In a loose wall, order comes from each frame lining up with a frame it touches,
+  // more than from rows across the whole wall. Share of the lines part that is this,
+  // in one-group loose walls. At 1 (rows don't count at all) a loose row lifted a
+  // two-group wall 1.14 times the couch's width into the living room's list.
+  internal: 0.75,
+  // Free-form runs that grow around the first frame, keeping the group's weight on its
+  // center line (how hard, per foot off it); 0 leaves these runs out.
+  centered: 1,
+  // A group over more than one piece of furniture is centered on them taken together.
+  // How much that counts against centering on one of them (1: as much).
+  span: 1,
+  spanCover: 1 / 3,        // a piece of furniture counts when the art covers at least this share of its width
+});

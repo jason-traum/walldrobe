@@ -10,7 +10,7 @@
 // the wall balance. Then the best few get a repair pass before art goes in.
 // Pure: seeded randomness only, same input, same output.
 
-import { RULES } from './constants.js';
+import { RULES, FREEFORM } from './constants.js';
 import { overlaps, expand, q, EPS, ANCHORS, SCREENS, FURNITURE, cmpStr, clamp01 } from './geometry.js';
 
 const G = RULES.gap;
@@ -111,9 +111,57 @@ function legibility(g) {
   return on.size / g.length;
 }
 
+// Which way two frames touch across one gap: 'h' side by side, 'v' one above the other.
+function touchSide(a, b) {
+  const near = RULES.gapMax + 1;
+  const hGap = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+  const vGap = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+  if (hGap >= -EPS && hGap <= near && vGap < -1) return 'h';
+  if (vGap >= -EPS && vGap <= near && hGap < -1) return 'v';
+  return null;
+}
+
+// Order inside a loose wall: the share of frames that line up with a frame they
+// touch (side by side: top, bottom or middle; one above the other: left, right or
+// middle), within half an inch. Rows across the whole wall don't count here.
+export function internalLines(g) {
+  if (g.length < 2) return 1;
+  const tol = 0.5;
+  const locked = (f, o) => {
+    const s = touchSide(f, o);
+    if (!s) return false;
+    const pairs = s === 'h'
+      ? [[f.y, o.y], [f.y + f.h, o.y + o.h], [f.y + f.h / 2, o.y + o.h / 2]]
+      : [[f.x, o.x], [f.x + f.w, o.x + o.w], [f.x + f.w / 2, o.x + o.w / 2]];
+    return pairs.some(([u, v]) => Math.abs(u - v) <= tol);
+  };
+  const on = g.filter((f) => g.some((o) => o !== f && locked(f, o))).length;
+  if (g.length === 2) return on ? 1 : 0.5;
+  return on / g.length;
+}
+
+// In a gallery wall of five or more pieces, the biggest frame anchors the group
+// when it's clearly the biggest: it should sit near the group's center line and
+// not in its top part. 1 when there's no clear anchor (an even set) or the group
+// is small enough to balance a big piece off to one side.
+export function anchorScore(g) {
+  if (g.length < Math.max(3, FREEFORM.anchorMin)) return 1;
+  const s = [...g].sort((a, b) => b.w * b.h - a.w * a.h);
+  const [lo, hi] = FREEFORM.anchorLead;
+  const lead = clamp01((s[0].w * s[0].h / (s[1].w * s[1].h) - lo) / (hi - lo));
+  if (!lead) return 1;
+  const b = boxOf(g), a = s[0];
+  const out = Math.abs(a.x + a.w / 2 - (b.x + b.w / 2)) / (b.w / 2);
+  const up = (a.y + a.h / 2 - (b.y + b.h / 2)) / (b.h / 2);
+  const pos = clamp01(1 - Math.max(0, out - 0.15) / 0.45) * clamp01(1 - Math.max(0, up - 0.25) / 0.5);
+  return 1 - lead * (1 - pos);
+}
+
 /**
  * How good a set of frames is as a picture on this wall, from 0 to 1.
- * frames: [{x, y, w, h, g}] (g = which group), ctx: { space, wall, obstacles, fullness }.
+ * frames: [{x, y, w, h, g}] (g = which group), ctx: { space, wall, obstacles, fullness, free, loose }.
+ * free: a free-form wall (the anchor counts); loose: a loose one (lines are judged
+ * between neighbors, not across the wall).
  */
 export function shapeScore(frames, ctx) {
   if (!frames.length) return { score: 0, parts: {} };
@@ -125,7 +173,9 @@ export function shapeScore(frames, ctx) {
   const density = Math.exp(-z * z / 2);
 
   const groups = groupsOf(frames);
-  let cohesion = 0, lines = 0, ears = 0, room = 0;
+  let cohesion = 0, lines = 0, ears = 0, room = 0, anchor = 0;
+  // Two groups answer each other through lines across the wall, so this is for one-group walls.
+  const inner = ctx.loose && groups.length === 1 ? FREEFORM.internal : 0;
   const anchors = (ctx.obstacles || []).filter((o) => (SCREENS.has(o.kind) && o.w >= 20) || (ANCHORS.has(o.kind) && o.w >= RULES.minAnchorWidth));
   for (const g of groups) {
     const ga = sum(g.map((f) => f.w * f.h));
@@ -136,11 +186,12 @@ export function shapeScore(frames, ctx) {
     const fill = ga / open;
     cohesion += ga * clamp01((fill - 0.3) / 0.45);
     if (g.length > 1) {
-      lines += ga * legibility(g);
+      lines += ga * ((1 - inner) * legibility(g) + (inner ? inner * internalLines(g) : 0));
       // A small frame hanging off the group by a corner reads as an afterthought.
       const n = g.filter((f) => g.length >= 3 && Math.max(0, ...g.filter((o) => o !== f).map((o) => touch(f, o))) < 0.35).length;
       ears += ga * (1 - n / g.length);
     } else { lines += ga; ears += ga; }
+    anchor += ga * anchorScore(g);
     // Relation to the room: centered on the TV or furniture it sits over or wraps,
     // or sharing a line with it when beside it; on bare wall, near the middle.
     const gcx = b.x + b.w / 2;
@@ -156,10 +207,20 @@ export function shapeScore(frames, ctx) {
         rel = Math.max(rel ?? 0, shared ? 1 : 0.6);
       }
     }
+    // Over more than one piece of furniture (a bed and a dresser): centered on them together.
+    if (FREEFORM.span) {
+      const under = anchors.filter((a) => b.y + b.h > a.y + a.h
+        && Math.min(b.x + b.w, a.x + a.w) - Math.max(b.x, a.x) >= FREEFORM.spanCover * a.w - EPS);
+      if (under.length >= 2) {
+        const x0 = Math.min(...under.map((a) => a.x)), x1 = Math.max(...under.map((a) => a.x + a.w));
+        const v = 1 - Math.min(1, Math.abs(gcx - (x0 + x1) / 2) / Math.max(12, (x1 - x0) / 2));
+        rel = Math.max(rel ?? 0, FREEFORM.span * v);
+      }
+    }
     if (rel === null) rel = Math.max(0.55, 1 - Math.abs(gcx - ctx.wall.width / 2) / (ctx.wall.width / 2));
     room += ga * rel;
   }
-  cohesion /= area; lines /= area; ears /= area; room /= area;
+  cohesion /= area; lines /= area; ears /= area; room /= area; anchor /= area;
 
   // Eye level: the art's center of mass near 60 in.
   const cy = sum(frames.map((f) => (f.y + f.h / 2) * f.w * f.h)) / area;
@@ -184,10 +245,11 @@ export function shapeScore(frames, ctx) {
     if (groups.length > 2) pair *= 0.6;
   }
 
-  const parts = { density, cohesion, lines, ears, eye, room, balance, pair };
-  const score = 0.24 * density + 0.18 * cohesion + 0.13 * lines + 0.1 * ears + 0.13 * eye
+  const parts = { density, cohesion, lines, ears, eye, room, balance, pair, anchor };
+  const base = 0.24 * density + 0.18 * cohesion + 0.13 * lines + 0.1 * ears + 0.13 * eye
     + (groups.length > 1 ? 0.07 * room + 0.07 * pair : 0.14 * room) + 0.08 * balance;
-  return { score, parts };
+  const A = ctx.free ? FREEFORM.anchor : 0;
+  return { score: (1 - A) * base + A * anchor, parts };
 }
 
 // ---------- Where to start ----------
@@ -311,8 +373,11 @@ const PLANS = [
   { name: 'even-small', neat: true, order: ['small'] },
   { name: 'pair', neat: true, order: ['big', 'mid', 'mid'] },
 ];
-// Grow evenly, mostly sideways, or mostly up and down.
-const GROWTH = [{ name: 'round', bx: 1, by: 1 }, { name: 'wide', bx: 0.45, by: 2.2 }, { name: 'tall', bx: 2.2, by: 0.45 }];
+// Grow evenly, mostly sideways, or mostly up and down. Centered growth keeps the
+// group's weight on the first frame's center line, so the first frame (the biggest
+// you own, or a big new one) stays the anchor in the middle and the rest step out
+// to both sides.
+const GROWTH = [{ name: 'round', bx: 1, by: 1 }, { name: 'wide', bx: 0.45, by: 2.2 }, { name: 'tall', bx: 2.2, by: 0.45 }, { name: 'centered', bx: 1, by: 1, axis: FREEFORM.centered }];
 
 // One run: grow a group from a seed. Returns a snapshot after every frame.
 // others: frames of another group already up (kept well clear, lined up with).
@@ -353,7 +418,11 @@ function grow({ seed, plan, growth, rand, cls, avail, used0, space, pinnedRects,
         if (!fits(r, space, [...all, ...apart])) continue;
         const dx = (r.x + w / 2 - cx) / 24, dy = (r.y + h / 2 - cy) / 24;
         const eye = Math.max(0, Math.abs(r.y + h / 2 - RULES.centerline - 3) - 8) / 30;
-        const v = -Math.hypot(growth.bx * dx, growth.by * dy) + 0.35 * lined(r, [...all, ...others]) - eye + 0.25 * rand();
+        let v = -Math.hypot(growth.bx * dx, growth.by * dy) + 0.35 * lined(r, [...all, ...others]) - eye + 0.25 * rand();
+        if (growth.axis) {
+          const ax = placed[0].x + placed[0].w / 2;
+          v -= growth.axis * Math.abs((A * cx + w * h * (r.x + w / 2)) / (A + w * h) - ax) / 12;
+        }
         if (!best || v > best.v + EPS) best = { r, v };
       }
       if (best) break; // the size asked for fits somewhere: take its best spot
@@ -425,6 +494,116 @@ function repair(frames, ctx, opts) {
   return { frames: cur, score: curS };
 }
 
+// ---------- Packing every piece that must go up ----------
+
+// The lowest a frame can sit at its x: on the open wall's floor, on top of a blocked
+// region (furniture plus its clearance), or a gap above a frame already up, whichever
+// is highest without going above where it is now.
+function restY(r, space, placed, gap) {
+  let y = space.y0;
+  for (const b of space.regions) if (b.x < r.x + r.w - EPS && r.x < b.x + b.w - EPS && b.y + b.h <= r.y + EPS) y = Math.max(y, b.y + b.h);
+  for (const p of placed) if (p.x - gap < r.x + r.w - EPS && r.x < p.x + p.w + gap - EPS && p.y + p.h + gap <= r.y + EPS) y = Math.max(y, p.y + p.h + gap);
+  return y;
+}
+
+// Open area the box covers, less the art in it: how much room a partial wall wastes.
+function waste(placed, space) {
+  const b = boxOf(placed);
+  let blocked = 0;
+  for (const r of space.regions) {
+    const w = Math.min(b.x + b.w, r.x + r.w) - Math.max(b.x, r.x), h = Math.min(b.y + b.h, r.y + r.h) - Math.max(b.y, r.y);
+    if (w > 0 && h > 0) blocked += w * h;
+  }
+  return Math.max(0, b.w * b.h - blocked - sum(placed.map((p) => p.w * p.h)));
+}
+
+/**
+ * Every piece in `pieces` on the open wall at once, each beside, above or below one
+ * already up, one gap apart: a beam search that keeps the most compact partial walls,
+ * so a set that only just fits still goes up. Tries the target gap, then the smallest
+ * allowed one. Pure and deterministic.
+ * @returns {object[][]} up to `limit` arrangements, frames { x, y, w, h, g: 0, fixed }
+ */
+export function packAll({ space, pieces, pinnedRects = [], seeds, cx = null, beam = 48, limit = 6 }) {
+  if (!pieces.length || !seeds.length) return [];
+  const tcx = cx ?? (space.x0 + space.x1) / 2;
+  const out = [];
+  const sigs = new Set();
+  // Partial walls within a few inches of each other are one option, so the beam keeps real variety.
+  const sig = (fs, d = 1) => fs.map((f) => `${f.fixed.id}@${Math.round(f.x / d)},${Math.round(f.y / d)}`).sort().join(';');
+  const value = (fs) => {
+    const b = boxOf(fs);
+    return waste(fs, space) + 20 * Math.abs(b.x + b.w / 2 - tcx) + 6 * Math.abs(b.y + b.h / 2 - RULES.centerline - 3);
+  };
+  const byArea = [...pieces].sort((a, b) => b.w * b.h - a.w * a.h || cmpStr(a.id, b.id));
+  const byWidth = [...pieces].sort((a, b) => b.w - a.w || b.h - a.h || cmpStr(a.id, b.id));
+  for (const gap of [RULES.gap, RULES.gapMin]) {
+    for (const order of [byArea, byWidth]) {
+      const fitsHere = (r, placed) => fits(r, space, [...pinnedRects, ...placed], gap);
+      let states = [];
+      const first = order[0];
+      for (const seed of seeds.slice(0, 4)) {
+        const r = placeFirst(seed, first.w, first.h, space, pinnedRects);
+        if (!r) continue;
+        const r2 = { ...r, y: q(restY(r, space, [], gap)) };
+        const f = fitsHere(r2, []) ? r2 : r;
+        states.push([{ ...f, g: 0, fixed: first }]);
+      }
+      for (let k = 1; k < order.length && states.length; k++) {
+        const p = order[k];
+        const next = new Map();
+        for (const st of states) {
+          const tried = new Set();
+          for (const f of st) {
+            const ys = [f.y, f.y + f.h - p.h, f.y + (f.h - p.h) / 2];
+            const xs = [f.x, f.x + f.w - p.w, f.x + (f.w - p.w) / 2];
+            const cand = [];
+            for (const y of ys) { cand.push({ x: f.x + f.w + gap, y }); cand.push({ x: f.x - gap - p.w, y }); }
+            for (const x of xs) { cand.push({ x, y: f.y + f.h + gap }); cand.push({ x, y: f.y - gap - p.h }); }
+            for (const c of cand) {
+              for (const r of [{ x: q(c.x), y: q(c.y), w: p.w, h: p.h }]) {
+                // Also let it settle as low as it can go at that x.
+                const low = { ...r, y: Math.ceil(restY(r, space, st, gap) * 4 - 1e-9) / 4 };
+                for (const s of [r, low]) {
+                  const key = `${s.x},${s.y}`;
+                  if (tried.has(key)) continue;
+                  tried.add(key);
+                  if (!fitsHere(s, st)) continue;
+                  const fs = [...st, { ...s, g: 0, fixed: p }];
+                  const k2 = sig(fs, 4);
+                  const v = value(fs);
+                  if (!next.has(k2) || v < next.get(k2).v) next.set(k2, { fs, v });
+                }
+              }
+            }
+          }
+        }
+        states = [...next.values()].sort((a, b) => a.v - b.v).slice(0, beam).map((s) => s.fs);
+      }
+      for (const st of states) {
+        if (st.length !== order.length) continue;
+        const k = sig(st, 6);
+        if (sigs.has(k)) continue;
+        sigs.add(k); out.push(st);
+        if (out.length >= limit) return out;
+      }
+    }
+    if (out.length) return out;
+  }
+  return out;
+}
+
+/** Whether these pieces can all go up on the open wall together (a quick look, before building walls). */
+export function canPack({ obstacles, space, pinned = [], pieces }) {
+  if (!pieces.length) return true;
+  if (pieces.reduce((s, p) => s + p.w * p.h, 0) > space.area) return false;
+  const pinnedRects = pinned.map((p) => ({ x: p.at.x, y: p.at.y, w: p.w, h: p.h, pinned: true, g: 0 }));
+  const small = [...pieces].sort((a, b) => a.w * a.h - b.w * b.h)[0];
+  const seeds = seedsFor(obstacles, space, [small.w, small.h], pinnedRects);
+  const anchor = obstacles.filter((o) => ANCHORS.has(o.kind) && o.w >= RULES.minAnchorWidth).sort((a, b) => b.w - a.w || cmpStr(a.id, b.id))[0];
+  return packAll({ space, pieces, pinnedRects, seeds, cx: anchor ? anchor.x + anchor.w / 2 : null, limit: 1 }).length > 0;
+}
+
 // ---------- Putting it together ----------
 
 /**
@@ -436,7 +615,8 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
   if (space.area < 150) return { structures: [], counts };
   const cls = classes(sizes.filter(([w, h]) => avail.has(sizeKey(w, h))));
   if (!cls.big.length && !cls.mid.length && !cls.small.length && !fixed.length) return { structures: [], counts };
-  const ctx = { space, wall, obstacles, fullness };
+  const ctx = { space, wall, obstacles, fullness, free: true };
+  const ctxFor = (plan) => ({ ...ctx, loose: !plan.neat });
   const pinnedRects = pinned.map((p) => ({ x: p.at.x, y: p.at.y, w: p.w, h: p.h, pinned: true, g: 0 }));
   const probe = cls.mid[cls.mid.length - 1] || cls.small[0] || cls.big[cls.big.length - 1] || [fixed[0].w, fixed[0].h];
   const seeds = seedsFor(obstacles, space, probe, pinnedRects);
@@ -455,9 +635,31 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
     snaps.push({ frames: all, plan });
   };
   // One group, from each seed.
+  // Centered runs have their own seeds, so adding them leaves every other run as it was.
+  let runC = 0;
   for (const seed of seeds) for (const plan of plans) for (const growth of GROWTH) for (const own of orders) {
-    const r = grow({ seed, plan, growth, rand: rng(1013 + 7919 * run++), cls, avail, space, pinnedRects, own, cap });
+    if (growth.name === 'centered' && (plan.neat || !growth.axis)) continue; // neat runs are rows and grids; they don't grow around an anchor
+    const rand = growth.axis ? rng(7027 + 6151 * runC++) : rng(1013 + 7919 * run++);
+    const r = grow({ seed, plan, growth, rand, cls, avail, space, pinnedRects, own, cap });
     for (const s of r.snaps) if (s.length >= 2 || s.some((f) => f.fixed) || pinnedRects.length) keep(s, plan);
+  }
+  // Many pieces that must all go up can be more than growing one frame at a time
+  // finds room for. Then pack them (a search that keeps the most compact partial
+  // walls), and grow at most two new pieces on from each pack where room is left.
+  const musts = fixed.filter((p) => p.keep === 'must');
+  const allIn = (s) => musts.every((p) => s.some((f) => f.fixed === p));
+  if (musts.length >= 3 && snaps.filter((s) => allIn(s.frames)).length < 3) {
+    const anchor = obstacles.filter((o) => ANCHORS.has(o.kind) && o.w >= RULES.minAnchorWidth).sort((a, b) => b.w - a.w || cmpStr(a.id, b.id))[0];
+    const packs = packAll({ space, pieces: musts, pinnedRects, seeds, cx: anchor ? anchor.x + anchor.w / 2 : null });
+    const plan = { name: 'pack', neat: false };
+    let runP = 0;
+    for (const pk of packs) {
+      // Pieces happy to move come next, where they fit, then new art.
+      const start = pk.map((f) => ({ ...f }));
+      keep(start, plan);
+      const r = grow({ seed: seeds[0], plan: PLANS[1], growth: GROWTH[0], rand: rng(3301 + 977 * runP++), cls, avail, space, pinnedRects, own: ownBig, cap: Math.min(cap, start.length + 2 + fixed.length - musts.length), start });
+      for (const sn of r.snaps) keep(sn, plan);
+    }
   }
   // Two groups that answer each other: a small group from one pocket, then a second
   // from another pocket at least a frame apart, starting on the first one's top line.
@@ -498,7 +700,7 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
   // A layout that keeps the frames already shown, when the person steps the count.
   const baseSet = base && base.length ? new Set(base.map((b) => `${q(b.x)},${q(b.y)},${b.w}x${b.h}`)) : null;
   for (const s of pool) {
-    const j = shapeScore([...s.frames, ...pinnedRects], ctx);
+    const j = shapeScore([...s.frames, ...pinnedRects], ctxFor(s.plan));
     s.pre = j.score;
     if (baseSet) s.pre += BASE_KEEP * s.frames.filter((f) => baseSet.has(`${q(f.x)},${q(f.y)},${f.w}x${f.h}`)).length / baseSet.size;
     s.groups = new Set(s.frames.map((f) => f.g || 0)).size;
@@ -514,7 +716,9 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
     const band = cov < 0.75 * target ? 'light' : cov > 1.35 * target ? 'full' : 'right';
     const thirds = [0, 1, 2].filter((t) => sum(s.frames.filter((f) => Math.floor(3 * (f.x + f.w / 2) / wall.width) === t).map((f) => f.w * f.h)) >= 0.2 * area).join('');
     const own = s.frames.filter((f) => f.fixed).length;
-    return `${s.plan.name === 'asis' ? 'asis' : s.groups}|${s.plan.neat}|${pieces ? s.frames.length : band}|${thirds}|${own}`;
+    // Whether the biggest frame anchors the middle is a kind of its own, so the list keeps one of each.
+    const anchored = FREEFORM.anchor && groupsOf(s.frames).every((g) => anchorScore(g) >= 0.8) ? 'a' : '';
+    return `${s.plan.name === 'asis' ? 'asis' : s.groups}|${s.plan.neat}|${pieces ? s.frames.length : band}|${thirds}|${own}|${anchored}`;
   };
   const seen = new Set(), sig = new Set(), short = [];
   // Two shapes within a couple of inches of each other are the same shape.
@@ -525,6 +729,11 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
     seen.add(k); sig.add(g); short.push(s);
     if (short.length >= keepTop * 3) break;
   }
+  // Packed walls are often one kind (a tight wall leaves little choice): keep a few more of them.
+  for (const s of pool) {
+    if (short.length >= keepTop || s.plan.name !== 'pack' || short.includes(s) || sig.has(shapeSig(s))) continue;
+    sig.add(shapeSig(s)); short.push(s);
+  }
   // Repair the best few, then keep the best.
   const sizesOf = (f) => {
     const l = Math.max(f.w, f.h);
@@ -533,14 +742,14 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
   };
   for (const s of short.slice(0, keepTop * 2)) {
     if (s.plan.name === 'asis') continue;
-    const r = repair(s.frames, ctx, { space, pinnedRects, sizesOf, pieces });
+    const r = repair(s.frames, ctxFor(s.plan), { space, pinnedRects, sizesOf, pieces });
     if (!baseSet && r.score > s.pre + EPS) { s.frames = r.frames; s.pre = r.score; }
   }
   short.sort((a, b) => b.pre - a.pre);
   const top = short.slice(0, keepTop + 2);
   // Leaving it as it is always stays an option.
   const asis = snaps.find((s) => s.plan.name === 'asis');
-  if (asis && !top.includes(asis) && !pieces) { asis.pre ??= shapeScore([...asis.frames, ...pinnedRects], ctx).score; top.push(asis); }
+  if (asis && !top.includes(asis) && !pieces) { asis.pre ??= shapeScore([...asis.frames, ...pinnedRects], ctxFor(asis.plan)).score; top.push(asis); }
 
   const structures = top.map((s) => {
     const b = boxOf(s.frames);

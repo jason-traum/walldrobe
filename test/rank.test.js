@@ -109,3 +109,17 @@ test('a wall that moves a piece of yours that is already up ranks lower, more th
   // Bad positions are ignored, not thrown.
   assert.doesNotThrow(() => rerank(r.layouts, { hung: [{ id: 'blue' }, null] }));
 });
+
+test('walls that leave out a piece you said to keep rank lower, and the first wall keeps the most', () => {
+  const r = layout({ ...base(), owned: owned.map((o) => ({ ...o, keep: 'happy' })) });
+  const out = rerank(r.layouts, { want: ['blue', 'smiley'] });
+  const miss = (L) => ['blue', 'smiley'].filter((id) => !L.pieces.some((p) => p.ref.id === id)).length;
+  const withNew = out.filter((L) => L.pieces.some((p) => p.ref.source === 'catalog') && L.variant !== 'asis');
+  const least = Math.min(...withNew.map(miss));
+  assert.equal(miss(out[0]), least);
+  // On average, walls missing a piece sit lower than walls with both.
+  const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const all = out.map((L, i) => ({ i, m: miss(L) }));
+  const full = all.filter((x) => x.m === 0), part = all.filter((x) => x.m > 0);
+  if (full.length && part.length) assert.ok(avg(full.map((x) => x.i)) < avg(part.map((x) => x.i)));
+});
