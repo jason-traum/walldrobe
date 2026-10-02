@@ -11,7 +11,7 @@ import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
-import { flowStructures, openSpace } from './flow.js';
+import { flowStructures, openSpace, shapeScore } from './flow.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes } from './reasons.js';
 import { profileFromPalette, colorScore } from './theory.js';
 import { designScore, lookalike, lookPenalty } from './design.js';
@@ -20,10 +20,12 @@ export { RULES, WEIGHTS } from './constants.js';
 export const VERSION = '0.2.0';
 
 const KEEPS = new Set(['must', 'happy', 'dontcare']);
-const REUSE_BONUS = 0.04;
+const REUSE_BONUS = 0.08;
 const SAME_ARTIST = 0.02;
 // A layout beside the TV or furniture is shown among the first ones when it scores at least this share of the best.
 const PLACE_SHOW = 0.85;
+const COMP_FIT = 0.55;     // share of the composition score that is fit; the rest is design
+const COMP_GATE = 0.15;    // layouts this far below the best composition are dropped when enough others are left
 const LOOKALIKE_PAIR = 0.04; // off the total for each pair of pieces that look almost the same
 const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-alikes
 const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans the pick toward stronger photos
@@ -93,12 +95,15 @@ function readPrefs(raw = {}) {
   return {
     budget: num(raw.budget) && raw.budget >= 0 ? raw.budget : null,
     maxPieces: num(raw.maxPieces) && raw.maxPieces >= 1 ? Math.floor(raw.maxPieces) : 9,
+    maxGiven: num(raw.maxPieces) && raw.maxPieces >= 1,
     families: STYLES[raw.style] ? [...STYLES[raw.style]] : Array.isArray(raw.families) ? raw.families.filter((f) => FAMILIES.includes(f)) : [...FAMILIES],
     style: STYLES[raw.style] ? raw.style : null,
     // An exact number of pieces, when the person picks one.
     pieces: num(raw.pieces) && raw.pieces >= 1 ? Math.min(RULES.maxCount, Math.floor(raw.pieces)) : null,
     // Where on the wall: 'over' the TV or furniture, 'left' or 'right' of it, or null for anywhere.
     place: typeof raw.place === 'string' ? raw.place : null,
+    // How full the wall should be: calm, balanced or full.
+    fullness: RULES.fullness[raw.fullness] ? raw.fullness : 'balanced',
     // The size lever: -1 fewer, bigger pieces; 1 more, smaller ones; null leaves it to the other scores.
     scale: num(raw.scale) && raw.scale !== 0 ? Math.max(-1, Math.min(1, raw.scale)) : null,
   };
@@ -317,23 +322,23 @@ function flowZone(ctx, g) {
   return { type: 'flow', place: 'flow', anchor: null, base: null, cx: g.x + g.w / 2, refW: ctx.wall.width, target: ctx.wall.width * RULES.wallRatio, ratio: RULES.wallRatio, range: RULES.wallRange, interval: { x0: RULES.edge, x1: ctx.wall.width - RULES.edge, w: ctx.wall.width - 2 * RULES.edge }, maxH: ctx.wall.height, space: ctx.space };
 }
 
-// Free-form: how much of the open wall it uses, how tight the group is, whether
-// it sits near eye level, and pieces you keep near its middle.
-function flowFit(L, zone) {
-  const g = L.group;
-  const area = L.pieces.reduce((s, p) => s + p.w * p.h, 0);
-  const fc = clamp01(area / Math.max(1, zone.space.area) / 0.3);
-  const fd = clamp01((area / (g.w * g.h) - 0.35) / 0.35);
-  const cy = L.pieces.reduce((s, p) => s + (p.y + p.h / 2) * p.w * p.h, 0) / area;
-  const fv = clamp01(1 - Math.max(0, Math.abs(cy - RULES.centerline - 3) - 6) / 18);
-  const gcx = g.x + g.w / 2;
-  const musts = L.pieces.filter((p) => p.keep === 'must' && p.fixed);
-  const fm = musts.length ? clamp01(1 - musts.reduce((s, p) => s + Math.abs(p.cx - gcx) / (g.w / 2), 0) / musts.length) : 1;
-  return 0.35 * fc + 0.3 * fd + 0.25 * fv + 0.1 * fm;
+// The picture as a whole, on this wall: fullness, one shape per group, shared
+// lines, eye level, relation to the furniture, balance across the wall (flow.js).
+// Pinned pieces count as part of it.
+function wallShape(L, ctx) {
+  const frames = L.pieces.map((p, i) => ({ x: p.x, y: p.y, w: p.w, h: p.h, g: (L.st.slots[i] && L.st.slots[i].g) || 0 }));
+  for (const p of ctx.pinned) frames.push({ x: p.at.x, y: p.at.y, w: p.w, h: p.h, g: 0 });
+  return shapeScore(frames, { space: ctx.space, wall: ctx.wall, obstacles: ctx.obstacles, fullness: ctx.prefs.fullness }).score;
 }
 
-function fitScore(L, zone) {
-  if (zone.type === 'flow') return flowFit(L, zone);
+function fitScore(L, ctx) {
+  const zone = ctx.zone;
+  if (zone.type === 'flow') return wallShape(L, ctx);
+  return 0.5 * setFit(L, zone) + 0.5 * wallShape(L, ctx);
+}
+
+// The set shapes, against the zone they were built for.
+function setFit(L, zone) {
   const g = L.group;
   const ratio = g.w / zone.refW;
   const target = zone.ratio;
@@ -375,7 +380,7 @@ function sizeFit(pieces, scale) {
 }
 
 function judge(L, ctx) {
-  const fit = fitScore(L, ctx.zone);
+  const fit = fitScore(L, ctx);
   // Taste covers every piece that was chosen from art, kept or new, but not the ones you own and fixed.
   const chosen = L.pieces.filter((p) => p.ref.source === 'catalog' || !p.fixed);
   const taste = chosen.length ? chosen.reduce((s, p) => s + (p.taste ?? 0.5), 0) / chosen.length : 0.7;
@@ -403,8 +408,12 @@ function judge(L, ctx) {
     checks.size = sizeFit(L.pieces, ctx.prefs.scale);
     size = SIZE_WEIGHT * checks.size;
   }
-  const score = WEIGHTS.fit * fit + WEIGHTS.taste * taste + WEIGHTS.color * c.score + WEIGHTS.design * d.score + reuse - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
-  return { score: score + size, parts, checks, color: c, design: d };
+  // The arrangement first: fit and design make the composition score, and great
+  // color or taste can't rescue an awkward arrangement (layouts far below the best
+  // composition are dropped before ranking).
+  const comp = COMP_FIT * fit + (1 - COMP_FIT) * d.score;
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
+  return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 
 // Try the best few alternatives in each open slot and keep a swap when the whole
@@ -502,7 +511,7 @@ export function layout(input) {
 
   const must = [...loose.filter((p) => p.keep === 'must'), ...kept];
   const happy = loose.filter((p) => p.keep === 'happy');
-  if (!zone && !(prefs.families.includes('flow') && ctx.space.area >= 150)) {
+  if (!zone && !(prefs.families.includes('flow') && ctx.space.area >= 150 && ctx.wall.height - RULES.ceilingHard - RULES.centerline >= 4)) {
     const short = ctx.wall.height - RULES.ceilingHard - RULES.centerline < 4;
     problems.push({
       code: 'NO_OPEN_SPACE',
@@ -517,7 +526,8 @@ export function layout(input) {
   const results = [];
 
   // Free-form layouts over all the open wall.
-  if (prefs.families.includes('flow') && !asked.length) {
+  const tooShort = ctx.wall.height - RULES.ceilingHard - RULES.centerline < 4;
+  if (prefs.families.includes('flow') && !asked.length && !tooShort) {
     // One pass with every piece you'd keep or move: one that doesn't fit is left out as it goes.
     for (const fixed of variants.slice(0, 1)) {
       const fixedIds = new Set(fixed.map((p) => p.id));
@@ -527,7 +537,10 @@ export function layout(input) {
       for (const [k, list] of index.bySize) avail.set(k, list.length);
       const os = offeredSizes(avail);
       const sizes = [...new Set([...os.salon, ...os.large].map(([w, h]) => sizeKey(w, h)))].map((k) => k.split('x').map(Number));
-      const fr = flowStructures({ wall: ctx.wall, obstacles: ctx.obstacles, space: ctx.space, pinned: ctx.pinned, fixed, sizes, avail, pieces: prefs.pieces, style: prefs.style });
+      // Pieces of theirs already hanging (and free to stay or move) can stay as they are.
+      const hung = fixed.filter((p) => p.at && num(p.at.x) && num(p.at.y) && p.keep !== 'dontcare');
+      const shown = Array.isArray(input.base) ? input.base.filter((b) => b && [b.x, b.y, b.w, b.h].every(num)) : null;
+      const fr = flowStructures({ wall: ctx.wall, obstacles: ctx.obstacles, space: ctx.space, pinned: ctx.pinned, fixed, hung, sizes, avail, pieces: prefs.pieces, style: prefs.style, fullness: prefs.fullness, base: shown, most: prefs.maxGiven && !prefs.pieces ? Math.min(RULES.flowMax, prefs.maxPieces) : RULES.flowMax });
       for (const n of fr.counts) counts.add(n);
       for (const st of fr.structures) {
         const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look);
@@ -541,7 +554,13 @@ export function layout(input) {
           family: st.family, variant: st.variant || null, meta: st.meta, group: done.where, shift: 0,
           pieces: done.pieces, happyTotal: happy.length, st, index, bySlot, key: `${structureKey(st)}@${q(st.at.x)},${q(st.at.y)}`, zc,
         };
-        results.push({ ...L, ...judge(L, zc) });
+        const j = judge(L, zc);
+        // Stepping the count from a layout on screen: how many of its frames this one keeps.
+        if (shown && shown.length) {
+          const had = new Set(shown.map((b) => `${q(b.x)},${q(b.y)},${b.w}x${b.h}`));
+          L.keeps = done.pieces.filter((p) => had.has(`${p.slot.x},${p.slot.y},${p.slot.w}x${p.slot.h}`)).length / had.size;
+        }
+        results.push({ ...L, ...j });
       }
     }
   }
@@ -626,6 +645,12 @@ export function layout(input) {
     if (near.length >= Math.min(count, valid.length)) valid = near;
   }
 
+  // The arrangement has to pass before taste and color rank it.
+  if (valid.length) {
+    const bestComp = Math.max(...valid.map((L) => L.comp));
+    const passing = valid.filter((L) => L.comp >= bestComp - COMP_GATE);
+    if (passing.length >= Math.min(count, valid.length)) valid = passing;
+  }
   // Rank for variety: best of each family first, then the next best overall. Each
   // layout after the first gets art the earlier ones don't use, when there's enough.
   valid.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
@@ -635,15 +660,20 @@ export function layout(input) {
   // of them leads.
   const ownUse = (L) => L.pieces.filter((p) => p.keep === 'happy').length;
   const mostOwn = happy.length && valid.length ? Math.max(...valid.map(ownUse)) : 0;
-  const ownLead = mostOwn ? valid.find((L) => ownUse(L) === mostOwn) : null;
+  // Stepping the count from a layout on screen: the one that keeps its frames leads.
+  const baseLead = Array.isArray(input.base) && input.base.length ? valid.filter((L) => (L.keeps || 0) >= 0.99).sort((a, b) => b.score - a.score)[0] || null : null;
+  const ownLead = baseLead || (mostOwn ? valid.find((L) => ownUse(L) === mostOwn) : null);
   if (ownLead) order.push(ownLead);
-  // Then free-form layouts over the whole open wall, a light, a medium and a full
-  // one, before the set shapes.
-  const flows = valid.filter((L) => L.family === 'flow');
-  for (const band of [[5, 8], [9, RULES.flowMax], [2, 4]]) {
-    const L = flows.find((x) => !order.includes(x) && x.pieces.length >= band[0] && x.pieces.length <= band[1]);
-    if (L) order.push(L);
-  }
+  // Then the best free-form layout, the best with two groups, and the best of the
+  // set shapes, so the first few differ in kind, not just in art.
+  const flows = valid.filter((L) => L.family === 'flow' && L.variant !== 'asis');
+  const kinds = [
+    flows.find((L) => (L.meta.groups || 1) === 1),
+    flows.find((L) => (L.meta.groups || 1) > 1),
+    valid.find((L) => L.family !== 'flow'),
+    valid.find((L) => L.variant === 'asis'),
+  ];
+  for (const L of kinds) if (L && !order.includes(L)) order.push(L);
   // With more than one place, the best layout in each place comes next, if it's
   // close to the best overall. Only one side, so most stay in the main place.
   const placesSeen = new Set(order.map((L) => L.zc.zone.place));
@@ -679,7 +709,7 @@ export function layout(input) {
   chosen.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
   // First: the one with your pieces, else the best in the main place (over the TV
   // or furniture); the rest by score.
-  const lead = (ownLead && chosen.find((L) => L.key === ownLead.key && ownUse(L) === mostOwn)) || chosen.find((L) => L.family === 'flow') || chosen.find((L) => L.zc.zone === zones[0]);
+  const lead = (baseLead && chosen.find((L) => L.key === baseLead.key)) || (ownLead && chosen.find((L) => L.key === ownLead.key && ownUse(L) === mostOwn)) || chosen.find((L) => L.family === 'flow') || chosen.find((L) => L.zc.zone === zones[0]);
   if (lead) chosen.splice(0, chosen.length, lead, ...chosen.filter((L) => L !== lead));
 
   const present = new Set(results.map((L) => L.family));
@@ -878,7 +908,7 @@ function finish(L, rank, ctx) {
     },
     anchor, group: { x: q(group.x), y: q(group.y), w: q(group.w), h: q(group.h) },
     pieces, left, total: pieces.reduce((s, p) => s + (p.price || 0), 0),
-    meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q), ragged: q(L.meta.ragged || 0) },
+    meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q), ragged: q(L.meta.ragged || 0), groups: L.meta.groups || 1 },
   };
   out.summary = summary({ ...out, meta: L.meta, group, beside: zone.beside }, mustTitles, newCount, keptTitles);
   out.notes = layoutNotes({ color: c, design: L.design, checks: L.checks, family: L.family, pieces: L.pieces });

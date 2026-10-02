@@ -208,11 +208,26 @@ export function distinct(pieces) {
   return { score: clamp01(1 - pen / Math.max(1, pieces.length / 2)), alike };
 }
 
+// A lead piece, a leading pair, or a deliberately equal set all read as a decision.
+// Two pieces almost but not quite the same size read as an accident.
+export function hierarchy(pieces) {
+  if (pieces.length <= 2) return { score: 1 };
+  const a = pieces.map((p) => p.w * p.h).sort((x, y) => y - x);
+  if (a[0] / a[a.length - 1] <= 1.12) return { score: 1 }; // an equal set
+  const r = a[0] / a[1];
+  if (r >= 1.4) return { score: 1 };
+  if (r <= 1.12) return { score: 0.9 }; // two that lead together
+  return { score: 0.6 + 0.4 * ((r - 1.12) / 0.28) };
+}
+
 export function designScore(pieces, g, family) {
   const pairs = neighbors(pieces);
   const fi = focalIndex(pieces);
-  const b = balance(pieces, g);
-  const f = focal(pieces, g, family, fi);
+  // Free-form layouts are balanced against the wall in their fit; inside the group a
+  // lopsided layout can be right, so its own balance counts for less.
+  const b0 = balance(pieces, g);
+  const b = family === 'flow' ? { ...b0, score: 0.5 + 0.5 * b0.score } : b0;
+  const f = family === 'flow' ? hierarchy(pieces) : focal(pieces, g, family, fi);
   const r = rhythm(pieces, pairs);
   const v = variety(pieces, pairs, family, g);
   const fl = flow(pieces, g);

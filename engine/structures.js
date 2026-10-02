@@ -65,7 +65,11 @@ function widthWindow(zone, pieces = null) {
 // comes in (so a shop's own framed sizes work), grouped by how big they are.
 // The fixed lists in SIZES are the fallback when nothing is offered.
 export function offeredSizes(avail) {
-  const all = [...avail.keys()].map((k) => k.split('x').map(Number)).sort((a, b) => a[0] * a[1] - b[0] * b[1] || a[0] - b[0]);
+  let all = [...avail.keys()].map((k) => k.split('x').map(Number)).sort((a, b) => a[0] * a[1] - b[0] * b[1] || a[0] - b[0]);
+  // New prints in the core sizes that nest, when the catalog has enough of them.
+  const core = new Set(RULES.coreSizes.flatMap(([w, h]) => [sizeKey(w, h), sizeKey(h, w)]));
+  const inCore = all.filter(([w, h]) => core.has(sizeKey(w, h)));
+  if (new Set(inCore.map(([w, h]) => sizeKey(Math.min(w, h), Math.max(w, h)))).size >= 3) all = inCore;
   const long = ([w, h]) => Math.max(w, h);
   const pick = (f, fallback) => { const l = all.filter(f); return l.length ? l : fallback; };
   return {

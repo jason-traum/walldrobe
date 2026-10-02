@@ -8,6 +8,8 @@ import { assertLayoutValid } from './helpers.js';
 const catalog = testCatalog();
 const taste = testTaste(catalog);
 const run = (w, extra = {}) => layout({ ...w, catalog, taste, ...extra });
+// The set shapes alone (statement, row, grid, stack, two rows), for the tests of how they hang.
+const SET = ['statement', 'line', 'grid', 'column', 'salon'];
 
 for (const w of SAMPLE_WALLS) {
   test(`${w.name}: three valid layouts from at least two families`, () => {
@@ -26,7 +28,7 @@ test('same input, same output', () => {
 });
 
 test('living room: over the couch, about two thirds its width, 6 to 10 in above it', () => {
-  for (const L of run(livingRoom).layouts) {
+  for (const L of run(livingRoom, { prefs: { families: SET } }).layouts) {
     assert.equal(L.anchor.id, 'couch');
     const ratio = L.group.w / 84;
     // One piece alone may be narrower, since frames stop at 40 in (RULES.soloMinRatio).
@@ -39,7 +41,7 @@ test('living room: over the couch, about two thirds its width, 6 to 10 in above 
 });
 
 test('hallway: centered at 57 in on the open stretch', () => {
-  for (const L of run(hallway).layouts) {
+  for (const L of run(hallway, { prefs: { families: SET } }).layouts) {
     const cy = L.group.y + L.group.h / 2;
     assert.ok(cy >= 56.75 && cy <= 60.25, `center ${cy}`); // quarter-inch rounding
     assert.equal(L.anchor.kind, 'wall');
@@ -173,7 +175,7 @@ test('a group never slides off the furniture it is described as over', () => {
   const input = {
     wall: { width: 160, height: 96 },
     obstacles: [{ id: 'couch', kind: 'couch', x: 70, y: 0, w: 84, h: 30 }, { id: 'shelf', kind: 'shelf', x: 95, y: 68, w: 40, h: 4 }],
-    catalog, taste,
+    catalog, taste, prefs: { families: SET },
   };
   for (const L of layout(input).layouts) {
     const cx = L.group.x + L.group.w / 2;
@@ -254,13 +256,13 @@ test('reasons read right: articles, titles, wording', () => {
 test('one statement piece still works over a wide couch', () => {
   for (const couchW of [84, 100]) {
     const w = { wall: { width: 150, height: 96 }, obstacles: [{ id: 'couch', kind: 'couch', x: 20, y: 0, w: couchW, h: 32 }] };
-    const r = layout({ ...w, catalog, taste, prefs: { maxPieces: 1 } });
+    const r = layout({ ...w, catalog, taste, prefs: { maxPieces: 1, families: SET } });
     assert.ok(r.layouts.length >= 1, `couch ${couchW}`);
   }
   // A 30 in piece alone over an 84 in couch is 0.36 of it: allowed. Over 100 in it is 0.3: reported, not hung.
   const mk = (couchW) => layout({
     wall: { width: 150, height: 96 }, obstacles: [{ id: 'couch', kind: 'couch', x: 20, y: 0, w: couchW, h: 32 }],
-    owned: [{ id: 'big', title: 'big print', w: 30, h: 40, keep: 'must' }], catalog, taste, prefs: { maxPieces: 1 },
+    owned: [{ id: 'big', title: 'big print', w: 30, h: 40, keep: 'must' }], catalog, taste, prefs: { maxPieces: 1, families: SET },
   });
   assert.ok(mk(84).layouts.length >= 1);
   const wide = mk(100);
@@ -288,12 +290,11 @@ test('a TV wall: art goes above the TV, centered on it and clear of it', () => {
   }
 });
 
-test('a TV wall also offers the open wall on each side of it, and a place can be picked', () => {
+test('a TV wall: the set shapes can still be asked for beside it, by place', () => {
   const wall = { width: 120, height: 108 };
   const obstacles = [{ id: 'stand', kind: 'furniture', x: 30, y: 0, w: 60, h: 22 }, { id: 'tv', kind: 'tv', x: 36, y: 26, w: 48, h: 28 }];
   const r = layout({ wall, obstacles, catalog, taste });
   assert.deepEqual(r.zones.map((z) => z.place), ['over', 'left', 'right']);
-  assert.equal(r.layouts[0].place, 'over', 'over the TV still comes first');
   for (const place of ['left', 'right']) {
     const s = layout({ wall, obstacles, catalog, taste, prefs: { place } });
     assert.ok(s.layouts.length > 0, JSON.stringify(s.problems));
@@ -306,19 +307,50 @@ test('a TV wall also offers the open wall on each side of it, and a place can be
   }
 });
 
-test('prints that are too tall for the space above the TV are hung beside it instead of left off', () => {
-  // Jason's living room: a 55 in TV on a stand, two of his prints on the left.
-  const wall = { width: 120, height: 91 };
-  const obstacles = [{ id: 'stand', kind: 'furniture', x: 28, y: 0, w: 86, h: 20 }, { id: 'tv', kind: 'tv', x: 41, y: 24, w: 54, h: 29 }, { id: 'lamp', kind: 'lamp', x: 104, y: 0, w: 16, h: 68 }];
-  const owned = [{ id: 'klein', title: 'blue print', w: 23, h: 34, keep: 'happy' }, { id: 'smiley', title: 'smiley print', w: 26, h: 19, keep: 'happy' }];
-  const r = layout({ wall, obstacles, owned, catalog, taste });
-  assert.ok(r.zones.some((z) => z.place === 'left'), JSON.stringify(r.zones));
-  const left = r.layouts.filter((L) => L.place === 'left');
-  assert.ok(left.length, `a layout on the left among ${r.layouts.map((L) => L.place)}`);
-  assert.ok(left.some((L) => L.left.length < 2), 'the left side uses at least one of the prints');
-  const s = layout({ wall, obstacles, owned, catalog, taste, prefs: { place: 'left' } });
-  assert.ok(s.layouts.some((L) => L.left.length === 0), `both prints on the left: ${s.layouts.map((L) => L.left.map((x) => x.id))}`);
-  for (const L of s.layouts) assertLayoutValid({ wall, obstacles }, L);
+// Jason's living room: a 55 in TV on a stand, a floor lamp, two of his prints on the left.
+const jason = {
+  wall: { width: 120, height: 91 },
+  obstacles: [{ id: 'stand', kind: 'furniture', x: 28, y: 0, w: 86, h: 20 }, { id: 'tv', kind: 'tv', x: 41, y: 24, w: 54, h: 29 }, { id: 'lamp', kind: 'lamp', x: 104, y: 0, w: 16, h: 68 }],
+  owned: [{ id: 'klein', title: 'blue print', w: 24.5, h: 33.5, keep: 'happy', at: { x: 6, y: 48 } }, { id: 'smiley', title: 'smiley print', w: 29, h: 17, keep: 'happy', at: { x: 5, y: 26 } }],
+};
+
+test('free-form layouts use the whole open wall: his prints too tall for over the TV still get used', () => {
+  const r = layout({ ...jason, catalog, taste });
+  assert.equal(r.layouts[0].family, 'flow');
+  assert.ok(r.layouts[0].left.length < 2, 'the first layout uses his prints');
+  assert.ok(r.layouts.some((L) => L.left.length === 0), 'some layout uses both');
+  for (const L of r.layouts) assertLayoutValid(jason, L);
+  // Nothing in the summary says where on the wall.
+  for (const L of r.layouts.filter((x) => x.family === 'flow')) assert.doesNotMatch(L.summary, /over the|left of|right of/);
+});
+
+test('free-form layouts can wrap the TV and run as two groups', () => {
+  const r = layout({ ...jason, catalog, taste, count: 6, prefs: { fullness: 'full' } });
+  const flows = r.layouts.filter((L) => L.family === 'flow');
+  const tv = jason.obstacles[1];
+  assert.ok(flows.some((L) => L.pieces.some((p) => p.x + p.w <= tv.x) && L.pieces.some((p) => p.y >= tv.y + tv.h)), 'art beside and above the TV in one layout');
+  assert.ok(flows.some((L) => L.meta.groups > 1), 'a two-group layout');
+});
+
+test('fullness: calm puts up less art than full', () => {
+  const area = (L) => L.pieces.reduce((s, p) => s + p.w * p.h, 0);
+  const calm = layout({ ...jason, owned: [], catalog, taste, prefs: { fullness: 'calm', families: ['flow'] } }).layouts;
+  const full = layout({ ...jason, owned: [], catalog, taste, prefs: { fullness: 'full', families: ['flow'] } }).layouts;
+  assert.ok(area(calm[0]) < area(full[0]), `${area(calm[0])} vs ${area(full[0])}`);
+});
+
+test('his pieces as they hang now is one of the options', () => {
+  const r = layout({ ...jason, catalog, taste, count: 6 });
+  assert.ok(r.layouts.some((L) => L.variant === 'asis' && L.pieces.every((p) => p.ref.source === 'owned')), r.layouts.map((L) => L.variant).join());
+});
+
+test('one more piece keeps the frames already up', () => {
+  const a = layout({ ...jason, owned: [], catalog, taste, prefs: { pieces: 4, families: ['flow'] } }).layouts[0];
+  const base = a.pieces.map((p) => ({ x: p.slot ? p.slot.x : p.x, y: p.slot ? p.slot.y : p.y, w: p.slot ? p.slot.w : p.w, h: p.slot ? p.slot.h : p.h }));
+  const b = layout({ ...jason, owned: [], catalog, taste, base, prefs: { pieces: 5, families: ['flow'] } }).layouts[0];
+  const key = (p) => `${p.x},${p.y},${p.w}x${p.h}`;
+  const kept = new Set(b.pieces.map(key));
+  assert.ok(a.pieces.filter((p) => kept.has(key(p))).length >= 3, 'most of the 4 stay where they were');
 });
 
 test('a TV with no room above it falls back to the open wall beside it', () => {

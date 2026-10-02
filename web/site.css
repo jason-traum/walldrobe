@@ -356,3 +356,14 @@ input[type="number"], input[type="text"] { font-size: 16px; }
 .file-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 .not-up { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line, #d9d6cf); border-radius: 8px; margin-block: 16px; }
 .not-up p { margin: 0; flex: 1 1 260px; min-width: 0; }
+/* Four keep choices for a piece already hanging: two by two on a phone, one row when there's room. */
+.keep-seg:has(> button:nth-child(4)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.keep-seg:has(> button:nth-child(4)) button { border-bottom: 1px solid var(--line); }
+.keep-seg:has(> button:nth-child(4)) button:nth-child(2n) { border-right: 0; }
+.keep-seg:has(> button:nth-child(4)) button:nth-child(n+3) { border-bottom: 0; }
+@media (min-width: 560px) {
+  .keep-seg:has(> button:nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .keep-seg:has(> button:nth-child(4)) button { border-bottom: 0; border-right: 1px solid var(--line); }
+  .keep-seg:has(> button:nth-child(4)) button:last-child { border-right: 0; }
+}
+.found .keep-seg { max-width: 520px; }

@@ -36,13 +36,20 @@ export const RULES = Object.freeze({
   sideRange: [0.5, 0.95],
   sideLow: 20,           // beside the TV or furniture, a group's bottom no lower than this from the floor
   slideMax: 6,           // on open wall, how far a group may move up or down from eye level to clear furniture
-  columnMaxOpen: 48,     // an open wall narrower than this may take a stack of pieces
+  columnMaxOpen: 48,
+  groupApart: 8,         // two groups on one wall stay at least this far apart
+  // How full the wall should be: art area as a share of the open wall (after buffers).
+  fullness: Object.freeze({ calm: 0.15, balanced: 0.28, full: 0.45 }),
+  // New prints come in these frame sizes when the catalog offers them: shop sizes that
+  // nest (two 14.5 in frames and a 2.5 in gap make 31.5 in). Either way up.
+  coreSizes: Object.freeze([[12, 16], [14.5, 18.5], [19.5, 26], [20, 28], [24.5, 33.5], [31.5, 44], [39.5, 56]]),     // an open wall narrower than this may take a stack of pieces
 });
 
 // The two styles a person picks between.
 export const STYLES = Object.freeze({ structured: ['flow', 'statement', 'line', 'grid', 'column'], gallery: ['flow', 'salon'] });
 
-export const WEIGHTS = Object.freeze({ fit: 0.25, taste: 0.25, color: 0.25, design: 0.25 });
+// The arrangement (fit and design) carries half the score; taste and color share the rest.
+export const WEIGHTS = Object.freeze({ comp: 0.5, taste: 0.25, color: 0.25 });
 
 // Outer frame sizes in inches, [width, height]. New pieces only come in these,
 // so a swapped print always fits the frame already on the wall.

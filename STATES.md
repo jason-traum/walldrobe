@@ -85,7 +85,7 @@ States that apply everywhere:
 | State | What they see | Action |
 |---|---|---|
 | Building | Their wall with the zone outlined | |
-| Ready | Top layout on their wall, full width, first. Then two more as smaller walls. Above them: Either, Structured or Loose, and a minus and plus with the number of pieces; on a wall with open space beside the TV or furniture, a Where choice (Anywhere, Over the TV, Left side, Right side) | Swipe or tap between layouts, pick a kind, step the count, pick where |
+| Ready | Top layout on their wall, full width, first. Then two more as smaller walls. Above them: Either, Structured or Loose, and a minus and plus with the number of pieces; How full: Calm, Balanced, Full | Swipe or tap between layouts, pick a kind, step the count (frames already up stay put), pick how full |
 | Count picked | The count steps only through numbers that fit this wall; at the ends the minus or plus is off. "Any number" goes back | Step, Any number |
 | Count doesn't fit | Moves to the nearest count that does: "6 pieces don't make a structured layout here. 5 do." | Step, pick another kind |
 | Only one or two families fit | Only those, plus one line saying why ("No grid: your pieces are different sizes.") | |
