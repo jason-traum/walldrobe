@@ -134,7 +134,7 @@ Adjust (one sheet, from your wall and from Suggestions): "Any change here builds
 | Your piece sheet | Thumbnail, size, move note, reason, nail spot | Pin it where it hangs (or Let it move), Leave it out |
 | One more or fewer | In Adjust, minus and plus from this wall; frames already up stay where they are | |
 | As it hangs now | From Adjust. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: ..." | |
-| Tape colors | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
+| Tape colors | No legend (v4). The row of a kept piece says "Kept in every wall"; a pinned piece of yours says "Stays where it hangs"; keeping one says so once in the Undo line | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." | |
 | New art in the open frames | From Adjust: the same frames, new picks; kept and yours stay. "New art in all 6 frames. Undo" | Undo |
 | Saved a piece | Heart fills | Unsave |
