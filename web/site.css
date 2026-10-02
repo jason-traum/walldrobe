@@ -288,6 +288,21 @@ input[type="number"], input[type="text"] { font-size: 16px; }
 .peek:not(.is-pinned) .peek-x { display: none; }
 .peek-desc { font-size: 14px; }
 .hint { font-size: 14px; }
+.edit-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.edit-bar .hint { margin: 0; flex: 1 1 260px; min-width: 0; }
+.edit-bar .acts { margin: 0; }
+.edit-bar.is-on .hint { color: var(--ink); font-variant-numeric: tabular-nums; }
+.is-editing .drawing { outline: 2px dashed var(--measure); outline-offset: 4px; border-radius: 2px; }
+.is-editing svg { touch-action: none; user-select: none; -webkit-user-select: none; }
+.is-editing .art { cursor: grab; }
+.is-editing .art.is-moving { cursor: grabbing; }
+.art.is-moving .select-ring { opacity: 1; }
+.art.is-bad .select-ring { opacity: 1; stroke: var(--error); stroke-width: 1.2; }
+.art.is-bad { opacity: 0.75; }
+.snap-guides { pointer-events: none; }
+.snap-line { stroke: var(--measure); stroke-width: 0.3; stroke-dasharray: 1.4 1; }
+.snap-gap { stroke: var(--measure); stroke-width: 0.6; }
+.snap-label { fill: var(--measure); font-weight: 600; paint-order: stroke; stroke: var(--wall); stroke-width: 0.5; }
 @media (min-width: 640px) {
   .peek { position: absolute; z-index: 5; width: min(340px, calc(100% - 16px)); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
 }
@@ -332,6 +347,13 @@ input[type="number"], input[type="text"] { font-size: 16px; }
 .nails th, .nails td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .nails th { font-size: 13px; color: var(--muted); font-weight: 600; }
 .nails td:nth-child(n+3) { font-family: var(--font-measure); font-weight: 600; color: var(--accent); white-space: nowrap; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+.nail-ref { display: block; margin-top: 4px; font-size: 13px; color: var(--ink-2); }
+svg.is-dragging .measure { opacity: 0.25; }
+.drop-form { display: grid; gap: 4px; margin: 12px 0; }
+.drop-form label { font-weight: 600; }
+.drop-in { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.drop-in input { width: 5.5em; }
 .tips { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; color: var(--ink-2); }
 
 /* Your walls */
