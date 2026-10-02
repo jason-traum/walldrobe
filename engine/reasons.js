@@ -116,7 +116,8 @@ export function leftReason(p) {
 
 export function summary(layout, mustTitles, newCount, keptTitles = []) {
   const { family, variant, meta, group, anchor } = layout;
-  const shape = family === 'salon' ? 'A two-row hang'
+  const shape = family === 'flow' ? (variant === 'neat' ? `${layout.pieces.length} pieces lined up across the open wall` : `A free-form gallery wall of ${layout.pieces.length}`)
+    : family === 'salon' ? 'A two-row hang'
     : family === 'grid' ? `A ${meta.rows} by ${meta.cols} grid`
     : family === 'line' ? `A row of ${layout.pieces.length}`
     : family === 'column' ? `A stack of ${layout.pieces.length}`
@@ -131,7 +132,7 @@ export function summary(layout, mustTitles, newCount, keptTitles = []) {
     : newCount ? `, with ${newCount} new piece${newCount === 1 ? '' : 's'}` : '';
   // Same quarter-inch rounding as the drawing's dimension line, so the two always agree.
   const q = Math.round(group.w * 4) / 4, whole = Math.floor(q), f = ['', '¼', '½', '¾'][Math.round((q - whole) * 4)];
-  return `${shape}${where}, ${whole}${f} in wide${built}.`;
+  return `${shape}${family === 'flow' ? '' : where}, ${whole}${f} in ${family === 'flow' ? 'across' : 'wide'}${built}.`;
 }
 
 // ---------- Notes on the whole wall ----------
