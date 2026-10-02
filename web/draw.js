@@ -76,25 +76,74 @@ function furniture(o, H) {
   }
 }
 
-// One framed piece. `img` is the art: a URL, cropped to the frame's opening, never stretched.
-function framed(p, H, img, { owned, selected, fallback }) {
+// ---------- Painter's tape ----------
+// Proposed pieces are drawn the way people mock up a wall: blue tape at true
+// width (1.41 in, the standard roll), a hair off square, torn at the ends.
+// Green tape is a new piece kept in every wall; an orange strip across a
+// corner is a piece of yours that stays where it hangs. Seeded by the piece's
+// id, so the same piece always tears the same way.
+
+const TAPE_W = 1.41, LAP = 1.4;
+function seeded(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+}
+// A strip from (x1,y1) to (x2,y2). Torn ends jag a little along the strip.
+function strip(x1, y1, x2, y2, rnd, { tornA = true, tornB = true, cls = 'tape' } = {}) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L, nx = -uy, ny = ux, h = TAPE_W / 2;
+  const end = (sx, sy, dir, torn) => {
+    const n = torn ? 5 : 1, pts = [];
+    for (let i = 0; i <= n; i++) {
+      const t = -h + (TAPE_W * i) / n;
+      const d = torn && i > 0 && i < n ? (0.1 + rnd() * 0.22) * dir : 0;
+      pts.push([sx + nx * t + ux * d, sy + ny * t + uy * d]);
+    }
+    return pts;
+  };
+  const a = end(x1, y1, 1, tornA), b = end(x2, y2, -1, tornB).reverse();
+  const d = [...a, ...b].map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join('') + 'Z';
+  const rot = ((rnd() < 0.5 ? -1 : 1) * (0.15 + rnd() * 0.5)).toFixed(2);
+  return `<path d="${d}" class="${cls}" transform="rotate(${rot} ${((x1 + x2) / 2).toFixed(2)} ${((y1 + y2) / 2).toFixed(2)})"/>`;
+}
+// Four strips around a frame. The sides go on first and tuck under the top and
+// bottom, so each corner shows one torn end, not four.
+export function tapeFrame(x, y, w, h, id, cls = 'tape') {
+  const rnd = seeded(String(id));
+  return [
+    strip(x, y + 0.2, x, y + h - 0.2, rnd, { tornA: false, tornB: false, cls }),
+    strip(x + w, y + 0.2, x + w, y + h - 0.2, rnd, { tornA: false, tornB: false, cls }),
+    strip(x - LAP, y, x + w + LAP, y, rnd, { cls }),
+    strip(x - LAP, y + h, x + w + LAP, y + h, rnd, { cls }),
+  ].join('');
+}
+// One short strip across the top left corner: this one stays where it hangs.
+function pinStrip(x, y, id) {
+  const rnd = seeded(`${id}-pin`);
+  const k = 6;
+  return strip(x - 2.2, y + k * 0.75, x + k * 0.75, y - 2.2, rnd, { cls: 'tape-pin' });
+}
+
+// One piece. `img` is the art, cropped to the opening, never stretched.
+// kind: 'own' (a frame of yours), 'pin' (yours, stays put), 'new' (blue tape),
+// 'kept' (green tape).
+function framed(p, H, img, { kind, selected, fallback, still }) {
   const y = H - p.y - p.h;
-  const sel = `<rect x="${p.x - 0.8}" y="${y - 0.8}" width="${p.w + 1.6}" height="${p.h + 1.6}" class="select-ring"/>`;
-  const label = `aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
-  if (owned) {
-    // A piece you own already has its own frame in its photo.
+  const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
+  const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
+  const cls = `art${selected ? ' is-selected' : ''} is-${kind}`;
+  if (kind === 'own' || kind === 'pin') {
     const inner = img
       ? `<image href="${img}" x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" preserveAspectRatio="xMidYMid slice"/>`
-      : `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${fallback || '#8A8F94'}" class="owned-box"/>`;
-    return `<g class="art${selected ? ' is-selected' : ''}" data-id="${esc(p.ref.id)}" tabindex="0" role="button" ${label}>${inner}<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="owned-edge"/>${sel}</g>`;
+      : `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${fallback || '#8A8F94'}"/>`;
+    return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>${inner}<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="own-edge"/>${kind === 'pin' ? pinStrip(p.x, y, p.ref.id) : ''}${sel}</g>`;
   }
-  const matW = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
-  const frameW = 0.75;
-  const ix = p.x + frameW + matW, iy = y + frameW + matW, iw = p.w - 2 * (frameW + matW), ih = p.h - 2 * (frameW + matW);
-  return `<g class="art${selected ? ' is-selected' : ''}" data-id="${esc(p.ref.id)}" tabindex="0" role="button" ${label}>
-    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame"/>
-    <rect x="${p.x + frameW}" y="${y + frameW}" width="${p.w - 2 * frameW}" height="${p.h - 2 * frameW}" class="mat"/>
-    ${img ? `<image href="${img}" x="${ix}" y="${iy}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+  const m = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
+  return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="mat"/>
+    ${img ? `<image href="${img}" x="${p.x + m}" y="${y + m}" width="${p.w - 2 * m}" height="${p.h - 2 * m}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+    ${tapeFrame(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape')}
     ${sel}
   </g>`;
 }
@@ -108,7 +157,7 @@ function measures(L, W, H, s) {
   const nails = L.pieces.filter((p) => p.role !== 'pinned').map((p) => `<circle cx="${p.nail.x}" cy="${H - p.nail.y}" r="${s * 0.22}" class="nail"/>`).join('');
   return `<g class="measure">
     <line x1="0" x2="${W}" y1="${H - 57}" y2="${H - 57}" class="centerline"/>
-    <text x="${s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s * 0.85}">57 in to center</text>
+    ${(() => { const left = g.x >= W - (g.x + g.w); return `<text x="${left ? s * 0.4 : W - s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s * 0.85}" text-anchor="${left ? 'start' : 'end'}">57 in to center</text>`; })()}
     <line x1="${g.x}" x2="${g.x + g.w}" y1="${ty}" y2="${ty}"/>
     <line x1="${g.x}" x2="${g.x}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
     <line x1="${g.x + g.w}" x2="${g.x + g.w}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
@@ -150,9 +199,10 @@ export function wallSvg(o) {
   const arts = L ? L.pieces.map((p) => {
     const owned = p.ref.source === 'owned';
     const info = owned && o.ownedFor ? o.ownedFor(p.ref.id) : null;
-    // A pinned piece is still on the wall in the photo, so it isn't drawn again.
-    if (owned && p.role === 'pinned' && o.photo) return `<rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="pinned-ring"/>`;
-    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { owned, selected: p.ref.id === o.selected, fallback: info && info.color });
+    const kind = owned ? (p.role === 'pinned' ? 'pin' : 'own') : (o.keptIds && o.keptIds.has(p.ref.id) ? 'kept' : 'new');
+    // A pinned piece is still on the wall in the photo: only its strip of tape is drawn.
+    if (kind === 'pin' && o.photo) return `<g class="art is-pin" data-id="${esc(p.ref.id)}"${o.still ? '' : ` tabindex="0" role="button" aria-label="${esc(p.title)}, stays where it hangs"`}><rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="hit"/>${pinStrip(p.x, H - p.y - p.h, p.ref.id)}</g>`;
+    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still });
   }).join('') : '';
   // A wall you can tap pieces on is a group, so screen readers reach each piece.
   const role = L && !o.still ? 'group' : 'img';
@@ -162,7 +212,7 @@ export function wallSvg(o) {
     ${arts}
     ${L && o.measure ? measures(L, W, H, s) : ''}
     ${o.extra || ''}
-    ${o.photo ? '' : `<text x="${s * 0.4}" y="${s * 1.1}" font-size="${s * 0.85}" class="wall-size">${esc(feet(W))} x ${esc(feet(H))}</text>`}
+    ${o.photo || !o.measure ? '' : `<text x="${s * 0.4}" y="${s * 1.1}" font-size="${s * 0.85}" class="wall-size">${esc(feet(W))} x ${esc(feet(H))}</text>`}
   </svg>`;
 }
 
