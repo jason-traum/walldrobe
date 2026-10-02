@@ -1,3 +1,5 @@
+// The three sample walls for the demo. A sample piece of yours can name a free
+// catalog photo (`photo`) to stand in for it, drawn framed.
 // The three sample walls for the demo. Inches, origin at the floor on the left
 // end of the wall. Room palettes are the colors already in each room (couch,
 // wood, bedding), which the engine uses for color harmony.
@@ -29,8 +31,8 @@ export const WALLS = [
       { id: 'switch', kind: 'switch', x: 4, y: 46, w: 3, h: 5 },
     ],
     owned: [
-      { id: 'blue', title: 'blue print', w: 20, h: 28, keep: 'must', drop: 3, color: '#1F2FA8', palette: [{ hex: '#1F2FA8', weight: 0.8 }, { hex: '#F2F2F2', weight: 0.2 }] },
-      { id: 'pink', title: 'pink photo', w: 11, h: 14, keep: 'happy', color: '#E7A3B5', palette: [{ hex: '#E7A3B5', weight: 0.5 }, { hex: '#F3E6E0', weight: 0.3 }, { hex: '#2E6FA8', weight: 0.2 }] },
+      { id: 'blue', title: 'blue print', w: 20, h: 28, keep: 'must', drop: 3, color: '#1F2FA8', photo: 'u-1580826237584', palette: [{ hex: '#1F2FA8', weight: 0.8 }, { hex: '#F2F2F2', weight: 0.2 }] },
+      { id: 'pink', title: 'pink photo', w: 11, h: 14, keep: 'happy', color: '#E7A3B5', photo: 'u-1655841251398', palette: [{ hex: '#E7A3B5', weight: 0.5 }, { hex: '#F3E6E0', weight: 0.3 }, { hex: '#2E6FA8', weight: 0.2 }] },
     ],
     room: { palette: [{ hex: '#5B3A2E', weight: 0.4 }, { hex: '#F1F0EC', weight: 0.4 }, { hex: '#1C1C1C', weight: 0.2 }] },
   },

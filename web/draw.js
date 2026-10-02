@@ -37,23 +37,28 @@ function furniture(o, H) {
       </g>`;
     }
     case 'headboard': case 'bed': {
-      const bedH = Math.min(24, o.h * 0.6);
-      return `<g class="furn">
-        <rect ${base} rx="2"/>
-        <rect x="${o.x - 2}" y="${H - bedH}" width="${o.w + 4}" height="${bedH}" rx="2" class="bedding"/>
-        <rect x="${o.x + 6}" y="${H - bedH - 6}" width="${o.w / 2 - 9}" height="9" rx="3" class="pillow"/>
-        <rect x="${o.x + o.w / 2 + 3}" y="${H - bedH - 6}" width="${o.w / 2 - 9}" height="9" rx="3" class="pillow"/>
+      const bedH = Math.min(21, o.h * 0.55);
+      return `<g class="furn bed">
+        <rect x="${o.x}" y="${y}" width="${o.w}" height="${o.h - 4}" rx="1.5" class="wood"/>
+        <rect x="${o.x + 1.5}" y="${y + 1.5}" width="${o.w - 3}" height="${o.h - 7}" rx="1" class="wood-2"/>
+        <rect x="${o.x - 3}" y="${H - bedH}" width="${o.w + 6}" height="${bedH - 4}" rx="2.5" class="bedding"/>
+        <rect x="${o.x - 3}" y="${H - bedH * 0.55}" width="${o.w + 6}" height="${bedH * 0.55 - 4}" rx="1" class="bedding-2"/>
+        <rect x="${o.x - 2}" y="${H - 4}" width="${o.w + 4}" height="4" class="wood"/>
+        <rect x="${o.x + 6}" y="${H - bedH - 6}" width="${o.w / 2 - 10}" height="8" rx="3.5" class="pillow"/>
+        <rect x="${o.x + o.w / 2 + 4}" y="${H - bedH - 6}" width="${o.w / 2 - 10}" height="8" rx="3.5" class="pillow"/>
       </g>`;
     }
     case 'dresser': case 'sideboard': case 'console': case 'credenza': {
-      const lines = [1, 2].map((i) => `<line x1="${o.x + 1.5}" x2="${o.x + o.w - 1.5}" y1="${y + (o.h / 3) * i}" y2="${y + (o.h / 3) * i}" class="seam"/>`).join('');
-      return `<g class="furn"><rect ${base} rx="1"/>${lines}</g>`;
+      const hh = o.h - 3;
+      const lines = [1, 2].map((i) => `<rect x="${o.x + 1.2}" y="${y + (hh / 3) * i - 0.25}" width="${o.w - 2.4}" height="0.5" class="wood-2"/>`).join('');
+      return `<g class="furn case"><rect x="${o.x}" y="${y}" width="${o.w}" height="${hh}" rx="0.8" class="wood"/>${lines}<rect x="${o.x + 1}" y="${H - 3}" width="1.2" height="3" class="wood"/><rect x="${o.x + o.w - 2.2}" y="${H - 3}" width="1.2" height="3" class="wood"/></g>`;
     }
     case 'lamp': {
       const cx = o.x + o.w / 2;
-      return `<g class="furn">
-        <line x1="${cx}" x2="${cx}" y1="${H - 1}" y2="${y + 8}" class="pole"/>
-        <path d="M${o.x} ${y + 9} L${o.x + 2.5} ${y} L${o.x + o.w - 2.5} ${y} L${o.x + o.w} ${y + 9} Z" class="shade"/>
+      return `<g class="furn lamp">
+        <rect x="${cx - 0.4}" y="${y + 9}" width="0.8" height="${H - y - 9}" class="metal"/>
+        <rect x="${o.x + 2.5}" y="${H - 1}" width="${o.w - 5}" height="1" rx="0.5" class="metal"/>
+        <path d="M${o.x + 1.5} ${y + 10} L${o.x + 3.2} ${y} L${o.x + o.w - 3.2} ${y} L${o.x + o.w - 1.5} ${y + 10} Z" class="shade"/>
       </g>`;
     }
     case 'plant': {
@@ -121,6 +126,24 @@ export function tapeFrame(x, y, w, h, id, cls = 'tape') {
     strip(x - LAP, y + h, x + w + LAP, y + h, rnd, { cls }),
   ].join('');
 }
+// A new print is taped up unframed: a torn tab across each corner (two at the
+// top, two more at the bottom on anything taller than 20 in), at the real
+// roll's width but never under 5 px on screen, so it reads on a phone.
+function tab(cx, cy, len, w, ang, rnd, cls) {
+  const n = 4, pts = [];
+  for (let i = 0; i <= n; i++) pts.push([-len / 2 + (i > 0 && i < n ? rnd() * 0.22 * w : 0), -w / 2 + (w * i) / n]);
+  for (let i = 0; i <= n; i++) pts.push([len / 2 - (i > 0 && i < n ? rnd() * 0.22 * w : 0), w / 2 - (w * i) / n]);
+  const a = (ang * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+  return `<polygon points="${pts.map(([x, y]) => `${(cx + x * c - y * sn).toFixed(2)},${(cy + x * sn + y * c).toFixed(2)}`).join(' ')}" class="${cls}"/>`;
+}
+export function tapeTabs(x, y, w, h, id, cls = 'tape', ppi = 4) {
+  const rnd = seeded(String(id));
+  const tw = Math.max(TAPE_W, 5 / ppi), tl = Math.max(3.2, 15 / ppi);
+  const j = () => (rnd() - 0.5) * 10;
+  const out = [tab(x, y, tl, tw, -42 + j(), rnd, cls), tab(x + w, y, tl, tw, 42 + j(), rnd, cls)];
+  if (h > 20) out.push(tab(x, y + h, tl, tw, 42 + j(), rnd, cls), tab(x + w, y + h, tl, tw, -42 + j(), rnd, cls));
+  return out.join('');
+}
 // One short strip across the top left corner: this one stays where it hangs.
 function pinStrip(x, y, id) {
   const rnd = seeded(`${id}-pin`);
@@ -131,7 +154,7 @@ function pinStrip(x, y, id) {
 // One piece. `img` is the art, cropped to the opening, never stretched.
 // kind: 'own' (a frame of yours), 'pin' (yours, stays put), 'new' (blue tape),
 // 'kept' (green tape).
-function framed(p, H, img, { kind, selected, fallback, still, frames }) {
+function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
   const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
@@ -139,7 +162,10 @@ function framed(p, H, img, { kind, selected, fallback, still, frames }) {
   if (kind === 'own' || kind === 'pin') {
     // A photo of your piece shows its own frame; without one it's drawn framed, in its main color.
     const f = 0.9, m = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
-    const inner = img
+    const mm = Math.min(p.w, p.h) * 0.1;
+    const inner = img && art
+      ? `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame" filter="url(#wd-shadow)"/><rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/><image href="${img}" x="${p.x + f + mm}" y="${y + f + mm}" width="${p.w - 2 * (f + mm)}" height="${p.h - 2 * (f + mm)}" preserveAspectRatio="xMidYMid slice"/>`
+      : img
       ? `<image href="${img}" x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" preserveAspectRatio="xMidYMid slice"/>`
       : `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame"/><rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/><rect x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" fill="${fallback || 'var(--swatch)'}"/>`;
     return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>${inner}<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="own-edge"/>${kind === 'pin' ? pinStrip(p.x, y, p.ref.id) : ''}${sel}</g>`;
@@ -156,12 +182,12 @@ function framed(p, H, img, { kind, selected, fallback, still, frames }) {
     ${sel}
   </g>`;
   }
-  const m = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
+  const m = Math.min(p.w, p.h) * 0.045;
   return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>
-    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="mat"/>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="paper" filter="url(#wd-shadow-soft)"/>
     <text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(1.2, Math.min(2.4, p.w / 10))}" class="art-wait">${esc(String(p.title || '').slice(0, 22))}</text>
     ${img ? `<image href="${img}" x="${p.x + m}" y="${y + m}" width="${p.w - 2 * m}" height="${p.h - 2 * m}" preserveAspectRatio="xMidYMid slice"/>` : ''}
-    ${tapeFrame(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape')}
+    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi)}
     ${sel}
   </g>`;
 }
@@ -207,7 +233,9 @@ export function wallSvg(o) {
   const pad = s * 0.6;
   const bg = o.photo
     ? `<image href="${o.photo}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>`
-    : `<rect x="0" y="0" width="${W}" height="${H}" class="wall"/><rect x="0" y="${H - 4}" width="${W}" height="4" class="baseboard"/>`;
+    : `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#wd-light)"/><rect x="0" y="${H - 3}" width="${W}" height="3" class="baseboard"/>`;
+  const defs = `<defs><linearGradient id="wd-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="wall-hi"/><stop offset="1" class="wall-lo"/></linearGradient><filter id="wd-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="0.5" stdDeviation="0.5" flood-color="#5B5245" flood-opacity="0.26"/></filter><filter id="wd-shadow-soft" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="0.25" stdDeviation="0.3" flood-color="#5B5245" flood-opacity="0.18"/></filter></defs>`;
+  const ppi = Math.max(240, o.pxWide || 600) / (W + pad * 2);
   // Over a photo, the photo shows the furniture; only outline what was marked.
   const obs = (o.obstacles || []).map((ob) => (o.photo || o.outlines
     ? `<rect x="${ob.x}" y="${H - ob.y - ob.h}" width="${ob.w}" height="${ob.h}" class="ob-outline${o.photo ? '' : ' on-plain'}" data-ob="${esc(ob.id)}"/>`
@@ -220,11 +248,12 @@ export function wallSvg(o) {
     const kind = owned ? (p.role === 'pinned' ? 'pin' : 'own') : (o.keptIds && o.keptIds.has(p.ref.id) ? 'kept' : 'new');
     // A pinned piece is still on the wall in the photo: only its strip of tape is drawn.
     if (kind === 'pin' && o.photo) return `<g class="art is-pin" data-id="${esc(p.ref.id)}"${o.still ? '' : ` tabindex="0" role="button" aria-label="${esc(p.title)}, stays where it hangs"`}><rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="hit"/>${pinStrip(p.x, H - p.y - p.h, p.ref.id)}</g>`;
-    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null });
+    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi });
   }).join('') : '';
   // A wall you can tap pieces on is a group, so screen readers reach each piece.
   const role = L && !o.still ? 'group' : 'img';
   return `<svg viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" role="${role}" aria-label="${esc(o.label || 'Wall')}, ${esc(feet(W))} wide and ${esc(feet(H))} tall${L ? `, with ${L.pieces.length} pieces` : ''}" data-w="${W}" data-h="${H}">
+    ${defs}
     ${bg}
     ${showObs}
     ${arts}
