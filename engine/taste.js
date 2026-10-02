@@ -672,3 +672,87 @@ export function wallComplement(pieces, art, cache = null) {
   }
   return n ? s / n : 0.5;
 }
+
+// ---------------------------------------------------------------------------
+// Subjects: what a piece is of (horses, cars, the sea). Subject outweighs style: a black and
+// white photo of a horse is a horse first, so someone who doesn't want horses never gets it
+// for being black and white. Learned from picks (strong), saves (strong) and swaps (weak),
+// shrunk toward neutral until there's evidence, and a subject set to "never" is out.
+
+export const SUBJECT_NAMES = Object.freeze({
+  horses: 'horses', abstract: 'abstract', figure: 'people and figures', drinks: 'drinks', flowers: 'flowers', graphic: 'graphic prints',
+  food: 'food', objects: 'objects', pool: 'pools', coffee: 'coffee', landscape: 'landscapes', western: 'the West', city: 'cities',
+  cars: 'cars', beach: 'beaches', surf: 'surfing', coast: 'the coast', water: 'water', moon: 'the moon', sky: 'skies', dogs: 'dogs',
+  architecture: 'architecture', lines: 'line drawings', sailing: 'sailing', 'black and white': 'black and white photos', ski: 'skiing',
+  golf: 'golf', desert: 'desert', tennis: 'tennis', sculpture: 'sculpture', aerial: 'from above', 'palm springs': 'Palm Springs', shadows: 'shadows', film: 'film stills',
+});
+export const subjectOf = (x) => { const r = recordOf(x); return r ? r.category : (x && x.category) || null; };
+export const subjectName = (s) => SUBJECT_NAMES[s] || s;
+
+// Evidence per subject: picks count 1, saves 1, swaps away 0.35. Lean is -1 to 1, shrunk by n / (n + 2).
+export function subjectStats({ picks = [], saved = [], skipped = [] } = {}, byId = null) {
+  const at = new Map();
+  const add = (s, w, n) => { if (!s) return; const o = at.get(s) || { win: 0, loss: 0, n: 0 }; if (w > 0) o.win += w; else o.loss -= w; o.n += n; at.set(s, o); };
+  for (const p of picks) { const a = subjectOf(p.winner), b = subjectOf(p.loser); if (a && b && a === b) continue; add(a, 1, 1); add(b, -1, 1); }
+  const get = (id) => (byId ? byId.get(id) : null);
+  for (const id of saved) add(subjectOf(get(id)), 1, 1);
+  for (const id of skipped) add(subjectOf(get(id)), -0.35, 0.35);
+  const out = new Map();
+  for (const [s, o] of at) {
+    const raw = (o.win - o.loss) / Math.max(1, o.win + o.loss);
+    out.set(s, { ...o, lean: raw * (o.n / (o.n + 2)) });
+  }
+  return out;
+}
+// How much a subject moves a piece's taste score: a clear dislike pulls a piece most of the way
+// down whatever its style, a clear like lifts it some. Never means out.
+export function subjectFactor(stats, never, s) {
+  if (!s) return 1;
+  if (never && never.has(s)) return 0;
+  const o = stats.get(s);
+  if (!o) return 1;
+  return o.lean < 0 ? Math.max(0.15, 1 + 1.1 * o.lean) : 1 + 0.35 * o.lean;
+}
+// Subjects people clearly turned down: at least two losses and no wins.
+export function dislikedSubjects(stats) {
+  return [...stats].filter(([, o]) => o.loss >= 2 && o.win === 0).map(([s]) => s);
+}
+export function likedSubjects(stats) {
+  return [...stats].filter(([, o]) => o.lean >= 0.3 && o.win >= 2).sort((a, b) => b[1].lean - a[1].lean).map(([s]) => s);
+}
+
+// The next pair for an adaptive test. Like an adaptive exam, each answer changes what comes
+// next: about one round in three tests subjects (two pieces of different subjects, alike in
+// style, from subjects we know least about), the rest split the least known style axis.
+// Subjects turned down or set to never stop showing up. Seeded, so the same answers give the
+// same next pair, with a little randomness among close choices.
+export function nextAdaptivePair(catalog, picks = [], shown = new Set(), { seed = 1, never = new Set(), saved = [], skipped = [] } = {}) {
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  const stats = subjectStats({ picks, saved, skipped }, byId);
+  const out = new Set([...never, ...dislikedSubjects(stats)]);
+  const pool = catalog.filter((c) => !out.has(subjectOf(c)));
+  const rnd = rng(hash(`${picks.length}|${shown.size || 0}`, seed));
+  const subjectTurn = picks.length >= 1 && (picks.length % 3 === 1 || rnd() < 0.15);
+  if (subjectTurn) {
+    const seen = shown instanceof Set ? shown : new Set(shown || []);
+    const subjects = [...new Set(pool.map(subjectOf).filter(Boolean))];
+    const known = (s) => (stats.get(s) ? stats.get(s).n : 0);
+    const order = subjects.map((s) => ({ s, k: known(s) + rnd() * 0.9 })).sort((a, b) => a.k - b.k).map((x) => x.s);
+    for (let i = 0; i < order.length; i++) {
+      for (let j = i + 1; j < Math.min(order.length, i + 6); j++) {
+        const A = pool.filter((c) => subjectOf(c) === order[i] && !seen.has(c.id));
+        const B = pool.filter((c) => subjectOf(c) === order[j] && !seen.has(c.id));
+        if (!A.length || !B.length) continue;
+        let best = null;
+        for (const a of A.slice(0, 24)) for (const b of B.slice(0, 24)) {
+          const d = axisDiff(a, b); let off = 0; for (let t = 0; t < K; t++) off += Math.abs(d[t]);
+          const q = ((recordOf(a).quality && recordOf(a).quality.score) ?? 0.5) + ((recordOf(b).quality && recordOf(b).quality.score) ?? 0.5);
+          const score = -off + 0.1 * q + 0.05 * rnd();
+          if (!best || score > best.score) best = { score, a, b };
+        }
+        if (best) { const pair = rnd() < 0.5 ? [best.a, best.b] : [best.b, best.a]; pair.subject = [order[i], order[j]]; return pair; }
+      }
+    }
+  }
+  return nextAxisPair(pool, picks, shown, { seed });
+}

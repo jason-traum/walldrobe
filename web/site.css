@@ -531,23 +531,6 @@ svg.is-dragging .measure { opacity: 0.25; }
 .post-others { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 700px) { .post-pair { grid-template-columns: 1fr 1fr; } }
 
-/* The five steps, under the bar: number and name, the current one in ink. */
-.steps-bar { max-width: 760px; margin: 0 auto; padding: 0 16px 12px; }
-.steps-bar ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 0 20px; counter-reset: step; }
-.steps-bar li { counter-increment: step; display: inline-flex; align-items: center; gap: 7px; min-height: 32px; font: 500 14px/18px var(--font); color: var(--field); white-space: nowrap; }
-.steps-bar li::before { content: counter(step); flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 12px; line-height: 19px; text-align: center; }
-.steps-bar li a { color: var(--tape); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
-.steps-bar li.is-done { color: var(--tape); }
-.steps-bar li.is-done::before { background: var(--tape); border-color: var(--tape); color: var(--on-tape); }
-.steps-bar li[aria-current] { color: var(--ink); font-weight: 600; }
-.steps-bar li[aria-current]::before { background: var(--ink); border-color: var(--ink); color: var(--canvas); }
-/* Narrow: every step keeps its number; only the current one keeps its name. */
-@media (max-width: 599px) {
-  .steps-bar ol { gap: 0 12px; }
-  .steps-bar li:not([aria-current]) a, .steps-bar li:not([aria-current]) span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .steps-bar li:not([aria-current]) { position: relative; }
-}
-
 /* Every version of the wall, as a row of small drawings. */
 .versions { margin: 8px 0 0; }
 .versions .sheet-label { margin: 0 0 8px; }
@@ -588,3 +571,53 @@ svg.is-dragging .measure { opacity: 0.25; }
 .mine-pc .thumb img, .mine-pc .thumb .swatch { height: 100%; width: 100%; object-fit: cover; display: block; }
 .mine-tag { position: absolute; left: 2px; bottom: 2px; font: 600 10px/14px var(--font); padding: 0 4px; border-radius: 3px; background: var(--surface); color: var(--ink); }
 @media (min-width: 1000px) { .mine-row { margin: 0; padding: 2px 0 4px; flex-wrap: wrap; } }
+
+/* The wall screen: the room's name, one switch under the drawing, a bar of three at the bottom. */
+.wall-bar { align-items: flex-start; padding-top: 12px; }
+.wall-name { font-size: 24px; line-height: 30px; }
+.wall-sub { margin: 2px 0 0; color: var(--pencil); font-size: 14px; line-height: 20px; }
+.menu-btn { font-size: 20px; letter-spacing: 1px; }
+.wall-page { padding-bottom: 96px; }
+.lens-hint { margin: 4px 0 0; color: var(--pencil); font-size: 14px; }
+.lens-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 3px; margin: 8px 0 4px; background: var(--wall); border-radius: 10px; }
+.lens-switch button { min-height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--pencil); font: 500 16px/20px var(--font); cursor: pointer; }
+.lens-switch button[aria-selected="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.lens-body { display: grid; gap: 12px; margin-top: 8px; }
+.count-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.count-row .stepper { min-height: 48px; }
+.count-row .step-n { min-width: 72px; text-align: center; font-weight: 600; }
+.lens-body .sheet-label { margin: 4px 0 0; }
+.layout-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.layout-card { display: grid; gap: 6px; padding: 6px 6px 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font); text-align: center; cursor: pointer; }
+.layout-card[aria-pressed="true"] { border: 2px solid var(--ink); padding: 5px 5px 7px; font-weight: 600; }
+.card-drawing { display: block; border-radius: 4px; overflow: hidden; }
+.see-all { justify-self: center; min-height: 44px; display: inline-flex; align-items: center; }
+.why-line { margin: 0; font-size: 15px; line-height: 21px; }
+.lens-lead { margin: 0; font-size: 17px; font-weight: 500; }
+.art-acts { display: grid; gap: 8px; }
+.piece-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.piece-head h2 { font-size: 19px; line-height: 24px; }
+.acts.two { display: grid; grid-template-columns: 1fr 1fr; }
+.text-acts { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.text-acts .link { min-height: 44px; padding: 0; }
+.on-wall-row { margin-top: 4px; }
+.dock-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; max-width: 760px; margin: 0 auto; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--canvas); border-top: 1px solid var(--hairline); }
+.dock-bar .btn { justify-content: center; }
+.dock-bar .btn.quiet { border-color: transparent; background: transparent; padding: 0 10px; }
+.dock-bar .btn:disabled { opacity: 0.4; }
+@media (min-width: 1000px) { body.on-wall .dock-bar { max-width: 1120px; } }
+
+/* Versions, in a sheet. */
+.ver-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.ver { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; width: 100%; padding: 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.ver[aria-current="true"] { border: 2px solid var(--ink); padding: 7px; }
+.ver-drawing { display: block; border-radius: 4px; overflow: hidden; }
+.ver-text { display: grid; gap: 2px; }
+.menu-item { justify-content: space-between; gap: 12px; }
+.menu-item .pencil { font-weight: 400; font-size: 14px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+.own-row .seg { margin-top: 6px; }
+.wall-page #drawing { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.sub-h { margin-top: 24px; }
+.never-list { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 0; }
+.never-list li { display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-top: 1px solid var(--hairline); }
+.wall-bar .bar-l { flex-direction: column; align-items: flex-start; gap: 0; }

@@ -6,7 +6,7 @@
 
 import { layout, refill, rerank, RULES } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
-import { fitTaste, scoreTaste, nextAxisPair, tasteProfile, correctProfile, scoreProfile, AXES } from '../engine/taste.js';
+import { fitTaste, scoreTaste, nextAdaptivePair, tasteProfile, correctProfile, scoreProfile, AXES, subjectOf, subjectName, subjectStats, subjectFactor, dislikedSubjects, likedSubjects, SUBJECT_NAMES } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { normalizePalette, paletteSimilarity } from '../engine/color.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
@@ -42,6 +42,8 @@ const S = {
   view: null, // { key, all, list, rankKey, problems }
   openKey: null, // the wall that's open
   versions: [], // every wall you've had on this step, oldest first
+  lens: 'layout', // the wall screen's view: layout (the arrangement) or art (the prints in it)
+  art: null, // the piece open in the Art view: { options, page }
   selected: null,
   edit: false, // moving pieces by hand
   sheet: null, // null, 'change', or { piece: id }
@@ -153,16 +155,6 @@ function credits() {
 }
 const flashHtml = () => (S.flash ? `<p class="flash">${esc(S.flash)}</p>` : '');
 
-// The five steps, named the way a framer would, on every screen past the photo.
-const STEPS = ['Wall', 'Taste', 'Pick', 'Frames', 'Hang'];
-function stepBar(i) {
-  const d = S.draft;
-  const hasWall = !need() && !!(S.view && S.view.all && S.view.all.length);
-  const hrefs = [d && d.photo ? '#/check' : '#/things', '#/taste', '#/wall', '#/frames', '#/get'];
-  const can = (k) => !need() && (k <= 2 || hasWall);
-  return `<nav class="steps-bar" aria-label="Steps"><ol>${STEPS.map((l, k) => `<li${k === i ? ' aria-current="step"' : k < i ? ' class="is-done"' : ''}>${k !== i && can(k) ? `<a href="${hrefs[k]}">${l}</a>` : `<span>${l}</span>`}</li>`).join('')}</ol></nav>`;
-}
-
 // ---------- Engine ----------
 
 // Keep or skip: a piece you keep is in every wall and may move; pinned, it stays where it hangs.
@@ -178,7 +170,8 @@ function engineInput() {
   // Prints from shops, free photos, or both (prints lean ahead a little); your own pieces only, when asked.
   const mode = artMode();
   const isShop = (c) => c.offers && c.offers.length > 0;
-  const catalog = d.justMine ? [] : applyPool(CATALOG.filter((c) => keptIds.has(c.id) || (mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c)))), keptIds);
+  const never = new Set(ME.never || []);
+  const catalog = d.justMine ? [] : applyPool(CATALOG.filter((c) => keptIds.has(c.id) || ((mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c))) && !never.has(subjectOf(c)))), keptIds);
   const taste = tasteScores(catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
@@ -216,7 +209,7 @@ function applyPool(list, keptIds) {
 const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => [k.id, k.w, k.h]), S.draft.fullness, S.draft.justMine, S.draft.style, S.draft.pieces, artMode(), pool()]);
+const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, S.draft.taste.picks, S.draft.taste.corrections, keepList().map((k) => [k.id, k.w, k.h]), S.draft.fullness, S.draft.justMine, S.draft.style, S.draft.pieces, artMode(), pool(), ME.never]);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped]);
 
 const picksOf = (list) => (list || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
@@ -231,21 +224,34 @@ function profileNow(extra = []) {
   return prof;
 }
 // What each piece scores for you, 0 to 1: your profile when you have one, else the sample's taste.
-function tasteScores(catalog, extra = []) {
+function tasteScores(catalog, extra = [], use = false) {
   const prof = profileNow(extra);
-  if (prof) return scoreProfile(prof, catalog);
   const t = S.draft.taste;
-  if (extra.length) return scoreTaste(fitTaste([...picksOf(t.picks), ...extra]), catalog);
-  return scoreTaste(t.weights, catalog);
+  const base = prof ? scoreProfile(prof, catalog) : extra.length ? scoreTaste(fitTaste([...picksOf(t.picks), ...extra]), catalog) : scoreTaste(t.weights, catalog);
+  return bySubject(base, catalog, use);
+}
+// Subject outweighs style: what a piece is of moves its score more than how it looks.
+// From the taste test always; from hearts and swaps too when ranking (use).
+function subjectsNow(use) {
+  const t = S.draft && S.draft.taste;
+  const picks = t && t.source === 'yours' ? picksOf(t.picks) : [];
+  return subjectStats({ picks, saved: use ? ME.saved : [], skipped: use ? ME.skipped : [] }, byId);
+}
+function bySubject(scores, catalog, use) {
+  const st = subjectsNow(use), never = new Set(ME.never || []);
+  if (!st.size && !never.size) return scores;
+  const out = { ...scores };
+  for (const c of catalog) if (out[c.id] != null) out[c.id] = Math.max(0, Math.min(1, out[c.id] * subjectFactor(st, never, subjectOf(c))));
+  return out;
 }
 // Saves and swaps tell us what you like: a saved piece beats one you swapped away.
 function rankTaste() {
   const d = S.draft;
   const pairs = [];
   for (const w of d.saved) for (const l of d.skipped) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
-  if (!pairs.length) return null;
+  if (!pairs.length && !(ME.never || []).length && !d.saved.length && !d.skipped.length) return null;
   const ids = new Set(S.view.all.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => p.ref.id)));
-  return tasteScores(CATALOG.filter((c) => ids.has(c.id)), pairs);
+  return tasteScores(CATALOG.filter((c) => ids.has(c.id)), pairs, true);
 }
 
 function run() {
@@ -356,15 +362,24 @@ function openVersion(id) {
   S.openKey = L.key; S.selected = null; S.undo = null; S.edit = false; S.sheet = null;
   logE('version-back', { n: S.versions.length });
 }
-const versionLabel = (L) => `${L.pieces.length} piece${L.pieces.length === 1 ? '' : 's'}${L.variant === 'gallery' || L.family === 'gallery' ? ', loose' : ''}`;
-function versionsRow(L) {
-  const vs = S.versions;
-  const cur = vs.find((v) => sameWall(v.L, L));
-  const tiles = [...(cur ? [] : [{ id: 'now', L }]), ...vs.slice().reverse()];
-  if (tiles.length < 2) return '';
-  return `<div class="versions"><p class="sheet-label">Every version so far. Tap one to bring it back.</p>
-    <div class="versions-row" role="group" aria-label="Versions of this wall">${tiles.map((v) => { const on = v.id === 'now' || v === cur; return `<button type="button" class="version" data-version="${esc(v.id)}" aria-pressed="${on}" aria-label="${on ? 'This version' : `Version with ${versionLabel(v.L)}`}"><span class="drawing small-drawing">${drawWall(v.L, 128, { still: true, label: versionLabel(v.L) })}</span><span class="version-label">${on ? 'Now' : esc(versionLabel(v.L))}</span></button>`; }).join('')}</div></div>`;
+const kindWord = (L) => (L.family === 'salon' || (L.family === 'flow' && L.variant === 'loose') ? 'Loose' : 'Structured');
+const keptIn = (L) => L.pieces.filter((p) => (p.ref.source !== 'catalog' && !(S.draft.owned.find((o) => o.id === p.ref.id) || {}).loosen) || keptSet().has(p.ref.id)).length;
+const versionLabel = (L) => `${L.pieces.length} piece${L.pieces.length === 1 ? '' : 's'}, ${kindWord(L).toLowerCase()}, ${keptIn(L)} kept`;
+// Earlier versions, newest first. Art changes on the same frames fold into one stop, the last;
+// "Every change" shows them all. Bringing one back keeps the wall you had too.
+function versionsSheet() {
+  const L = shown();
+  const all = S.versions.slice().reverse();
+  const folded = all.filter((v, i) => i === 0 || v.L.key.split('#')[0] !== all[i - 1].L.key.split('#')[0]);
+  const list = S.ui.allVersions ? all : folded;
+  return `<h2 id="sheet-h">Earlier versions</h2>
+    <p class="pencil small">Tap one to bring it back: its art, its arrangement and what was kept. The wall you have now is saved too.</p>
+    ${list.length ? `<ul class="ver-list">${list.map((v) => `<li><button type="button" class="ver" data-version="${esc(v.id)}"${L && sameWall(L, v.L) ? ' aria-current="true"' : ''}>
+      <span class="drawing ver-drawing">${drawWall(v.L, 120, { still: true, label: versionLabel(v.L) })}</span>
+      <span class="ver-text"><span class="name">${esc(versionLabel(v.L))}</span><span class="meta">${esc(timeAgo(v.at))}${L && sameWall(L, v.L) ? ', on the wall now' : ''}</span></span></button></li>`).join('')}</ul>` : '<p class="pencil">No earlier versions yet. Every change you make keeps the wall you had here.</p>'}
+    ${all.length !== folded.length ? `<button type="button" class="link" data-act="all-versions">${S.ui.allVersions ? 'Just the main stops' : `Every change (${all.length})`}</button>` : ''}`;
 }
+const timeAgo = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'Just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
 // A wall changed (swapped, moved): it replaces the one it came from.
 function replaceWall(key, next) {
   const v = S.view;
@@ -1228,6 +1243,18 @@ async function addPieceFromRect(r) {
 const quizSeed = () => { let h = 7; for (const ch of String(S.draft && S.draft.id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return (h % 9973) + 1; };
 
 // What the test learned, in words you can correct.
+// What it's of: what you lean toward, what you turned down, and what never to show.
+function subjectsHtml() {
+  const st = subjectsNow(true), never = ME.never || [];
+  const liked = likedSubjects(st).filter((x) => !never.includes(x)).slice(0, 5), down = dislikedSubjects(st).filter((x) => !never.includes(x));
+  const list = (xs) => xs.map(subjectName).join(', ');
+  const left = Object.keys(SUBJECT_NAMES).filter((k) => !never.includes(k)).sort((a, b) => subjectName(a).localeCompare(subjectName(b)));
+  return `<h2 class="sub-h">What it's of</h2>
+    <p>${liked.length ? `You lean toward ${esc(list(liked))}. ` : ''}${down.length ? `You turned down ${esc(list(down))}, so they rank low. ` : ''}${!liked.length && !down.length ? 'Nothing clear yet. The test asks about subjects as it goes, and hearts and swaps count too.' : ''}</p>
+    <p class="pencil small">A subject you don't want matters more than style: a black and white photo of horses is still horses.</p>
+    ${never.length ? `<p class="sheet-label">Never show me</p><ul class="never-list">${never.map((k) => `<li><span>${esc(subjectName(k))}</span><button type="button" class="link" data-never-off="${esc(k)}">Show again</button></li>`).join('')}</ul>` : ''}
+    <label class="field-row"><span>Never show me</span><select data-never-add><option value="">Pick a subject</option>${left.map((k) => `<option value="${esc(k)}">${esc(subjectName(k))}</option>`).join('')}</select></label>`;
+}
 function profileScreen() {
   if (need()) { go(need()); return ''; }
   const prof = profileNow();
@@ -1243,13 +1270,13 @@ function profileScreen() {
       <select id="axis-${a.axis}" data-axis="${a.axis}">${opt('none', 'Either')}${opt(a.low, cap(a.low))}${opt(a.high, cap(a.high))}</select></li>`;
   }).join('');
   return `${bar(back('#/wall', 'Your wall'))}
-  ${stepBar(1)}
   <main class="page">
     <h1>What we learned</h1>
     <p class="lede">${esc(prof ? prof.summary : 'No lean yet: pick a few pairs and this fills in.')}</p>
     ${prof && prof.picks < 14 ? `<p class="pencil small">From ${prof.picks} pick${prof.picks === 1 ? '' : 's'}. About 14 gives every line a word; each pick adds to the ones before.</p>` : prof ? `<p class="pencil small">From ${prof.picks} picks. More picks keep sharpening it.</p>` : ''}
     <p class="pencil small">Wrong about something? Set it here and every wall ranks for it.</p>
     <ul class="rows">${rows}</ul>
+    ${subjectsHtml()}
     <div class="acts left"><a class="btn" href="#/wall">Show my wall</a><a class="btn quiet" href="#/taste">Pick more pairs</a></div>
   </main>`;
 }
@@ -1261,7 +1288,7 @@ function taste() {
     const shownIds = new Set();
     const before = S.draft.taste && S.draft.taste.source === 'yours' ? picksOf(S.draft.taste.picks) : [];
     for (const x of before) { shownIds.add(x.winner.id); shownIds.add(x.loser.id); }
-    S.quiz = { picks: before, shown: shownIds, n: 0, pair: nextAxisPair(CATALOG, before, shownIds, { seed: quizSeed() }) };
+    S.quiz = { picks: before, shown: shownIds, n: 0, passed: [], pair: nextPairFor(before, shownIds, [], quizSeed()) };
   }
   const q = S.quiz;
   const [a, b] = q.pair;
@@ -1269,9 +1296,8 @@ function taste() {
   const before = q.picks.length - q.n;
   const fresh = q.n === 0 && !q.picks.length;
   return `${bar(back(S.draft.photo ? '#/check' : '#/things', 'Your wall'), `<span class="count">${q.n + 1} of ${QUIZ_LENGTH}${before > 0 ? `, ${before} picked before` : ''}</span>`)}
-  ${stepBar(1)}
   <main class="page quiz">
-    ${fresh ? '<p class="lede">About a minute of pairs, and every wall ranks for your taste. Or <a href="#/wall">skip this for now</a>.</p>' : ''}
+    ${fresh ? '<p class="lede">Optional. About a minute of pairs, and every wall ranks for your taste. Or <a href="#/wall">skip it and see your wall</a>.</p>' : ''}
     <h1>Which would you rather have on your wall?</h1>
     <div class="pair-picks">${card(a)}${card(b)}</div>
     <div class="acts left">
@@ -1294,6 +1320,11 @@ function restoreQuiz() {
   if (pair.some((x) => !x)) return null;
   return { picks, shown: new Set(s.shown), n: s.n, pair };
 }
+// The next two pieces: each answer changes what comes next. Subjects you turned down or set
+// to never stop showing; about one round in three tests subjects, the rest style.
+function nextPairFor(picks, shown, passed, seed) {
+  return nextAdaptivePair(CATALOG, picks, shown, { seed, never: new Set(ME.never || []), saved: ME.saved, skipped: [...ME.skipped, ...passed] });
+}
 function finishQuiz() {
   const q = S.quiz;
   const was = S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste.corrections || [] : [];
@@ -1308,7 +1339,8 @@ function advanceQuiz(picked) {
   const q = S.quiz;
   q.pair.forEach((it) => q.shown.add(it.id));
   if (picked) q.n++;
-  const next = q.n < QUIZ_LENGTH ? nextAxisPair(CATALOG, q.picks, q.shown, { seed: quizSeed() + q.n }) : null;
+  if (!picked && q.pair) q.passed = [...(q.passed || []), ...q.pair.map((x) => x.id)];
+  const next = q.n < QUIZ_LENGTH ? nextPairFor(q.picks, q.shown, q.passed || [], quizSeed() + q.n + (q.passed || []).length) : null;
   if (!next) { finishQuiz(); return; }
   q.pair = next;
   saveQuiz();
@@ -1343,8 +1375,7 @@ const pxNow = () => ($('#drawing') && $('#drawing').clientWidth) || Math.min(760
 function noWalls(v) {
   const d = S.draft;
   const p = v.problems.find((x) => x.code !== 'FAMILY_SKIPPED' && x.code !== 'ALL_SHOWN' && x.code !== 'LEFT_OUT');
-  return `${bar(back('#/', 'Walldrobe'), '<button type="button" class="btn quiet small" data-act="adjust">Adjust</button>')}
-  ${stepBar(2)}
+  return `${bar(back('#/', 'Walldrobe'), '<button type="button" class="btn quiet small" data-act="sheet" data-sheet="layout">Layout options</button>')}
   <main class="page">
     <div class="drawing">${drawWall(null, pxNow(), { still: true })}</div>
     <h1 class="why">There isn't room for art on this wall.</h1>
@@ -1388,21 +1419,21 @@ function suggestScreen() {
       <span class="cost">${esc(costShort(L))}</span>
     </a>
   </li>`).join('');
-  return `${bar(back('#/wall', 'Your wall'), '<button type="button" class="btn quiet small" data-act="adjust" aria-haspopup="dialog">Adjust</button>')}
-  ${stepBar(2)}
+  return `${bar(back('#/wall', 'Your wall'), '<button type="button" class="btn quiet small" data-act="sheet" data-sheet="layout" aria-haspopup="dialog">Layout options</button>')}
   <main class="feed-page">
-    <h1>Suggestions</h1>
-    <p class="lede">Every wall that fits, best first${kept.size ? `, each with the ${kept.size === 1 ? 'piece' : `${kept.size} pieces`} you keep` : ''}. Tap one to make it your wall; the one you have now is kept as a version.</p>
+    <h1>Layouts for your wall</h1>
+    <p class="lede">Every one that fits, best first${kept.size ? `, each with the ${kept.size === 1 ? 'piece' : `${kept.size} pieces`} you keep` : ''}. Tap one to use it; the wall you have now is saved in Versions.</p>
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
-    <p class="feed-end pencil">That's every wall that fits. <button type="button" class="link" data-act="adjust">Adjust how full, how many, or which art</button></p>
+    <p class="feed-end pencil">That's every layout that fits. <button type="button" class="link" data-act="sheet" data-sheet="layout">Layout options</button></p>
   </main>${sheetHtml()}`;
 }
 
-// Your wall: the one you're building. Tap a piece to keep, swap or let it go; every
-// version stays under the drawing; Suggestions and Adjust are one tap away.
+// Your wall: one wall, two views. Layout changes the arrangement and your kept pieces come
+// along. Art keeps the frames where they are and changes the prints in them. Switching views
+// changes nothing. Tapping a piece opens Art with other prints for that spot already showing.
 function wallScreen() {
   if (need()) { go(need()); return ''; }
   const wait = building();
@@ -1413,62 +1444,128 @@ function wallScreen() {
   const L = shown();
   if (!L) return noWalls(v);
   S.openKey = L.key;
-  if (S.selected && !L.pieces.some((p) => p.ref.id === S.selected)) S.selected = null;
-  const order = [...L.pieces].filter((p) => p.ref.source === 'catalog').sort((a, b) => b.w * b.h - a.w * a.h);
-  const kept = keptSet();
-  // Your own pieces aren't a decision here: one row of thumbnails, one line on what moves.
-  const mine = L.pieces.filter((p) => p.ref.source !== 'catalog').sort((a, b) => a.x - b.x);
-  const moving = mine.filter((p) => /^Moves/.test(moveNote(p))).length, staying = mine.filter((p) => /^Stays/.test(moveNote(p))).length;
-  const mineLine = !mine.length ? '' : moving && staying ? `${staying} stay where they hang, ${moving} move. Every nail is on the Hang step.`
-    : moving ? `${moving === 1 ? 'It moves' : `All ${moving} move`} to new spots. Every nail is on the Hang step.`
-    : staying ? (staying === 1 ? 'It stays where it hangs.' : 'They stay where they hang.') : 'Not up yet. Every nail is on the Hang step.';
-  const mineHtml = mine.length ? `<div class="mine"><h2 id="mine-h">Yours <span class="pencil">${mine.length}</span></h2>
-    <div class="mine-row" role="group" aria-labelledby="mine-h">${mine.map((p) => { const o = d.owned.find((x) => x.id === p.ref.id); return `<button type="button" class="mine-pc" data-piece="${esc(p.ref.id)}" aria-haspopup="dialog" aria-label="Your ${esc(p.title)}${o && o.loosen ? ', maybe' : ''}"><span class="thumb" style="aspect-ratio:${p.w}/${p.h}">${o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>${o && o.loosen ? '<span class="mine-tag">Maybe</span>' : ''}</button>`; }).join('')}</div>
-    <p class="pencil small">${esc(mineLine)} Tap one to make it a maybe or leave it out.</p></div>` : '';
-  const rows = order.map((p) => {
-    const own = p.ref.source !== 'catalog';
-    const item = own ? null : byId.get(p.ref.id);
-    const o = own ? d.owned.find((x) => x.id === p.ref.id) : null;
-    const thumb = own
-      ? `<span class="thumb" style="aspect-ratio:${p.w}/${p.h}">${o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`
-      : `<span class="thumb" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt=""></span>`;
-    const c = item && item.offers && item.offers.length ? offersAt(item, p.w, p.h).main : null;
-    const state = own ? (p.role === 'pinned' ? 'Yours, stays put' : o && o.loosen ? 'Yours, maybe' : 'Yours') : kept.has(p.ref.id) ? 'Kept' : 'New';
-    const meta = own ? `${p.w} x ${p.h} in. ${moveNote(p)}` : `${p.w} x ${p.h} in${c && c.price != null ? `, ${money(c.price, c.currency)} at ${esc(item.source)}` : item.offers.length ? `, at ${esc(item.source)}` : `, free photo on ${esc(item.source)}`}`;
-    const saved = d.saved.includes(p.ref.id);
-    return `<li class="row piece-row">
-      <button type="button" class="row-open" data-piece="${esc(p.ref.id)}" aria-haspopup="dialog">${thumb}<span class="row-text"><span class="name">${esc(own ? `Your ${p.title}` : item.title)} <span class="state${kept.has(p.ref.id) ? ' is-kept' : ''}">${state}</span></span><span class="meta">${meta}</span><span class="reason">${esc(cleanReason(p.reason))}</span></span></button>
-      ${own ? '' : `<button type="button" class="heart" data-save="${esc(p.ref.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Saved' : 'Save'} ${esc(item.title)}">${heart(saved)}</button>`}
-    </li>`;
-  }).join('');
-  const total = wallCost(L);
-  return `${bar(back('#/', 'Walldrobe'), '<a class="btn quiet small" href="#/suggest">Suggestions</a>')}
-  ${stepBar(2)}
-  <main class="wall-page">
+  if (S.selected && !L.pieces.some((p) => p.ref.id === S.selected)) { S.selected = null; S.art = null; }
+  const lens = S.lens === 'art' ? 'art' : 'layout';
+  const kept = keptIn(L);
+  const savedNow = S.ui.saved === d.id && !store.demoMode;
+  return `<header class="bar wall-bar"><div class="bar-l"><h1 class="wall-name">${esc(wallTitle(d))}</h1>
+      <p class="wall-sub">${d.sample ? 'Sample wall' : savedNow ? 'Saved' : 'Not saved yet'} · ${L.pieces.length} piece${L.pieces.length === 1 ? '' : 's'} · ${kept} kept</p></div>
+    <div class="bar-r"><button type="button" class="icon-btn menu-btn" data-act="sheet" data-sheet="menu" aria-label="Wall, taste and your art" aria-haspopup="dialog">···</button></div></header>
+  ${store.demoMode ? '<p class="demo-note">Sample walls. Nothing is saved.</p>' : ''}
+  <main class="wall-page lens-${lens}">
     <div class="wall-main">
     <div class="drawing-wrap${S.edit ? ' is-editing' : ''}" id="drawing-wrap">
-      <div class="drawing" id="drawing">${drawWall(L, pxNow(), { selected: S.selected, measure: S.measure || S.edit, label: 'Your wall' })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
+      <div class="drawing" id="drawing">${drawWall(L, pxNow(), { selected: S.selected, measure: S.measure || S.edit, label: 'Your wall' })}</div>
     </div>
     ${S.edit ? editBar(L) : ''}
-    ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
+    <p class="lens-hint">${lens === 'layout' ? 'Tap a piece to lock it in (green tape). Double tap to like it.' : 'Tap a piece for other prints. The frames stay put.'}</p>
+    <div class="lens-switch" role="tablist" aria-label="Work on">
+      <button type="button" role="tab" data-lens="layout" aria-selected="${lens === 'layout'}">Layout</button>
+      <button type="button" role="tab" data-lens="art" aria-selected="${lens === 'art'}">Art</button>
+    </div>
+    ${S.undo ? `<p class="undo">${esc(S.undo.label)}</p>` : ''}
     ${flashHtml()}
-    ${legend(L)}
-    <h1 class="why">${esc(whyText(L))}</h1>
-    <p class="cost">${esc(costShort(L))}</p>
     ${breaksNote(L)}
-    <div class="acts left">
-      <a class="btn" href="#/frames">${L.pieces.some((p) => p.ref.source === 'catalog') ? 'Frames next' : 'Hang it next'}</a>
-      <button type="button" class="btn quiet" data-act="adjust" aria-haspopup="dialog">Adjust</button>
+    <section class="lens-body" aria-live="polite">${lens === 'layout' ? layoutLens(L, v) : artLens(L)}</section>
     </div>
-    ${order.length ? '<p class="pencil small">Tap a new piece to keep it, swap it or let it go.</p>' : ''}
-    ${versionsRow(L)}
+  </main>
+  <nav class="dock-bar" aria-label="Wall">
+    <button type="button" class="btn quiet" data-act="undo"${S.undo ? '' : ' disabled'}><span aria-hidden="true">↶</span> Undo</button>
+    <button type="button" class="btn quiet" data-act="sheet" data-sheet="versions" aria-haspopup="dialog">Versions${S.versions.length ? ` <span class="pencil">${S.versions.length}</span>` : ''}</button>
+    <a class="btn" href="${L.pieces.some((p) => p.ref.source === 'catalog') ? '#/frames' : '#/get'}">${L.pieces.some((p) => p.ref.source === 'catalog') ? 'Frames' : 'Hang'} <span aria-hidden="true">›</span></a>
+  </nav>${sheetHtml()}`;
+}
+// The Layout view: how many pieces, then a few other arrangements to tap, then all of them.
+function layoutLens(L, v) {
+  const d = S.draft;
+  const counts = v.counts || [];
+  const n = L.pieces.length;
+  const fewer = counts.filter((c) => c < n).pop(), more = counts.find((c) => c > n);
+  const cards = layoutCards(L, v);
+  return `<div class="count-row">
+      <span class="stepper" role="group" aria-label="How many pieces">
+        <button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="One fewer piece"${fewer && !S.busy ? '' : ' disabled'}>−</button>
+        <span class="step-n">${n} piece${n === 1 ? '' : 's'}</span>
+        <button type="button" class="icon-btn" data-count="${more || ''}" aria-label="One more piece"${more && !S.busy ? '' : ' disabled'}>+</button>
+      </span>
+      <button type="button" class="btn quiet" data-act="sheet" data-sheet="layout" aria-haspopup="dialog">Layout options</button>
     </div>
-    <section class="wall-side" aria-label="In this wall">
-    ${mineHtml}
-    ${order.length ? `<h2 id="in-h">New ${order.length === 1 ? 'piece' : 'pieces'}</h2><ul class="rows">${rows}</ul>` : ''}
-    ${L.left && L.left.length ? `<p class="pencil small">Left off this wall: ${L.left.map((l) => `your ${esc(l.title)}`).join(', ')}. ${esc(L.left[0].reason)}</p>` : ''}
-    </section>
-  </main>${sheetHtml()}`;
+    ${d.pieces ? '<p class="pencil small">Every layout has this many. <button type="button" class="link" data-count="any">Let the count vary</button></p>' : ''}
+    <p class="sheet-label">Try another arrangement</p>
+    <div class="layout-cards">${cards.map((c) => `<button type="button" class="layout-card" data-wall="${esc(c.L.key)}" aria-pressed="${c.on}" aria-label="${esc(c.label)}: ${esc(whyText(c.L))}">
+      <span class="drawing card-drawing">${drawWall(c.L, 116, { still: true, label: c.label })}</span><span class="card-label">${esc(c.label)}</span></button>`).join('')}</div>
+    <a class="link see-all" href="#/suggest">See all ${v.list.length} layouts</a>
+    <p class="why-line">${esc(whyText(L))} <span class="pencil">${esc(costShort(L))}</span></p>`;
+}
+// Three cards: the one on the wall, the best of the other kind, and the best roomier (or fuller) one.
+function layoutCards(L, v) {
+  const list = v.list.filter((x) => x.variant !== 'asis');
+  const others = list.filter((x) => !sameWall(x, L) && x.key !== L.key);
+  const n = L.pieces.length, k = kindWord(L);
+  const pick = [];
+  const take = (f, label) => { const x = others.find((o) => f(o) && !pick.some((p) => p.L.key === o.key)); if (x) pick.push({ L: x, label, on: false }); };
+  take((o) => kindWord(o) !== k, k === 'Loose' ? 'Structured' : 'Loose');
+  take((o) => o.pieces.length < n, 'Roomier');
+  if (pick.length < 2) take((o) => o.pieces.length > n, 'Fuller');
+  while (pick.length < 2) { const x = others.find((o) => !pick.some((p) => p.L.key === o.key)); if (!x) break; pick.push({ L: x, label: kindWord(x), on: false }); }
+  return [{ L, label: k, on: true }, ...pick];
+}
+// The Art view: with no piece open, new art for every open frame; with one open, other prints for it.
+function artLens(L) {
+  const d = S.draft;
+  const id = S.selected;
+  const p = id && L.pieces.find((x) => x.ref.id === id);
+  const open = L.pieces.filter((x) => x.ref.source === 'catalog' && !keptSet().has(x.ref.id)).length;
+  if (!p) return `<p class="lens-lead">Tap a piece to try other art.</p>
+    <div class="art-acts">
+      <button type="button" class="btn quiet wide" data-act="refresh"${open && !d.justMine && !S.busy ? '' : ' disabled'}>${S.busy === 'refresh' ? 'Picking new art…' : open ? `New art in ${open === 1 ? 'the 1 open frame' : `${open} open frames`}` : 'Every frame is kept or yours'}</button>
+      <div class="acts left"><button type="button" class="btn quiet" data-act="sheet" data-sheet="art" aria-haspopup="dialog">Art filters</button><button type="button" class="btn quiet" data-act="sheet" data-sheet="owned" aria-haspopup="dialog">Your art</button></div>
+    </div>
+    ${artList(L)}`;
+  if (p.ref.source !== 'catalog') {
+    const o = d.owned.find((x) => x.id === id);
+    return `<div class="piece-head"><h2>Your ${esc(p.title)}</h2><button type="button" class="icon-btn" data-act="deselect" aria-label="Close">×</button></div>
+      ${o ? KEEP_SEG(o) : ''}
+      <p class="pencil small">Keep: in every layout. Maybe: in a layout when it fits. Skip: off this wall. ${esc(moveNote(p))}</p>
+      ${o && o.at ? `<button type="button" class="btn quiet" data-pin="${esc(id)}">${p.role === 'pinned' ? 'Let it move' : 'Leave it where it hangs'}</button>` : ''}`;
+  }
+  const item = byId.get(id);
+  const kept = keptSet().has(id), saved = d.saved.includes(id);
+  const c = item.offers && item.offers.length ? offersAt(item, p.w, p.h).main : null;
+  const opts = artOptions(id);
+  return `<div class="piece-head"><h2>${esc(item.title)}</h2><button type="button" class="icon-btn" data-act="deselect" aria-label="Close">×</button></div>
+    <p class="meta">${p.w} x ${p.h} in${c && c.price != null ? `, ${money(c.price, c.currency)} at ${esc(item.source)}` : item.offers && item.offers.length ? `, at ${esc(item.source)}` : `, free photo on ${esc(item.source)}`}. ${esc(cleanReason(p.reason))}</p>
+    <div class="acts left two">
+      <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? '✓ Kept · make optional' : 'Keep in layouts'}</button>
+      <button type="button" class="btn quiet" data-act="letgo" data-id="${esc(id)}"${kept || S.busy ? ' disabled' : ''}>Remove frame</button>
+    </div>
+    <p class="sheet-label">${kept ? 'Make it optional to try other prints here.' : 'Try another print'}</p>
+    ${S.busy === 'alts' ? '<p class="pencil small">Finding prints for this spot…</p>' : opts.length ? `<div class="alts" role="group" aria-label="Try another print">${opts.map((o) => { const it = byId.get(o.id); return `<button type="button" class="alt" data-alt="${esc(o.id)}" aria-label="Try ${esc(it.title)}"${kept || S.busy ? ' disabled' : ''}><span class="alt-art" style="aspect-ratio:${it.aspect || p.w / p.h}"><img src="${it.imageData}" alt=""></span><span class="alt-name">${esc(it.title)}</span></button>`; }).join('')}</div>` : '<p class="pencil small">No other art comes in this size for this spot.</p>'}
+    <div class="text-acts">
+      <button type="button" class="link" data-act="sheet" data-sheet="art" aria-haspopup="dialog">Art filters</button>
+      <button type="button" class="link" data-act="more-alts"${kept || S.busy ? ' disabled' : ''}>More choices</button>
+      <button type="button" class="link" data-save="${esc(id)}" aria-pressed="${saved}">${saved ? 'Saved for later' : 'Save for later'}</button>
+      <button type="button" class="link" data-piece="${esc(id)}">Sizes and details</button>
+    </div>`;
+}
+// What's on the wall, small: tap any to open it. Yours first.
+function artList(L) {
+  const d = S.draft;
+  const order = [...L.pieces].sort((a, b) => (b.ref.source !== 'catalog') - (a.ref.source !== 'catalog') || a.x - b.x);
+  return `<div class="mine-row on-wall-row" role="group" aria-label="On this wall">${order.map((p) => {
+    const own = p.ref.source !== 'catalog', o = own ? d.owned.find((x) => x.id === p.ref.id) : null, it = own ? null : byId.get(p.ref.id);
+    const tag = own ? (o && o.loosen ? 'Maybe' : 'Yours') : keptSet().has(p.ref.id) ? 'Kept' : '';
+    const img = own ? (o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`) : `<img src="${it.imageData}" alt="">`;
+    return `<button type="button" class="mine-pc" data-pick-piece="${esc(p.ref.id)}" aria-label="${esc(own ? `Your ${p.title}` : it.title)}${tag ? `, ${tag.toLowerCase()}` : ''}"><span class="thumb" style="aspect-ratio:${p.w}/${p.h}">${img}</span>${tag ? `<span class="mine-tag">${tag}</span>` : ''}</button>`;
+  }).join('')}</div>`;
+}
+// The prints to try in the open spot: the ones found for it, less the one on the wall now.
+function artOptions(id) {
+  const a = S.art;
+  if (!a) return [];
+  const shown4 = a.options.filter((o) => o.id !== id);
+  const start = Math.max(0, Math.min(a.page * 4, shown4.length - 4));
+  return shown4.slice(start, start + 4);
 }
 // The wall as it hangs now is shown even when it breaks a rule; say which, plainly.
 function breaksNote(L) {
@@ -1510,44 +1607,68 @@ const ARTS = [['prints', 'Shop prints'], ['photos', 'Free photos you print'], ['
 const FULLS = [['calm', 'Calm: fewer, bigger pieces'], ['balanced', 'Balanced'], ['full', 'Full: more pieces, less bare wall']];
 const SHOP_PICK = [['any', 'Every shop'], ['desenio', 'Desenio only'], ['houseofspoils', 'House of Spoils only'], ['free', 'Free photos only']];
 const shopPick = () => { const f = pool(); const left = ['desenio', 'houseofspoils', 'free'].filter((k) => !f.shops.includes(k)); return left.length === 1 ? left[0] : 'any'; };
-function adjustSheet() {
+const wallTitle = (d) => { const n = d.sample ? d.name.replace(/^Sample /, '') : d.name; return n.charAt(0).toUpperCase() + n.slice(1); };
+// Layout options: the kind of wall and how full, and this wall's own tools.
+function layoutSheet() {
   const d = S.draft;
   const onWall = route()[0] === 'wall';
   const L = onWall ? shown() : null;
-  const f = pool();
-  const counts = (S.view && S.view.counts) || [];
-  const n = d.pieces || (L ? L.pieces.length : null);
-  const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
   const sel = (attr, pairs, cur, label) => `<label class="field-row"><span>${esc(label)}</span><select data-adjust="${attr}">${pairs.map(([v, l]) => `<option value="${v == null ? '' : esc(String(v))}"${(cur == null ? '' : String(cur)) === (v == null ? '' : String(v)) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
-  const arts = [...ARTS, ...(keptOwned().length ? [['mine', 'Just my pieces']] : [])];
   const asIs = S.view && S.view.list.find((x) => x.variant === 'asis');
-  const wallActs = [
-    onWall && L && !d.justMine && L.pieces.some((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)) ? `<button type="button" class="sheet-item" data-act="refresh"${S.busy ? ' disabled' : ''}>New art in the open frames</button>` : '',
+  const tools = [
     onWall && L && L.pieces.some(movable) ? `<button type="button" class="sheet-item" data-act="edit">${S.edit ? 'Done moving' : 'Move pieces by hand'}</button>` : '',
     onWall ? `<button type="button" class="sheet-item" data-act="measure">${S.measure ? 'Hide measurements' : 'Show measurements'}</button>` : '',
-    onWall && L && S.view.orig && S.view.orig[L.key] ? '<button type="button" class="sheet-item" data-act="put-back">Put it back as it was built</button>' : onWall && L && L.history && L.history.length ? '<button type="button" class="sheet-item" data-act="undo-all">Put the pieces back</button>' : '',
+    onWall && L && L.history && L.history.length ? '<button type="button" class="sheet-item" data-act="undo-all">Put the pieces back</button>' : '',
     asIs && (!onWall || asIs.key !== (L && L.key)) ? `<a class="sheet-item" href="#/wall" data-wall="${esc(asIs.key)}">See it as it hangs now</a>` : '',
   ].filter(Boolean).map((x) => `<li>${x}</li>`).join('');
-  return `<h2 id="sheet-h">Adjust</h2>
-    <p class="pencil small">Any change here builds the walls again. The one you have now stays as a version.</p>
+  return `<h2 id="sheet-h">Layout options</h2>
+    <p class="pencil small">Your kept pieces stay in. The wall you have now is saved in Versions.</p>
     <div class="fields">
-      <div class="field-row"><span>How many pieces</span><span class="stepper" role="group" aria-label="How many pieces">
-        <button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="One fewer"${fewer && !S.busy ? '' : ' disabled'}>−</button>
-        <span class="step-n">${n ? `${n}` : 'Any'}</span>
-        <button type="button" class="icon-btn" data-count="${more || ''}" aria-label="One more"${more && !S.busy ? '' : ' disabled'}>+</button>
-      </span>${d.pieces ? '<button type="button" class="link" data-count="any">Any number</button>' : ''}</div>
-      ${sel('fullness', FULLS, d.fullness || 'balanced', 'How full')}
       ${sel('style', KINDS, d.style || null, 'Kind of wall')}
+      ${sel('fullness', FULLS, d.fullness || 'balanced', 'How full')}
+      ${d.pieces ? '<div class="field-row"><span>How many pieces</span><button type="button" class="link" data-count="any">Let it vary</button></div>' : ''}
+    </div>
+    ${tools ? `<p class="sheet-label">This wall</p><ul class="sheet-list">${tools}</ul>` : ''}`;
+}
+// Art filters: which art is suggested from here on. The wall you have stays as it is.
+function artSheet() {
+  const d = S.draft, f = pool();
+  const sel = (attr, pairs, cur, label) => `<label class="field-row"><span>${esc(label)}</span><select data-adjust="${attr}">${pairs.map(([v, l]) => `<option value="${v == null ? '' : esc(String(v))}"${(cur == null ? '' : String(cur)) === (v == null ? '' : String(v)) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  const arts = [...ARTS, ...(keptOwned().length ? [['mine', 'Just my pieces']] : [])];
+  return `<h2 id="sheet-h">Art filters</h2>
+    <p class="pencil small">For the prints suggested from here on. What's on your wall stays.</p>
+    <div class="fields">
       ${sel('art', arts, d.justMine ? 'mine' : artMode(), 'Which art')}
       ${d.justMine ? '' : `${sel('people', [['any', 'Fine'], ['none', 'Leave them out']], f.people, 'People in the art')}
       ${artMode() !== 'photos' ? sel('maxPrice', PRICES, f.maxPrice, 'Price per print') : ''}
       ${sel('color', [['any', 'Any'], ['color', 'Color only'], ['bw', 'Black and white only']], f.color, 'Color')}
       ${artMode() === 'both' ? sel('shop', SHOP_PICK, shopPick(), 'From') : ''}`}
-    </div>
-    ${wallActs ? `<p class="sheet-label">This wall</p><ul class="sheet-list">${wallActs}</ul>` : ''}
-    <nav class="sheet-links" aria-label="Go to">
-      <a href="${d.photo ? '#/check' : '#/things'}">Fix what's marked</a><a href="#/taste">Taste test</a>${d.taste && d.taste.source === 'yours' ? '<a href="#/profile">What we learned</a>' : ''}<a href="#/new">New wall</a>
-    </nav>`;
+    </div>`;
+}
+// Your own pieces: Keep, Maybe or Skip, each.
+function ownedSheet() {
+  const d = S.draft;
+  return `<h2 id="sheet-h">Your art</h2>
+    <p class="pencil small">Keep: in every layout. Maybe: in a layout when it fits. Skip: off this wall.</p>
+    ${d.owned.length ? `<ul class="rows">${d.owned.map((o) => `<li class="row own-row"><span class="thumb" style="aspect-ratio:${o.w}/${o.h}">${o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc(o.color || '#8A8F94')}"></span>`}</span>
+      <span class="row-text"><span class="name">Your ${esc(o.title)}</span><span class="meta">${o.w} x ${o.h} in</span>${KEEP_SEG(o)}</span></li>`).join('')}</ul>` : '<p class="pencil">No pieces of yours on this wall.</p>'}
+    <a class="link" href="${d.photo ? '#/check' : '#/things'}">Add or fix a piece</a>`;
+}
+// The ··· menu: the wall, your taste, your art, and the rest of Walldrobe.
+function menuSheet() {
+  const d = S.draft;
+  const t = d.taste && d.taste.source === 'yours';
+  const prof = t ? profileNow() : null;
+  const item = (href, name, detail, attr = '') => `<li><a class="sheet-item menu-item" href="${href}"${attr}><span>${esc(name)}</span><span class="pencil">${esc(detail)}</span></a></li>`;
+  return `<h2 id="sheet-h">${esc(wallTitle(d))}</h2>
+    <ul class="sheet-list">
+      ${item(d.photo ? '#/check' : '#/things', 'Wall details', `${feet(d.width)} x ${feet(d.height)}`)}
+      ${item(t ? '#/profile' : '#/taste', 'Your taste', prof ? prof.summary : 'Optional, about a minute')}
+      <li><button type="button" class="sheet-item menu-item" data-act="sheet" data-sheet="owned"><span>Your art</span><span class="pencil">${d.owned.length ? `${d.owned.filter((o) => o.keep !== 'skip').length} of ${d.owned.length} in` : 'None yet'}</span></button></li>
+      ${item('#/saved', 'Saved for later', ME.saved.length ? `${ME.saved.length} piece${ME.saved.length === 1 ? '' : 's'}` : 'Nothing yet')}
+      <li><button type="button" class="sheet-item menu-item" data-act="save"><span>${S.ui.saved === d.id && !store.demoMode ? 'Saved' : 'Save this wall'}</span><span class="pencil">On this phone</span></button></li>
+    </ul>
+    <nav class="sheet-links" aria-label="Go to"><a href="#/walls">Your walls</a><a href="#/browse">Every print</a><a href="#/community">Walls people hung</a><a href="#/new">New wall</a></nav>`;
 }
 
 // ---------- Refresh the art: the same walls, new picks ----------
@@ -1605,7 +1726,8 @@ function refreshAll() {
 
 function sheetHtml() {
   if (!S.sheet) return '';
-  const body = S.sheet === 'adjust' ? adjustSheet() : S.sheet === 'share' ? shareSheet() : S.sheet.frame ? frameSheet(S.sheet.frame) : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
+  const SHEETS = { layout: layoutSheet, art: artSheet, owned: ownedSheet, menu: menuSheet, versions: versionsSheet, share: shareSheet };
+  const body = typeof S.sheet === 'string' && SHEETS[S.sheet] ? SHEETS[S.sheet]() : S.sheet.frame ? frameSheet(S.sheet.frame) : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.browse ? browseSheet(S.sheet.browse) : '';
   if (!body) return '';
   return `<div class="backdrop" data-act="close-sheet"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" id="sheet">
@@ -1636,12 +1758,7 @@ function pieceSheet(id) {
   const saved = d.saved.includes(id), kept = keptSet().has(id);
   return `<div class="piece-sheet"><h2 id="sheet-h">${esc(item.title)}</h2>
     <p class="meta">${p.w} x ${p.h} in${c && c.price != null ? `, ${money(c.price, c.currency)}` : ''}. ${esc(cleanReason(p.reason))}</p>
-    <div class="acts left">
-      <button type="button" class="btn${kept ? '' : ' quiet'}" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept, in every wall' : 'Keep it'}</button>
-      <button type="button" class="btn quiet" data-act="letgo" data-id="${esc(id)}"${kept || S.busy ? ' disabled' : ''}>Let it go</button>
-      <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} ${saved ? 'Saved' : 'Save for later'}</button>
-    </div>
-    ${kept ? '<p class="pencil small">Kept: it is in every suggestion. Tap Kept to let it change again.</p>' : swapRow(id)}
+    <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} ${saved ? 'Saved for later' : 'Save for later'}</button>
     <div class="sheet-art"><span class="art-big" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt="${esc(item.title)}"></span></div>
     <p class="meta">${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}${item.record && item.record.description ? `. ${esc(item.record.description)}` : ''}.</p>
     ${sizeRow(item, p)}
@@ -1667,11 +1784,6 @@ function swapOptions(id, L) {
     exclude.add(came.ref.id);
   }
   return out;
-}
-function swapRow(id) {
-  const alts = (S.sheet && S.sheet.piece === id && S.sheet.alts) || [];
-  if (!alts.length) return '<p class="pencil small">No other art comes in this size for this spot.</p>';
-  return `<p class="sheet-label">Swap it for</p><div class="alts" role="group" aria-label="Swap it for">${alts.map((a, i) => { const it = byId.get(a.came.ref.id); return `<button type="button" class="alt" data-alt="${i}" data-id="${esc(id)}" aria-label="Swap for ${esc(it.title)}"${S.busy ? ' disabled' : ''}><span class="alt-art" style="aspect-ratio:${it.aspect || a.came.w / a.came.h}"><img src="${it.imageData}" alt=""></span><span class="alt-name">${esc(it.title)}</span></button>`; }).join('')}</div>`;
 }
 // Take a piece off the wall: one fewer, built again around the frames that stay.
 function letGo(id) {
@@ -2120,7 +2232,6 @@ function getScreen() {
       <span class="row-acts"><a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a><a class="btn quiet small" href="${frameLink(p.w, p.h, p.ref.id)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a></span></span></li>`;
   }).join('');
   return `${bar(back(fresh.length ? '#/frames' : '#/wall', fresh.length ? 'Frames' : 'Your wall'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
-  ${stepBar(4)}
   <main class="page get">
     <h1>${fresh.length ? 'Get it, tape it, hang it' : 'Tape it, hang it'}</h1>
     <p class="lede">${esc(whyText(L))}</p>
@@ -2177,7 +2288,6 @@ function framesScreen() {
     <button type="button" class="row-open" data-fpiece="${esc(item.id)}" aria-haspopup="dialog"><span class="thumb" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt=""></span>
     <span class="row-text"><span class="name">${esc(item.title)}</span><span class="meta">${p.w} x ${p.h} in. ${esc(frameWords(item.id, p))}${own ? ', set by you' : ''}.</span></span></button></li>`; }).join('');
   return `${bar(back('#/wall', 'Your wall'))}
-  ${stepBar(3)}
   <main class="page">
     <h1>Frames</h1>
     <p class="lede">One look for the whole wall, drawn on it. Change any one piece below.</p>
@@ -2416,7 +2526,7 @@ function walls() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['version', 'alt', 'fpiece', 'funset', 'trySet', 'unshare', 'report', 'reshare', 'askPost', 'pid', 'look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['lens', 'pickPiece', 'sheet', 'version', 'alt', 'fpiece', 'funset', 'trySet', 'unshare', 'report', 'reshare', 'askPost', 'pid', 'look', 'fcolor', 'profile', 'ffinish', 'fmat', 'fmode', 'finish', 'mat', 'pool', 'v', 'size', 'chip', 'style', 'art', 'count', 'step', 'axis', 'lean', 'browse', 'filter', 'std', 'turn', 'try', 'addPast', 'forgetArt', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -2892,6 +3002,7 @@ document.addEventListener('submit', (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.dataset && t.dataset.adjust) { applyAdjust(t.dataset.adjust, t.value); return; }
+  if (t.dataset && t.dataset.neverAdd !== undefined && t.value) { ME.never = [...new Set([...(ME.never || []), t.value])]; syncMe(); logE('never', { subject: t.value, on: true }); resetLayouts(); S.flash = `No more ${subjectName(t.value)}.`; render(); return; }
   if (t.dataset && t.dataset.axis) {
     const d = S.draft, axis = t.dataset.axis, v = t.value;
     if (!d.taste || d.taste.source !== 'yours') d.taste = { source: 'yours', weights: null, picks: [], corrections: [] };
@@ -2981,24 +3092,87 @@ function closeSheet() {
   const back = was && was.piece ? document.querySelector(`[data-piece="${CSS.escape(was.piece)}"]`)
     : was && was.frame ? document.querySelector(`[data-fpiece="${CSS.escape(was.frame)}"]`)
     : was && was.browse ? document.querySelector(`[data-browse="${CSS.escape(was.browse)}"]`)
-    : document.querySelector('[data-act="adjust"]');
+    : document.querySelector('[data-lens][aria-selected="true"]') || document.querySelector('[data-act="adjust"]');
   if (back) back.focus({ preventScroll: true });
 }
 
 // A piece's sheet: for a new piece that isn't kept, the other art for its spot is found first.
+// Lock a new piece in (green tape, in every layout) or let it go back to being open.
+function keepPiece(id) {
+  const prevKept = clone(S.draft.kept || []), prevChosen = S.draft.chosen ? clone(S.draft.chosen) : null;
+  toggleKeep(id);
+  const item = byId.get(id), on = (S.draft.kept || []).some((k) => k.id === id);
+  S.openKey = S.draft.chosen ? S.draft.chosen.layout.key : null; S.flash = null; S.sheet = null; S.selected = null; S.art = null;
+  S.undo = { label: on ? `${item ? item.title : 'That piece'} is locked in. It comes along to every layout.` : `${item ? item.title : 'That piece'} is open again.`, run: () => { S.draft.kept = prevKept; S.draft.chosen = prevChosen; S.openKey = prevChosen ? prevChosen.layout.key : null; persist(); } };
+}
+// A piece of yours: locked (Keep) or open (Maybe). The wall on screen stays.
+function lockOwn(id) {
+  const o = S.draft.owned.find((x) => x.id === id), L = shown();
+  if (!o || !L) return;
+  const was = !!o.loosen;
+  o.loosen = !was; o.keep = 'must'; if (o.loosen) o.pinned = false;
+  S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() }; S.openKey = L.key;
+  logE('keep', { own: true, maybe: o.loosen, from: 'tap' });
+  S.undo = { label: o.loosen ? `Your ${o.title} is open: in a layout only when it fits.` : `Your ${o.title} is locked in.`, run: () => { o.loosen = was; S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() }; S.openKey = L.key; persist(); } };
+  persist();
+}
+// On the drawing: one tap locks or unlocks in Layout and opens other prints in Art; two taps like it.
+function tapArt(id) {
+  const now = Date.now();
+  if (S.tap && S.tap.id === id && now - S.tap.at < 320) { clearTimeout(S.tap.timer); S.tap = null; likeArt(id); return; }
+  if (S.tap) clearTimeout(S.tap.timer);
+  S.tap = { id, at: now, timer: setTimeout(() => {
+    S.tap = null;
+    const L = shown(), p = L && L.pieces.find((x) => x.ref.id === id);
+    if (!p) return;
+    if (S.lens === 'art') { openPiece(id); return; }
+    if (p.ref.source === 'catalog') keepPiece(id); else lockOwn(id);
+    render();
+  }, 300) };
+}
+function likeArt(id) {
+  const item = byId.get(id);
+  if (!item) return;
+  toggleSave(id);
+  const on = ME.saved.includes(id);
+  S.flash = on ? `Liked ${item.title}. It's in Saved, and walls lean toward art like it.` : `${item.title} is off your Saved list.`;
+  render();
+}
+// Open a piece in the Art view, inline: for a new piece that isn't kept, the prints for its spot.
 function openPiece(id) {
   const L = shown();
   const p = L && L.pieces.find((x) => x.ref.id === id);
   if (!p) return;
-  S.selected = id;
-  if (p.ref.source !== 'catalog' || keptSet().has(id)) { S.sheet = { piece: id }; render(); return; }
+  S.lens = 'art'; S.selected = id; S.sheet = null; S.art = null;
+  if (p.ref.source !== 'catalog' || keptSet().has(id)) { render(); return; }
   S.busy = 'alts'; render();
   setTimeout(() => {
     let alts = [];
     try { alts = swapOptions(id, L); } catch (e) { console.error(e); }
-    S.busy = null; S.sheet = { piece: id, alts }; render();
+    S.art = { base: L, baseId: id, options: [{ id, L }, ...alts.map((a) => ({ id: a.came.ref.id, L: a.L }))], page: 0 };
+    S.busy = null; render();
   }, 30);
 }
+// Four more prints for the open spot, found from the wall as it was when the spot was opened.
+function moreOptions() {
+  const a = S.art;
+  if (!a) return;
+  const input = engineInput();
+  const exclude = new Set([...a.options.map((o) => o.id), ...[...(S.seen.get(a.base.key) || [])].filter((x) => !keptSet().has(x))]);
+  let found = 0;
+  for (let i = 0; i < 4; i++) {
+    let r;
+    try { r = refill({ ...input, keep: keepList(), exclude: [...exclude].filter((x) => x !== a.baseId) }, a.base, { swap: a.baseId }); } catch { break; }
+    const next = r.layouts[0];
+    const came = next && next.pieces.find((q) => q.ref.source === 'catalog' && !a.base.pieces.some((b) => b.ref.id === q.ref.id));
+    if (!came || exclude.has(came.ref.id)) break;
+    a.options.push({ id: came.ref.id, L: next }); exclude.add(came.ref.id); found++;
+  }
+  if (found) a.page++;
+  else S.flash = 'Those are all the prints that come in this size here.';
+}
+// Art filters change what's suggested from here on: the wall on screen stays.
+const ART_KEYS = new Set(['people', 'color', 'maxPrice', 'shop', 'art']);
 function applyAdjust(k, v) {
   const d = S.draft, f = pool();
   const L = route()[0] === 'wall' ? shown() : null;
@@ -3010,6 +3184,13 @@ function applyAdjust(k, v) {
   else if (k === 'maxPrice') { f.maxPrice = v === '' ? null : Number(v); d.pool = f; }
   else if (k === 'shop') { f.shops = v === 'any' ? [] : ['desenio', 'houseofspoils', 'free'].filter((x) => x !== v); d.pool = f; }
   logE('shape', { [k]: v });
+  if (L && ART_KEYS.has(k) && v !== 'mine') {
+    S.injected = { viewKey: viewKey(), L: { ...bareLayout(L), key: L.key } };
+    S.openKey = L.key; S.art = null; S.selected = null; S.sheet = null;
+    S.flash = 'Filters set. New prints you try follow them; your wall stays as it is.';
+    persist(); render(); return;
+  }
+  S.lens = 'layout';
   rebuild(k);
 }
 
@@ -3017,7 +3198,7 @@ function applyAdjust(k, v) {
 function announceCount() { const c = $('#browse-count'), live = $('#live'); if (c && live) live.textContent = c.textContent; }
 
 // What changing the wall's inputs does to the list: build it again, keep the open wall's place.
-function rebuild(name, undo = null) { S.flash = null; S.undo = undo; S.openKey = null; S.sheet = null; S.injected = null; S.focusAfter = undo ? '[data-act="undo"]' : '[data-act="adjust"]'; persist(); render(); }
+function rebuild(name, undo = null) { S.flash = null; S.undo = undo; S.openKey = null; S.sheet = null; S.injected = null; S.focusAfter = undo ? '[data-act="undo"]' : '[data-lens][aria-selected="true"]'; S.art = null; S.selected = null; persist(); render(); }
 
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .art, a[data-act], a[data-wall], .backdrop');
@@ -3026,25 +3207,29 @@ document.addEventListener('click', (e) => {
   if (t.dataset.wall) {
     const now = S.view ? shown() : null;
     if (now && now.key !== t.dataset.wall) noteVersion(now);
-    logWallOpen(t.dataset.wall, 'tap'); S.openKey = t.dataset.wall; S.selected = null; S.undo = null; S.edit = false; S.sheet = null;
+    logWallOpen(t.dataset.wall, 'tap'); S.openKey = t.dataset.wall; S.selected = null; S.art = null; S.lens = 'layout'; S.undo = null; S.edit = false; S.sheet = null;
     if (location.hash === '#/wall') { e.preventDefault(); render(); } return;
   }
-  if (t.dataset.version) { openVersion(t.dataset.version); render(); return; }
-  if (t.dataset.alt !== undefined) {
-    const alts = S.sheet && S.sheet.alts, a = alts && alts[Number(t.dataset.alt)], id = t.dataset.id;
-    const L = shown();
-    if (!a || !L) return;
+  if (t.dataset.neverOff) { ME.never = (ME.never || []).filter((x) => x !== t.dataset.neverOff); syncMe(); logE('never', { subject: t.dataset.neverOff, on: false }); resetLayouts(); render(); return; }
+  if (t.dataset.version) { openVersion(t.dataset.version); S.sheet = null; S.art = null; render(); return; }
+  if (t.dataset.lens) { S.lens = t.dataset.lens; S.selected = null; S.art = null; S.flash = null; render(); return; }
+  if (t.dataset.pickPiece) { openPiece(t.dataset.pickPiece); return; }
+  if (t.dataset.alt) {
+    const a = S.art, id = t.dataset.alt, L = shown();
+    const o = a && a.options.find((x) => x.id === id);
+    if (!o || !L) return;
+    const was = S.selected, d = S.draft, wasSkipped = d.skipped.includes(was);
     noteVersion(L);
-    const next = { ...a.L, history: L.history, moved: L.moved };
-    const d = S.draft, wasSkipped = d.skipped.includes(id);
-    if (!wasSkipped) { d.skipped = [...d.skipped, id]; ME.skipped = d.skipped; syncMe(); }
-    replaceWall(L.key, next); remember(next);
-    logE('swap', { from: id, to: a.came.ref.id, wall: L.key, picked: true });
-    S.ui.saved = null; S.sheet = null; S.selected = null; persist();
-    const gone = byId.get(id), came = byId.get(a.came.ref.id);
-    S.undo = { label: `Swapped ${gone ? gone.title : 'that piece'} for ${came ? came.title : 'another'}.`, run: () => { if (!wasSkipped) { d.skipped = d.skipped.filter((x) => x !== id); ME.skipped = d.skipped; syncMe(); } replaceWall(L.key, L); persist(); } };
+    if (was && !wasSkipped) { d.skipped = [...d.skipped, was]; ME.skipped = d.skipped; syncMe(); }
+    replaceWall(L.key, { ...o.L, key: L.key, history: L.history, moved: L.moved }); remember(o.L);
+    S.selected = id;
+    logE('swap', { from: was, to: id, wall: L.key, picked: true });
+    S.ui.saved = null; persist();
+    const gone = byId.get(was), came = byId.get(id);
+    S.undo = { label: `${came ? came.title : 'Another print'} in place of ${gone ? gone.title : 'the last one'}.`, run: () => { if (was && !wasSkipped) { d.skipped = d.skipped.filter((x) => x !== was); ME.skipped = d.skipped; syncMe(); } replaceWall(L.key, L); S.selected = was; persist(); } };
     render(); return;
   }
+
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
   if (t.dataset.add) {
@@ -3164,7 +3349,7 @@ document.addEventListener('click', (e) => {
     S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count);
     logE('shape', { pieces: S.draft.pieces, from: L ? L.pieces.length : null });
     S.injected = null;
-    if (onWall && L) { S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '[data-act="adjust"]'; persist(); render(); } else { S.openKey = null; rebuild('count'); }
+    if (onWall && L) { S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.art = null; S.lens = 'layout'; S.focusAfter = '.stepper .step-n'; persist(); render(); } else { S.openKey = null; rebuild('count'); }
     return;
   }
   if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
@@ -3227,7 +3412,7 @@ document.addEventListener('click', (e) => {
   }
   if (t.dataset.forgetArt) { ME.art = ME.art.filter((x) => x.id !== t.dataset.forgetArt); syncMe(); render(); return; }
   if (t.dataset.browse) { S.sheet = { browse: t.dataset.browse }; render(); return; }
-  if (t.dataset.piece) { openPiece(t.dataset.piece); return; }
+  if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; render(); return; }
   if (t.dataset.fpiece) { S.sheet = { frame: t.dataset.fpiece }; render(); return; }
   if (t.dataset.funset) { const f = framesNow(); const each = { ...(f.each || {}) }; delete each[t.dataset.funset]; S.draft.frames = { ...f, each }; persist(); render(); return; }
   if (t.dataset.pick) {
@@ -3248,7 +3433,7 @@ document.addEventListener('click', (e) => {
     S.ui.confirmDelete = null; S.flash = store.demoMode ? 'Sample mode: nothing is deleted.' : 'Deleted, with its photo.'; render(); return;
   }
   if (S.edit && t.classList.contains('art')) return;
-  if (t.classList.contains('art') && route()[0] === 'wall') { openPiece(t.dataset.id); return; }
+  if (t.classList.contains('art') && route()[0] === 'wall') { tapArt(t.dataset.id); return; }
   switch (a) {
     case 'corners-ok': {
       if (!S.draft.photo || S.busy) break;
@@ -3269,17 +3454,13 @@ document.addEventListener('click', (e) => {
     case 'quiz-skip': if (S.quiz) logE('skip', { ids: S.quiz.pair.map((x) => x.id), from: 'quiz' }); advanceQuiz(false); break;
     case 'quiz-done': finishQuiz(); break;
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;
-    case 'adjust': S.sheet = 'adjust'; render(); break;
+    case 'sheet': S.sheet = t.dataset.sheet; render(); break;
+    case 'deselect': S.selected = null; S.art = null; render(); break;
+    case 'all-versions': S.ui.allVersions = !S.ui.allVersions; render(); break;
+    case 'more-alts': moreOptions(); render(); break;
     case 'share': S.sheet = 'share'; render(); break;
     case 'close-sheet': closeSheet(); break;
-    case 'keep': {
-      const id = t.dataset.id, prevKept = clone(S.draft.kept || []), prevChosen = S.draft.chosen ? clone(S.draft.chosen) : null;
-      toggleKeep(id);
-      const item = byId.get(id), on = (S.draft.kept || []).some((k) => k.id === id);
-      S.openKey = S.draft.chosen ? S.draft.chosen.layout.key : null; S.flash = null; S.sheet = null; S.focusAfter = '[data-act="undo"]';
-      S.undo = { label: on ? `${item ? item.title : 'That piece'} is kept in every wall. The others were built again around it.` : `${item ? item.title : 'That piece'} isn't kept any more.`, run: () => { S.draft.kept = prevKept; S.draft.chosen = prevChosen; S.openKey = prevChosen ? prevChosen.layout.key : null; persist(); } };
-      render(); break;
-    }
+    case 'keep': keepPiece(t.dataset.id); S.focusAfter = '[data-lens][aria-selected="true"]'; render(); break;
     case 'put-back': {
       const L = shown(), v = S.view;
       const orig = L && v.orig && v.orig[L.key];
@@ -3289,7 +3470,7 @@ document.addEventListener('click', (e) => {
     case 'letgo': {
       const id = t.dataset.id; S.flash = null; S.sheet = null; S.selected = null;
       S.busy = 'letgo'; render();
-      setTimeout(() => { try { letGo(id); } finally { S.busy = null; S.focusAfter = '[data-act="undo"]'; render(); } }, 30);
+      setTimeout(() => { try { letGo(id); S.lens = 'layout'; S.art = null; } finally { S.busy = null; S.focusAfter = '.stepper .step-n'; render(); } }, 30);
       break;
     }
     case 'refresh': {
