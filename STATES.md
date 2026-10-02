@@ -10,6 +10,7 @@ States that apply everywhere:
 - **Failed save:** the input stays on screen, with "Didn't save. Try again." and a retry button.
 - **Signed out mid-flow:** sign in again and land back on the same step with the same inputs.
 - **Demo (`?demo`):** a small fixed label, "Sample walls. Nothing is saved." Every screen works, nothing is written, no photo leaves the device.
+- **Event log:** every save, unsave, swap, skip, keep, pin, wall opened, Get this wall, quiz pick, browse filter and See it on my wall adds one line to `walldrobe.events.v1` on the device (newest 2,000; piece ids and wall keys only, never a photo, a name or anything typed). Nothing on screen changes. Not written in `?demo`. Your walls says what is kept, with "Clear that list".
 
 ## 1. First screen
 
@@ -108,7 +109,7 @@ After the first wall, never before it. Reached from Change.
 | Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again, Check what's marked, Start a new wall |
 | Sample | "Sample wall" chip on each drawing | |
 
-Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full); With new art / Just mine (when you have pieces you keep); Move pieces by hand; Put this wall back the way it was; Show it as it hangs now; Show measurements and nails; Make it mine; Check what's marked; Start a new wall; Your walls.
+Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full); With new art / Just mine (when you have pieces you keep); Move pieces by hand; Put this wall back the way it was; Show it as it hangs now; Show measurements and nails; Make it mine; Check what's marked; Start a new wall; Browse every print; Saved pieces; Your walls.
 
 ## 9. One wall, open
 
@@ -152,10 +153,30 @@ Undo stays until you open another wall or leave the screen.
 
 | State | What they see | Action |
 |---|---|---|
-| None | "Nothing saved yet. Tap the heart on any piece and it lands here, and the walls rank for it." | |
-| Saved pieces | Each with its thumbnail, artist, the sizes it comes in with the price at each, and where it is ("On the wall you have open", "Kept in every wall") | See it on my wall, See it at [shop], unsave |
+| None | "Nothing saved yet. Tap the heart on any piece and it lands here, and the walls rank for it." | Browse every print |
+| Saved pieces | Each with its thumbnail, artist, the sizes it comes in with the price at each, and where it is ("On the wall you have open", "Kept in every wall"); "Browse every print" after the list | See it on my wall, See it at [shop], unsave, Browse every print |
 | See it on my wall | Back to the feed, the piece kept in every wall at a size it comes in: "[title] is in every wall now, at 20 x 28 in." | |
 | No wall yet | The list, without See it on my wall | Start a wall |
+
+## 10c. Browse
+
+Every piece in the catalog, apart from any wall: shop prints (Desenio, House of Spoils) and free photos. Reached from Change ("Browse every print"), from Saved, and from the home page ("Or just browse every print", a text link under the copy, not in the bar).
+
+| State | What they see | Action |
+|---|---|---|
+| Default | "Every print", one row of quiet controls (Size, Color, Shop, Sort; on a phone they wrap and fill the width), "1,406 prints", then a grid of pieces: each at its own shape in a mat on a bit of wall, its name, and one line with the artist and the price ("from $45", or "free photo"). 2 across up to 600 px, 3 up to 1,000, 4 above | Pick a filter, tap a piece |
+| A wall is open | The sort reads "Best for this wall": the feed's taste score (the quiz, then saves over swaps) with how well the piece's colors sit with the room | Change the sort |
+| No wall | The sort reads "A to Z"; "Price, low to high" is the other choice. No See it on my wall | Start a wall |
+| Filtered | The picked controls turn tape-soft, the count follows ("145 prints"), and "Clear filters" sits beside it. Size is the long side of any size the piece comes in: up to 12 in, 12 to 20, 20 to 30, over 30. Color is a color family the piece is at least a fifth of (a third for black or white), or black and white | Clear filters |
+| Nothing matches | "Nothing matches all of these. Clear a filter or two to see more." | Clear filters |
+| More than 48 | The first 48, then "Show 48 more" (or the number left). Focus moves to the first new piece | Show more |
+| All shown | "That's all 214." | |
+| Image missing | The piece's title in the mat | |
+| Piece sheet | Big image at its own shape, title, "Art by [artist], sold by [shop]" or "Photo by [artist] on [site]", every size with its price, the description | See it on my wall (the one primary, only with a wall open), Save, See it at [shop] (new tab) |
+| Saved from Browse | The heart fills in the sheet; the piece shows a small heart on its tile and lands on Saved | Unsave |
+| See it on my wall | Back to the feed, the piece kept in every wall at a size it comes in: "[title] is in every wall now, at 12 x 16 in. Tap it on a wall to change that." | Keep it in every wall, on its sheet, turns it off |
+| Already kept | "Kept in every wall." in the sheet, no See it on my wall | |
+| Closing the sheet | Focus goes back to the piece that opened it | |
 
 ## 11. Your walls
 
@@ -163,6 +184,7 @@ Undo stays until you open another wall or leave the screen.
 |---|---|---|
 | None saved | "No walls yet." | Start a wall |
 | Saved | Each wall as a small picture with its name and date | Open, rename, delete |
+| What we keep | Under the first line: "This device also keeps a list of the pieces you save, swap, skip and pick, with no photos and nothing about you, so Walldrobe can learn what people like. Nothing is sent anywhere yet." Not shown in `?demo` | Clear that list |
 | Deleting | "Delete this wall and its photo? This can't be undone." | Delete, cancel |
 
 ## 12. Settings

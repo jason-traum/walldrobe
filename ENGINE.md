@@ -238,7 +238,7 @@ Every layout's fit is the shape score (free-form) or half the old zone fit and h
 
 - `layout({ ..., count: 24 })` returns up to 24 walls, not 3. The site asks for 24 once per wall and keeps them. On the three sample walls this takes 0.1 to 0.9 s on a laptop.
 - Each wall has `why`: `{ who, shape, where, across, text }`, e.g. "Both of yours, one new. Lined up over the couch, 73½ in across." Built by `whyLine()` in engine/reasons.js from the pieces (yours and new), the family, and the furniture or TV the group sits over.
-- `rerank(layouts, { taste, saved, skipped, distinct })` in engine/rank.js re-orders the list without building anything: the wall's own score, plus the change in taste (a new taste test, a new score map), plus 0.05 for each saved piece on it (at most 0.15), minus 0.06 for each piece swapped away from, minus a tiny amount by its place in layout()'s order so the order holds when nothing has changed. The first wall always adds new art when any wall does, and "as it hangs now" is never first. `distinct: true` keeps only the best of walls that look the same at a glance (`look()`: family, piece count, yours, size to 6 in).
+- `rerank(layouts, { taste, saved, skipped, distinct, art })` in engine/rank.js re-orders the list without building anything: the wall's own score, plus the change in taste (a new taste test, a new score map), plus 0.05 for each saved piece on it (at most 0.15), minus 0.06 for each piece swapped away from, minus a tiny amount by its place in layout()'s order so the order holds when nothing has changed. The first wall always adds new art when any wall does, and "as it hangs now" is never first. `distinct: true` keeps only the best of walls that look the same at a glance (`look()`: family, piece count, yours, size to 6 in).
 - Fullness, the pieces you own and what's marked on the wall still build the list again; they change which walls exist, not only their order.
 
 ## His wall against the engine's (2026-10-02)
@@ -269,3 +269,51 @@ On Jason's real bedroom photo (fixtures/jason_read.js: seven pieces he keeps, a 
 - **Packing.** When three or more pieces must go up and growth puts all of them up in fewer than three walls, `packAll()` in flow.js packs them: each next piece beside, above or below one already up, a gap apart, settling as low as it can, with a beam of the 48 most compact partial walls (little wasted open wall inside the outline, centered on the furniture, near eye level), at 2.5 in gaps and then 2. Up to two new pieces grow on from each pack where there's room. `canPack()` is the quick yes or no.
 - **When they can't all fit.** `prefs.dropFewest: true` leaves out one piece, then two, trying the smallest first (by area), and never more than a third of them. Walls come from the first two sets that work; each carries `dropped: [ids]`, and each piece left out is in `left` with `dropped: true` and the reason. The first problem is `LEFT_OUT` (`pieces`, `sets`). Without `dropFewest`, or when even that can't fit them, the problem is `MUSTS_DONT_FIT`, with the area when that's why.
 - **As it hangs now.** When every piece of yours has `at` (and no exact count or base is asked for), that wall always comes back, last, even when it breaks a rule, with `breaks: [{ rule, piece, by, hard, with, message }]`. Rules: `wall-end`, `floor`, `ceiling`, `ceiling-soft`, `furniture-clearance`, `blocker-clearance`, `pinned-clearance`, `gap`, `gap-soft`; `by` is how many inches it's off. When it passes, it ranks with the others and still carries its soft breaks.
+
+## Taste, deeper (2026-10-02)
+
+The longer taste test from PRODUCT.md ("Side pages"): pairs that split one thing at a time, a summary in words the person can correct, and pieces that go together. All in engine/taste.js; numbers in `PROFILE` and `COMPLEMENT` (engine/constants.js).
+
+### Axes
+
+Seven, each from what a record carries. `axesOf(item)` gives every piece a position from 0 (the first word) to 1 (the second):
+
+| Axis | 0 to 1 | From |
+|---|---|---|
+| `warm` | cool to warm | `color.warmth`; black and white sits at 0.5 |
+| `busy` | calm to busy | 0.7 `composition.busyness` (0.03 to 0.45) + 0.3 less empty space |
+| `abstract` | figurative to abstract | category (abstract, lines, shadows, graphic), the share of subjects like pattern, stripes, shapes, brushstrokes; minimal and graphic together a little up, people a little down |
+| `print` | photos to prints | `medium`: photo 0, print, painting and illustration 1 |
+| `light` | dark to light | `color.brightness` (0.2 to 0.85) |
+| `vivid` | muted to vivid | `color.colorfulness` (0 to 0.8); black and white sits at 0.5 |
+| `bw` | color to black and white | `color.bw` |
+
+A piece of yours has only a palette: warm, light, vivid and bw come from it (warmth on the painter's wheel), the rest sit at 0.5. Warm and vivid aren't compared when either piece is black and white, so black and white is its own axis and doesn't read as muted. (`setting: 'abstract'` turned out to mean a plain background, a painted horse included, so it isn't used.)
+
+Left out: people in the picture (a subject, and the tag weights already carry it), indoor vs outdoor (88% outdoor), time of day and season (mostly day and "any"), symmetric vs loose (measured, but not a thing people name), old vs new (no dates on photos).
+
+### Pairs that learn
+
+`nextAxisPair(catalog, picks, shown, { seed })` asks about the axis the picks have tested least (`axisUncertainty`), from the information the pairs carried so far, so two pairs that split warm and busy at once count for less on each. The pair is one piece from each end of that axis (80 from each end), scored on how far apart they are on it, minus 0.6 for every unit they differ on the other axes, minus 0.08 for each earlier piece of the same subject already shown, plus a little for quality. Which piece goes left is seeded. It returns `[a, b]` with `axis` set, or null; with no picks it starts with warm vs cool. On the demo catalog sixteen pairs ask about all seven axes, and the other axes differ by under 0.15 on average.
+
+### The profile in words
+
+`tasteProfile(picks, catalog)` fits one weight per axis (Bradley-Terry on the axis differences, Newton steps, prior 0.1 toward no lean). Per axis: `lean` is tanh(weight / 4), -1 to 1; `sure` is 1 minus the spread left after the picks against the spread before (0 untested, about 0.46 after one clean pair, 0.59 after two); `words` is the side's word when |lean| is at least 0.25 and sure at least 0.55, else null. The summary is one sentence: up to four leans, clearest first, adjectives as "You lean warm, calm and figurative", the other sides as "you pick prints over photos", then the two least tested axes, "no lean yet on photos vs prints or light vs dark". With nothing known: "No lean yet: pick a few pairs and this fills in." Picks can be pieces or `[winnerId, loserId]`. The profile also carries `weights` (by axis) and `tagWeights` (fitTaste() of the same picks).
+
+`correctProfile(profile, { axis, lean })` takes a side's word ("cool"), a number, or null for no lean. A named side sets a lean of 0.8, the axis is marked `corrected` with sure 1, and the tag weights that say the same thing (warm, sunny for warm; busy, empty space, calm, minimal for busy; and so on) go to 0 so old picks can't argue with it. It returns a new profile; the old one is untouched.
+
+`scoreProfile(profile, catalog)` spreads the axis score and the tag score each 0 to 1 over the catalog, blends them half and half (axes alone when there are no tag weights), and maps onto 0.2 to 0.9 like scoreTaste(). fitTaste() and scoreTaste() are unchanged.
+
+### Pieces that go together
+
+`complement(a, b)` is 0 to 1 and the same either way round: 0.45 color, 0.15 mood, 0.1 style, 0.3 busyness.
+
+- **Color:** 0.35 palette similarity (color.js) and 0.65 how the colorful hues sit on the painter's wheel: the same or neighbors 1, a quarter turn apart 0.25, a triad 0.6, opposites 0.9. A mostly neutral piece goes with most things (0.75).
+- **Mood and style:** shared tags, with sunny against moody and calm against bold marked down. Unknown (a piece of yours) is 0.5.
+- **Busyness:** two busy pieces side by side score 0, a busy one beside a calm one 1, two calm ones 0.75.
+
+In `rerank(layouts, { ..., art })`, `art` is the catalog items and your pieces (an array or a Map by id). Each wall gets 0.05 x (mean complement of neighboring pieces - 0.5); neighbors are frames within 6 in of each other. So no wall moves more than 0.025, and two walls trade places only when their scores were within 0.05. Without `art` nothing changes. On the first sample wall with the demo catalog it swaps two pairs of walls next to each other in a list of 21, in about 15 ms.
+
+Scale contrast between frames isn't in complement(); the design checks already judge sizes on the wall.
+
+Tests: test/taste_axes.test.js.
