@@ -15,7 +15,7 @@ The tape is drawn as tape, not as a blue border:
 - Strips at true width, 1.41 in at wall scale (the standard roll), one strip per side, overlapping at the corners by about 0.4 in the way hand-applied tape does.
 - Each strip is a hair off square, up to 0.6 degrees, and no two strips on a wall lean the same way.
 - Ends are torn: a short jagged edge, never a clean cut, never a rounded cap.
-- Slightly translucent (0.85), so the wall shows through a little.
+- Opaque. Translucent tape fell under 3:1 on a photo wall (2.85), so it is solid.
 - Flat color. No gradient, no shadow, no texture overlay.
 - The art sits inside the tape with a thin paper-white mat; the tape covers the mat's edge.
 
@@ -25,9 +25,9 @@ Tape is a code. Three colors, each a real roll, each with one meaning, the same 
 |---|---|---|---|---|
 | Blue, the standard roll | `--tape-strip` | #2F7FD0 | New, proposed | Around every new piece |
 | Green, FrogTape | `--tape-keep` | #2F8A4E | New and kept: in every wall, survives re-ranking | Replaces the blue on that piece |
-| Orange, rough-surface tape | `--tape-pin` | #C8551A | Stays put: a piece of yours pinned where it hangs | One short strip across a corner of its frame |
+| Orange, rough-surface tape | `--tape-pin` | #C8551A | Stays put: a piece of yours pinned where it hangs | One short strip across the top left corner of its frame |
 
-All three pass 3:1 on the drawn wall (3.3, 3.5, 3.5). Yellow tape fails (1.6) and is not used. Your other pieces are plain frames: they are real and need no tape. Never a fourth color. The first time two colors appear on a screen, one line under the wall says what they mean ("Blue is new, green is kept, orange stays put"). The saved heart is the marker color in lists and never becomes a tape. Tape never outlines furniture or a control. A button is a solid tape-blue rectangle, not a tape strip.
+All three pass 3:1 on the drawn wall (3.3, 3.5, 3.5). Yellow tape fails (1.6) and is not used. Your other pieces are plain frames: they are real and need no tape, and they are always drawn framed, with a mat, even with no photo of them (a color swatch stands in). Never a fourth color. Whenever green or orange is on a wall, one line under it says what the colors mean: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." (only the colors on that wall). The saved heart is the marker color in lists and never becomes a tape. Tape never outlines furniture or a control. A button is a solid tape-blue rectangle, not a tape strip.
 
 ## Tokens
 
@@ -52,6 +52,11 @@ Light, on `:root`:
 | `--wall` | #E7E6E2 | The drawn wall when there's no photo. |
 | `--frame` | #1B1B1B | Frames on pieces you own and in the hanging guide. |
 | `--mat` | #FBFBF9 | Mats. |
+| `--on-wall` | #1A1B1A | Text drawn on the wall (labels, measurements in the editor). The wall is light in both themes, so this never flips. |
+| `--on-wall-tape` | #1B62AC | Selection and snap guides on the wall, both themes. |
+| `--on-wall-marker` | #9C3A66 | Nail marks and your-art marks on the wall and the confirm photo, both themes. |
+| `--field` | #777B7F | Input and control edges (dark #8D9195), so a field reads as a field at 3:1. |
+| `--swatch` | #8A8F94 | The stand-in color for a piece of yours with no photo. |
 
 Dark (`prefers-color-scheme: dark`): `--canvas` #1C1D1C, `--surface` #242624, `--ink` #ECEDEB, `--pencil` #A9ADB1, `--hairline` #343635, `--tape` #7FB3EC, `--tape-soft` #203247, `--on-tape` #0E1A28, `--marker` #E08DB4, `--marker-soft` #3A2430, `--error` #FF9C85. The drawn wall, frames, mats and the three tape strips do not change: a wall is light in both themes.
 
@@ -109,7 +114,10 @@ No all-caps labels. No italic. No bold for emphasis in running text. Numbers tha
 - Why line: one sentence, built from the layout: who's in it ("Both of yours, four new"), the shape ("lined up over the couch"), one number ("77 in across"). Then the cost on its own line in `--pencil`.
 - Count: "1 of 9" above the why line, `--pencil`.
 - Change: one quiet button at the top right of the wall screen. Opens a sheet with how full, just my pieces, as it hangs now, move pieces, make it mine. Nothing from the sheet is on the main screen.
-- Undo: every change (swap, move, wall picked) shows "Undo" inline where the change happened, for 10 seconds, and the Change sheet has "Put it back the way it was".
+- Undo: every change (swap, keep in every wall, put back) shows "Undo" inline under the drawing, and it stays until you open another wall or leave. Focus moves to it after a swap. The Change sheet has "Put this wall back the way it was" for a wall you changed, and "Show it as it hangs now".
+- Move note: each piece of yours says where it goes against where it hangs: "Stays where it hangs now.", "Moves 4 in right and 2 in higher: take it down and rehang it.", or "Not up yet: hang it here." The hanging guide repeats "Take it down and rehang it here." Never "stays" when it moves.
+- Get it: the one primary is "Save this wall". Every Buy and Find a frame link is quiet, small, and opens in a new tab.
+- A piece that hasn't loaded, or failed: its title in the mat where the art goes. No broken-image icon, no blank.
 - Sample content: "Sample wall" as a `--surface` chip with `--pencil` text at the top left of the drawing, on every sample.
 
 ## Motion
@@ -149,6 +157,9 @@ And the playbook's list, which stands: cream with serif and terracotta or sage; 
 
 ## Reference screens
 
-`design/references/feed-390.png`: the approved first screen, the feed on the sample living room with Jason's two prints, at 390 wide, light.
-`design/references/wall-open-390.png`: one hard state, a wall open with the long-title fixture wrapping and a saved piece, at 390 wide, light.
+Captured from the real build (`?demo#/sample/bedroom`, two pieces of yours, not up yet) on 2026-10-01:
+
+`design/references/feed-390.png`: the feed, the first wall with both of yours framed and one new piece in blue tape, at 390 wide, light.
+`design/references/wall-open-390.png`: the same wall open, full page, with a saved piece and the rows under it.
+`design/references/piece-sheet-390.png`: a new piece's sheet, saved, with Swap and Keep it in every wall.
 Compare new work against these, not against memory. Dark versions sit beside them.

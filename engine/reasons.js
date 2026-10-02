@@ -64,9 +64,9 @@ export function pieceReason(f) {
     const t = shortTitle(piece.title);
     if (piece.keep === 'must') {
       if (piece.role === 'center') return fit([`Your ${t} is the one you said you'd keep, so it gets the middle${overAnchor}.`, `Your ${t} is the one you said you'd keep, so it gets the middle.`]);
-      return fit([`Your ${t} stays, ${place}, because you said you'd keep it.`, `Your ${t} stays because you said you'd keep it.`]);
+      return fit([`Your ${t} is in it, ${place}, because you said you'd keep it.`, `Your ${t} is in it because you said you'd keep it.`]);
     }
-    if (piece.fixed) return fit([`Your ${t} works with the rest, so it stays, ${place}.`, `Your ${t} works with the rest, so it stays.`]);
+    if (piece.fixed) return fit([`Your ${t} works with the rest, so it's in it, ${place}.`, `Your ${t} works with the rest, so it's in it.`]);
     return fit([`Your ${t} fits this spot, so there's nothing to buy for it.`]);
   }
 

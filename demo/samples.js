@@ -20,7 +20,7 @@ export const WALLS = [
   {
     key: 'bedroom',
     name: 'Bedroom',
-    note: "Jason's bedroom: a bed, a lamp and a dresser, and two prints he already owns. Measurements are estimates.",
+    note: 'A bed, a lamp and a dresser, and two prints already on hand.',
     wall: { width: 120, height: 96 },
     obstacles: [
       { id: 'bed', kind: 'headboard', x: 18, y: 0, w: 62, h: 40 },

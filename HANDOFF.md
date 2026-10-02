@@ -84,15 +84,31 @@ Live is `main` at wd20 (editor and nail confirm). Bundles go up as wdNN, one num
 
 ## 5c. The v2 redo (started 2026-10-01, late evening)
 
-Jason: the site "looks like complete AI slop, too many buttons, not intuitive", full overhaul. He wrote a six-step prompt (Walldrobe_redo_prompt.md) and a design playbook ("Claude Code app design craft", about 2,000 lines; its six review questions, the avoid list in section 10 and appendices A to D are the rulebook). Steps 1 to 4 are done on branch `v2`; `main` and the live site are untouched until he approves the switch.
+Jason: the site "looks like complete AI slop, too many buttons, not intuitive", full overhaul. He wrote a six-step prompt (Walldrobe_redo_prompt.md) and a design playbook ("Claude Code app design craft", about 2,000 lines; its six review questions, the avoid list in section 10 and appendices A to D are the rulebook). Steps 1 to 6 are done on branch `v2`; `main` and the live site are untouched until he approves the switch.
 
 - Step 1, review: screenshots at 390, 320, 1280, light and dark, in the scratchpad `review/` folder and sent to him as three sheets. Verdict: Fit, Structure and Identity fail; Behavior mostly works; Integrity is good; Continuity partial. Keep the engine and the photo reader, rebuild every screen.
 - Step 2, product reset: PRODUCT.md rewritten. The first wall always adds new art. Choosing is a ranked scrollable list of 3 to 10 walls, not knobs. Generate once, rank many: the engine keeps the whole pool past the gate and re-ranks in place when a preference changes (engine work: split taste and color out of generation). Corners, then one confirm screen. Undo everywhere. Saves feed taste. Keep settings default to Keep or Skip (unsettled).
 - Step 3, structure: the feed (A) picked over the stage (B) and pieces-first (C), with B's pinned-photo swipe inside an open wall and C's piece rows.
 - Step 4, direction: painter's tape. DESIGN.md rewritten with tokens, type, components, motion, named anti-patterns. Prototype: `node tools/v2_proto.mjs` writes `web/v2/proto-feed.html`, `proto-wall.html` and `v2.css` from the real engine on the sample living room with Jason's two prints and the long-title fixture; serve the repo root and open `/web/v2/proto-feed.html`. Reference screens in `design/references/` (feed-390, wall-open-390, light and dark).
-- Next: step 5, build, one flow at a time on `v2`, following DESIGN.md and the playbook rules, screenshots at 390x844, 320 and desktop in light and dark against the references, bounded passes. Then step 6, a fresh-context review (playbook prompt B3) and the B4 audit, then merge only when Jason says.
+- Step 5, build: done on `v2`. `web/main.js` rewritten around the feed: home, start, corners, size, one confirm screen ("Here's your wall"), the feed (`#/layouts`), an open wall (`#/wall`) with a piece sheet and a Change sheet, Get it (`#/get`), Your walls, Make it mine (`#/taste`). New stylesheet on the v2 tokens; `web/draw.js` draws tape (blue new, green kept, orange pin strip) and always frames your pieces. Engine: `layout({count: 24})` returns long lists, `rerank()` in `engine/rank.js` re-orders on saves, skips and taste, `whyLine()` in `engine/reasons.js` writes the one line per wall. `test/rank.test.js` covers it. STATES.md sections 6 to 10 describe every v2 state.
+- Step 6, review: a fresh-context review and the B4 audit (findings in the scratchpad `review/audit.md`). Fixed every Blocker and High: the build error loop (now a "Something broke" screen), dark-theme colors on the always-light wall, tape contrast, 44 px targets, focus after every action, "stays" copy on pieces that move, failed images, undo for keep, pin and put back, the open wall jumping on re-rank, one primary on Get it, the confirm screen's notes pushing the photo down, Just mine still using kept new pieces, the tape legend.
+- Checked with Playwright: no console errors, no sideways scroll at 320, 390 and 1280, light and dark, sample and photo flows; swap and undo, keep and undo, pin, move by hand, save, how full, just mine.
+- Not merged. `main` and the live demo are untouched until Jason says.
 
-Known rough edges in the prototype, for the build: the tape's torn ends read as little stars at corners where four strips meet (make the jags one-sided and shorter); the why line is built in the prototype, not the engine (the engine should return who, shape and one number); wall 3 in the sample feed puts a piece 1 in from the wall's end, which is an engine ranking problem, not a design one.
+Open risks (need a real iPhone or real use):
+
+| Risk | Why it matters |
+|---|---|
+| Swipe between walls vs page scroll | Only tested with a mouse and touch emulation |
+| Sheet safe areas and scroll lock on iOS | The page behind can scroll under a sheet on iOS Safari |
+| Text size setting | Text is in px, so iOS larger text doesn't apply |
+| VoiceOver with a sheet open | The page behind isn't inert yet |
+| Phone speed | Builds take 0.5 to 1.5 s; the loading screen shows at once |
+| Big moves of hung pieces under Keep | A kept piece can move far; the move note says so, but it may feel wrong |
+| Tape tears at phone size | Faint at 390; may read as a plain border on a real photo |
+| Control edges | Quiet button edges are 1.39:1; the labels carry them |
+| Desktop feed | One column; the open wall has two |
+| Color reasons | Sometimes say left or right wrongly |
 
 ## 6. The layout engine: where it's going
 
