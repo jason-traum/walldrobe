@@ -134,14 +134,17 @@ function framed(p, H, img, { kind, selected, fallback, still }) {
   const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
   const cls = `art${selected ? ' is-selected' : ''} is-${kind}`;
   if (kind === 'own' || kind === 'pin') {
+    // A photo of your piece shows its own frame; without one it's drawn framed, in its main color.
+    const f = 0.9, m = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
     const inner = img
       ? `<image href="${img}" x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" preserveAspectRatio="xMidYMid slice"/>`
-      : `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${fallback || '#8A8F94'}"/>`;
+      : `<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame"/><rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/><rect x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" fill="${fallback || 'var(--swatch)'}"/>`;
     return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>${inner}<rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="own-edge"/>${kind === 'pin' ? pinStrip(p.x, y, p.ref.id) : ''}${sel}</g>`;
   }
   const m = Math.min(p.w, p.h) >= 12 ? 1.5 : 1;
   return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="mat"/>
+    <text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(1.2, Math.min(2.4, p.w / 10))}" class="art-wait">${esc(String(p.title || '').slice(0, 22))}</text>
     ${img ? `<image href="${img}" x="${p.x + m}" y="${y + m}" width="${p.w - 2 * m}" height="${p.h - 2 * m}" preserveAspectRatio="xMidYMid slice"/>` : ''}
     ${tapeFrame(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape')}
     ${sel}
@@ -157,7 +160,7 @@ function measures(L, W, H, s) {
   const nails = L.pieces.filter((p) => p.role !== 'pinned').map((p) => `<circle cx="${p.nail.x}" cy="${H - p.nail.y}" r="${s * 0.22}" class="nail"/>`).join('');
   return `<g class="measure">
     <line x1="0" x2="${W}" y1="${H - 57}" y2="${H - 57}" class="centerline"/>
-    ${(() => { const left = g.x >= W - (g.x + g.w); return `<text x="${left ? s * 0.4 : W - s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s * 0.85}" text-anchor="${left ? 'start' : 'end'}">57 in to center</text>`; })()}
+    ${(() => { const left = g.x >= W - (g.x + g.w); return `<text x="${left ? s * 0.4 : W - s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s}" text-anchor="${left ? 'start' : 'end'}">57 in to center</text>`; })()}
     <line x1="${g.x}" x2="${g.x + g.w}" y1="${ty}" y2="${ty}"/>
     <line x1="${g.x}" x2="${g.x}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
     <line x1="${g.x + g.w}" x2="${g.x + g.w}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
@@ -212,7 +215,7 @@ export function wallSvg(o) {
     ${arts}
     ${L && o.measure ? measures(L, W, H, s) : ''}
     ${o.extra || ''}
-    ${o.photo || !o.measure ? '' : `<text x="${s * 0.4}" y="${s * 1.1}" font-size="${s * 0.85}" class="wall-size">${esc(feet(W))} x ${esc(feet(H))}</text>`}
+    ${o.photo || !o.measure ? '' : `<text x="${s * 0.4}" y="${s * 1.1}" font-size="${s}" class="wall-size">${esc(feet(W))} x ${esc(feet(H))}</text>`}
   </svg>`;
 }
 

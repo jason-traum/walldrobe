@@ -96,6 +96,19 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 - 2026-10-01: Say "wall", not "layout", in the interface.
 - 2026-10-01: Generate once, rank many times. The engine keeps every wall that passes the hard rules and the composition gate (deduplicated, capped around 30 to 50), not the top 3, and ranking runs separately from generating so a save, a swap, the quiz or how full re-orders the list in place without regenerating. Each wall's one line names what moved it. Jason: "should generate a ton of options then rank them based on the fit and preferences listed which can change." Engine work for the build step: split taste and color out of generation into the rank pass.
 
+## v2 build (2026-10-01, late)
+
+- 2026-10-01: Switzer is self-hosted (400, 500, 600 as woff2, inlined in the built page) under the ITF Free Font License, which allows commercial use and self-hosting. The Fontshare CDN blocked the font for our page (CORS), and a hosted font is one more request on a phone anyway.
+- 2026-10-01: Paint-out follows the wall's light. Where a piece of yours is painted out of the photo, each spot is filled from the wall right around it, blended by distance, not one flat average. The flat fill left ghost rectangles on walls with a light gradient.
+- 2026-10-01: When a wall makes fewer than 8 distinct walls at the chosen fullness, the walls from the other two fullness levels are added after them, ranked a step lower. On Jason's wall with both prints kept, Balanced alone made 3 or 4.
+- 2026-10-01: A wall you're changing (swap, save, keep) holds its place in the list while it's open. The rest re-rank around it. Before, saving a piece could move the open wall to fifth.
+- 2026-10-01: Keep in every wall, pin and put back all have Undo. The Change sheet has "Put this wall back the way it was" for a wall you changed and "Show it as it hangs now".
+- 2026-10-01: Pieces you own are always drawn framed with a mat, with a color swatch when there's no photo of them. Before, a piece with no photo drew as a bare box and read as furniture.
+- 2026-10-01: "Stays" is gone from owned-piece copy unless the piece really stays. Each piece of yours carries a move note against where it hangs now ("Moves 4 in right and 2 in higher: take it down and rehang it."), and the hanging guide repeats it. Before, the copy said "stays" while the wall moved it.
+- 2026-10-01: The tape and on-wall labels have their own tokens (`--on-wall`, `--on-wall-tape`, `--on-wall-marker`) that don't flip in dark mode, since the drawn wall is light in both themes. Tape is opaque: at 0.85 the blue fell to 2.85:1 on a photo wall.
+- 2026-10-01: The bedroom sample's note no longer names Jason: "A bed, a lamp and a dresser, and two prints already on hand."
+- 2026-10-01: Loading shows the bare wall and "Finding every wall that fits…" at once, not after half a second as STATES planned. Builds take 0.5 to 1.5 s on a phone, so the half-second wait would flash. Reopen if: phones turn out faster than that.
+
 ## Design
 
 - 2026-10-01 (v2 step 3): Structure picked: the feed. The wall screen is a ranked list of whole walls, each full width on your photo with one line of why, the first filling the screen with nothing above it. Tap a wall to open it; inside, swipe left or right to the next ranked wall with the photo pinned (from the stage option), and the pieces in it as rows with spot, price and reason (from the pieces-first option). Rejected: the stage (one wall pinned, alternatives as a thumbnail strip; thumbs unreadable at 390 and the list becomes a control), pieces first (answers "what do I buy" before "what does it look like"), build-up (rejected Sept 30, and conflicts with the first wall being finished). Jason: "if you think A is the best we can go with that, I guess." Reopen if: the first real build of the feed on the sample wall doesn't feel right; the stage is a rearrangement of the same parts.

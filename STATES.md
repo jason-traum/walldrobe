@@ -4,7 +4,8 @@ Every screen in every situation. For each state: what the person sees, what they
 
 States that apply everywhere:
 
-- **Loading:** nothing shown for the first half second, then a quiet placeholder in the shape of what's coming. Never a spinner over a blank screen.
+- **Loading:** a quiet placeholder in the shape of what's coming: the bare wall with a line under it. Never a spinner over a blank screen. (The plan was nothing for the first half second; v2 shows the placeholder at once. Open risk.)
+- **Image missing:** a piece whose image fails shows its title in the mat where the art would be, never a blank or a broken-image icon.
 - **Offline:** a one-line note at the top: "You're offline. Nothing is lost; we'll save when you're back." Inputs stay.
 - **Failed save:** the input stays on screen, with "Didn't save. Try again." and a retry button.
 - **Signed out mid-flow:** sign in again and land back on the same step with the same inputs.
@@ -50,7 +51,7 @@ States that apply everywhere:
 | Sized from a TV | On the check screen: "Worked out from your TV, taken as a 55 in TV." with the TV size to change | Change the TV size, type the width |
 | Measurement empty | Only when no TV is clear of everything else: "Give us one real measurement." Wall width, or its height when the ceiling is in the photo. Under it, "No tape measure?" with what's in the photo: the door (6 ft 8 in), a queen bed, the couch (about 7 ft), an 8 ft ceiling, or just guess | Enter feet and inches, or pick one |
 | Measurement doesn't add up | "That makes the wall 31 ft tall. Check the number." | Edit |
-| Done | The flattened wall with its size: "11 ft 0 in wide, 8 ft 0 in tall" | Next |
+| Done | Straight to the confirm screen (section 6) | Next |
 
 ## 5. What's in the way
 
@@ -61,62 +62,86 @@ States that apply everywhere:
 | Furniture height unknown | "How tall is the couch back?" with a default of 32 in | Accept, edit |
 | Everything blocked | "There's no stretch of wall wide enough to hang on." | Edit boxes |
 
-## 6. Your pieces
+## 6. Your pieces (the confirm screen, "Here's your wall")
+
+One screen after the corners: the flattened photo with what we found marked, the wall size, your art and what's in the way. One primary, "Show me my wall", docked at the bottom.
 
 | State | What they see | Action |
 |---|---|---|
-| None owned | "Any art on this wall already?" | Add a piece, "Nothing yet" |
-| Adding | Box drawn around the piece in the photo, size filled in from the wall scale | Adjust size, set keep: must keep, happy to move, don't care; pin where it is |
-| Size looks off | "This reads as 60 x 4 in. Check it." | Edit |
-| Several pieces | A list with thumbnails cut from the photo and their keep setting | Change, remove, next |
-| Must-keeps too wide | "Your must-keep pieces are 94 in wide together and the open wall is 80 in." | Change a keep setting, edit wall |
+| Found art | Each piece as a row: thumbnail cut from the photo, "Your [title]", size, Keep / Skip (Keep is on) | Keep, Skip, Fix |
+| Fixing a piece | Name, wide and tall in the row, and a photo button for art that isn't up | Done, Remove |
+| None found | "We didn't find any art on this wall." | Add art that isn't up yet, Mark art we missed |
+| A piece might be the TV | "It's the TV" link on the biggest wide piece when no TV was found | Tap it |
+| Sized from a TV | Under the width: "From your TV, taken as a 55 in TV. Measure the wall to be exact." and a TV size picker | Change the TV size, type the width |
+| Size doesn't add up | "That makes the wall 31 ft wide and 8 ft tall. Check the number." | Edit |
+| Skipped piece | Its mark on the photo goes faint | Keep again |
 
-## 7. Taste quiz
+Pinning (stays exactly where it hangs) is not here. It lives one tap deeper, in the piece sheet on the open wall (section 9).
 
-| State | What they see | Action |
-|---|---|---|
-| Question | Two pieces side by side, "Which one do you like more?", "7 of 20" | Tap one, "Neither" |
-| Image failed | The other piece stays, the failed one shows its title | Skip this pair |
-| Early exit | "We can build with what you've told us so far." | Keep going, see my wall |
-| Done | Straight to layouts | |
+## 7. Taste quiz ("Make it mine")
 
-## 8. Layouts
+After the first wall, never before it. Reached from Change.
 
 | State | What they see | Action |
 |---|---|---|
-| Building | Their wall with the zone outlined | |
-| Ready | Top layout on their wall, full width, first. Then two more as smaller walls. Above them: Either, Structured or Loose, and a minus and plus with the number of pieces; How full: Calm, Balanced, Full | Swipe or tap between layouts, pick a kind, step the count (frames already up stay put), pick how full |
-| Count picked | The count steps only through numbers that fit this wall; at the ends the minus or plus is off. "Any number" goes back | Step, Any number |
-| Count doesn't fit | Moves to the nearest count that does: "6 pieces don't make a structured layout here. 5 do." | Step, pick another kind |
-| Only one or two families fit | Only those, plus one line saying why ("No grid: your pieces are different sizes.") | |
-| Too few candidates | "Not enough art in your sizes. Try a looser taste setting." | Retake quiz, allow more sizes |
-| Over budget | "The cheapest layout that fits is $180." | Change budget |
-| Engine error | "Something broke building your wall. Your photo and pieces are saved." | Try again |
+| Question | Two pieces side by side, "Which would you rather have on your wall?", "7 of 20" | Tap one, "Neither, show me another two" |
+| After three picks | Also "That's enough, show my walls" | Finish early |
+| Image failed | The failed one shows its title | Pick the other, or Neither |
+| Done | Back to the feed, ranked again for the picks | |
 
-## 9. One layout, up close
+## 8. The feed (your walls, ranked)
 
 | State | What they see | Action |
 |---|---|---|
-| Default | The wall with the pieces placed at true scale, dimensions on tap | Tap a piece |
-| Piece open | Image, title, artist, size, price, source, and the one-sentence reason | "Buy on [source]", swap this piece, remove it |
-| Owned piece open | Its reason and keep setting | Change keep setting |
-| Example original | Label: "Example. Not for rent yet." | |
-| Swapping a piece | Three alternatives that fit the same slot | Pick one, cancel |
-| Buy link dead | "This one isn't available anymore." | Swap it |
-| Moving pieces | "Move pieces" turns the drawing into an editor (dashed outline). Drag a frame, or focus it and use the arrow keys (Shift for 3 in). It snaps to other frames' edges and centers, the layout's spacing, the middle of the wall, 57 in, and the edges of the TV, windows and furniture, with the guide drawn | Done moving, Undo, Put them back |
-| Moved to a spot that breaks a rule | The frame turns red with the reason under the drawing ("Too close to the TV"); on letting go it goes back: "Too close to the TV, so it went back." | Drag again |
-| Moved by hand | The summary reads "Placed by you: 6 pieces, 92 in across." The notes carry one line saying they describe the layout as first drawn. Refresh, swap and one more or fewer keep the moved spots; the moved layout is the one kept on reload | Put them back |
+| Building | The bare wall, "Finding every wall that fits…" | Wait |
+| Ready | A ranked list, best first. Each wall at full width, then "1 of 12", the why line ("Both of yours, one new. Lined up over the couch, 73½ in across."), the cost. The first wall always has new art in it | Tap a wall to open it, Change |
+| Has a piece you saved | "1 of 12 · has a piece you saved" | |
+| Ranked again | After saves, swaps or the quiz: "Ranked again for what you saved and swapped." | |
+| Kept pieces don't fit | "Your [title] doesn't fit with new art here, so some walls leave it out." | Change it to Skip, Just mine |
+| Few walls at this fullness | The walls from the other two fullness levels come after, so the list is never two walls long | |
+| End of the list | "That's every wall that fits." and a link to Change | Change |
+| No room for art | The bare wall, "There isn't room for art on this wall." and the reason. "Not every wall needs art." | Check what's marked, Try another wall |
+| Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again, Check what's marked, Start a new wall |
+| Sample | "Sample wall" chip on each drawing | |
 
-## 10. Buy list
+Change (a sheet, on the feed and the open wall): How full (Calm, Balanced, Full); With new art / Just mine (when you have pieces you keep); Move pieces by hand; Put this wall back the way it was; Show it as it hangs now; Show measurements and nails; Make it mine; Check what's marked; Start a new wall; Your walls.
+
+## 9. One wall, open
 
 | State | What they see | Action |
 |---|---|---|
-| Default | Each new piece with size, price and source, and the total | "Buy on [source]" per piece |
-| Nothing new | "This layout only uses what you own. Nothing to buy." | Save the wall |
-| Hanging guide | Nail spots from the left end and the floor. Under each piece's name, when a TV, window, door, mirror, shelf, dresser or console is within 30 in: the same spot from its nearest edge | Change the wire drop, print |
-| Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows the number; a piece with its own drop keeps it | Type a number |
-| Size from the photo | "These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two." | Check one measurement |
-| Leaving the site | Opens in a new tab; the layout stays | |
+| Default | The drawing at true scale, "Wall 3 of 12" with back and next, the why line, the cost, "Get this wall", "Save this wall". Under it, "In this wall": your pieces first, then the new ones, each with thumbnail, size, price and shop, one reason, a heart | Swipe or back and next, tap a piece, save a piece, Get this wall, Change |
+| Desktop | Drawing and actions on the left, the piece rows on the right | |
+| Tape colors on screen | When kept or pinned pieces are in the wall: "Tape: blue is new, green is kept in every wall, orange stays where it hangs." | |
+| A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." Or "Stays where it hangs now." or "Not up yet: hang it here." | |
+| New piece sheet | Image, title, artist and shop, frame size and price, reason, nail spot | Save, Swap this one, Keep it in every wall, See it at [shop] |
+| Your piece sheet | Thumbnail, size, move note, reason, nail spot ("Already up." when pinned) | Pin it where it hangs (or Let it move), Leave it out |
+| Swapped | The new piece fades in, the wall keeps its place in the list. "Swapped [title] for [title]. Undo" | Undo |
+| No other art fits | "No other art fits this frame." | |
+| Kept in every wall | Green tape on it. "[title] is kept in every wall. The others were built again around it. Undo" | Undo |
+| Pinned | Orange strip on its corner, the walls built again around it | Let it move |
+| Saved a piece | Heart fills. The list re-ranks, the open wall stays where it is | Unsave |
+| Moving pieces | Change, "Move pieces by hand": the drawing becomes an editor. Drag a frame, or focus it and use the arrow keys (Shift for 3 in). Snaps to frame edges and centers, the spacing, the middle of the wall, 57 in, and the edges of what's in the way, with the guide drawn | Done, Undo, Put them back |
+| Moved to a spot that breaks a rule | The frame turns to the error style with the reason under the drawing; on letting go it goes back: "Too close to the TV, so it went back." | Drag again |
+| Moved by hand | The why line reads "Placed by you: 6 pieces, 92 in across." | Put them back |
+| Changed, want it back | Change, "Put this wall back the way it was" | |
+| Saved wall | "Saved on this device. Find it under Your walls." In `?demo`: "Sample mode: nothing is saved." | |
+| Save failed | "Didn't save. This device's storage may be full. Try again after deleting an old wall." | Try again |
+
+Undo stays until you open another wall or leave the screen.
+
+## 10. Get it (the hanging guide)
+
+| State | What they see | Action |
+|---|---|---|
+| Default | "Get it, tape it, hang it", the why line, "What to get": each new piece with artist, shop, print size and price, then the total | Buy at [shop], Find a frame (both quiet) |
+| Free photo | "Photo by [artist] on Unsplash. Print it 8 x 10 in for an 11 x 14 in frame with a mat. Free under the Unsplash License." | Get it on [site], Find a frame |
+| Nothing new | "Tape it, hang it", no buy list | |
+| Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |
+| A piece of yours moves | "Take it down and rehang it here." under its name | |
+| Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows | Type a number |
+| Size from the photo | "These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. Measure the wall's width once and every spot firms up." | Measure |
+| Leaving the site | Opens in a new tab; the wall stays | |
 
 ## 11. Your walls
 
