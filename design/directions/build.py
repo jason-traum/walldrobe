@@ -102,7 +102,7 @@ def draw_tape(wall, px_per_in, seed=3):
     rnd = random.Random(seed)
     s = [f'<rect width="{WW}" height="{WH}" fill="var(--wall)"/>',
          f'<rect y="{WH - 1.2}" width="{WW}" height="1.2" fill="var(--floor)"/>', furn_flat()]
-    tabL, tabT = 20 / px_per_in, 7.5 / px_per_in  # fixed on-screen size so tape reads at any scale
+    tabT = max(1.41, 5 / px_per_in); tabL = max(3.2, 15 / px_per_in)  # the real roll's width, never under 5 px on screen
     for i, p in enumerate(wall['pieces']):
         x, y, w, h = p['x'], top(p), p['w'], p['h']
         if p['own']:
@@ -209,7 +209,7 @@ body{font-family:%(family)s;color:var(--ink);-webkit-font-smoothing:antialiased;
 .count{color:var(--pencil);font-size:14px;font-variant-numeric:tabular-nums}
 .why{font-size:20px;line-height:26px;font-weight:500;margin:6px 16px 4px;text-wrap:balance;letter-spacing:-0.005em}
 .cost{color:var(--pencil);font-size:14px;margin:0 16px;font-variant-numeric:tabular-nums}
-.feed .item{margin-bottom:40px}
+.feed .item{margin-bottom:28px}
 .feed .count{margin:12px 16px 0}
 .pager{display:flex;align-items:center;margin:4px 8px 0 8px}
 .pager .nav{width:44px;height:44px;border:0;background:none;color:var(--ink);font-size:22px}
@@ -237,9 +237,9 @@ ul.rows{list-style:none;margin:16px 0 0;padding:0 16px;border-top:1px solid var(
 """
 
 EXTRA = {
- 'd1': """.wm{position:relative;padding-left:2px}.tab{position:absolute;left:-3px;top:2px;width:16px;height:6px;background:var(--tape-strip);transform:rotate(-38deg)}
+ 'd1': """.wm{position:relative;padding-left:2px}.tab{position:absolute;left:-3px;top:3px;width:15px;height:5px;background:var(--tape-strip);transform:rotate(-38deg)}
 .thumbnew{position:relative;background:var(--paper);padding:2px;box-shadow:0 0 0 1px var(--hairline)}
-.thumbnew::before,.thumbnew::after{content:"";position:absolute;top:-3px;width:14px;height:6px;background:var(--tape-strip)}
+.thumbnew::before,.thumbnew::after{content:"";position:absolute;top:-2px;width:12px;height:4px;background:var(--tape-strip)}
 .thumbnew::before{left:-5px;transform:rotate(-40deg)}.thumbnew::after{right:-5px;transform:rotate(40deg)}
 .thumbnew.k::before,.thumbnew.k::after{background:var(--tape-keep)}
 .thumbown{padding:4px;background:var(--mat);box-shadow:0 0 0 2px var(--frame)}""",
@@ -282,8 +282,8 @@ def feed(dkey, width):
         return f'{money(sum(p["price"] for p in new))} for {len(new)} new print{"s" if len(new) > 1 else ""}'
     body = (f'<header class="bar">{DIRS[dkey]["word"]}<span class="r"><a href="#">Your walls 2</a><button>Adjust</button></span></header>'
             f'<main class="feed"><div class="item"><div class="draw">{svg(dkey, w1, ppi)}</div>'
-            f'<p class="count">1 of 24</p><h2 class="why">{esc(w1["why"])}</h2></div>'
-            f'<div class="item"><div class="draw">{svg(dkey, w2, ppi)}</div><p class="count">2 of 24</p><h2 class="why">{esc(w2["why"])}</h2></div></main>')
+            f'<p class="count">1 of 24</p></div>'
+            f'<div class="item"><div class="draw">{svg(dkey, w2, ppi)}</div><p class="count">2 of 24</p></div></main>')
     return page(dkey, body)
 
 def wallpage(dkey, width):
@@ -296,16 +296,16 @@ def wallpage(dkey, width):
     rows = ''.join(
         f'<li class="row"><span class="t">{thumb(p, dkey)}</span><span class="txt"><span class="name">{esc(p["title"])}</span>'
         f'<span class="meta">{inch(p["w"])} x {inch(p["h"])} in, at {esc(p["shop"])}{" <span class=kept>Kept</span>" if p.get("kept") else ""}</span>'
-        + (f'<span class="reason">{esc(reasons[p["title"]])}</span>' if p['title'] in reasons else '') +
+        +
         f'</span><button class="heart" aria-label="Favorite">{HEART}</button></li>' for p in new)
     yours = ''.join(thumb(p, dkey) for p in own)
     body = (f'<header class="bar"><a class="back" href="#">‹ All walls</a><span class="r"><a href="#">Your walls 2</a><button>Adjust</button></span></header>'
             f'<main><div class="draw">{svg(dkey, w, ppi)}</div>'
             f'<div class="pager"><button class="nav" aria-label="Wall before">‹</button><span class="count">3 of 24</span><button class="nav" aria-label="Next wall">›</button>'
             f'<span class="acts"><button class="small">Save</button><button class="small primary">Get</button></span></div>'
-            f'<p class="undo">Swapped Swedish Cafe for Still Life with Gumball Machine.<button>Undo</button></p>'
-            f'<h1 class="why">{esc(w["why"])}</h1>'
-            f'<div class="yours"><span class="lab">Yours</span>{yours}</div><p class="note">Not up yet: the nails for both are on Get.</p>'
+            f'<p class="undo">Swapped.<button>Undo</button></p>'
+            f''
+            f'<div class="yours"><span class="lab">Yours</span>{yours}</div>'
             f'<ul class="rows">{rows}</ul></main>')
     return page(dkey, body)
 
