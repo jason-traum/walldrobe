@@ -1472,16 +1472,19 @@ function shapeStrip(L) {
     </div>
     <div class="strip-row">
       ${seg('Art', arts, artCur, 'art')}
-      <span class="stepper" role="group" aria-label="How many pieces">
-        <button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button>
-        <span class="step-n">${n ? `${n} piece${n === 1 ? '' : 's'}` : 'Any'}</span>
-        <button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button>
-      </span>
-      ${d.pieces ? `<button type="button" class="link" data-count="any"${dis}>Any</button>` : ''}
+      <button type="button" class="link${poolCount() ? ' is-on' : ''}" data-chip="art"${dis}>${poolCount() ? `${poolCount()} filter${poolCount() === 1 ? '' : 's'}` : 'Filters'}</button>
     </div>
     <div class="strip-row">
+      <span class="seg" role="group" aria-label="How many pieces">
+        <button type="button" data-count="any" aria-pressed="${!d.pieces}"${dis}>Any number</button>
+        <button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set number</button>
+      </span>
+      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces">
+        <button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button>
+        <span class="step-n">${n} piece${n === 1 ? '' : 's'}</span>
+        <button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button>
+      </span>` : ''}
       ${d.justMine ? '' : `<button type="button" class="btn quiet small" data-act="refresh"${dis}>${S.busy === 'refresh' ? 'Picking new art…' : 'Refresh the art'}</button>`}
-      <button type="button" class="link${poolCount() ? ' is-on' : ''}" data-chip="art"${dis}>${poolCount() ? `${poolCount()} filter${poolCount() === 1 ? '' : 's'}` : 'Filters'}</button>
     </div>
   </div>`;
 }
@@ -2700,11 +2703,11 @@ document.addEventListener('click', (e) => {
   if (t.dataset.art) { if (t.dataset.art === 'mine') S.draft.justMine = true; else { S.draft.art = t.dataset.art; S.draft.justMine = false; } logE('shape', { art: t.dataset.art }); rebuild('art'); return; }
   if (t.dataset.count !== undefined) {
     if (!t.dataset.count) return;
+    if (t.dataset.count !== 'any' && S.draft.pieces === Number(t.dataset.count)) return;
+    if (t.dataset.count === 'any' && !S.draft.pieces) return;
     const onWall = route()[0] === 'wall', L = onWall ? shown() : (S.view && S.view.list[0]) || null;
     // On an open wall, one more or one fewer keeps the frames already up where they are.
     S.stepBase = L && t.dataset.count !== 'any' ? L.pieces.filter((p) => p.role !== 'pinned').map((p) => (p.slot ? { ...p.slot } : { x: p.x, y: p.y, w: p.w, h: p.h })) : null;
-    // Stepping away from "any count": these walls also count as the walls at this number, so a step back lands here.
-    if (!S.draft.pieces && L && S.view && t.dataset.count !== 'any') { const was = S.draft.pieces; S.draft.pieces = L.pieces.length; S.memo.set(viewKey(), { view: S.view, openKey: S.openKey }); S.draft.pieces = was; }
     S.draft.pieces = t.dataset.count === 'any' ? null : Number(t.dataset.count);
     logE('shape', { pieces: S.draft.pieces, from: L ? L.pieces.length : null });
     if (onWall && L) { S.flash = null; S.undo = null; S.sheet = null; S.selected = null; S.focusAfter = '.stepper .step-n'; persist(); render(); } else { S.openKey = null; rebuild('count'); S.focusAfter = '.stepper .step-n'; }
