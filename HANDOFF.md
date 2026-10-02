@@ -114,6 +114,15 @@ Open risks (need a real iPhone or real use):
 
 Jason said to switch. `main` is v2 (e2ae9ea) and the site at jason-traum.github.io/walldrobe is v2. The first version is kept three ways: branch `v1`, tag `v1` (both at 6f3fe32), and a working copy at jason-traum.github.io/walldrobe/v1/ (`docs/v1/`, which the build leaves alone). Pushes go from Jason's Mac with a bundle, as before.
 
+## 5g. Where things stand (2026-10-02, 4 pm). Read this first in a new chat.
+
+- Live site (v2, main): https://jason-traum.github.io/walldrobe/ . v1: /v1/. Work in progress: branch `v3`, preview at https://rawcdn.githack.com/jason-traum/walldrobe/<commit>/docs/index.html#/sample/living (use the latest v3 commit).
+- v3's wall screen (`wallScreen`, `layoutLens`, `artLens`, `layoutCards`, `artOptions`, `openPiece`, `moreOptions`, `tapArt`, `keepPiece`, `lockOwn`, `likeArt`) is Astra's two-view model plus Jason's tap to lock / double tap to like. Sheets: `layoutSheet`, `artSheet`, `ownedSheet`, `menuSheet`, `versionsSheet` (opened with `data-act="sheet" data-sheet=...`).
+- Taste now has subjects (`engine/taste.js`: `subjectStats`, `subjectFactor`, `dislikedSubjects`, `likedSubjects`, `nextAdaptivePair`; `test/subjects.test.js`). In the app: `bySubject` inside `tasteScores`, `nextPairFor` in the quiz, `ME.never` (stored with the person), `subjectsHtml` on the profile.
+- FEEDBACK.md is the trail from each piece of Jason's feedback to what changed. Add a row with every change.
+- Push flow: bundle from the cloud repo, commit to the Mac's Projects folder, push from there (see section 4). Never print the token.
+- Open, in order: Jason tries v3 on his phone; retain non-kept art across layout changes (FEEDBACK 41); merge v3 to main when he says; deeper taste beyond subjects (era, medium, mood); the reader fixes in section 7.
+
 ## 5f. v3, the flow (2026-10-02, afternoon, on branch `v3`, not live)
 
 Jason: the app "doesn't tell you what the process is", "too many things you have to pick all at once", "reverting back to slop", "think thru how a real person would be using this". Same redo process as v2 (review against the playbook's six questions, keep/rework/drop, three structures, his pick). He picked the consultation: five named steps, one decision per step, and the Pick step as a wall you build with versions. See PRODUCT.md "The flow (v3)".
