@@ -9,14 +9,22 @@ const items = activeRecords(records).map(toCandidate);
 const byId = new Map(items.map((c) => [c.id, c]));
 const of = (s) => items.filter((c) => subjectOf(c) === s);
 
-test('two lost pairs make a subject disliked, and it pulls a piece down whatever its style', () => {
+test('two lost pairs pull a subject down but do not rule it out', () => {
   const horses = of('horses'), sea = of('coast');
   const picks = [{ winner: sea[0], loser: horses[0] }, { winner: sea[1], loser: horses[1] }];
   const st = subjectStats({ picks }, byId);
-  assert.ok(dislikedSubjects(st).includes('horses'));
-  assert.ok(subjectFactor(st, new Set(), 'horses') < 0.6, 'a disliked subject is pulled down hard');
+  assert.ok(!dislikedSubjects(st).includes('horses'), 'liking two coasts more is not never horses');
+  const f = subjectFactor(st, new Set(), 'horses');
+  assert.ok(f < 0.9 && f >= 0.3, `${f}`);
   assert.ok(subjectFactor(st, new Set(), 'coast') > 1, 'a liked subject is lifted a little');
   assert.equal(subjectFactor(st, new Set(), 'golf'), 1, 'an untested subject is left alone');
+});
+
+test('two of a subject marked not for me make it disliked, pulled down hard', () => {
+  const horses = of('horses');
+  const st = subjectStats({ disliked: [horses[0].id, horses[1].id] }, byId);
+  assert.ok(dislikedSubjects(st).includes('horses'));
+  assert.ok(subjectFactor(st, new Set(), 'horses') < 0.6);
 });
 
 test('never means out', () => {
@@ -31,7 +39,8 @@ test('one swap away is weak evidence, not a dislike', () => {
 
 test('the adaptive test stops showing a subject once it is turned down or set to never', () => {
   const horses = of('horses'), sea = of('coast');
-  const picks = [{ winner: sea[0], loser: horses[0] }, { winner: sea[1], loser: horses[1] }];
+  const n = Math.min(6, horses.length, sea.length);
+  const picks = Array.from({ length: n }, (_, i) => ({ winner: sea[i], loser: horses[i] }));
   const shown = new Set(picks.flatMap((p) => [p.winner.id, p.loser.id]));
   for (let seed = 1; seed <= 12; seed++) {
     const pair = nextAdaptivePair(items, picks, shown, { seed, never: new Set(['cars']) });

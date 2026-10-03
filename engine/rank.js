@@ -9,7 +9,7 @@ import { wallComplement } from './taste.js';
 const SAVE_BONUS = 0.05;   // each saved piece on a wall
 const SAVE_CAP = 0.15;
 const SKIP_PENALTY = 0.06; // each piece you swapped away from, on a wall
-const ORDER_PRIOR = 0.004; // keeps layout()'s own order (its variety) when nothing has changed
+const ORDER_PRIOR = 0.004; // keeps layout()'s own order (its variety) when nothing has changed; capped at 10 places so it never outweighs a save
 const MOVE_PENALTY = 0.02;  // per foot a piece of yours that's already up would move
 const MOVE_CAP = 0.08;
 const WANT_PENALTY = 0.1;   // each piece you said to keep that a wall leaves out (only when they can't all fit with new art)      // per piece: a wall that moves your print across the room isn't ruled out, just lower
@@ -48,7 +48,7 @@ export function rerank(layouts, { taste = null, saved = [], skipped = [], hung =
     const moved = up.size ? L.pieces.reduce((t, p) => { const a = p.ref.source !== 'catalog' && up.get(p.ref.id); if (!a) return t; const d = Math.hypot(p.x - a.x, p.y - a.y); return t + (d < 1 ? 0 : Math.min(MOVE_CAP, MOVE_PENALTY * d / 12)); }, 0) : 0;
     const missing = want.length ? want.filter((id) => !L.pieces.some((p) => p.ref.id === id)).length : 0;
     const fits = lookup && COMPLEMENT.weight ? COMPLEMENT.weight * (wallComplement(L.pieces, lookup, pairCache) - 0.5) : 0;
-    const s = (L.score || 0) + fits + WEIGHTS.taste * (now - was) + Math.min(SAVE_CAP, SAVE_BONUS * savedN) - SKIP_PENALTY * skippedN - moved - WANT_PENALTY * missing - ORDER_PRIOR * i;
+    const s = (L.score || 0) + fits + WEIGHTS.taste * (now - was) + Math.min(SAVE_CAP, SAVE_BONUS * savedN) - SKIP_PENALTY * skippedN - moved - WANT_PENALTY * missing - ORDER_PRIOR * Math.min(i, 10) - 1e-6 * i;
     return { L, s, i, fresh: fresh.length, asis: L.variant === 'asis', missing };
   });
   scored.sort((a, b) => b.s - a.s || a.i - b.i);

@@ -31,6 +31,8 @@ const LOOKALIKE_PAIR = 0.04; // off the total for each pair of pieces that look 
 const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-alikes
 const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans the pick toward stronger photos
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
+const PREFER_PICK = 0.3;     // art the person picked on another wall goes in first where its size fits
+const PREFER_WALL = 0.03;    // and a wall with it scores a little higher, so the improvement pass keeps it
 const ROOM = '\u0000room';
 const sizeKey = (w, h) => `${w}x${h}`;
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -90,6 +92,7 @@ function validate(input) {
   }
   idList(input.exclude, 'exclude');
   idList(input.avoid, 'avoid');
+  idList(input.prefer, 'prefer');
 }
 
 function readPrefs(raw = {}) {
@@ -121,12 +124,16 @@ function prepare(input) {
   const catalog = input.catalog || [];
   const taste = input.taste || {};
   const exclude = new Set(idList(input.exclude, 'exclude'));
+  const prefer = new Set(idList(input.prefer, 'prefer'));
   const byId = new Map(catalog.map((c) => [c.id, c]));
   const tasteOf = (id) => (num(taste[id]) ? clamp01(taste[id]) : 0.5);
+  // The taste a catalog piece is picked and judged by, the same on every path: your
+  // taste, leaned a little toward stronger photos when a reviewed quality score exists.
+  const pickTaste = (c) => (num(c.quality) ? (1 - QUALITY_PICK) * tasteOf(c.id) + QUALITY_PICK * clamp01(c.quality) : tasteOf(c.id));
 
   const kept = (input.keep || []).map((k) => {
     const c = byId.get(k.id);
-    return { id: c.id, w: k.w, h: k.h, keep: 'must', kept: true, title: titleOf(c), cat: c, taste: tasteOf(c.id) };
+    return { id: c.id, w: k.w, h: k.h, keep: 'must', kept: true, title: titleOf(c), cat: c, taste: pickTaste(c) };
   });
   const keptIds = new Set(kept.map((k) => k.id));
 
@@ -156,14 +163,14 @@ function prepare(input) {
   const catalogCands = catalog.filter((c) => !exclude.has(c.id) && !keptIds.has(c.id)).map((c) => ({
     id: c.id, source: 'catalog', title: c.title, artist: c.artist || null, item: c,
     sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0),
-    taste: num(c.quality) ? (1 - QUALITY_PICK) * tasteOf(c.id) + QUALITY_PICK * clamp01(c.quality) : tasteOf(c.id),
+    taste: pickTaste(c), prefer: prefer.has(c.id),
   }));
 
   return {
     input, wall, obstacles, owned, catalog, prefs: readPrefs(input.prefs), exclude, kept, keptIds,
     pinned, loose, regions, zone, zones, space, palettes, hasRoom, pairSim, profiles,
     roomProfile: hasRoom ? profileFromPalette(room) : null,
-    catalogCands, ownedById: new Map(owned.map((p) => [p.id, p])), catalogById: byId, tasteOf,
+    catalogCands, ownedById: new Map(owned.map((p) => [p.id, p])), catalogById: byId, tasteOf, pickTaste, prefer,
     look: lookFactory(profiles),
   };
 }
@@ -220,7 +227,8 @@ function indexCandidates(cands) {
     }
   }
   for (const [k, list] of bySize) {
-    list.sort((a, b) => b.cand.taste - a.cand.taste || cmpStr(a.cand.id, b.cand.id));
+    // Picked art first, so the cap never cuts it.
+    list.sort((a, b) => (!!b.cand.prefer - !!a.cand.prefer) || b.cand.taste - a.cand.taste || cmpStr(a.cand.id, b.cand.id));
     bySize.set(k, list.slice(0, SEARCH.perSize));
   }
   const owned = cands.filter((c) => c.source === 'owned');
@@ -244,11 +252,36 @@ function pickValue(cand, ctxIds, pairSim, look) {
   let v = 0.6 * cand.taste + 0.4 * h;
   if (look) v -= LOOK_PICK * ctxIds.reduce((m, id) => Math.max(m, look(cand.id, id)), 0);
   if (cand.source === 'owned') v += OWNED_PICK_BONUS[cand.item.keep] || 0;
+  if (cand.prefer) v += PREFER_PICK;
   return v;
 }
 
-// A small beam search over the open slots, biggest first.
-function fill(struct, index, pairSim, hasRoom, banned, look) {
+// What one option costs: yours are free; a catalog size with no price is unknown,
+// and an unknown price never counts as within a budget.
+const optCost = (o) => (o.cand.source !== 'catalog' ? 0 : num(o.size.price) ? o.size.price : Infinity);
+// What the pieces that stay in a structure cost (kept catalog prints).
+function fixedCost(struct) {
+  let t = 0;
+  for (const sl of struct.slots) if (sl.fixed && sl.fixed.cat) { const pr = priceOf(sl.fixed.cat, sl.fixed.w, sl.fixed.h); t += pr == null ? Infinity : pr; }
+  return t;
+}
+// The least a structure could cost with this art: each open slot's cheapest option.
+// A floor, since one print can't fill two slots.
+function costFloor(struct, index, banned) {
+  let t = fixedCost(struct);
+  for (const sl of struct.slots) {
+    if (sl.fixed) continue;
+    const opts = optionsFor(index, sl).filter((o) => !(banned && banned.has(o.cand.id)));
+    t += opts.length ? Math.min(...opts.map(optCost)) : Infinity;
+  }
+  return t;
+}
+
+// A small beam search over the open slots, biggest first. With a budget, a partial
+// pick is dropped as soon as it, plus the cheapest way to fill what's left, goes over:
+// the search looks for the best wall within the budget, not the best wall and then
+// a price check.
+function fill(struct, index, pairSim, hasRoom, banned, look, budget = null) {
   const open = struct.slots
     .map((s, i) => ({ ...s, i }))
     .filter((s) => !s.fixed)
@@ -256,19 +289,28 @@ function fill(struct, index, pairSim, hasRoom, banned, look) {
       || Math.abs(a.dx + a.w / 2 - struct.W / 2) - Math.abs(b.dx + b.w / 2 - struct.W / 2)
       || a.i - b.i);
   const fixedIds = struct.slots.filter((s) => s.fixed).map((s) => s.fixed.id);
-  let beam = [{ picks: [], used: new Set(), artists: new Set(), value: 0, key: '' }];
-  for (const slot of open) {
-    const opts = optionsFor(index, slot).filter((o) => !(banned && banned.has(o.cand.id)));
+  const optsOf = open.map((slot) => optionsFor(index, slot).filter((o) => !(banned && banned.has(o.cand.id))));
+  const capped = budget !== null && num(budget);
+  // The cheapest way to fill the slots after this one, for the budget check.
+  const restMin = open.map(() => 0);
+  if (capped) for (let k = open.length - 2; k >= 0; k--) restMin[k] = restMin[k + 1] + (optsOf[k + 1].length ? Math.min(...optsOf[k + 1].map(optCost)) : Infinity);
+  const base = capped ? fixedCost(struct) : 0;
+  let beam = [{ picks: [], used: new Set(), artists: new Set(), value: 0, key: '', cost: base }];
+  for (const [k, slot] of open.entries()) {
+    const opts = optsOf[k];
     if (!opts.length) return null;
     const next = [];
     for (const st of beam) {
       const ctx = [...fixedIds, ...st.picks.map((p) => p.cand.id)];
       if (hasRoom) ctx.push(ROOM);
-      for (const { cand, size } of opts) {
+      for (const o of opts) {
+        const { cand, size } = o;
         if (st.used.has(cand.id)) continue;
+        const cost = capped ? st.cost + optCost(o) : 0;
+        if (capped && cost + restMin[k] > budget + EPS) continue;
         let v = pickValue(cand, ctx, pairSim, look);
         if (cand.artist && st.artists.has(cand.artist)) v -= 0.1;
-        next.push({ parent: st, pick: { slot, cand, size }, value: st.value + v, key: `${st.key},${cand.id}` });
+        next.push({ parent: st, pick: { slot, cand, size }, value: st.value + v, key: `${st.key},${cand.id}`, cost });
       }
     }
     if (!next.length) return null;
@@ -276,10 +318,21 @@ function fill(struct, index, pairSim, hasRoom, banned, look) {
     beam = next.slice(0, open.length > 8 ? SEARCH.beam / 2 : SEARCH.beam).map((n) => {
       const used = new Set(n.parent.used); used.add(n.pick.cand.id);
       const artists = new Set(n.parent.artists); if (n.pick.cand.artist) artists.add(n.pick.cand.artist);
-      return { picks: [...n.parent.picks, n.pick], used, artists, value: n.value, key: n.key };
+      return { picks: [...n.parent.picks, n.pick], used, artists, value: n.value, key: n.key, cost: n.cost };
     });
   }
   return beam[0];
+}
+
+// What a wall costs: the known prices, how many are unknown, and the total a budget
+// is checked against (unknown counts as over).
+function costOf(pieces) {
+  let known = 0, unknown = 0;
+  for (const p of pieces) {
+    if (p.ref.source !== 'catalog') continue;
+    if (num(p.price)) known += p.price; else unknown++;
+  }
+  return { known, unknown, forBudget: unknown ? Infinity : known };
 }
 
 const catalogExtra = (c) => ({ artist: c.artist || null, year: c.year || null, collection: c.source || null, url: c.url || null, image: c.image || null });
@@ -395,7 +448,14 @@ function judge(L, ctx) {
     const sim = L.pieces.reduce((s, p) => s + p.w * p.h * ctx.pairSim(p.ref.id, ROOM), 0) / A;
     room = { profile: ctx.roomProfile, sim };
   }
-  const c = colorScore(P, d.focalIdx, room);
+  // Your pinned pieces stay where they hang, but they are on the wall: they count in
+  // its colors (after the others, so the focal piece's index holds).
+  const PC = ctx.pinned.length ? [...P, ...ctx.pinned.map((p) => ({ x: p.at.x, y: p.at.y, w: p.w, h: p.h, role: 'pinned', area: p.w * p.h, profile: ctx.profiles.get(p.id) }))] : P;
+  if (ctx.hasRoom && ctx.pinned.length) {
+    const A = PC.reduce((s, p) => s + p.area, 0);
+    room.sim = (L.pieces.reduce((s, p) => s + p.w * p.h * ctx.pairSim(p.ref.id, ROOM), 0) + ctx.pinned.reduce((s, p) => s + p.w * p.h * ctx.pairSim(p.id, ROOM), 0)) / A;
+  }
+  const c = colorScore(PC, d.focalIdx, room);
 
   const artists = L.pieces.map((p) => p.artistName).filter(Boolean);
   const dupArtists = artists.length - new Set(artists).size;
@@ -414,7 +474,8 @@ function judge(L, ctx) {
   // color or taste can't rescue an awkward arrangement (layouts far below the best
   // composition are dropped before ranking).
   const comp = COMP_FIT * fit + (1 - COMP_FIT) * d.score;
-  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
+  const picked = ctx.prefer && ctx.prefer.size ? L.pieces.filter((p) => ctx.prefer.has(p.ref.id)).length : 0;
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
   return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 
@@ -442,6 +503,7 @@ function improve(R, ctx, banned) {
         const bySlot = new Map(best.bySlot); bySlot.set(i, o);
         const pieces = buildPieces(R.st, best.group, bySlot);
         if (o.cand.source === 'owned' && checkPieces(pieces, ctx.regions, ctx.wall).length) continue;
+        if (ctx.prefs.budget !== null && costOf(pieces).forBudget > ctx.prefs.budget + EPS) continue;
         const L = { ...best, pieces, bySlot };
         const j = judge(L, ctx);
         if (j.score > best.score + 1e-6) { best = { ...L, ...j }; changed = true; }
@@ -454,7 +516,7 @@ function improve(R, ctx, banned) {
 
 // The same arrangement, filled again without some pieces.
 function redo(L, banned, ctx) {
-  const picked = fill(L.st, L.index, ctx.pairSim, ctx.hasRoom, banned, ctx.look);
+  const picked = fill(L.st, L.index, ctx.pairSim, ctx.hasRoom, banned, ctx.look, ctx.prefs.budget);
   if (!picked) return null;
   const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
   const done = place(L.st, bySlot, L.group, ctx);
@@ -533,6 +595,14 @@ function layoutOnce(input) {
   const counts = new Set();
   const mismatch = new Map(); // family -> number of variants it was skipped in, with its message
   const results = [];
+  // With a budget: the arrangements that only failed on price, and the least any of
+  // them would have cost.
+  let cheapest = Infinity, budgetMiss = 0;
+  const overBudget = (st, index) => {
+    if (prefs.budget === null || !fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look)) return;
+    budgetMiss++;
+    cheapest = Math.min(cheapest, costFloor(st, index, null));
+  };
 
   // Free-form layouts over all the open wall.
   const tooShort = ctx.wall.height - RULES.ceilingHard - RULES.centerline < 4;
@@ -552,8 +622,8 @@ function layoutOnce(input) {
       const fr = flowStructures({ wall: ctx.wall, obstacles: ctx.obstacles, space: ctx.space, pinned: ctx.pinned, fixed, hung, sizes, avail, pieces: prefs.pieces, style: prefs.style, fullness: prefs.fullness, base: shown, most: prefs.maxGiven && !prefs.pieces ? Math.min(RULES.flowMax, prefs.maxPieces) : RULES.flowMax });
       for (const n of fr.counts) counts.add(n);
       for (const st of fr.structures) {
-        const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look);
-        if (!picked) continue;
+        const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look, prefs.budget);
+        if (!picked) { overBudget(st, index); continue; }
         const base = { x: st.at.x, y: st.at.y, w: st.W, h: st.H, shift: 0 };
         const zc = { ...ctx, zone: flowZone(ctx, base) };
         const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
@@ -606,8 +676,8 @@ function layoutOnce(input) {
     }
 
     for (const st of structs) {
-      const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look);
-      if (!picked) continue;
+      const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, null, ctx.look, prefs.budget);
+      if (!picked) { overBudget(st, index); continue; }
       const base = placeGroup(z, st.W, st.H, ctx.regions, ctx.wall);
       if (!base) continue;
       const bySlot = new Map(picked.picks.map((p) => [p.slot.i, p]));
@@ -638,13 +708,15 @@ function layoutOnce(input) {
   const improved = new Map(toImprove.map((R) => [R, improve(R, R.zc)]));
   let valid = pool.map((R) => improved.get(R) || R);
 
-  // Budget: drop layouts over it, but say what the cheapest one costs.
-  const total = (L) => L.pieces.reduce((s, p) => s + (p.price || 0), 0);
+  // Budget: the search already stayed within it; this is the last check (an unknown
+  // price never passes). When nothing is left, say what the cheapest one would cost.
+  const total = (L) => costOf(L.pieces).forBudget;
   if (prefs.budget !== null) {
     const all = valid;
     valid = all.filter((L) => total(L) <= prefs.budget + EPS);
-    if (!valid.length && all.length) {
-      problems.push({ code: 'BUDGET_TOO_LOW', message: `The cheapest layout that fits is $${Math.round(Math.min(...all.map(total)))}.` });
+    if (!valid.length && (all.length || budgetMiss)) {
+      const least = Math.min(cheapest, ...all.map(total));
+      problems.push({ code: 'BUDGET_TOO_LOW', message: Number.isFinite(least) ? `The cheapest layout that fits is $${Math.round(least)}.` : 'Some of this art has no price yet, so no layout can be checked against your budget.' });
     }
   }
 
@@ -767,13 +839,17 @@ export function scoreArrangement(input, placed, opts = {}) {
 // Pieces placed by hand, judged as a free-form wall: the layout, its score, the hard
 // checks it fails and every rule it breaks.
 function arrangement(ctx, placed, variant, rank = 0) {
+  // A pinned piece of yours hangs where it is and is added by finish(); listed here too, it would collide with itself.
+  const pinnedIds = new Set(ctx.pinned.map((p) => p.id));
+  placed = placed.filter((pl) => !(pl && pinnedIds.has(pl.id)));
+  if (!placed.length) throw new TypeError('scoreArrangement() needs at least one piece that is not pinned.');
   const pieces = placed.map((pl) => {
     if (!pl || !pl.id || !num(pl.x) || !num(pl.y)) throw new TypeError(`Placed piece ${(pl && pl.id) || '(no id)'} needs id, x and y.`);
     const own = ctx.ownedById.get(pl.id);
     const cat = own ? null : ctx.catalogById.get(pl.id);
     if (!own && !cat) throw new TypeError(`${pl.id} isn't one of your pieces or in the catalog.`);
     const w = own ? own.w : pl.w, h = own ? own.h : pl.h;
-    if (!num(w) || !num(h)) throw new TypeError(`Placed piece ${pl.id} needs its frame size.`);
+    if (!num(w) || !num(h) || w <= 0 || h <= 0) throw new TypeError(`Placed piece ${pl.id} needs a positive frame size.`);
     const base = { id: pl.id, title: titleOf(own || cat), w, h, x: pl.x, y: pl.y, cx: pl.x + w / 2, cy: pl.y + h / 2, row: null, role: 'fill', side: null, slot: { x: pl.x, y: pl.y, w, h } };
     return own
       ? { ...base, ref: { source: 'owned', id: own.id }, fixed: true, keep: own.keep, kept: false, price: 0, taste: null, drop: own.drop, artistName: null }
@@ -796,6 +872,15 @@ function arrangement(ctx, placed, variant, rank = 0) {
   const ids = new Set(pieces.map((p) => p.ref.id));
   for (const p of ctx.loose) if (p.keep === 'must' && !ids.has(p.id)) fails.push(`${p.id} must be on the wall`);
   if (ids.size !== pieces.length) fails.push('a piece is placed twice');
+  // Diagnostic scoring works on any wall; these say whether it is one we would suggest.
+  for (const p of pieces) {
+    if (p.ref.source !== 'catalog') continue;
+    if (ctx.exclude.has(p.ref.id)) fails.push(`${p.ref.id} is excluded`);
+    const c = ctx.catalogById.get(p.ref.id);
+    if (!c.sizes.some((z) => (z.w === p.w && z.h === p.h) || (z.w === p.h && z.h === p.w))) fails.push(`${p.ref.id} doesn't come in ${p.w} x ${p.h}`);
+  }
+  for (const k of ctx.kept) if (!ids.has(k.id)) fails.push(`${k.id} is kept and must be on the wall`);
+  if (ctx.prefs.budget !== null && costOf(pieces).forBudget > ctx.prefs.budget + EPS) fails.push('over the budget');
   return { fails, breaks: breaksOf(pieces, ctx), j, out: finish({ ...L, ...j }, rank, zc) };
 }
 
@@ -968,13 +1053,13 @@ export function refill(input, prev, opts = {}) {
     if (owned(p)) return ctx.ownedById.get(p.ref.id);
     const c = ctx.catalogById.get(p.ref.id);
     if (!c) throw new TypeError(`${p.ref.id} isn't in the catalog.`);
-    return { id: c.id, w: p.w, h: p.h, keep: keepIds.has(c.id) ? 'must' : null, kept: keepIds.has(c.id), title: titleOf(c), cat: c, taste: ctx.tasteOf(c.id) };
+    return { id: c.id, w: p.w, h: p.h, keep: keepIds.has(c.id) ? 'must' : null, kept: keepIds.has(c.id), title: titleOf(c), cat: c, taste: ctx.pickTaste(c) };
   };
   const slots = hung.map((p) => {
     const sl = p.slot || { x: p.x, y: p.y, w: p.w, h: p.h };
-    return { w: sl.w, h: sl.h, dx: sl.x - g.x, dy: sl.y - g.y, row: p.row, role: p.role, side: p.side || null, fixed: stays(p) ? fixedFor(p) : null };
+    return { w: sl.w, h: sl.h, dx: sl.x - g.x, dy: sl.y - g.y, row: p.row, role: p.role, side: p.side || null, g: p.group || 0, fixed: stays(p) ? fixedFor(p) : null };
   });
-  const st = { family: prev.family, variant: prev.variant, W: g.w, H: g.h, slots, meta: { rows: prev.meta.rows, cols: prev.meta.cols, gaps: prev.meta.gaps, ragged: prev.meta.ragged || 0 } };
+  const st = { family: prev.family, variant: prev.variant, W: g.w, H: g.h, slots, meta: { rows: prev.meta.rows, cols: prev.meta.cols, gaps: prev.meta.gaps, ragged: prev.meta.ragged || 0, groups: prev.meta.groups || 1 } };
 
   const onWall = new Set(hung.filter(stays).map((p) => p.ref.id));
   // opts.to: put this one catalog piece in the swapped spot (a person picked it).
@@ -988,8 +1073,11 @@ export function refill(input, prev, opts = {}) {
     ];
   const index = indexCandidates(cands);
   const where = { x: g.x, y: g.y, w: g.w, h: g.h, shift: Math.abs(g.x + g.w / 2 - ctx.zone.cx) };
-  const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, replaced, ctx.look);
+  const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, replaced, ctx.look, ctx.prefs.budget);
   if (!picked) {
+    if (ctx.prefs.budget !== null && fill(st, index, ctx.pairSim, ctx.hasRoom, replaced, ctx.look)) {
+      return { layouts: [], zone: zoneOut(ctx.zone), problems: [{ code: 'BUDGET_TOO_LOW', message: `New art for these frames would cost at least $${Math.round(costFloor(st, index, replaced))}, over your budget.` }] };
+    }
     const stuck = hung.find((p) => !stays(p) && !optionsFor(index, p.slot || p).some((o) => !replaced.has(o.cand.id)));
     return {
       layouts: [], zone: zoneOut(ctx.zone),
@@ -1004,9 +1092,9 @@ export function refill(input, prev, opts = {}) {
   const happyTotal = ctx.loose.filter((p) => p.keep === 'happy').length;
   const L = { family: st.family, variant: st.variant, meta: st.meta, group: where, shift: where.shift, pieces, happyTotal, st, index, bySlot, key: prev.key || structureKey(st) };
   const best = improve({ ...L, ...judge(L, ctx) }, ctx, replaced);
-  const cost = best.pieces.reduce((s, p) => s + (p.price || 0), 0);
-  if (ctx.prefs.budget !== null && cost > ctx.prefs.budget + EPS) {
-    return { layouts: [], zone: zoneOut(ctx.zone), problems: [{ code: 'BUDGET_TOO_LOW', message: `New art for these frames would cost $${Math.round(cost)}, over your budget.` }] };
+  const cost = costOf(best.pieces);
+  if (ctx.prefs.budget !== null && cost.forBudget > ctx.prefs.budget + EPS) {
+    return { layouts: [], zone: zoneOut(ctx.zone), problems: [{ code: 'BUDGET_TOO_LOW', message: cost.unknown ? 'Some of this art has no price yet, so it can\'t be checked against your budget.' : `New art for these frames would cost $${Math.round(cost.known)}, over your budget.` }] };
   }
   return { layouts: [finish(best, 1, ctx)], problems, zone: zoneOut(ctx.zone) };
 }
@@ -1077,6 +1165,10 @@ const r3map = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, r3
 const topShares = (shares) => Object.fromEntries(Object.entries(shares).filter(([, v]) => v >= 0.01)
   .sort((a, b) => b[1] - a[1] || cmpStr(a[0], b[0])).map(([k, v]) => [k, r3(v)]));
 
+// A wire or hanger drop is a distance below the frame's top, inside the frame.
+// Anything else (negative, past the bottom) is treated as not measured.
+const goodDrop = (p) => num(p.drop) && p.drop >= 0 && p.drop < p.h;
+
 function finish(L, rank, ctx) {
   const { zone, owned, pinned, palettes, profiles } = ctx;
   const anchor = zone.anchor ? { id: zone.anchor.id, kind: zone.anchor.kind } : { kind: 'wall' };
@@ -1087,8 +1179,8 @@ function finish(L, rank, ctx) {
     const top = Object.entries(sh).filter(([k, v]) => !NEUTRALS.has(k) && v >= 0.1).sort((a, b) => b[1] - a[1] || cmpStr(a[0], b[0]))[0];
     return top ? top[0] : null;
   };
-  const pieces = L.pieces.map((p) => {
-    const drop = num(p.drop) ? p.drop : RULES.defaultDrop;
+  const pieces = L.pieces.map((p, i) => {
+    const drop = goodDrop(p) ? p.drop : RULES.defaultDrop;
     const sh = profiles.get(p.ref.id).shares;
     const othersShares = L.pieces.filter((o) => o.ref.id !== p.ref.id).map((o) => profiles.get(o.ref.id).shares);
     const out = {
@@ -1102,14 +1194,17 @@ function finish(L, rank, ctx) {
     if (p.side) out.side = p.side;
     // The frame slot, when a piece you own is a little off a standard size.
     if (p.slot && (p.slot.w !== p.w || p.slot.h !== p.h)) out.slot = p.slot;
-    if (!num(p.drop)) out.nailNote = `Assumes the wire sits ${RULES.defaultDrop} in below the top. Measure yours first.`;
+    if (!goodDrop(p)) out.nailNote = `Assumes the wire sits ${RULES.defaultDrop} in below the top. Measure yours first.`;
+    // Which group the piece is in, so a refill keeps the groups.
+    const gi = L.st && L.st.slots[i] && L.st.slots[i].g;
+    if (gi) out.group = gi;
     if (p.ref.source === 'catalog') Object.assign(out, { artist: p.artist, year: p.year, collection: p.collection, url: p.url, image: p.image });
     if (p.ref.source === 'owned' && p.keep) out.keep = p.keep;
     if (p.kept) out.kept = true;
     return out;
   });
   for (const p of pinned) {
-    const drop = num(p.drop) ? p.drop : RULES.defaultDrop;
+    const drop = goodDrop(p) ? p.drop : RULES.defaultDrop;
     const title = titleOf(p);
     pieces.push({
       ref: { source: 'owned', id: p.id }, title, w: p.w, h: p.h,
@@ -1135,7 +1230,7 @@ function finish(L, rank, ctx) {
       repeated: c.repeated.map((x) => x.family),
     },
     anchor, group: { x: q(group.x), y: q(group.y), w: q(group.w), h: q(group.h) },
-    pieces, left, total: pieces.reduce((s, p) => s + (p.price || 0), 0),
+    pieces, left, ...(() => { const c = costOf(pieces); return { total: c.known, priceUnknown: c.unknown }; })(),
     meta: { rows: L.meta.rows, cols: L.meta.cols || null, gaps: L.meta.gaps.map(q), ragged: q(L.meta.ragged || 0), groups: L.meta.groups || 1 },
   };
   out.summary = summary({ ...out, meta: L.meta, group, beside: zone.beside }, mustTitles, newCount, keptTitles);
@@ -1216,6 +1311,8 @@ function withSections(input, r) {
     options.push(list);
   }
   const total = open.reduce((t, sc) => t + (sc.x1 - sc.x0), 0);
+  // Walls already shown stay out (Show more walls), like layout()'s own.
+  const avoid = new Set(idList(input.avoid, 'avoid'));
   const placedOf = (o) => (o.L ? o.L.pieces.filter((p) => p.role !== 'pinned').map((p) => {
     const sl = p.slot || { x: p.x, y: p.y, w: p.w, h: p.h };
     return { id: p.ref.id, x: sl.x + o.sec.x0, y: sl.y, w: sl.w, h: sl.h, src: p.ref.source, cy: sl.y + sl.h / 2, top: sl.y + sl.h };
@@ -1272,7 +1369,7 @@ function withSections(input, r) {
     try { a = scoreArrangement(input, placed, { variant: 'sections' }); } catch { continue; }
     if (!a.ok) continue;
     const key = `sections|${fixed.map((o) => (o.L ? o.L.key : 'bare')).join('|')}`;
-    if (seenKeys.has(key)) continue;
+    if (seenKeys.has(key) || avoid.has(key)) continue;
     seenKeys.add(key);
     const secMean = quick(fixed);
     const tog = together(fixed);
@@ -1290,5 +1387,7 @@ function withSections(input, r) {
   // The first wall stays the one layout() led with unless a section wall beats it clearly.
   if (rest.length && merged[0] !== rest[0] && merged[0].score < rest[0].score + 0.02) { merged.splice(merged.indexOf(rest[0]), 1); merged.unshift(rest[0]); }
   const layouts = [...merged, ...asis].map((L, i) => ({ ...L, rank: i + 1 }));
-  return { ...r, layouts, sections: secs };
+  // Walls were found after all: drop the problems that said none fit.
+  const problems = rest.length ? r.problems : r.problems.filter((p) => p.code === 'FAMILY_SKIPPED');
+  return { ...r, layouts, problems, sections: secs };
 }

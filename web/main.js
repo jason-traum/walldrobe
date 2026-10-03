@@ -152,7 +152,10 @@ function engineInput() {
   const taste = scoreTaste(d.taste.weights, catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
-  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined,
+  // Art you picked for a spot goes in first on other walls too, where its size fits.
+  const ids = new Set(catalog.map((c) => c.id));
+  const prefer = (d.picked || []).filter((x) => ids.has(x) && !keptIds.has(x));
+  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined, prefer,
     // The piece count is everything on the wall, pieces that stay put included.
     prefs: { fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
 }
@@ -171,7 +174,9 @@ function rankTaste() {
   const no = [...notForMe()];
   if (!d.saved.length && !d.skipped.length && !no.length) return null;
   const pairs = [];
-  for (const w of d.saved) for (const l of [...d.skipped, ...no, ...no]) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
+  // Each favorite against each piece swapped away or not for you. Only your latest four
+  // favorites count, so a dislike doesn't weigh more just because the favorites list is long.
+  for (const w of d.saved.slice(-4)) for (const l of [...d.skipped, ...no, ...no]) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
   const quiz = (d.taste.picks || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
   const ids = new Set(S.view.all.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => p.ref.id)));
   const pool = CATALOG.filter((c) => ids.has(c.id));
@@ -248,6 +253,8 @@ function rank() {
   const at = S.draft.chosen && typeof S.draft.chosen.at === 'number' ? S.draft.chosen.at : 0;
   if (chosen >= 0 && chosen !== at) { const [c] = v.list.splice(chosen, 1); v.list.splice(Math.min(at, v.list.length), 0, c); v.list.forEach((L, i) => { L.rank = i + 1; }); }
   if (v.hold) {
+    // The wall you're changing is never folded away as a look-alike of another.
+    if (!v.list.some((L) => L.key === v.hold.key)) { const h = v.all.find((L) => L.key === v.hold.key); if (h) v.list.splice(Math.min(v.hold.i, v.list.length), 0, h); }
     const j = v.list.findIndex((L) => L.key === v.hold.key);
     if (j >= 0 && j !== v.hold.i) { const [h] = v.list.splice(j, 1); v.list.splice(Math.min(v.hold.i, v.list.length), 0, h); v.list.forEach((L, k) => { L.rank = k + 1; }); }
   }
@@ -359,12 +366,14 @@ function swapPiece(id) {
   const d = S.draft;
   const wasSkipped = d.skipped.includes(id);
   if (!wasSkipped) d.skipped = [...d.skipped, id];
+  const wasPicked = d.picked || [];
+  d.picked = wasPicked.filter((x) => x !== id);
   replaceWall(L.key, next);
   remember(next);
   S.ui.saved = null; persist();
   S.undo = {
     label: 'Swapped.',
-    run: () => { if (!wasSkipped) d.skipped = d.skipped.filter((x) => x !== id); replaceWall(prev.key, prev); persist(); },
+    run: () => { if (!wasSkipped) d.skipped = d.skipped.filter((x) => x !== id); d.picked = wasPicked; replaceWall(prev.key, prev); persist(); },
   };
 }
 // Every print that fits this spot, favorites first. Kept per wall and piece so the
@@ -450,8 +459,11 @@ function swapTo(id, to) {
   const next = { ...r.layouts[0], history: L.history, moved: L.moved };
   replaceWall(L.key, next);
   remember(next);
+  // You chose this one: other walls try it first where it fits, without Keep.
+  const d = S.draft, wasPicked = d.picked || [];
+  d.picked = [...wasPicked.filter((x) => x !== to && x !== id), to].slice(-12);
   S.ui.saved = null; persist();
-  S.undo = { label: 'Swapped.', run: () => { replaceWall(prev.key, prev); S.sheet = null; S.selected = null; persist(); } };
+  S.undo = { label: 'Swapped.', run: () => { replaceWall(prev.key, prev); d.picked = wasPicked; S.sheet = null; S.selected = null; persist(); } };
   return true;
 }
 function toggleSave(id) {
@@ -1641,6 +1653,17 @@ function sizeMeasured(d) {
   if (p.auto && p.auto.guess) return p.auto.guess.from === 'measure';
   return !!(p.measure && p.measure.value);
 }
+// What the wall's size was worked out from, in words.
+function sizeSource(d) {
+  const f = d.photo && d.photo.auto && d.photo.auto.guess ? d.photo.auto.guess.from : null;
+  return { tv: 'the TV', door: 'the door', bed: 'the bed', couch: 'the couch', ceiling: 'the ceiling height', outlet: 'an outlet' }[f] || 'what we could see';
+}
+// The thing under or beside the art to check a spot against.
+function furnitureWord(d) {
+  const o = (d.obstacles || []).find((x) => ['couch', 'bed', 'dresser', 'console', 'sideboard', 'credenza', 'tv', 'desk', 'table'].includes(x.kind));
+  return o ? (obName(o) === 'TV' ? 'the TV' : `the ${obName(o).toLowerCase()}`) : 'the room';
+}
+
 // A nail spot from the nearest clear edge on the wall, like the TV's, which is
 // easier and closer to measure from than the end of the wall.
 // Couches and beds are soft at the edges, so they aren't measured from.
@@ -1767,7 +1790,7 @@ function getScreen() {
     ${whereToPrint(L)}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <h2 id="guide-h">Where the nails go</h2>
-      ${estimate ? `<p class="note">These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : ''}
+      ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
       <form class="fields drop-form" id="drop-form" novalidate>
         <label for="drop">Wire or hanger sits</label>
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
@@ -1777,9 +1800,11 @@ function getScreen() {
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
         <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${esc(size(p.w, p.h))} frame</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
+        ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${d.photo.mode === 'auto' ? '#/check' : '#/size'}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>
         <li>Mark each nail in pencil, then nail or drill.</li>
         ${anyRef ? `<li>Measuring from the nearest edge, like the TV's, keeps any error small${estimate ? ', which helps while the wall size is an estimate' : ''}.</li>` : ''}
+        <li>A photo can't see wires or studs. Near an outlet or switch, check with a stud finder before you drill.</li>
       </ol>
     </section>
     <div class="acts left">
