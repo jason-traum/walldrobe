@@ -56,6 +56,28 @@ test('a print with a white mat on a pale wall is boxed at its frame, not just th
   assert.ok(Math.abs(art[0].x - 260) <= 2 && Math.abs(art[0].w - 121) <= 3 && Math.abs(art[0].y - 95) <= 2 && Math.abs(art[0].h - 161) <= 3, JSON.stringify(art[0]));
 });
 
+test('outlets and switch plates are found by shape: low ones are outlets, higher ones switches, none inside art', () => {
+  const w = 800, h = 560, data = new Uint8ClampedArray(w * h * 4);
+  const put = (x0, y0, x1, y1, rgb) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) data.set([...rgb, 255], (y * w + x) * 4); };
+  // A gray wall, a little darker toward the floor, as real walls are lit.
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = 1 - 0.1 * (y / h); data.set([153 * k, 154 * k, 148 * k, 255], (y * w + x) * 4); }
+  put(300, 470, 316, 496, [205, 198, 182]);   // an outlet plate, low
+  put(305, 477, 310, 481, [40, 40, 40]);      // its holes
+  put(305, 486, 310, 490, [40, 40, 40]);
+  put(620, 270, 636, 296, [236, 236, 232]);   // a switch plate, at switch height
+  put(100, 120, 260, 330, [30, 60, 160]);     // a print
+  put(170, 200, 186, 226, [236, 236, 232]);   // a white patch in the print, plate-sized
+  const r = readWall({ data, width: w, height: h });
+  const plates = r.items.filter((i) => i.kind === 'outlet' || i.kind === 'switch');
+  assert.equal(plates.length, 2, JSON.stringify(plates));
+  const o = plates.find((i) => i.kind === 'outlet'), s = plates.find((i) => i.kind === 'switch');
+  assert.ok(o && Math.abs(o.x - 300) <= 3 && Math.abs(o.y - 470) <= 3, JSON.stringify(o));
+  assert.ok(s && Math.abs(s.x - 620) <= 3 && Math.abs(s.y - 270) <= 3, JSON.stringify(s));
+  assert.ok(plates.every((p) => p.guess), 'found by shape, marked as a guess');
+  const g = guessWidth(r.items, 800);
+  assert.ok(!g || !(g.refs || []).some((x) => x.from === 'outlet'), 'a guessed plate does not set the wall size');
+});
+
 test('a TV joined to a dark cabinet is not used for the scale, so there is no width guess', () => {
   const sc = scene();
   const put = (x0, y0, x1, y1, rgb) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) sc.data.set([...rgb, 255], (y * sc.width + x) * 4); };

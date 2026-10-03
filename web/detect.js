@@ -994,7 +994,98 @@ export function readWall(img, opts = {}) {
     if (it.kind === 'art') box = growToFrame(img, box, (x, y) => model.at(x * s, y * s));
     return { kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1] };
   });
-  return { wallColor: model.at(w / 2, h * 0.3), items: items2 };
+  const plates = findPlates(img, (x, y) => model.at(x * s, y * s), items2);
+  return { wallColor: model.at(w / 2, h * 0.3), items: [...items2, ...plates] };
+}
+
+// Outlets and switches: the image model has no label for them, so they're found by
+// shape. A cover plate is a small, solid rectangle that isn't wall: 2.75 x 4.5 in
+// (single), about 4.5 square (double), so on a wall 5 to 20 ft wide it is 1 to 5% of
+// the width across. Low on the wall it's an outlet, higher up a switch. Nothing near
+// the ceiling (smoke alarms, vents), nothing inside art or furniture. Marked as a
+// guess, so it never sets the wall's size.
+function findPlates(img, wallAt, taken) {
+  const W = img.width, H = img.height;
+  if (W < 120 || H < 80) return [];
+  const step = W > 900 ? 2 : 1; // read at most about 900 px across
+  const w = Math.floor(W / step), h = Math.floor(H / step);
+  // The wall's color right around each pixel (a box blur about 5% of the width across),
+  // so shading across the wall doesn't read as a thing on it.
+  const L = new Float32Array(w * h * 3);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = ((y * step) * W + x * step) * 4;
+    const p = toLab(img.data[o], img.data[o + 1], img.data[o + 2]);
+    L.set(p, (y * w + x) * 3);
+  }
+  // Sums over a box, from an integral image of the pixels that count (all of them the
+  // first time; the second time only those that read as wall, so a bright plate
+  // doesn't light up the wall color around itself and leave a dark ring).
+  const R = Math.max(6, Math.round(w * 0.025));
+  const offFrom = (use) => {
+    const I = new Float64Array((w + 1) * (h + 1) * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = use ? use[y * w + x] : 1, i = (y * w + x) * 3;
+      const at = ((y + 1) * (w + 1) + x + 1) * 4, up = (y * (w + 1) + x + 1) * 4, lf = ((y + 1) * (w + 1) + x) * 4, ul = (y * (w + 1) + x) * 4;
+      for (let c = 0; c < 4; c++) I[at + c] = (c < 3 ? L[i + c] * k : k) + I[up + c] + I[lf + c] - I[ul + c];
+    }
+    const out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const a = Math.max(0, x - R), b = Math.max(0, y - R), cc = Math.min(w, x + R + 1), d = Math.min(h, y + R + 1);
+      const box = (c) => I[(d * (w + 1) + cc) * 4 + c] - I[(b * (w + 1) + cc) * 4 + c] - I[(d * (w + 1) + a) * 4 + c] + I[(b * (w + 1) + a) * 4 + c];
+      const n = box(3);
+      if (n < 4) { out[y * w + x] = 1; continue; }
+      const i = (y * w + x) * 3;
+      out[y * w + x] = Math.hypot(L[i] - box(0) / n, (L[i + 1] - box(1) / n) * 1.4, (L[i + 2] - box(2) / n) * 1.4) > 5 ? 1 : 0;
+    }
+    return out;
+  };
+  const first = offFrom(null);
+  const wallOnly = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) wallOnly[i] = first[i] ? 0 : 1;
+  const off = offFrom(wallOnly);
+  void wallAt;
+  const mask = fillHoles(close(off, w, h, 1), w, h);
+  const busy = taken.map((t) => [t.x / step - 3, t.y / step - 3, (t.x + t.w) / step + 3, (t.y + t.h) / step + 3]);
+  const out = [];
+  for (const c of compsOfMask(mask, w, h)) {
+    const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1;
+    if (bw < Math.max(4, w * 0.009) || bw > w * 0.05 || bh > w * 0.075) continue;
+    const ar = bh / bw;
+    if (!((ar >= 1.2 && ar <= 2.1) || (ar >= 0.85 && ar < 1.2))) continue;
+    // Solid, or a ring: a plate's edge reads even when its face is the wall's color.
+    if (c.n / (bw * bh) < 0.5) {
+      let k = 0, n = 0;
+      const at = (x, y) => (mask[y * w + x] || (x > 0 && mask[y * w + x - 1]) || (x < w - 1 && mask[y * w + x + 1]) || (y > 0 && mask[(y - 1) * w + x]) || (y < h - 1 && mask[(y + 1) * w + x]));
+      for (let x = c.x0; x <= c.x1; x++) { n += 2; if (at(x, c.y0)) k++; if (at(x, c.y1)) k++; }
+      for (let y = c.y0 + 1; y < c.y1; y++) { n += 2; if (at(c.x0, y)) k++; if (at(c.x1, y)) k++; }
+      if (k / n < 0.75) continue;
+    }
+    if (c.y0 < h * 0.12 || c.y1 > h - 2 || c.x0 < 2 || c.x1 > w - 3) continue;
+    if (busy.some(([a, b, cc, d]) => c.x1 >= a && c.x0 <= cc && c.y1 >= b && c.y0 <= d)) continue;
+    const up = (h - c.y1) / h; // how high its bottom sits, as a share of the wall
+    out.push({ kind: up < 0.3 ? 'outlet' : 'switch', confidence: 0.45, guess: true, x: c.x0 * step, y: c.y0 * step, w: bw * step, h: bh * step });
+  }
+  return out.sort((a, b) => a.x - b.x || a.y - b.y).slice(0, 8);
+}
+// Connected parts of a mask: { x0, y0, x1, y1, n }.
+function compsOfMask(mask, w, h) {
+  const seen = new Uint8Array(w * h), out = [], stack = [];
+  for (let i = 0; i < w * h; i++) {
+    if (!mask[i] || seen[i]) continue;
+    let x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0;
+    stack.push(i); seen[i] = 1;
+    while (stack.length) {
+      const k = stack.pop(), x = k % w, y = (k - x) / w;
+      n++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const j of [k - 1, k + 1, k - w, k + w]) {
+        if (j < 0 || j >= w * h || seen[j] || !mask[j]) continue;
+        if ((j === k - 1 && x === 0) || (j === k + 1 && x === w - 1)) continue;
+        seen[j] = 1; stack.push(j);
+      }
+    }
+    out.push({ x0, y0, x1, y1, n });
+  }
+  return out;
 }
 
 // A white mat on a white wall reads as wall, so a framed print can come out as
@@ -1169,7 +1260,8 @@ export function scaleEstimates(found, photo = {}) {
   const couch = biggest(['couch'], 'w');
   if (couch && (!rw || couch.w > rw * 0.2)) out.push({ from: 'couch', ppi: couch.w / REF.couch.inches, inches: REF.couch.inches, px: couch.w, confidence: REF.couch.confidence, note: REF.couch.note });
   if (photo.ceiling && rh > 0) out.push({ from: 'ceiling', ppi: rh / REF.ceiling.inches, inches: REF.ceiling.inches, px: rh, confidence: REF.ceiling.confidence, note: REF.ceiling.note });
-  for (const o of items.filter((i) => (i.kind === 'outlet' || i.kind === 'switch') && i.h > 0)) {
+  // Plates the reader found by shape alone are a guess and don't set the size; ones you marked do.
+  for (const o of items.filter((i) => (i.kind === 'outlet' || i.kind === 'switch') && i.h > 0 && !i.guess)) {
     const confidence = REF.outlet.confidence * Math.min(1, o.h / OUTLET_FULL_PX);
     out.push({ from: 'outlet', ppi: o.h / REF.outlet.inches, inches: REF.outlet.inches, px: o.h, confidence, note: `${REF.outlet.note}${o.h < OUTLET_FULL_PX / 2 ? ', small in the photo' : ''}` });
   }
