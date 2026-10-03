@@ -765,9 +765,15 @@ function check() {
   if (!p) { go('#/things'); return ''; }
   const auto = p.mode === 'auto' && p.auto;
   const H = d.height, s = labelSize(d.width, editPx());
+  // Each box can be picked, then its corners dragged to resize it and its middle dragged to move it.
+  const hr = s * 0.9; // handle radius, in wall inches at this size
+  // On a small box the corners' touch areas would overlap and the last one drawn would win, so each stops at half the box.
+  const handles = (b) => [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].map(([x, y], i) => `<g class="box-h" data-hcorner="${i}"><circle cx="${x}" cy="${y}" r="${Math.min(hr * 2.2, Math.min(b.w, b.h) / 2)}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${Math.min(hr * 0.7, Math.min(b.w, b.h) / 5)}" class="handle-dot"/></g>`).join('');
+  const sizeTag = (b, w, h) => `<text x="${b.x + b.w / 2}" y="${b.y + b.h + s * 1.1}" font-size="${s * 0.85}" class="box-size">${r2(w)} x ${r2(h)} in</text>`;
+  const picked = S.ui.fix;
   const boxes = [
-    ...d.obstacles.map((o) => `<g class="ob"><rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}</g>`),
-    ...d.owned.filter((o) => o.at).map((o) => `<g class="owned-mark${o.keep === 'skip' ? ' is-skip' : ''}"><rect x="${o.at.x}" y="${H - o.at.y - o.h}" width="${o.w}" height="${o.h}" class="owned-box-mark"/></g>`),
+    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
+    ...d.owned.filter((o) => o.at).map((o) => { const b = { x: o.at.x, y: H - o.at.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="owned-mark box${o.keep === 'skip' ? ' is-skip' : ''}${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="own"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="owned-box-mark"/>${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
   ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const from = auto && p.auto.guess ? p.auto.guess.from : null;
@@ -792,7 +798,7 @@ function check() {
   const obRows = d.obstacles.map((o) => `<li class="row">
       <span class="thumb"><span class="kind">${esc(obName(o).split(' ')[0])}</span></span>
       <span class="row-text"><span class="name">${esc(obName(o))}</span><span class="meta">${o.w} x ${o.h} in</span>
-        ${fix === o.id ? `<span class="fix"><span class="nums">${num(o, 'w', 'Wide', 'data-obk')}${num(o, 'h', 'Tall', 'data-obk')}${num(o, 'x', 'From left', 'data-obk')}${num(o, 'y', 'From floor', 'data-obk')}</span>
+        ${fix === o.id ? `<span class="fix"><label class="inline"><span>It's a</span><select data-obkind="${esc(o.id)}">${OB_KINDS.map((k) => `<option value="${k}"${o.kind === k ? ' selected' : ''}>${esc(KIND_NAME[k])}</option>`).join('')}</select></label><span class="nums">${num(o, 'w', 'Wide', 'data-obk')}${num(o, 'h', 'Tall', 'data-obk')}${num(o, 'x', 'From left', 'data-obk')}${num(o, 'y', 'From floor', 'data-obk')}</span>
           <span class="fix-acts">${o.autoId && o.kind !== 'tv' ? `<button type="button" class="link" data-is-art="${esc(o.autoId)}">It's art</button>` : ''}<button type="button" class="link" data-remove-ob="${esc(o.id)}">Remove</button><button type="button" class="btn quiet small" data-fix="">Done</button></span></span>`
         : `<button type="button" class="link" data-fix="${esc(o.id)}" aria-label="Fix the ${esc(obName(o))}">Fix</button>`}</span>
     </li>`).join('');
@@ -801,7 +807,8 @@ function check() {
     <h1>Here's your wall</h1>
     <p class="lede">${esc(foundSentence(d))} Fix anything that's off, and say which of your pieces to keep.</p>
     ${S.ui.quality ? `<p class="note">${esc(S.ui.quality)}</p>` : ''}
-    <div class="drawing photo-check">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened, with what we found marked' })}</div>
+    <div class="drawing photo-check${picked && boxOf(picked) ? ' has-pick' : ''}" id="check-wall">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened, with what we found marked' })}</div>
+    <p class="small pencil">Tap a box to pick it. Drag a corner to resize it, or the middle to move it.</p>
     ${auto ? `<form id="dims-form" class="fields dims">
       <fieldset><legend>Wall width</legend>
         <span class="pair"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
@@ -820,6 +827,89 @@ function check() {
     <div class="acts left"><a class="btn quiet small" href="#/things">Mark something we missed</a></div>
     <div class="dock"><a class="btn wide" href="#/layouts">Show me my wall</a></div>
   </main>`;
+}
+
+// ---------- The confirm screen: fix a box by dragging ----------
+
+// A box on the flattened photo, in wall inches with y up from the floor:
+// a piece of yours (at, w, h) or something in the way (x, y, w, h).
+function boxOf(id) {
+  const d = S.draft;
+  const o = d.obstacles.find((x) => x.id === id);
+  if (o) return { kind: 'ob', o, get: () => ({ x: o.x, y: o.y, w: o.w, h: o.h }), set: (b) => { o.x = b.x; o.y = b.y; o.w = b.w; o.h = b.h; } };
+  const a = d.owned.find((x) => x.id === id && x.at);
+  if (a) return { kind: 'own', o: a, get: () => ({ x: a.at.x, y: a.at.y, w: a.w, h: a.h }), set: (b) => { a.at = { x: b.x, y: b.y }; a.w = b.w; a.h = b.h; } };
+  return null;
+}
+// A box read from the photo keeps its pixel box in step, so a later re-read
+// (the TV size, a corner) starts from the fixed box, not the first guess.
+function syncItem(box) {
+  const d = S.draft, p = d.photo, a = p && p.auto;
+  const o = box.o;
+  if (!a || !o.autoId) return;
+  const it = a.items.find((i) => i.id === o.autoId);
+  if (!it) return;
+  const rw = a.rw || p.w, rh = a.rh || a.floorPx, sc = d.width / rw;
+  const k = it.kind === 'tv' && a.depth ? 1 / a.depth : 1;
+  const b = box.get();
+  it.w = b.w / (sc * k); it.h = b.h / sc;
+  it.x = b.x / sc - (it.w * (1 - k)) / 2; it.y = rh - b.y / sc - it.h;
+  it.fixed = true;
+  if (box.kind === 'own' && S.mem.photo && rw) { try { Object.assign(it, thumbAndPalette(regionImg(), it)); o.thumb = it.thumb; o.palette = it.palette; o.color = it.palette && it.palette[0] ? it.palette[0].hex : o.color; } catch { /* keep the old thumb */ } }
+  if (box.kind === 'own' && p.ppi) o.rect = { x: o.at.x * p.ppi, y: (d.height - o.at.y - o.h) * p.ppi, w: o.w * p.ppi, h: o.h * p.ppi };
+  if (box.kind === 'ob' && o.fuzz) o.fuzz = 0; // fixed by hand: no longer a guess
+}
+function wireCheck() {
+  const svg = document.querySelector('#check-wall svg');
+  if (!svg) return;
+  const d = S.draft, H = d.height, p = d.photo;
+  const loupe = p && p.flat ? loupeFor(svg, p.flat, d.width, H) : null;
+  const toPt = (b) => [b.x, H - b.y - b.h]; // top left, svg coordinates
+  const paint = (box) => {
+    const g = svg.querySelector(`[data-box="${CSS.escape(box.o.id)}"]`);
+    if (!g) return;
+    const b = box.get(), top = H - b.y - b.h;
+    const r = g.querySelector('rect'); r.setAttribute('x', b.x); r.setAttribute('y', top); r.setAttribute('width', b.w); r.setAttribute('height', b.h);
+    const lab = g.querySelector('.ob-label'); if (lab) { lab.setAttribute('x', b.x + b.w / 2); lab.setAttribute('y', top + b.h / 2); }
+    const pts = [[b.x, top], [b.x + b.w, top], [b.x + b.w, top + b.h], [b.x, top + b.h]];
+    g.querySelectorAll('.box-h').forEach((h, i) => h.querySelectorAll('circle').forEach((c) => { c.setAttribute('cx', pts[i][0]); c.setAttribute('cy', pts[i][1]); }));
+    const t = g.querySelector('.box-size'); if (t) { t.setAttribute('x', b.x + b.w / 2); t.setAttribute('y', top + b.h + Number(t.getAttribute('font-size')) * 1.3); t.textContent = `${r2(b.w)} x ${r2(b.h)} in`; }
+    const row = document.querySelector(`.row [data-oid="${CSS.escape(box.o.id)}"], .row [data-obid="${CSS.escape(box.o.id)}"]`);
+    if (row) { const inW = document.querySelector(`input[data-ok="w"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="w"][data-obid="${CSS.escape(box.o.id)}"]`); const inH = document.querySelector(`input[data-ok="h"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="h"][data-obid="${CSS.escape(box.o.id)}"]`); if (inW) inW.value = r2(b.w); if (inH) inH.value = r2(b.h); }
+  };
+  dragOn(svg, (e) => {
+    const g = e.target.closest('[data-box]');
+    if (!g) return null;
+    const id = g.dataset.box;
+    if (S.ui.fix !== id) { S.ui.fix = id; render(); return null; } // first tap picks it; the next render has handles
+    const box = boxOf(id);
+    if (!box) return null;
+    const h = e.target.closest('[data-hcorner]');
+    const at = wallPoint(svg, e);
+    return { box, corner: h ? Number(h.dataset.hcorner) : null, start: at, orig: box.get() };
+  }, (ctx, e) => {
+    const at = wallPoint(svg, e);
+    const dx = at.x - ctx.start.x, dy = at.y - ctx.start.y, o = ctx.orig;
+    let b;
+    if (ctx.corner === null) b = { x: o.x + dx, y: o.y + dy, w: o.w, h: o.h };
+    else {
+      // Corner i: 0 top left, 1 top right, 2 bottom right, 3 bottom left (svg order); y is up from the floor.
+      const left = ctx.corner === 0 || ctx.corner === 3, top = ctx.corner === 0 || ctx.corner === 1;
+      const x0 = left ? o.x + dx : o.x, x1 = left ? o.x + o.w : o.x + o.w + dx;
+      const y0 = top ? o.y : o.y + dy, y1 = top ? o.y + o.h + dy : o.y + o.h;
+      b = { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.max(2, Math.abs(x1 - x0)), h: Math.max(2, Math.abs(y1 - y0)) };
+    }
+    b.x = Math.max(0, Math.min(d.width - b.w, b.x)); b.y = Math.max(0, Math.min(H - b.h, b.y));
+    for (const k of ['x', 'y', 'w', 'h']) b[k] = Math.round(b[k] * 4) / 4;
+    ctx.box.set(b); ctx.moved = true; paint(ctx.box);
+    if (loupe) { const [px, py] = ctx.corner === null ? [b.x + b.w / 2, H - b.y - b.h / 2] : [[b.x, H - b.y - b.h], [b.x + b.w, H - b.y - b.h], [b.x + b.w, H - b.y], [b.x, H - b.y]][ctx.corner]; loupe.show(e, [px, py]); }
+  }, (ctx) => {
+    if (loupe) loupe.hide();
+    if (!ctx.moved) return;
+    syncItem(ctx.box);
+    if (ctx.box.kind === 'ob') clampOb(ctx.box.o);
+    S.mem.clean = null; resetLayouts(); persist(); render();
+  });
 }
 
 // ---------- Corners ----------
@@ -846,11 +936,20 @@ function corners() {
       <svg id="corner-svg" viewBox="0 0 ${p.w} ${p.h}" data-w="${p.w}" data-h="${p.h}" class="photo-svg${err ? ' has-error' : ''}" role="group" aria-label="Wall photo with four corner handles">
         <image href="${p.src}" x="0" y="0" width="${p.w}" height="${p.h}"/>
         <polygon points="${c.map((x) => x.join(',')).join(' ')}" class="quad"/>
-        ${c.map(([x, y], i) => `<g class="handle" data-corner="${i}" tabindex="0" role="button" aria-label="${names[i]} corner. Drag it, or use the arrow keys.">
+        ${c.map(([x, y], i) => `<g class="handle${(S.ui.corner || 0) === i ? ' is-picked' : ''}" data-corner="${i}" tabindex="0" role="button" aria-label="${names[i]} corner. Drag it, or use the arrow keys.">
           <circle cx="${x}" cy="${y}" r="${r * 2.2}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${r}" class="handle-dot"/></g>`).join('')}
       </svg>
     </div>
-    <p class="${err ? 'error' : 'small pencil'}" id="corner-msg">${esc(err || S.ui.cornerErr || 'Arrow keys nudge a selected corner.')}</p>
+    <p class="${err ? 'error' : 'small pencil'}" id="corner-msg">${esc(err || S.ui.cornerErr || 'Drag a dot, and a close-up shows what is under your finger. Tap a dot, then nudge it.')}</p>
+    <div class="nudge" id="nudge" role="group" aria-label="Nudge the selected corner">
+      <span class="nudge-who" id="nudge-who">${esc(names[S.ui.corner || 0])} corner</span>
+      <span class="nudge-pad">
+        <button type="button" class="icon-btn" data-nudge="0,-1" aria-label="Up">↑</button>
+        <button type="button" class="icon-btn" data-nudge="-1,0" aria-label="Left">←</button>
+        <button type="button" class="icon-btn" data-nudge="1,0" aria-label="Right">→</button>
+        <button type="button" class="icon-btn" data-nudge="0,1" aria-label="Down">↓</button>
+      </span>
+    </div>
     ${S.ui.quality || misses.length ? `<ul class="notes">${[S.ui.quality, ...misses].filter(Boolean).map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
     <div class="acts end">
       <a class="btn quiet" href="#/start">Use another photo</a>
@@ -932,6 +1031,7 @@ function sizeScreen() {
 
 // ---------- Marking things by hand ----------
 
+const OB_KINDS = ['couch', 'headboard', 'dresser', 'console', 'shelf', 'tv', 'lamp', 'plant', 'window', 'door', 'mirror', 'edge', 'outlet', 'switch', 'furniture'];
 const DEFAULTS = {
   couch: (W) => ({ w: Math.min(84, W - 12), h: 32, x: (W - Math.min(84, W - 12)) / 2, y: 0 }),
   lamp: (W) => ({ w: 16, h: 62, x: Math.max(0, W - 22), y: 0 }),
@@ -944,6 +1044,8 @@ const DEFAULTS = {
   tv: (W) => ({ w: 50, h: 29, x: (W - 50) / 2, y: 40 }),
   outlet: () => ({ w: 3, h: 5, x: 10, y: 12 }),
   switch: (W) => ({ w: 3, h: 5, x: W - 10, y: 46 }),
+  // A corner or a step in the wall (a column, a bump-out): floor to ceiling, a hair wide.
+  edge: (W) => ({ w: 1, h: S.draft.height, x: Math.round(W / 3), y: 0 }),
 };
 function clampOb(o) {
   const W = S.draft.width, H = S.draft.height;
@@ -969,7 +1071,7 @@ function things() {
   if (need()) { go(need()); return ''; }
   const d = S.draft;
   const photo = d.photo && d.photo.flat;
-  const kinds = ['couch', 'headboard', 'dresser', 'console', 'tv', 'lamp', 'plant', 'window', 'door', 'outlet', 'switch'];
+  const kinds = ['couch', 'headboard', 'dresser', 'console', 'tv', 'lamp', 'plant', 'window', 'door', 'edge', 'outlet', 'switch'];
   const num = (o, k, label) => `<label class="num"><span>${label}</span><span class="num-in"><input type="number" step="0.5" min="0" data-obk="${k}" data-obid="${esc(o.id)}" value="${o[k]}"> in</span></label>`;
   return `${bar(back(d.photo ? '#/check' : '#/start', d.photo ? 'Your wall' : 'Size'))}
   <main class="page">
@@ -1639,6 +1741,7 @@ function brokeScreen() {
 // ---------- Events ----------
 
 function wire(r) {
+  if (r === 'check') wireCheck();
   if (r === 'corners') wireCorners();
   if (r === 'things') wireThings();
   if (r === 'pieces' && S.draft && S.draft.photo) wireDraw();
@@ -1665,6 +1768,34 @@ function wireSwipe() {
   wrap.addEventListener('pointercancel', () => { start = null; });
 }
 
+// A close-up above the finger while dragging on a photo, since the finger hides
+// the very spot being placed. Shows the photo at 2.5x around the point, with a cross.
+// Only for touch and pen; a mouse pointer doesn't cover anything.
+function loupeFor(svg, src, imgW, imgH) {
+  let el = null;
+  const ZOOM = 2.5, SIZE = 120, LIFT = 90;
+  const make = () => {
+    el = document.createElement('div');
+    el.className = 'loupe'; el.setAttribute('aria-hidden', 'true');
+    el.style.backgroundImage = `url("${src}")`;
+    document.body.appendChild(el);
+  };
+  return {
+    show(e, pt) {
+      if (e.pointerType === 'mouse') return;
+      if (!el) make();
+      const box = (svg.querySelector('image') || svg).getBoundingClientRect();
+      const scale = (box.width / imgW) * ZOOM; // screen px per image px, in the loupe
+      el.style.backgroundSize = `${imgW * scale}px ${imgH * scale}px`;
+      el.style.backgroundPosition = `${SIZE / 2 - pt[0] * scale}px ${SIZE / 2 - pt[1] * scale}px`;
+      const x = Math.max(SIZE / 2 + 4, Math.min(window.innerWidth - SIZE / 2 - 4, e.clientX));
+      const y = e.clientY - LIFT < SIZE / 2 + 4 ? e.clientY + LIFT : e.clientY - LIFT;
+      el.style.left = `${x - SIZE / 2}px`; el.style.top = `${y - SIZE / 2}px`;
+      el.style.display = 'block';
+    },
+    hide() { if (el) el.style.display = 'none'; },
+  };
+}
 function dragOn(svg, onDown, onMove, onUp) {
   svg.addEventListener('pointerdown', (e) => {
     const ctx = onDown(e);
@@ -1887,19 +2018,39 @@ function wireCorners() {
     svg.querySelectorAll('.handle').forEach((g, i) => g.querySelectorAll('circle').forEach((ci) => { ci.setAttribute('cx', c[i][0]); ci.setAttribute('cy', c[i][1]); }));
     const err = cornerProblem(c, p.w, p.h);
     svg.classList.toggle('has-error', !!err);
-    const msg = $('#corner-msg'); msg.textContent = err || 'Tip: arrow keys nudge a selected corner.'; msg.className = err ? 'error' : 'muted small';
+    const msg = $('#corner-msg'); msg.textContent = err || 'Drag a dot, and a close-up shows what is under your finger. Tap a dot, then nudge it.'; msg.className = err ? 'error' : 'small pencil';
     const ok = document.querySelector('[data-act="corners-ok"]'); if (ok) ok.disabled = !!err;
   };
+  const names = ['Top left', 'Top right', 'Bottom right', 'Bottom left'];
+  const pick = (i) => {
+    S.ui.corner = i;
+    svg.querySelectorAll('.handle').forEach((g, j) => g.classList.toggle('is-picked', j === i));
+    const who = $('#nudge-who'); if (who) who.textContent = `${names[i]} corner`;
+  };
+  const loupe = loupeFor(svg, p.src, p.w, p.h);
   dragOn(svg, (e) => {
     const h = e.target.closest('.handle');
-    if (h) return { i: Number(h.dataset.corner) };
-    // A tap on the photo moves the nearest corner there.
-    const pt = toImg(e);
-    let i = 0, bd = Infinity;
-    p.corners.forEach((c, j) => { const dd = Math.hypot(c[0] - pt[0], c[1] - pt[1]); if (dd < bd) { bd = dd; i = j; } });
-    p.corners[i] = pt; update();
-    return { i, tapped: true };
-  }, (ctx, e) => { p.corners[ctx.i] = toImg(e); ctx.moved = true; update(); }, (ctx) => { if (ctx.moved || ctx.tapped) cornersChanged(); });
+    let ctx;
+    if (h) ctx = { i: Number(h.dataset.corner) };
+    else {
+      // A tap on the photo moves the nearest corner there.
+      const pt = toImg(e);
+      let i = 0, bd = Infinity;
+      p.corners.forEach((c, j) => { const dd = Math.hypot(c[0] - pt[0], c[1] - pt[1]); if (dd < bd) { bd = dd; i = j; } });
+      p.corners[i] = pt; update();
+      ctx = { i, tapped: true };
+    }
+    pick(ctx.i);
+    loupe.show(e, p.corners[ctx.i]);
+    return ctx;
+  }, (ctx, e) => { p.corners[ctx.i] = toImg(e); ctx.moved = true; update(); loupe.show(e, p.corners[ctx.i]); }, (ctx) => { loupe.hide(); if (ctx.moved || ctx.tapped) cornersChanged(); });
+  document.querySelectorAll('[data-nudge]').forEach((b) => b.addEventListener('click', () => {
+    const i = S.ui.corner || 0, [dx, dy] = b.dataset.nudge.split(',').map(Number);
+    const step = Math.max(1, Math.round(p.w / 400)); // about one screen pixel at phone size
+    p.corners[i] = [Math.max(0, Math.min(p.w, p.corners[i][0] + dx * step)), Math.max(0, Math.min(p.h, p.corners[i][1] + dy * step))];
+    update(); cornersChanged();
+  }));
+  svg.querySelectorAll('.handle').forEach((g) => g.addEventListener('focus', () => pick(Number(g.dataset.corner))));
   svg.querySelectorAll('.handle').forEach((g) => g.addEventListener('keydown', (e) => {
     const i = Number(g.dataset.corner), step = e.shiftKey ? 20 : 4;
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
@@ -2041,6 +2192,17 @@ document.addEventListener('change', (e) => {
   if (t.dataset.obk) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
     if (o) { if (o.autoId) forgetAuto(o.autoId); o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
+  }
+  if (t.dataset.obkind) {
+    const o = S.draft.obstacles.find((x) => x.id === t.dataset.obkind);
+    if (o) {
+      if (o.autoId) forgetAuto(o.autoId);
+      o.kind = t.value; delete o.label;
+      // A wall edge runs floor to ceiling, a hair wide, where the box's middle was.
+      if (o.kind === 'edge') { const cx = o.x + o.w / 2; o.w = 1; o.x = cx - 0.5; o.y = 0; o.h = S.draft.height; o.fuzz = 0; }
+      clampOb(o); resetLayouts(); persist(); setTimeout(render, 0);
+    }
+    return;
   }
   if (t.dataset.ok) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.oid);

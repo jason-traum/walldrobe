@@ -497,3 +497,27 @@ svg.is-dragging .measure { opacity: 0.25; }
 .fav-acts { display: flex; flex-wrap: wrap; gap: 0 12px; padding-right: 40px; }
 .fav-acts .link { min-height: 44px; padding: 0; font-size: 14px; }
 .saved-page .piece .heart { bottom: auto; top: 158px; }
+
+/* The close-up above a finger on a photo. Fixed size, round, a thin cross at its middle. */
+.loupe { position: fixed; z-index: 30; width: 120px; height: 120px; border-radius: 50%; border: 2px solid var(--tape-strip); box-shadow: 0 8px 24px rgba(20, 24, 28, 0.25); background-color: var(--wall); background-repeat: no-repeat; pointer-events: none; display: none; }
+.loupe::before, .loupe::after { content: ""; position: absolute; left: 50%; top: 50%; background: var(--tape-strip); }
+.loupe::before { width: 1px; height: 28px; transform: translate(-50%, -50%); }
+.loupe::after { width: 28px; height: 1px; transform: translate(-50%, -50%); }
+.handle.is-picked .handle-dot { fill: var(--tape-strip); }
+.nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 0 0; }
+.nudge-who { color: var(--pencil); font: 500 14px/20px var(--font); }
+.nudge-pad { display: inline-flex; border: 1px solid var(--field); border-radius: 22px; background: var(--surface); }
+.nudge-pad .icon-btn { font-size: 18px; }
+
+/* Boxes on the confirm photo: tap to pick, then corner handles and the size under it. */
+.photo-check .box { cursor: pointer; }
+.photo-check .box.is-picked .ob-box, .photo-check .box.is-picked .owned-box-mark { stroke-width: 3; }
+.photo-check .box.is-picked .ob-box { stroke: var(--on-wall-tape); }
+.photo-check .box-h { cursor: grab; }
+.photo-check .box-size { fill: var(--on-wall); font-weight: 600; text-anchor: middle; paint-order: stroke; stroke: var(--mat); stroke-width: 0.6; }
+.photo-check .box rect { pointer-events: all; }
+/* Once a box is picked, a drag on the photo moves it instead of scrolling the page. */
+.photo-check.has-pick svg { touch-action: none; -webkit-user-select: none; user-select: none; }
+
+/* A corner or step in the wall: a dashed line, floor to ceiling. */
+.wall-edge { stroke: var(--on-wall); stroke-width: 0.6; stroke-dasharray: 2 1.5; opacity: 0.7; }

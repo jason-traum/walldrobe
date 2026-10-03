@@ -256,6 +256,98 @@ with sync_playwright() as p:
         check(f'{W} Save on Get it reads Saved after', vis(pg, '.get [data-act=save]').text_content().strip() == 'Saved')
         check(f'{W} no errors', not errs, '; '.join(errs[:2]))
         ctx.close()
+
+    # The photo path: corners (nudge, close-up), then the confirm screen (pick, drag, change kind, wall edge).
+    PHOTO = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'photos', 'drawn-wall.jpg')
+    for W in (390, 320):
+        ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(BASE + '#/start'); pg.wait_for_timeout(2500)
+        pg.set_input_files('#photo-input', PHOTO); pg.wait_for_timeout(12000)
+        check(f'{W} a photo goes to the corners', '#/corners' in pg.url, pg.url)
+        dot = lambda i: pg.evaluate(f"(() => {{ const c = document.querySelectorAll('#corner-svg .handle')[{i}].querySelector('.handle-dot'); return [Number(c.getAttribute('cx')), Number(c.getAttribute('cy'))]; }})()")
+        before = dot(0)
+        vis(pg, '[data-nudge="1,0"]').click(); pg.wait_for_timeout(300)
+        check(f'{W} nudge moves the picked corner', dot(0)[0] > before[0], f'{before} to {dot(0)}')
+        # A finger drag on a corner shows the close-up, and hides it after.
+        cdp = ctx.new_cdp_session(pg)
+        bx = pg.evaluate("(() => { const r = document.querySelectorAll('#corner-svg .handle')[3].querySelector('.handle-dot').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': bx[0], 'y': bx[1]}]})
+        for k in range(1, 6):
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': bx[0] + k * 2, 'y': bx[1] + k * 3}]})
+        pg.wait_for_timeout(200)
+        shown = pg.evaluate("(() => { const l = document.querySelector('.loupe'); return !!l && getComputedStyle(l).display === 'block'; })()")
+        pg.screenshot(path=f'{OUT}/corners-loupe-{W}.png')
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); pg.wait_for_timeout(400)
+        check(f'{W} a finger drag shows the close-up', shown)
+        check(f'{W} the close-up goes away after', pg.evaluate("(() => { const l = document.querySelector('.loupe'); return !l || getComputedStyle(l).display === 'none'; })()"))
+        check(f'{W} the dragged corner is picked', pg.locator('#corner-svg .handle').nth(3).get_attribute('class').find('is-picked') >= 0 and 'Bottom left' in pg.locator('#nudge-who').text_content())
+        vis(pg, '[data-act="corners-ok"]').click(); pg.wait_for_timeout(5000)
+        if '#/size' in pg.url:
+            pg.fill('input[name=ft]', '10'); pg.fill('input[name=in]', '0')
+            pg.get_by_role('button', name='Show me my wall').click(); pg.wait_for_timeout(5000)
+        check(f'{W} the confirm screen opens', '#/check' in pg.url, pg.url)
+        own = pg.locator('#check-wall g.box[data-kind=own]')
+        if own.count():
+            oid = own.first.get_attribute('data-box')
+            meta = lambda: pg.evaluate(f"(() => {{ const r = document.querySelector('[data-box=\"{oid}\"] rect'); return [Number(r.getAttribute('width')), Number(r.getAttribute('height')), Number(r.getAttribute('x'))]; }})()")
+            sel = f'#check-wall g.box[data-box="{oid}"]'
+            box = pg.locator(sel + ' rect').bounding_box()
+            pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2); pg.wait_for_timeout(600)
+            check(f'{W} a tap picks a box, with four corners and its size', pg.locator(sel + '.is-picked .box-h').count() == 4 and pg.locator(sel + ' .box-size').count() == 1)
+            check(f'{W} a picked box stops the page scrolling under a drag', pg.evaluate("getComputedStyle(document.querySelector('#check-wall svg')).touchAction") == 'none')
+            pg.screenshot(path=f'{OUT}/check-picked-{W}.png')
+            w0 = meta()
+            h = pg.locator(sel + ' [data-hcorner="2"] .handle-dot').bounding_box()
+            cx, cy = h['x'] + h['width'] / 2, h['y'] + h['height'] / 2
+            pg.mouse.move(cx, cy); pg.mouse.down(); pg.mouse.move(cx + 15, cy + 10, steps=5); pg.mouse.up(); pg.wait_for_timeout(1200)
+            w1 = meta()
+            check(f'{W} dragging a corner resizes the box', w1[0] > w0[0] and w1[1] > w0[1], f'{w0} to {w1}')
+            row = pg.locator(f'input[data-ok="w"][data-oid="{oid}"]')
+            check(f'{W} the row shows the new size', row.count() == 1 and abs(float(row.input_value()) - w1[0]) < 0.6, row.input_value() if row.count() else 'no row')
+            box = pg.locator(sel + ' rect').bounding_box()
+            mx, my = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+            pg.mouse.move(mx, my); pg.mouse.down(); pg.mouse.move(mx - 20, my, steps=5); pg.mouse.up(); pg.wait_for_timeout(1200)
+            check(f'{W} dragging the middle moves the box, same size', meta()[2] < w1[2] and meta()[0] == w1[0], f'{w1} to {meta()}')
+        else:
+            check(f'{W} the reader found a piece of yours to fix', False)
+        # Mark a dresser, then say it is really a wall edge.
+        vis(pg, 'a[href="#/things"]').click(); pg.wait_for_timeout(1200)
+        vis(pg, '[data-add="dresser"]').click(); pg.wait_for_timeout(800)
+        vis(pg, '.bar a').click(); pg.wait_for_timeout(1500)
+        check(f'{W} back on the confirm screen with the dresser', '#/check' in pg.url and 'Dresser' in pg.evaluate('document.body.innerText'))
+        fx = pg.locator('[data-fix][aria-label="Fix the Dresser"]')
+        fx.first.click(); pg.wait_for_timeout(800)
+        kind = pg.locator('select[data-obkind]')
+        check(f'{W} Fix can say what it is', kind.count() == 1 and kind.input_value() == 'dresser')
+        kind.select_option('edge'); pg.wait_for_timeout(1200)
+        txt = pg.evaluate('document.body.innerText')
+        check(f'{W} it becomes a wall edge, floor to ceiling', 'Wall edge' in txt and pg.evaluate("(() => { const i = document.querySelector('input[data-obk=h]'); return i && Number(i.value) >= 90; })()"))
+        pg.screenshot(path=f'{OUT}/check-edge-{W}.png', full_page=True)
+        sw = pg.evaluate('document.documentElement.scrollWidth')
+        check(f'{W} the confirm screen has no sideways scroll', sw <= W, str(sw))
+        vis(pg, '.dock a.btn').click(); pg.wait_for_timeout(9000)
+        ok = pg.evaluate("""(() => {
+          const svgs = [...document.querySelectorAll('.entry-link svg')];
+          if (!svgs.length) return 'no walls';
+          for (const s of svgs) {
+            // Over a photo the corner is in the photo itself, so the edge is read from the saved wall.
+            const d = JSON.parse(localStorage.getItem('walldrobe.draft.v1') || '{}');
+            const e = (d.obstacles || []).find((o) => o.kind === 'edge');
+            if (!e) return 'no edge saved';
+            const x = e.x + e.w / 2;
+            // Each piece's outer box: its biggest rect (the frame or the paper).
+            const rs = [...s.querySelectorAll('g.art')].map((g) => [...g.querySelectorAll('rect')].sort((a, b) => b.getAttribute('width') * b.getAttribute('height') - a.getAttribute('width') * a.getAttribute('height'))[0]).filter(Boolean);
+            if (!rs.length) return 'no art found to test';
+            for (const r of rs) { const a = Number(r.getAttribute('x')), w = Number(r.getAttribute('width')); if (a < x && a + w > x) return 'art crosses the edge'; }
+          }
+          return 'ok';
+        })()""")
+        check(f'{W} no wall puts art across the edge', ok == 'ok', ok)
+        check(f'{W} no errors on the photo path', not errs, '; '.join(errs[:2]))
+        ctx.close()
     b.close()
 
 for name, ok, detail in results:
