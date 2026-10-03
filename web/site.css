@@ -557,3 +557,28 @@ svg.is-dragging .measure { opacity: 0.25; }
 .taste-or { font-size: 13px; color: var(--pencil); }
 .taste-text { display: grid; gap: 2px; }
 .taste-text .name { font-weight: 600; color: var(--tape); }
+
+/* ---------- Where to print ---------- */
+.where { margin-top: 16px; }
+.where p { margin: 0; }
+.pr-picks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pr-picks li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pr-tag { display: inline-block; font-size: 12px; line-height: 16px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--tape-soft); color: var(--tape); white-space: nowrap; }
+.prices { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.prices th, .prices td { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.prices th { font-size: 13px; color: var(--pencil); font-weight: 500; white-space: nowrap; }
+.prices th:first-child, .prices td:first-child { padding-left: 8px; min-width: 150px; }
+.prices td:nth-child(n+2) { white-space: nowrap; font-weight: 600; }
+.prices tr:last-child td { border-bottom: 0; }
+.prices tr.is-pick td { background: var(--surface); }
+.prices td a { font-weight: 600; color: var(--ink); display: inline-block; min-height: 24px; margin-right: 6px; }
+.prices td .pr-tag { margin: 2px 4px 2px 0; }
+.pr-note { display: block; font-size: 13px; line-height: 18px; color: var(--pencil); margin-top: 4px; }
+.pr-none { color: var(--pencil); font-weight: 400; }
+.copy-row { align-items: center; gap: 12px; flex-wrap: wrap; }
+.copy-status { font-size: 14px; color: var(--keep-ink); }
+.pr-count { display: block; font-size: 12px; }
+@media (max-width: 360px) {
+  .prices th, .prices td { padding: 10px 5px; }
+  .prices th:first-child, .prices td:first-child { padding-left: 4px; min-width: 118px; }
+}

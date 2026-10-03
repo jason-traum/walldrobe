@@ -152,6 +152,7 @@ Jason, 2026-10-03: "after framing the next steps we should do are like helping c
 | To do | What it means | FEEDBACK |
 |---|---|---|
 | Cheapest way to get each print | For the same art at the frame's size: every shop that sells it, a digital download where the artist offers one, and printing a free photo at an online or local print lab; price with shipping, cheapest first. Links only, never their images re-hosted | 93 |
+| Done Oct 3: printing free photos | Where to print on Get it: every print service with prices for your sizes, the best three marked, Copy for your AI to find today's codes | 101 |
 | Cheapest frame that fits | A frame in that exact size (and the mat opening for the print), from a few frame sellers, cheapest first, with the mat said in words | 93 |
 | One list for the whole wall | Every print and frame with its cheapest source and the total; prices come back here once they are real (hidden for now, row 72) | 72, 93 |
 
@@ -169,7 +170,7 @@ Visible controls per main screen. Content (wall cards, drawn pieces, piece rows,
 | Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, Your walls once one is saved (the spare, spent) | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
 | Piece sheet | 5 | 6 plus the choices | Choices (favorites first), See all that fit, Keep in every wall, Remove this frame, heart, sizes; for yours: Stays where it hangs, Leave it out | The full list for that spot |
 | Your walls | none | 4 plus wall cards | Back, Compare, New wall, one spare | Rename, delete |
-| Get it | 7 | 7 | As a63c921, with each frame in words | none |
+| Get it | 7 | 8 | As a63c921, with each frame in words; with free photos, the print service links and Copy for your AI (Oct 3) | none |
 
 A spare is held, not given to anything until Jason says.
 
