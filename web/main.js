@@ -4,7 +4,7 @@
 // Screens are plain functions that return HTML; every change re-renders.
 // Design rules: DESIGN.md. Product rules: PRODUCT.md. States: STATES.md.
 
-import { layout, refill, rerank, spotChoices, RULES } from '../engine/index.js';
+import { layout, refill, rerank, spotChoices, scoreArrangement, RULES } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
@@ -194,9 +194,10 @@ function rank() {
   const v = S.view;
   const before = v.list.map((L) => L.key);
   v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, distinct: true });
-  // A saved wall leads, the way it was left.
+  // A saved wall leads, the way it was left; a wall you kept a piece on stays where it was.
   const chosen = S.draft.chosen && v.all[0] && S.draft.chosen.layout.key === v.all[0].key ? v.list.findIndex((L) => L.key === v.all[0].key) : -1;
-  if (chosen > 0) { const [c] = v.list.splice(chosen, 1); v.list.unshift(c); v.list.forEach((L, i) => { L.rank = i + 1; }); }
+  const at = S.draft.chosen && typeof S.draft.chosen.at === 'number' ? S.draft.chosen.at : 0;
+  if (chosen >= 0 && chosen !== at) { const [c] = v.list.splice(chosen, 1); v.list.splice(Math.min(at, v.list.length), 0, c); v.list.forEach((L, i) => { L.rank = i + 1; }); }
   if (v.hold) {
     const j = v.list.findIndex((L) => L.key === v.hold.key);
     if (j >= 0 && j !== v.hold.i) { const [h] = v.list.splice(j, 1); v.list.splice(Math.min(v.hold.i, v.list.length), 0, h); v.list.forEach((L, k) => { L.rank = k + 1; }); }
@@ -265,6 +266,23 @@ function choicesFor(L, id) {
   }
   return S.choices.list;
 }
+// Take one frame off the wall: one fewer, every other frame stays where it is, with Undo.
+function removeFrame(id) {
+  const L = shown();
+  if (!L) return;
+  const rest = L.pieces.filter((p) => p.ref.id !== id);
+  if (!rest.length) { S.flash = 'That is the last piece on this wall.'; return; }
+  let r;
+  try { r = scoreArrangement(engineInput(), rest.map((p) => ({ id: p.ref.id, x: p.x, y: p.y, w: p.w, h: p.h }))); } catch (e) { console.error(e); S.flash = "That frame can't come off here."; return; }
+  const prev = L;
+  const pinned = new Set(L.pieces.filter((p) => p.role === 'pinned').map((p) => p.ref.id));
+  const next = { ...r.layout, pieces: r.layout.pieces.map((p) => (pinned.has(p.ref.id) ? { ...p, role: 'pinned' } : p)), history: L.history, moved: true };
+  const d = S.draft, wasSkipped = d.skipped.includes(id);
+  if (!wasSkipped) d.skipped = [...d.skipped, id];
+  replaceWall(L.key, next);
+  S.ui.saved = null; persist();
+  S.undo = { label: 'Removed.', run: () => { if (!wasSkipped) d.skipped = d.skipped.filter((x) => x !== id); replaceWall(prev.key, prev); persist(); } };
+}
 // Put a picked print in this spot: one piece changes, the frames stay, with Undo.
 function swapTo(id, to) {
   const L = shown();
@@ -295,8 +313,9 @@ function toggleKeep(id) {
   const list = S.draft.kept || [];
   const on = list.some((k) => k.id === id);
   S.draft.kept = on ? list.filter((k) => k.id !== id) : p ? [...list, { id: p.ref.id, w: p.w, h: p.h }] : list;
-  // The wall on screen stays; the others are built again around it.
-  if (L) S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() };
+  // The wall on screen stays, at its place in the list; the others are built again around it.
+  const at = L && S.view ? S.view.list.findIndex((x) => x.key === L.key) : -1;
+  if (L) S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey(), at: at >= 0 ? at : 0 };
   persist();
 }
 function act(name, fn) {
@@ -1234,6 +1253,7 @@ function pieceSheet(id) {
     <div class="acts left">
       <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} ${saved ? 'Saved' : 'Save'}</button>
       <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep in every wall'}</button>
+      ${L.pieces.length > 1 ? `<button type="button" class="btn quiet" data-act="remove" data-id="${esc(id)}">Remove this frame</button>` : ''}
     </div>
     ${c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
 }
@@ -2035,6 +2055,7 @@ document.addEventListener('click', (e) => {
       if (orig) { const now = L; replaceWall(L.key, orig); delete v.orig[L.key]; S.undo = { label: 'Put back.', run: () => replaceWall(now.key, now) }; persist(); }
       S.sheet = null; render(); break;
     }
+    case 'remove': removeFrame(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
     case 'all-choices': S.ui.allFor = S.ui.allFor === t.dataset.id ? null : t.dataset.id; S.ui.sheetStay = true; render(); break;
     case 'swap': {
       const id = t.dataset.id; S.flash = null;
