@@ -232,7 +232,16 @@ function rank() {
   const v = S.view;
   purgeNotForMe();
   const before = v.list.map((L) => L.key);
-  v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, distinct: true });
+  const tasteNow = rankTaste();
+  v.list = rerank(v.all.filter((L) => !L.extra), { taste: tasteNow, saved: S.draft.saved, skipped: S.draft.skipped, distinct: true });
+  // Walls made with Show more go at the end, newest batch last, so they show up where you asked for them.
+  // They're kept even when they look like one above at a glance: new art in the same frames is the point.
+  const extras = v.all.filter((L) => L.extra);
+  if (extras.length) {
+    const ranked = rerank(extras, { taste: tasteNow, saved: S.draft.saved, skipped: S.draft.skipped, distinct: false });
+    v.list = [...v.list, ...ranked.sort((a, b) => a.extra - b.extra)];
+    v.list.forEach((L, i) => { L.rank = i + 1; });
+  }
   // A saved wall leads, the way it was left; a wall you kept a piece on stays where it was.
   const chosen = S.draft.chosen && v.all[0] && S.draft.chosen.layout.key === v.all[0].key ? v.list.findIndex((L) => L.key === v.all[0].key) : -1;
   const at = S.draft.chosen && typeof S.draft.chosen.at === 'number' ? S.draft.chosen.at : 0;
@@ -367,6 +376,33 @@ function choicesFor(L, id) {
     S.choices = { key, list };
   }
   return S.choices.list;
+}
+// More walls at the end of the list: new arrangements first, then the best ones with new art.
+function moreWalls() {
+  const v = S.view;
+  if (!v) return;
+  const have = new Set(v.all.map((L) => L.key));
+  const batch = (v.batch || 0) + 1;
+  const input = { ...engineInput(), keep: keepList() };
+  let fresh = [];
+  try { fresh = layout({ ...input, avoid: [...have], count: 8 }).layouts.filter((L) => L.variant !== 'asis' && !have.has(L.key)); } catch (e) { console.error(e); }
+  if (fresh.length < 4) {
+    // Same frames as the best walls, new art: nothing already shown on that wall.
+    for (const L of v.list.slice(0, 8)) {
+      if (fresh.length >= 6) break;
+      const seen = [...(S.seen.get(L.key) || [])].filter((x) => !keptSet().has(x));
+      let r = null;
+      try { r = refill({ ...input, exclude: seen }, L, {}); } catch { r = null; }
+      if (r && r.layouts.length) fresh.push({ ...r.layouts[0], key: `${L.key}~${batch}` });
+    }
+  }
+  fresh = fresh.filter((L) => !have.has(L.key)).slice(0, 8).map((L) => ({ ...L, extra: batch }));
+  S.ui.noMore = !fresh.length;
+  if (!fresh.length) return;
+  v.all = [...v.all, ...fresh];
+  v.batch = batch;
+  for (const L of fresh) remember(L);
+  v.rankKey = null;
 }
 // Take one frame off the wall: one fewer, every other frame stays where it is, with Undo.
 function removeFrame(id) {
@@ -890,6 +926,7 @@ function check() {
     ${d.owned.length ? `<ul class="rows">${artRows}</ul>` : '<p class="pencil">We didn\'t find any art on this wall.</p>'}
     <div class="acts left"><button type="button" class="btn quiet small" data-act="add-not-up">Add art that isn't up yet</button><a class="btn quiet small" href="#/pieces">Mark art we missed</a></div>
     <h2>In the way</h2>
+    ${d.obstacles.some((o) => FURNITURE.has(o.kind)) ? '<p class="pencil small">Furniture stands out from the wall, so the photo makes it look a little wider than it is. If you know its real width, tap Fix and type it.</p>' : ''}
     ${d.obstacles.length ? `<ul class="rows">${obRows}</ul>` : '<p class="pencil">We didn\'t find anything in the way. If something is there, mark it so the art clears it.</p>'}
     <div class="acts left"><a class="btn quiet small" href="#/things">Mark something we missed</a></div>
     <div class="dock"><a class="btn wide" href="#/layouts">Show me my wall</a></div>
@@ -1230,8 +1267,11 @@ function taste() {
   if (need()) { go(need()); return ''; }
   if (!S.quiz) S.quiz = restoreQuiz();
   if (!S.quiz) {
-    const shownIds = new Set();
-    S.quiz = { picks: [], shown: shownIds, n: 0, pair: nextPair(CATALOG, [], shownIds) };
+    // Taking it again picks up from what you already chose, with pieces you haven't seen.
+    const me = store.loadMe();
+    const prior = S.draft.taste && S.draft.taste.source === 'yours' ? picksOf(S.draft.taste.picks) : [];
+    const shownIds = new Set(me.quizSeen || []);
+    S.quiz = { picks: [], prior, shown: shownIds, n: 0, pair: nextPair(CATALOG, prior, shownIds) || nextPair(CATALOG, prior, new Set()) };
   }
   const q = S.quiz;
   const [a, b] = q.pair;
@@ -1252,6 +1292,7 @@ function saveQuiz() {
   S.draft.quizState = { picks: q.picks.map((x) => [x.winner.id, x.loser.id]), shown: [...q.shown], n: q.n, pair: q.pair.map((x) => x.id) };
   persist();
 }
+const picksOf = (list) => (list || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
 function restoreQuiz() {
   const s = S.draft && S.draft.quizState;
   if (!s) return null;
@@ -1262,7 +1303,12 @@ function restoreQuiz() {
 }
 function finishQuiz() {
   const q = S.quiz;
-  if (q && q.picks.length) S.draft.taste = { source: 'yours', weights: fitTaste(q.picks), picks: q.picks.map((x) => [x.winner.id, x.loser.id]) };
+  if (q && q.picks.length) {
+    const all = [...(q.prior || []), ...q.picks].slice(-60);
+    S.draft.taste = { source: 'yours', weights: fitTaste(all), picks: all.map((x) => [x.winner.id, x.loser.id]) };
+  }
+  // Every piece shown in a pair, kept across tests, so the next test shows new ones.
+  if (q) { const me = store.loadMe(); me.quizSeen = [...new Set([...(me.quizSeen || []), ...q.shown])].slice(-400); store.saveMe(me); }
   S.quiz = null;
   S.draft.quizState = null;
   resetLayouts();
@@ -1273,7 +1319,7 @@ function advanceQuiz(picked) {
   const q = S.quiz;
   q.pair.forEach((it) => q.shown.add(it.id));
   if (picked) q.n++;
-  const next = q.n < QUIZ_LENGTH && q.shown.size < 40 ? nextPair(CATALOG, q.picks, q.shown) : null;
+  const next = q.n < QUIZ_LENGTH ? nextPair(CATALOG, [...(q.prior || []), ...q.picks], q.shown) : null;
   if (!next) { finishQuiz(); return; }
   q.pair = next;
   saveQuiz();
@@ -1333,18 +1379,24 @@ function feed() {
   const d = S.draft;
   const px = pxNow();
   const note = v.problems.find((x) => x.code === 'LOOSENED');
+  // The taste test, in the list where it's seen: after the second wall, until you've done it.
+  const tasteCard = d.taste && d.taste.source === 'yours' ? '' : (() => {
+    const pair = nextPair(CATALOG, [], new Set()) || [];
+    const tn = (it) => (it ? `<span class="tn new" style="width:${Math.round(56 * Math.min(1, it.aspect || 0.8))}px;height:${Math.round(56 / Math.max(1, it.aspect || 0.8))}px"><img src="${it.imageData}" alt="" loading="lazy"></span>` : '');
+    return `<li class="taste-card"><a href="#/taste" class="taste-link"><span class="taste-pair">${tn(pair[0])}<span class="taste-or">or</span>${tn(pair[1])}</span><span class="taste-text"><span class="name">Which do you like more?</span><span class="pencil small">Pick between a few pairs and every wall ranks for your taste.</span></span></a></li>`;
+  })();
   const items = v.list.map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
     </a>
-  </li>`).join('');
+  </li>${i === 1 ? tasteCard : ''}`).join('');
   return `${bar(wordmark(), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
-    <p class="feed-end pencil">That's every wall that fits.</p>
+    <div class="feed-end"><button type="button" class="btn quiet" data-act="more-walls"${S.busy ? ' disabled' : ''}>${S.busy === 'more' ? 'Making more…' : 'Show more walls'}</button>${S.ui.noMore ? '<span class="pencil small">No more new walls fit here. Try a change in Preferences.</span>' : ''}</div>
   </main><!--sheet-->${sheetHtml()}`;
 }
 
@@ -2548,6 +2600,11 @@ document.addEventListener('click', (e) => {
       const orig = L && v.orig && v.orig[L.key];
       if (orig) { const now = L; replaceWall(L.key, orig); delete v.orig[L.key]; S.undo = { label: 'Put back.', run: () => replaceWall(now.key, now) }; persist(); }
       S.sheet = null; render(); break;
+    }
+    case 'more-walls': {
+      S.busy = 'more'; S.ui.noMore = false; render();
+      setTimeout(() => { try { moreWalls(); } finally { S.busy = null; render(); } }, 30);
+      break;
     }
     case 'not-for-me': notForThis(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
     case 'show-again': { const m = store.loadMe(); m.disliked = m.disliked.filter((x) => x !== t.dataset.id); store.saveMe(m); if (S.view) S.view.rankKey = null; render(); } break;

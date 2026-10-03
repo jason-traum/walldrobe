@@ -549,3 +549,11 @@ svg.is-dragging .measure { opacity: 0.25; }
 
 /* The touch area around a small box: invisible, but it takes the tap. */
 .hit-pad { fill: transparent; stroke: none; pointer-events: all; }
+
+/* The taste test, as one item in the list of walls. */
+.taste-card { list-style: none; }
+.taste-link { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); color: var(--ink); text-decoration: none; min-height: 44px; }
+.taste-pair { display: flex; align-items: center; gap: 8px; padding: 6px 0 0 6px; }
+.taste-or { font-size: 13px; color: var(--pencil); }
+.taste-text { display: grid; gap: 2px; }
+.taste-text .name { font-weight: 600; color: var(--tape); }

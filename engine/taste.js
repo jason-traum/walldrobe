@@ -125,7 +125,8 @@ function bestPair(sl, feats, scoreOf) {
 //   explore: a pair that differs most on what the model knows nothing about yet.
 // With no picks at all (every pair skipped), it keeps contrasting themes.
 export function nextPair(items, picks, shownIds = new Set()) {
-  const sl = shortlist(items).filter((it) => !shownIds.has(it.id));
+  // The shortlist is drawn from what hasn't been shown, so a second test gets fresh pairs, not leftovers.
+  const sl = shortlist(items.filter((it) => !shownIds.has(it.id)));
   const step = Math.floor(shownIds.size / 2); // pairs shown so far, skips included
   const opener = OPENERS[step % OPENERS.length];
   if (step < OPENERS.length || !picks.length) {

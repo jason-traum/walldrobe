@@ -35,6 +35,11 @@ with sync_playwright() as p:
         pg.screenshot(path=f'{OUT}/feed-{W}.png')
         check(f'{W} feed has walls', pg.locator('.entry-link').count() > 2)
         check(f'{W} feed no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
+        check(f'{W} the taste test sits in the list after the second wall', pg.evaluate("(() => { const c = document.querySelector('.taste-card'); return !!c && c.previousElementSibling && [...document.querySelectorAll('.feed > li.entry')].indexOf(c.previousElementSibling) === 1; })()"))
+        nw = pg.locator('.entry-link').count()
+        vis(pg, '[data-act=more-walls]').click(); pg.wait_for_timeout(5000)
+        check(f'{W} Show more walls adds walls at the end', pg.locator('.entry-link').count() > nw, f"{nw} then {pg.locator('.entry-link').count()}")
+        pg.evaluate('window.scrollTo(0, 0)'); pg.wait_for_timeout(300)
         # A tap on a drawn piece in the list opens that wall, not the first one.
         n = pg.locator('.entry-link').count()
         target = next((i for i in range(n) if pg.locator('.entry-link').nth(i).locator('g.art.is-new').count() >= 3), 2)
