@@ -435,12 +435,12 @@ function home() {
     <div class="drawing hero">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, still: true, pxWide: 900, label: 'A sample living room wall, with new pieces taped up where they would hang' })}<span class="chip">Sample wall</span></div>
     <div class="home-copy">
       <h1>A wardrobe for your walls</h1>
-      <p class="lede">Take one photo of a wall. Walldrobe lays out new art around what you already own, at real size, and shows you where to put the tape before you drill.</p>
+      <p class="lede">Take one photo of a wall. Walldrobe lays out new art around what you already own, at real size, and shows you where each nail goes.</p>
       <div class="acts">
         <a class="btn" href="#/new">${resume ? 'Start a new wall' : 'Start with your wall'}</a>
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
-      <p class="how">One photo, then check what we found. Pick a wall from the list. Tape it up, step back, hang it.</p>
+      <p class="how">One photo, then check what we found. Pick a wall from the list. Get the art and hang it.</p>
     </div>
   </main>
   ${credits()}`;
@@ -1586,7 +1586,7 @@ function getScreen() {
   }).join('');
   return `${bar(back('#/wall', 'This wall'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
   <main class="page get">
-    <h1>${fresh.length ? 'Get it, tape it, hang it' : 'Tape it, hang it'}</h1>
+    <h1>${fresh.length ? 'Get it, hang it' : 'Hang it'}</h1>
     ${flashHtml()}
     ${fresh.length ? `<section aria-labelledby="buy-h"><h2 id="buy-h">What to get</h2>
       <ul class="buy-list">${buy}</ul>
@@ -1604,9 +1604,8 @@ function getScreen() {
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
         <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${esc(size(p.w, p.h))} frame</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
-        <li>Cut a piece of paper or tape to each frame's size and stick it up where the drawing shows it. Step back and look before you drill.</li>
         <li>Hang the biggest piece first; the others measure off it.</li>
-        <li>Mark each nail on the tape, drill through it, then peel it off.</li>
+        <li>Mark each nail in pencil, then nail or drill.</li>
         ${anyRef ? `<li>Measuring from the nearest edge, like the TV's, keeps any error small${estimate ? ', which helps while the wall size is an estimate' : ''}.</li>` : ''}
       </ol>
     </section>
