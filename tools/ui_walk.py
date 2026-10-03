@@ -162,6 +162,20 @@ with sync_playwright() as p:
             u.click(); pg.wait_for_timeout(2500)
             vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
             check(f'{W} undo puts Any back', vis(pg, '#sheet [data-style=""][aria-pressed=true]') is not None)
+        # New art in the open frames: the frames stay, every new piece changes; Undo brings them back.
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        box0 = box(); a0 = arts(pg)
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+        na = vis(pg, '#sheet [data-act=new-art]'); check(f'{W} New art in the open frames is there', na is not None)
+        if na:
+            na.click(); pg.wait_for_timeout(2500)
+            spots = lambda b: sorted(x.split('@')[1] for x in b)
+            check(f'{W} new art keeps the frames', spots(box()) == spots(box0))
+            fresh0 = [i for i in a0 if i not in ('blue', 'pink')]
+            check(f'{W} new art changes every new piece', all(i not in arts(pg) for i in fresh0), f'{len(fresh0)} new')
+            u = vis(pg, '[data-act=undo]'); check(f'{W} undo after new art', u is not None)
+            if u: u.click(); pg.wait_for_timeout(1500); check(f'{W} undo brings the art back', sorted(arts(pg)) == sorted(a0))
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
         # Free art only.
         vis(pg, '#sheet [data-art=photos]').click(); pg.wait_for_timeout(3000)
         ids = [i for i in arts(pg) if i not in ('blue', 'pink')]

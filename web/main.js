@@ -312,6 +312,23 @@ function removeFrame(id) {
   S.ui.saved = null; persist();
   S.undo = { label: 'Removed.', run: () => { if (!wasSkipped) d.skipped = d.skipped.filter((x) => x !== id); replaceWall(prev.key, prev); persist(); } };
 }
+// New art in every open frame: same frames, new picks; kept pieces and yours stay. With Undo.
+function newArt() {
+  const L = shown();
+  if (!L) return;
+  const open = L.pieces.filter((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id));
+  if (!open.length) { S.flash = 'Every frame here is yours or kept.'; return; }
+  const seen = [...(S.seen.get(L.key) || [])].filter((x) => !keptSet().has(x));
+  let r = refill({ ...engineInput(), keep: keepList(), exclude: seen }, L);
+  if (!r.layouts.length) r = refill({ ...engineInput(), keep: keepList(), exclude: open.map((p) => p.ref.id) }, L);
+  if (!r.layouts.length) { S.flash = r.problems[0] ? r.problems[0].message : 'No other art fits these frames.'; return; }
+  const prev = L;
+  const next = { ...r.layouts[0], history: L.history, moved: L.moved };
+  replaceWall(L.key, next);
+  remember(next);
+  S.ui.saved = null; persist();
+  S.undo = { label: `New art in ${open.length === 1 ? 'the open frame' : `${open.length} frames`}.`, run: () => { replaceWall(prev.key, prev); persist(); } };
+}
 // Put a picked print in this spot: one piece changes, the frames stay, with Undo.
 function swapTo(id, to) {
   const L = shown();
@@ -1245,6 +1262,7 @@ function changeSheet() {
     ${seg('full-l', 'How full', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness')}
     ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
     <ul class="sheet-list">
+      ${onWall && L && L.pieces.some((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)) ? '<li><button type="button" class="sheet-item" data-act="new-art">New art in the open frames</button></li>' : ''}
       ${onWall && L && L.pieces.some(movable) ? `<li><button type="button" class="sheet-item" data-act="edit">${S.edit ? 'Stop moving pieces' : 'Move pieces by hand'}</button></li>` : ''}
       ${onWall && L && S.view.orig && S.view.orig[L.key] ? '<li><button type="button" class="sheet-item" data-act="put-back">Put this wall back the way it was</button></li>' : onWall && L && L.history && L.history.length ? '<li><button type="button" class="sheet-item" data-act="undo-all">Put the pieces back the way they were</button></li>' : ''}
       ${asIs && (!onWall || asIs.key !== (L && L.key)) ? `<li><a class="sheet-item" href="#/wall" data-wall="${esc(asIs.key)}">Show it as it hangs now</a></li>` : ''}
@@ -2116,6 +2134,7 @@ document.addEventListener('click', (e) => {
       S.sheet = null; render(); break;
     }
     case 'remove': removeFrame(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
+    case 'new-art': newArt(); S.sheet = null; S.selected = null; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
     case 'all-choices': S.ui.allFor = S.ui.allFor === t.dataset.id ? null : t.dataset.id; S.ui.sheetStay = true; render(); break;
     case 'swap': {
       const id = t.dataset.id; S.flash = null;
