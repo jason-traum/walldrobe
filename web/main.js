@@ -1276,7 +1276,7 @@ function taste() {
   }
   const q = S.quiz;
   const [a, b] = q.pair;
-  const card = (it) => `<button type="button" class="pick" data-pick="${esc(it.id)}" aria-label="${esc(it.title)}"><span class="pick-art" style="aspect-ratio:${it.aspect || 0.8}"><img src="${it.imageData}" alt=""></span><span class="pick-name">${esc(it.title)}</span></button>`;
+  const card = (it) => `<button type="button" class="pick" data-pick="${esc(it.id)}" aria-label="${esc(it.title)}"><span class="pick-art" style="--a:${it.aspect || 0.8}"><img src="${it.imageData}" alt=""></span><span class="pick-name">${esc(it.title)}</span></button>`;
   return `${bar(back('#/layouts', 'Your walls'), `<span class="count">${q.n + 1} of ${QUIZ_LENGTH}</span>`)}
   <main class="page quiz">
     <h1>Which would you rather have on your wall?</h1>
@@ -1452,7 +1452,7 @@ function wallScreen() {
   }).join('');
   const total = wallCost(L);
   return `${bar(back('#/layouts', 'All walls'), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
-  <main class="wall-page">
+  <main class="wall-page" style="--ar:${(d.width / d.height).toFixed(3)}">
     <div class="wall-main">
     <div class="drawing-wrap${S.edit ? ' is-editing' : ''}" id="drawing-wrap">
       <div class="drawing" id="drawing">${drawWall(L, pxNow(), { selected: S.selected, measure: S.measure || S.edit, label: `Wall ${i + 1} of ${v.list.length}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
