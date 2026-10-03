@@ -466,3 +466,8 @@ svg.is-dragging .measure { opacity: 0.25; }
 .name-in input { width: 100%; }
 .sheet-x { z-index: 2; }
 .sheet > .drawing { margin-top: 36px; }
+
+/* ---------- v4: Favorites (round 9) ---------- */
+.fav-acts { display: flex; flex-wrap: wrap; gap: 0 12px; padding-right: 40px; }
+.fav-acts .link { min-height: 44px; padding: 0; font-size: 14px; }
+.saved-page .piece .heart { bottom: auto; top: 158px; }
