@@ -108,7 +108,15 @@ with sync_playwright() as p:
             if u: u.click(); pg.wait_for_timeout(1500); check(f'{W} undo puts the frame back', box() == b0)
         # Your piece opens its sheet.
         y = vis(pg, '.yours-pc')
-        if y: y.click(); pg.wait_for_timeout(800); check(f'{W} your piece sheet opens', vis(pg, '#sheet') is not None); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
+        if y:
+            y.click(); pg.wait_for_timeout(800); check(f'{W} your piece sheet opens', vis(pg, '#sheet') is not None)
+            pg.screenshot(path=f'{OUT}/yours-sheet-{W}.png')
+            check(f'{W} your piece has Keep, Maybe, Skip', pg.locator('#sheet [data-keep]').count() == 3)
+            n0 = pg.locator('.yours-pc').count()
+            vis(pg, '#sheet [data-keep=skip]').click(); pg.wait_for_timeout(2000)
+            check(f'{W} Skip takes your piece out', pg.locator('.yours-pc').count() == n0 - 1)
+            u = vis(pg, '[data-act=undo]'); check(f'{W} undo after skip', u is not None)
+            if u: u.click(); pg.wait_for_timeout(2000); check(f'{W} undo brings your piece back', pg.locator('.yours-pc').count() == n0)
         # Previous and next.
         cnt = lambda: pg.evaluate("document.querySelector('.pager .count').innerText")
         here = cnt(); nx = vis(pg, '.pager [aria-label="Next wall"]'); nx.click(); pg.wait_for_timeout(1200)

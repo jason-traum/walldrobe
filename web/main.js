@@ -94,7 +94,8 @@ function upgradeDraft(d) {
   d.saved = d.saved || []; d.skipped = d.skipped || []; d.kept = d.kept || [];
   d.fullness = d.fullness || 'balanced';
   if (d.taste && !d.taste.picks) d.taste.picks = [];
-  for (const o of d.owned || []) if (o.keep !== 'skip') { if (o.keep !== 'must') o.pinned = false; o.keep = 'must'; }
+  // Keep, Maybe (happy) or Skip; older keep settings become Keep.
+  for (const o of d.owned || []) if (o.keep !== 'skip' && o.keep !== 'happy') { if (o.keep !== 'must') o.pinned = false; o.keep = 'must'; }
   return d;
 }
 upgradeDraft(S.draft);
@@ -129,7 +130,7 @@ const keptOwned = () => S.draft.owned.filter((o) => o.keep !== 'skip');
 function engineInput() {
   const d = S.draft;
   const owned = keptOwned().map((p) => ({
-    id: p.id, title: p.title, w: p.w, h: p.h, keep: p.loosen ? 'happy' : 'must', drop: p.drop,
+    id: p.id, title: p.title, w: p.w, h: p.h, keep: p.loosen || p.keep === 'happy' ? 'happy' : 'must', drop: p.drop,
     pinned: !!(p.pinned && p.at), at: p.at || undefined,
     palette: p.palette && p.palette.length ? p.palette : p.color ? [{ hex: p.color, weight: 1 }] : undefined,
   }));
@@ -697,8 +698,10 @@ function tvCandidate(d) {
   return best ? best.id : null;
 }
 
+// Keep: in every wall. Maybe: in a wall only when it earns its place. Skip: left out.
 const KEEP_SEG = (o) => `<span class="seg" role="group" aria-label="Your ${esc(o.title)}">
-  <button type="button" data-keep="must" data-oid="${esc(o.id)}" aria-pressed="${o.keep !== 'skip'}">Keep</button>
+  <button type="button" data-keep="must" data-oid="${esc(o.id)}" aria-pressed="${o.keep !== 'skip' && o.keep !== 'happy'}">Keep</button>
+  <button type="button" data-keep="happy" data-oid="${esc(o.id)}" aria-pressed="${o.keep === 'happy'}">Maybe</button>
   <button type="button" data-keep="skip" data-oid="${esc(o.id)}" aria-pressed="${o.keep === 'skip'}">Skip</button></span>`;
 
 function check() {
@@ -1224,12 +1227,9 @@ function pieceSheet(id) {
   if (own) {
     const o = d.owned.find((x) => x.id === id);
     return `<h2 id="sheet-h">Your ${esc(p.title)}</h2>
-      <div class="sheet-art"><span class="art-big" style="aspect-ratio:${p.w}/${p.h}">${o && o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span></div>
       <p class="meta">${p.w} x ${p.h} in. ${moveNote(p)}</p>
-      <div class="acts left">
-        ${o && o.at ? `<button type="button" class="btn quiet" data-pin="${esc(id)}">${p.role === 'pinned' ? 'Let it move' : 'Pin it where it hangs'}</button>` : ''}
-        <button type="button" class="btn quiet" data-keep="skip" data-oid="${esc(id)}">Leave it out</button>
-      </div>`;
+      ${o ? KEEP_SEG(o) : ''}
+      ${o && o.at && o.keep !== 'happy' ? `<div class="acts left"><button type="button" class="btn quiet" data-pin="${esc(id)}">${p.role === 'pinned' ? 'Let it move' : 'Pin it where it hangs'}</button></div>` : ''}`;
   }
   const item = byId.get(id);
   const c = item.offers && item.offers.length ? offersAt(item, p.w, p.h).main : null;
@@ -1976,10 +1976,14 @@ document.addEventListener('click', (e) => {
   if (t.dataset.keep && t.dataset.oid) {
     const o = S.draft.owned.find((x) => x.id === t.dataset.oid);
     if (o) {
-      o.keep = t.dataset.keep === 'skip' ? 'skip' : 'must';
-      if (o.keep === 'skip') o.pinned = false;
+      const was = { keep: o.keep, pinned: o.pinned };
+      o.keep = ['skip', 'happy'].includes(t.dataset.keep) ? t.dataset.keep : 'must';
+      if (o.keep !== 'must') o.pinned = false;
+      if (o.keep === was.keep) return;
       S.mem.clean = null;
-      if (route()[0] === 'wall') { S.sheet = null; rebuild('keep'); return; }
+      const label = { must: 'Kept in every wall.', happy: 'Maybe.', skip: 'Left out.' }[o.keep];
+      const openWas = S.openKey;
+      if (route()[0] === 'wall') { S.sheet = null; rebuild('keep', { label, run: () => { Object.assign(o, was); S.mem.clean = null; S.openKey = openWas; persist(); } }); return; }
       resetLayouts(); persist(); render();
     }
     return;
