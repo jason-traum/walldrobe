@@ -141,7 +141,7 @@ These are secondary, not dropped. Their code stays on the v2 and v3 branches and
 | Art filters: people, price, color, shop | Not asked for in the loop; which art is enough for now | 13 |
 | What we learned page and Never show me | The engine keeps using them; the page waits | 40, 46 |
 | Your art from before on a new wall | Small; after compare works | 11 |
-| Wall sections and a whole home | Engine first | 49 |
+| Wall sections and a whole home | Sections on one wall built (2026-10-03); corner photos and a home next | 49, 92 |
 | On a computer, small icons on hover (heart, keep) to skip opening the sheet | The phone comes first; same actions, added later | 39, 64 |
 | Tap to lock, double tap to like | Replaced: a tap opens the piece (row 64); no double tap, it fights zoom on iPhone | 39 |
 
@@ -185,6 +185,8 @@ Most walls aren't one clean rectangle, and walls in one home are seen together. 
 - **Photos.** One photo per wall is simplest and stays the default. A corner photo could be read as two walls later; today the reader merges the two in 22 of the 33 corner photos.
 
 Order to build: sections on one wall (the soffit is already half of it), then two walls from one corner photo, then a home.
+
+Built (2026-10-03): sections on one wall, split by wall edges, each with its own group and the wall judged as one (ENGINE.md, "Walls with sections"). Not yet: each face of a corner photo flattened on its own, sections with their own height or depth, and a home.
 
 ## Side pages (planned)
 
