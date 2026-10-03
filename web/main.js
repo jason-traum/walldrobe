@@ -106,6 +106,10 @@ upgradeDraft(S.draft);
 
 const route = () => (location.hash.replace(/^#\/?/, '') || '').split('/');
 function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
+window.addEventListener('popstate', () => {
+  if (S.ui.ownBack) { S.ui.ownBack = false; return; }
+  if (S.sheet) { S.ui.sheetStep = false; S.sheet = null; S.selected = null; S.ui.allFor = null; render(); }
+});
 window.addEventListener('hashchange', () => { S.mem.under = null; S.flash = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
 
 // ---------- Shell ----------
@@ -528,7 +532,7 @@ function start() {
     ${d && d.photo ? '<p><a href="#/check">Keep using the photo you added</a></p>' : ''}
     <details class="more"${S.ui.sizeErr ? ' open' : ''}>
       <summary>No photo? Type the size</summary>
-      <form id="size-form" class="fields">
+      <form id="size-form" class="fields" novalidate>
         <fieldset><legend>Width</legend>
           <span class="pair"><label><input type="number" inputmode="numeric" min="2" max="40" name="wft" value="${ft(d && d.width)}" required> ft</label>
           <label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d && d.width)}"> in</label></span>
@@ -763,7 +767,7 @@ function foundSentence(d) {
   if (n('door')) parts.push(count(n('door'), 'a door', '# doors'));
   if (n('mirror')) parts.push(count(n('mirror'), 'a mirror', '# mirrors'));
   if (d.owned.length) parts.push(d.owned.length === 1 ? '1 piece of art you already have' : `${d.owned.length} pieces of art you already have`);
-  if (!parts.length) return 'Nothing in the way. A bare wall.';
+  if (!parts.length) return "We didn't find anything in the way.";
   const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   return `We found ${list}.`;
 }
@@ -872,7 +876,7 @@ function check() {
     ${S.ui.quality ? `<p class="note">${esc(S.ui.quality)}</p>` : ''}
     <div class="drawing photo-check${picked && boxOf(picked) ? ' has-pick' : ''}" id="check-wall">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened, with what we found marked' })}</div>
     <p class="small pencil">Tap a box to pick it. Drag a corner to resize it, or the middle to move it.</p>
-    ${auto ? `<form id="dims-form" class="fields dims">
+    ${auto ? `<form id="dims-form" class="fields dims" novalidate>
       <fieldset><legend>Wall width</legend>
         <span class="pair"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
         <span class="help">${esc(guess)}</span>${tvPick}</fieldset>
@@ -886,7 +890,7 @@ function check() {
     ${d.owned.length ? `<ul class="rows">${artRows}</ul>` : '<p class="pencil">We didn\'t find any art on this wall.</p>'}
     <div class="acts left"><button type="button" class="btn quiet small" data-act="add-not-up">Add art that isn't up yet</button><a class="btn quiet small" href="#/pieces">Mark art we missed</a></div>
     <h2>In the way</h2>
-    ${d.obstacles.length ? `<ul class="rows">${obRows}</ul>` : '<p class="pencil">Nothing in the way. A bare wall.</p>'}
+    ${d.obstacles.length ? `<ul class="rows">${obRows}</ul>` : '<p class="pencil">We didn\'t find anything in the way. If something is there, mark it so the art clears it.</p>'}
     <div class="acts left"><a class="btn quiet small" href="#/things">Mark something we missed</a></div>
     <div class="dock"><a class="btn wide" href="#/layouts">Show me my wall</a></div>
   </main>`;
@@ -984,13 +988,16 @@ function corners() {
   const c = p.corners;
   const err = cornerProblem(c, p.w, p.h);
   const r = Math.max(p.w, p.h) / 45;
+  // The touch circle is at least 24 px across the radius on screen (48 px wide), whatever the photo's size.
+  const onScreen = Math.max(1, Math.min((window.innerWidth || 390) - 48, 760)) / p.w;
+  const hit = Math.max(r * 2.2, 24 / onScreen);
   const names = ['Top left', 'Top right', 'Bottom right', 'Bottom left'];
   const seen = p.seen || {};
   const misses = [
-    seen.ceiling === false ? "We couldn't see the ceiling, so the top dots are at the top of the photo. You'll set the ceiling height next." : null,
+    seen.ceiling === false ? "We couldn't see the ceiling, so the top dots are at the top of the photo. Check the ceiling height on the next screen." : null,
     seen.soffit ? "There's a soffit over this wall, so the top dots are under it. Art goes below it." : null,
     seen.model === false ? "The photo reader didn't load, so these are rougher guesses than usual." : null,
-    seen.floorFrom === 'stand' ? 'The floor is hidden behind the furniture, so the bottom dots are a guess from your TV stand.' : seen.floor === false ? "We couldn't see where the wall meets the floor. Drag the bottom dots down to it." : null,
+    seen.floorFrom === 'stand' ? 'The floor is hidden behind the furniture, so the bottom dots are a guess from your TV stand.' : seen.floor === false ? "Check that the bottom dots sit where the wall meets the floor. Behind furniture, guess." : null,
   ].filter(Boolean);
   return `${bar(back('#/start', 'Photo'))}
   <main class="page">
@@ -1001,7 +1008,7 @@ function corners() {
         <image href="${p.src}" x="0" y="0" width="${p.w}" height="${p.h}"/>
         <polygon points="${c.map((x) => x.join(',')).join(' ')}" class="quad"/>
         ${c.map(([x, y], i) => `<g class="handle${(S.ui.corner || 0) === i ? ' is-picked' : ''}" data-corner="${i}" tabindex="0" role="button" aria-label="${names[i]} corner. Drag it, or use the arrow keys.">
-          <circle cx="${x}" cy="${y}" r="${r * 2.2}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${r}" class="handle-dot"/></g>`).join('')}
+          <circle cx="${x}" cy="${y}" r="${hit}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${r}" class="handle-dot"/></g>`).join('')}
       </svg>
     </div>
     <p class="${err ? 'error' : 'small pencil'}" id="corner-msg">${esc(err || S.ui.cornerErr || 'Drag a dot, and a close-up shows what is under your finger. Tap a dot, then nudge it.')}</p>
@@ -1067,8 +1074,8 @@ function sizeScreen() {
   return `${bar(back('#/corners', 'Corners'))}
   <main class="page">
     <h1>One real measurement</h1>
-    <p class="lede">${widthOnly ? "There's no TV in the photo clear enough to size the wall from. Measure the wall's width; you'll set the ceiling height next." : "There's no TV in the photo clear enough to size the wall from. Measure its width, or its height from floor to ceiling, and we work out the other."}</p>
-    <form id="measure-form" class="fields">
+    <p class="lede">${widthOnly ? "There's no TV in the photo clear enough to size the wall from. Measure the wall's width; you can check the ceiling height after." : "There's no TV in the photo clear enough to size the wall from. Measure its width, or its height from floor to ceiling, and we work out the other."}</p>
+    <form id="measure-form" class="fields" novalidate>
       ${widthOnly ? '' : `<span class="seg" role="group" aria-label="What you measured">
         <button type="button" data-which="width" aria-pressed="${m.which === 'width'}">Width</button>
         <button type="button" data-which="height" aria-pressed="${m.which === 'height'}">Height</button>
@@ -1496,7 +1503,7 @@ function pieceSheet(id) {
   const choice = (ch) => {
     const it = byId.get(ch.id);
     return `<li><button type="button" class="choice" data-choice="${esc(ch.id)}" data-for="${esc(id)}" aria-label="Put ${esc(it.title)} here${ch.favorite ? ', a favorite' : ''}">
-      <span class="tn new" style="aspect-ratio:${ar}"><img src="${it.imageData}" alt="" data-title="${esc(it.title)}"></span>${ch.favorite ? `<span class="fav-mark" aria-hidden="true">${heart(true)}</span>` : ''}
+      <span class="tn new" style="aspect-ratio:${ar}"><img src="${it.imageData}" alt="" data-title="${esc(it.title)}" loading="lazy" decoding="async"></span>${ch.favorite ? `<span class="fav-mark" aria-hidden="true">${heart(true)}</span>` : ''}
     </button></li>`;
   };
   return `<h2 id="sheet-h">${esc(item.title)}</h2>
@@ -1667,7 +1674,7 @@ function getScreen() {
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <h2 id="guide-h">Where the nails go</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : ''}
-      <form class="fields drop-form" id="drop-form">
+      <form class="fields drop-form" id="drop-form" novalidate>
         <label for="drop">Wire or hanger sits</label>
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
         <span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>
@@ -1779,7 +1786,7 @@ function compare() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['style', 'art', 'count', 'step', 'choice', 'for', 'onwall', 'nudge', 'pin', 'wall', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -1811,11 +1818,28 @@ function render() {
   // that waited behind a slow build still counts as part of the double tap.
   if (S.ui.hadSheet && !S.sheet) S.ui.calm = performance.now() + 300;
   S.ui.hadSheet = !!S.sheet;
+  // An open sheet is a step in the browser's history, so Back (or the iPhone's swipe)
+  // closes the sheet instead of leaving the page. Closing it any other way takes the step back off.
+  if (S.sheet && !S.ui.sheetStep) { S.ui.sheetStep = true; try { history.pushState({ wdSheet: true }, ''); } catch { /* no history */ } }
+  else if (!S.sheet && S.ui.sheetStep) {
+    // Wait a beat: a rebuild closes the sheet for a moment and opens it again in the same tap.
+    setTimeout(() => {
+      if (S.sheet || !S.ui.sheetStep) return;
+      S.ui.sheetStep = false;
+      try { if (history.state && history.state.wdSheet) { S.ui.ownBack = true; history.back(); } } catch { /* no history */ }
+    }, 0);
+  }
   document.body.classList.toggle('has-sheet', !!S.sheet);
   document.body.classList.toggle('on-wall', r0 === 'wall');
   document.body.classList.toggle('on-home', !r0);
-  if (S.sheet) { const s = $('#sheet'); if (s && !s.contains(document.activeElement)) (s.querySelector('h2') || s).setAttribute('tabindex', '-1'), (s.querySelector('h2') || s).focus({ preventScroll: true }); }
-  else if (sel) { const again = document.querySelector(sel); if (again) again.focus({ preventScroll: true }); }
+  // Focus stays on the control you used when it's still there (in a sheet too); a sheet
+  // that just opened puts it on its heading.
+  const again = sel ? document.querySelector(sel) : null;
+  if (S.sheet) {
+    const s = $('#sheet');
+    if (s && again && s.contains(again)) again.focus({ preventScroll: true });
+    else if (s && !s.contains(document.activeElement)) { const h = s.querySelector('h2') || s; h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  } else if (again) again.focus({ preventScroll: true });
   wire(r0);
   // One live region outside the app, so messages are announced even though the page re-renders.
   const live = $('#live');
@@ -2232,6 +2256,8 @@ document.addEventListener('submit', (e) => {
     const v = (n) => (f.elements[n] ? Number(f.elements[n].value || 0) : 0);
     const known = v('ft') * 12 + v('in');
     if (!(known > 12)) { S.ui.sizeErr = 'Give the measurement in feet and inches.'; render(); return; }
+    // The app's own words for a number out of range, not the browser's bubble.
+    if (S.draft.photo.measure.which === 'width' ? known > 600 || known < 24 : known > 240 || known < 60) { S.ui.sizeErr = S.draft.photo.measure.which === 'width' ? 'A wall between 2 ft and 50 ft wide works here. Check the width.' : 'A wall between 5 ft and 20 ft tall works here. Check the height.'; render(); return; }
     const prevKnown = p.measure.value;
     p.measure.value = known;
     const { aspect } = aspectFromCorners(p.corners, p.w, p.h);
@@ -2431,8 +2457,12 @@ document.addEventListener('click', (e) => {
     }
     if (['fullness', 'style', 'art', 'justMine', 'pieces'].every((k) => was[k] === d[k])) { S.stepBase = null; return; }
     S.openKey = S.draft.chosen && S.draft.chosen.inputKey === viewKey() ? S.draft.chosen.layout.key : null;
-    rebuild('shape', { label: 'Changed.', run: () => { Object.assign(d, was); S.stepBase = null; S.openKey = openWas; persist(); } });
-    S.sheet = 'change'; S.ui.sheetStay = true; S.focusAfter = null; render();
+    // Several changes in a row each step back on their own, newest first.
+    const prevUndo = S.undo && S.undo.shape ? S.undo : null;
+    // Like rebuild(), but the sheet never closes in between, so focus stays on the option you picked.
+    S.flash = null; S.selected = null; S.openKey = null;
+    S.undo = { label: 'Changed.', shape: true, prev: prevUndo, run: () => { Object.assign(d, was); S.stepBase = null; S.openKey = openWas; persist(); } };
+    S.sheet = 'change'; S.ui.sheetStay = true; S.focusAfter = focusSelector(t); persist(); render();
     return;
   }
   if (t.dataset.save) {
@@ -2536,7 +2566,7 @@ document.addEventListener('click', (e) => {
       setTimeout(() => { try { swapPiece(id); } finally { S.busy = null; S.sheet = null; S.selected = null; render(); const u = document.querySelector('[data-act="undo"]') || document.querySelector('#drawing-wrap'); if (u) u.focus({ preventScroll: true }); } }, 30);
       break;
     }
-    case 'undo': if (S.undo) { S.undo.run(); S.undo = null; S.flash = null; render(); } break;
+    case 'undo': if (S.undo) { const u = S.undo; u.run(); S.undo = u.prev || null; S.flash = null; render(); } break;
     case 'edit': S.edit = !S.edit; S.sheet = null; S.selected = null; S.flash = null; if (S.edit) S.measure = true; render(); break;
     case 'measure': S.measure = !S.measure; S.sheet = null; render(); break;
     case 'undo-move': case 'undo-all': { const L = shown(); if (L) undoMove(L, a === 'undo-all'); S.sheet = null; S.flash = null; render(); break; }
