@@ -154,6 +154,15 @@ function pinStrip(x, y, id) {
 // One piece. `img` is the art, cropped to the opening, never stretched.
 // kind: 'own' (a frame of yours), 'pin' (yours, stays put), 'new' (blue tape),
 // 'kept' (green tape).
+// The title shown on the paper while its image loads, or if it never does: at least
+// 10 px on screen, cut to what fits the paper's width.
+function waitTitle(title, cx, cy, iw, ppi) {
+  const fs = Math.max(10 / (ppi || 3), Math.min(2.4, iw / 8));
+  const fit = Math.max(3, Math.floor(iw / (fs * 0.56)));
+  const t = String(title || '');
+  const txt = t.length > fit ? `${t.slice(0, fit - 1).trimEnd()}.` : t;
+  return `<text x="${cx}" y="${cy}" font-size="${fs}" class="art-wait">${esc(txt)}</text>`;
+}
 function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
@@ -177,7 +186,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }
     return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" fill="${hex}"${light ? ' class="frame-light"' : ''}/>
     <rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/>
-    ${(() => { const t = String(p.title || '').slice(0, 22), iw = p.w - 2 * (f + m); return `<text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(0.6, Math.min(2.4, iw / Math.max(1, t.length * 0.62)))}" class="art-wait">${esc(t)}</text>`; })()}
+    ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, p.w - 2 * (f + m), ppi)}
     ${img ? `<image href="${img}" x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" preserveAspectRatio="xMidYMid slice"/>` : ''}
     ${sel}
   </g>`;
@@ -185,7 +194,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }
   const m = Math.min(p.w, p.h) * 0.045;
   return `<g class="${cls}" data-id="${esc(p.ref.id)}" ${label}>
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="paper" filter="url(#wd-shadow-soft)"/>
-    <text x="${p.x + p.w / 2}" y="${y + p.h / 2}" font-size="${Math.max(1.2, Math.min(2.4, p.w / 10))}" class="art-wait">${esc(String(p.title || '').slice(0, 22))}</text>
+    ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, p.w - 2 * m, ppi)}
     ${img ? `<image href="${img}" x="${p.x + m}" y="${y + m}" width="${p.w - 2 * m}" height="${p.h - 2 * m}" preserveAspectRatio="xMidYMid slice"/>` : ''}
     ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi)}
     ${sel}

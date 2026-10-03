@@ -43,6 +43,19 @@ test('on a flattened wall it finds the TV, the stand, the lamp with its shade an
   assert.ok(Math.abs(guessWidth(r.items, 800, 65).inches - (800 / 280) * 57.25) < 7, 'a 65 in TV scales the wall up');
 });
 
+test('a print with a white mat on a pale wall is boxed at its frame, not just the print inside', () => {
+  const w = 800, h = 470, data = new Uint8ClampedArray(w * h * 4);
+  const put = (x0, y0, x1, y1, rgb) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) data.set([...rgb, 255], (y * w + x) * 4); };
+  put(0, 0, w, h, [226, 221, 210]);           // a pale wall, close to the mat
+  put(260, 95, 381, 256, [25, 25, 25]);       // frame
+  put(272, 107, 369, 244, [250, 250, 248]);   // white mat
+  put(287, 122, 353, 228, [60, 110, 170]);    // the print
+  put(190, 320, 591, 470, [92, 60, 46]);      // a dresser
+  const art = readWall({ data, width: w, height: h }).items.filter((i) => i.kind === 'art');
+  assert.equal(art.length, 1, JSON.stringify(art));
+  assert.ok(Math.abs(art[0].x - 260) <= 2 && Math.abs(art[0].w - 121) <= 3 && Math.abs(art[0].y - 95) <= 2 && Math.abs(art[0].h - 161) <= 3, JSON.stringify(art[0]));
+});
+
 test('a TV joined to a dark cabinet is not used for the scale, so there is no width guess', () => {
   const sc = scene();
   const put = (x0, y0, x1, y1, rgb) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) sc.data.set([...rgb, 255], (y * sc.width + x) * 4); };
