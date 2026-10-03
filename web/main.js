@@ -30,7 +30,7 @@ const S = {
   draft: store.loadDraft(),
   quiz: null,
   view: null, // { key, all, list, rankKey, problems }
-  openKey: null, // the wall that's open
+  openKey: store.loadDraft() && store.loadDraft().openKey || null, // the wall that's open, kept across visits
   selected: null,
   edit: false, // moving pieces by hand
   sheet: null, // null, 'change', or { piece: id }
@@ -61,7 +61,7 @@ function resetLayouts() { S.view = null; S.openKey = null; S.selected = null; S.
 // Back to your own wall after looking at a sample.
 function resumeDraft() {
   const d = store.loadDraft();
-  if (d && !d.sample) { S.draft = d; S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); ensurePixels().then(render).catch(() => {}); return true; }
+  if (d && !d.sample) { S.draft = d; S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); S.openKey = d.openKey || null; ensurePixels().then(render).catch(() => {}); return true; }
   return false;
 }
 // Where someone should be sent if they open a step before its inputs exist.
@@ -185,6 +185,9 @@ function build(key) {
       all = all.concat(more.filter((L) => !have.has(L.key)).map((L) => ({ ...L, score: (L.score || 0) - 0.05, other: f })));
     }
   }
+  // Walls you changed (a swap, a frame off, pieces moved) come back as you left them.
+  const edits = S.draft.edits || {};
+  all = all.map((L) => (edits[L.key] && edits[L.key].inputKey === key ? { ...edits[L.key].layout, key: L.key } : L));
   // A saved wall opens on the wall you chose, if it still fits.
   const chosen = S.draft.chosen;
   if (chosen && chosen.inputKey === key) all = [chosen.layout, ...all.filter((L) => L.key !== chosen.layout.key)];
@@ -223,6 +226,13 @@ function replaceWall(key, next) {
   v.orig = v.orig || {};
   if (!v.orig[key]) { const was = v.all.find((L) => L.key === key); if (was) v.orig[key] = was; }
   v.all = v.all.map((L) => (L.key === key ? { ...next, key } : L));
+  // Kept on the device by the inputs it was built from, so leaving and coming back finds it as you left it.
+  const edits = { ...(S.draft.edits || {}) };
+  delete edits[key];
+  edits[key] = { inputKey: v.key, layout: bareLayout({ ...next, key }) };
+  const keys = Object.keys(edits);
+  for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete edits[k];
+  S.draft.edits = edits;
   holdOpen(key);
   v.rankKey = null;
   S.openKey = key;
@@ -1122,6 +1132,7 @@ function wallScreen() {
   const d = S.draft;
   const L = shown();
   S.openKey = L.key;
+  if (d.openKey !== L.key) { d.openKey = L.key; persist(); }
   const i = v.list.findIndex((x) => x.key === L.key);
   const prev = v.list[i - 1], next = v.list[i + 1];
   if (S.selected && !L.pieces.some((p) => p.ref.id === S.selected)) S.selected = null;
