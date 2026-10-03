@@ -133,6 +133,16 @@ export function validateCatalog(records) {
 }
 
 // What layout() reads. Keeps the record around for the screens and the taste model.
+// A size the shop no longer sells is not one we suggest: when a record has shop
+// offers, only sizes a live offer comes in are kept (an offer with no size covers any).
+function liveSizes(r) {
+  const offers = r.offers || [];
+  if (!offers.length) return r.sizes;
+  const live = liveOffers(r);
+  const sells = (s) => live.some((o) => !o.w || !o.h || (o.w === s.w && o.h === s.h) || (o.w === s.h && o.h === s.w));
+  return r.sizes.filter(sells);
+}
+
 export function toCandidate(r) {
   return {
     id: r.id,
@@ -143,7 +153,7 @@ export function toCandidate(r) {
     url: r.source.page,
     image: r.image.src,
     palette: r.color.palette.map(({ hex, weight }) => ({ hex, weight })),
-    sizes: r.sizes.map(({ w, h, price }) => (price == null ? { w, h } : { w, h, price })),
+    sizes: liveSizes(r).map(({ w, h, price }) => (price == null ? { w, h } : { w, h, price })),
     bw: r.color.bw,
     quality: r.quality && typeof r.quality.score === 'number' ? r.quality.score : null,
     weight: r.composition.weight,

@@ -61,16 +61,21 @@ export function fitTaste(picks, { steps = 80, rate = 0.6, l2 = 0.03 } = {}) {
     }
     for (let i = 0; i < dim; i++) w[i] += rate * (g[i] / pairs.length - l2 * w[i]);
   }
-  return w;
+  // Few picks, little confidence: the weights shrink toward neutral until there are
+  // enough picks to trust them (one pick counts a quarter, ten about three quarters).
+  const sure = picks.length / (picks.length + TASTE_PRIOR);
+  return w.map((x) => x * sure);
 }
+const TASTE_PRIOR = 3;
+const TASTE_SCALE = 1.5;
 
-// Scores from 0.2 to 0.9 for every item, ready for layout({ taste }).
+// Scores from 0.1 to 0.9 for every item, ready for layout({ taste }). Each piece's
+// score depends only on the weights and that piece, never on what else is in the list,
+// so adding art doesn't move the scores of the rest, and weak evidence stays near 0.5.
 export function scoreTaste(weights, items) {
   const out = {};
   if (!weights) { for (const it of items) out[it.id] = 0.5; return out; }
-  const raw = items.map((it) => dot(weights, features(it)));
-  const lo = Math.min(...raw), hi = Math.max(...raw);
-  items.forEach((it, i) => { out[it.id] = Math.round((0.2 + 0.7 * (hi > lo ? (raw[i] - lo) / (hi - lo) : 0.5)) * 1000) / 1000; });
+  for (const it of items) out[it.id] = Math.round((0.5 + 0.4 * Math.tanh(dot(weights, features(it)) / TASTE_SCALE)) * 1000) / 1000;
   return out;
 }
 
@@ -694,7 +699,8 @@ export const subjectName = (s) => SUBJECT_NAMES[s] || s;
 export function subjectStats({ picks = [], saved = [], skipped = [], disliked = [] } = {}, byId = null) {
   const at = new Map();
   const add = (s, w, n) => { if (!s) return; const o = at.get(s) || { win: 0, loss: 0, n: 0 }; if (w > 0) o.win += w; else o.loss -= w; o.n += n; at.set(s, o); };
-  for (const p of picks) { const a = subjectOf(p.winner), b = subjectOf(p.loser); if (a && b && a === b) continue; add(a, 1, 1); add(b, -1, 1); }
+  // A pair is relative ("I like this one more"), so the loser's subject loses half as much as the winner's gains.
+  for (const p of picks) { const a = subjectOf(p.winner), b = subjectOf(p.loser); if (a && b && a === b) continue; add(a, 1, 1); add(b, -0.5, 0.5); }
   const get = (id) => (byId ? byId.get(id) : null);
   for (const id of saved) add(subjectOf(get(id)), 1, 1);
   for (const id of skipped) add(subjectOf(get(id)), -0.35, 0.35);
@@ -713,11 +719,12 @@ export function subjectFactor(stats, never, s) {
   if (never && never.has(s)) return 0;
   const o = stats.get(s);
   if (!o) return 1;
-  return o.lean < 0 ? Math.max(0.15, 1 + 1.1 * o.lean) : 1 + 0.35 * o.lean;
+  return o.lean < 0 ? Math.max(0.3, 1 + 0.9 * o.lean) : 1 + 0.35 * o.lean;
 }
-// Subjects people clearly turned down: at least two losses and no wins.
+// Subjects people clearly turned down: three losses' worth and no wins (an explicit
+// "not for me" counts one and a half; a lost pair, a half).
 export function dislikedSubjects(stats) {
-  return [...stats].filter(([, o]) => o.loss >= 2 && o.win === 0).map(([s]) => s);
+  return [...stats].filter(([, o]) => o.loss >= 3 && o.win === 0).map(([s]) => s);
 }
 export function likedSubjects(stats) {
   return [...stats].filter(([, o]) => o.lean >= 0.3 && o.win >= 2).sort((a, b) => b[1].lean - a[1].lean).map(([s]) => s);

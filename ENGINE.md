@@ -332,3 +332,17 @@ When there are two or more sections at least 24 in wide (and no exact piece coun
 
 Two walls seen in one corner photo are still read as one plane, so the far face is drawn flat; reading each face with its own corners comes next. Tests: test/sections.test.js.
 
+
+## One contract on every path (2026-10-03, from Astra's review)
+
+layout(), refill(), walls with sections and scoreArrangement() now keep the same promises. `test/invariants.test.js` checks each one.
+
+- **Budget inside the search.** With a budget, the beam drops a partial pick as soon as it plus the cheapest way to fill the rest goes over. Before, the search picked the best-liked art and then threw the wall out on price, so a $20 budget could fail when $10 prints fit. When nothing fits, the message names the cheapest wall it could have built (a floor: one print can't fill two frames), and only when price was the reason.
+- **Unknown prices.** A catalog size with no price adds nothing to `total` and is counted in `priceUnknown`. It never passes a budget.
+- **Sizes a shop stopped selling.** `toCandidate()` keeps only the sizes a live offer comes in, when the record has offers.
+- **Walls with sections** skip keys in `avoid` (Show more walls), are checked against the budget as a whole wall, and drop "nothing fits" problems when they add walls.
+- **scoreArrangement()** still scores any wall (a person's own), but `fails` also says when it isn't one we'd suggest: excluded art, a size the art doesn't come in, a kept print missing, over the budget. Frame sizes must be positive. A pinned piece listed in `placed` is ignored (finish() adds it once).
+- **Pinned pieces count in the wall's colors.** They stay out of the design measures (alignment, gaps), which are about the art being placed.
+- **A wire drop outside the frame** (negative, or past the bottom) is treated as not measured: default drop and the "measure yours" note.
+- **refill()** keeps each piece's group (`piece.group`, `meta.groups`), and kept or unchanged prints are judged by the same taste as new picks (quality blended in).
+- **rerank()'s order prior** is capped at ten places, so it never outweighs a save.

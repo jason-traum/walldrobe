@@ -167,7 +167,9 @@ Undo stays until the next change. Versions stay with the wall, on this device.
 | Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |
 | A piece of yours moves | "Take it down and rehang it here." under its name | |
 | Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows | Type a number |
-| Size from the photo | "These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. Measure the wall's width once and every spot firms up." | Measure |
+| Size from the photo | "These spots are estimates. The wall's size was worked out from [the TV] in your photo, not measured, so a spot can be off by several inches. Measure the wall's width once and every spot firms up." | Measure |
+| Width measured, photo wall | "The wall's width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling." | |
+| Check before drilling (photo walls) | First step: "Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to [the couch]. If it's off, fix the wall's width and every spot moves with it." Last step: "A photo can't see wires or studs. Near an outlet or switch, check with a stud finder before you drill." | Fix the wall's width |
 | Leaving the site | Opens in a new tab; the wall stays | |
 
 ## 10b. Saved

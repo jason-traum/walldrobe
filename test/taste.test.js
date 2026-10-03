@@ -49,7 +49,7 @@ test('picking pools over everything makes summer pieces score highest', () => {
   const summer = items.filter((i) => i.record.tags.theme === 'summer');
   const stillLife = items.filter((i) => i.record.tags.theme === 'still life');
   assert.ok(avg(summer) > avg(stillLife) + 0.1, `${avg(summer)} vs ${avg(stillLife)}`);
-  for (const v of Object.values(s)) assert.ok(v >= 0.2 && v <= 0.9);
+  for (const v of Object.values(s)) assert.ok(v >= 0.1 && v <= 0.9);
   assert.ok(describeTaste(fitTaste(picks)).length > 0);
 });
 
@@ -139,4 +139,18 @@ test('the blue vase is blue, and ski photos are sport', () => {
   assert.equal(find('Blue ceramic vase').color.dominant, 'blue');
   assert.ok(records.filter((r) => r.category === 'ski').every((r) => r.tags.theme === 'sport'));
   assert.equal(find('Five swimmers').tags.people, true);
+});
+
+test('taste scores are stable: adding unrelated art does not move the others', () => {
+  const pools = of('pool'), others = of('city');
+  const picks = pools.slice(0, 4).map((p, i) => ({ winner: p, loser: others[i] }));
+  const w = fitTaste(picks);
+  const some = items.slice(0, 20);
+  const a = scoreTaste(w, some), b = scoreTaste(w, [...some, ...items.slice(20, 60)]);
+  for (const it of some) assert.equal(a[it.id], b[it.id]);
+});
+
+test('one pick is weak evidence: scores stay near the middle', () => {
+  const s = scoreTaste(fitTaste([{ winner: of('pool')[0], loser: of('city')[0] }]), items);
+  for (const v of Object.values(s)) assert.ok(v > 0.25 && v < 0.75, `${v}`);
 });
