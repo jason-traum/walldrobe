@@ -977,10 +977,15 @@ export function refill(input, prev, opts = {}) {
   const st = { family: prev.family, variant: prev.variant, W: g.w, H: g.h, slots, meta: { rows: prev.meta.rows, cols: prev.meta.cols, gaps: prev.meta.gaps, ragged: prev.meta.ragged || 0 } };
 
   const onWall = new Set(hung.filter(stays).map((p) => p.ref.id));
-  const cands = [
-    ...ctx.catalogCands.filter((c) => !onWall.has(c.id)),
-    ...ctx.loose.filter((p) => p.keep !== 'must' && !onWall.has(p.id)).map(ownedCand),
-  ];
+  // opts.to: put this one catalog piece in the swapped spot (a person picked it).
+  const to = swap && typeof opts.to === 'string' ? opts.to : null;
+  if (to && onWall.has(to)) throw new TypeError(`${to} is already on this layout.`);
+  const cands = to
+    ? ctx.catalogCands.filter((c) => c.id === to)
+    : [
+      ...ctx.catalogCands.filter((c) => !onWall.has(c.id)),
+      ...ctx.loose.filter((p) => p.keep !== 'must' && !onWall.has(p.id)).map(ownedCand),
+    ];
   const index = indexCandidates(cands);
   const where = { x: g.x, y: g.y, w: g.w, h: g.h, shift: Math.abs(g.x + g.w / 2 - ctx.zone.cx) };
   const picked = fill(st, index, ctx.pairSim, ctx.hasRoom, replaced, ctx.look);
@@ -1004,6 +1009,36 @@ export function refill(input, prev, opts = {}) {
     return { layouts: [], zone: zoneOut(ctx.zone), problems: [{ code: 'BUDGET_TOO_LOW', message: `New art for these frames would cost $${Math.round(cost)}, over your budget.` }] };
   }
   return { layouts: [finish(best, 1, ctx)], problems, zone: zoneOut(ctx.zone) };
+}
+
+/**
+ * Every catalog piece that comes in the frame size of one spot on a layout, best
+ * first: favorites that fit first, then the rest, each by how well it sits there
+ * (taste, colors with the pieces around it, not a look-alike of one of them). The
+ * pieces already on the wall are left out.
+ * @param {object} input the same input layout() gets
+ * @param {object} prev a layout layout() or refill() returned
+ * @param {string} id the catalog piece in the spot
+ * @param {{ favorites?: string[] }} [opts]
+ * @returns {{ id: string, favorite: boolean, value: number }[]}
+ */
+export function spotChoices(input, prev, id, opts = {}) {
+  if (!prev || !Array.isArray(prev.pieces)) throw new TypeError('spotChoices() needs a layout.');
+  const p = prev.pieces.find((x) => x.ref.id === id);
+  if (!p) throw new TypeError(`${id} isn't on this layout.`);
+  const ctx = prepare(input);
+  const onWall = new Set(prev.pieces.map((x) => x.ref.id));
+  const around = prev.pieces.filter((x) => x.ref.id !== id).map((x) => x.ref.id);
+  if (ctx.hasRoom) around.push(ROOM);
+  const fav = new Set(idList(opts.favorites, 'favorites'));
+  const key = sizeKey(p.w, p.h);
+  const out = [];
+  for (const c of ctx.catalogCands) {
+    if (onWall.has(c.id) || !c.sizes.some((sz) => sizeKey(sz.w, sz.h) === key)) continue;
+    out.push({ id: c.id, favorite: fav.has(c.id), value: r3(pickValue(c, around, ctx.pairSim, ctx.look)) });
+  }
+  out.sort((a, b) => (b.favorite - a.favorite) || b.value - a.value || cmpStr(a.id, b.id));
+  return out;
 }
 
 function whyNothing(must, zone, catalogCands, loose) {

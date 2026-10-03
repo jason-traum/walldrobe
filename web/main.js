@@ -4,7 +4,7 @@
 // Screens are plain functions that return HTML; every change re-renders.
 // Design rules: DESIGN.md. Product rules: PRODUCT.md. States: STATES.md.
 
-import { layout, refill, rerank, RULES } from '../engine/index.js';
+import { layout, refill, rerank, spotChoices, RULES } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
@@ -253,6 +253,32 @@ function swapPiece(id) {
     label: 'Swapped.',
     run: () => { if (!wasSkipped) d.skipped = d.skipped.filter((x) => x !== id); replaceWall(prev.key, prev); persist(); },
   };
+}
+// Every print that fits this spot, favorites first. Kept per wall and piece so the
+// sheet doesn't rebuild the list on every render.
+function choicesFor(L, id) {
+  const key = `${L.key}|${id}|${S.draft.saved.join(',')}`;
+  if (!S.choices || S.choices.key !== key) {
+    let list = [];
+    try { list = spotChoices(engineInput(), L, id, { favorites: S.draft.saved }); } catch (e) { console.error(e); }
+    S.choices = { key, list };
+  }
+  return S.choices.list;
+}
+// Put a picked print in this spot: one piece changes, the frames stay, with Undo.
+function swapTo(id, to) {
+  const L = shown();
+  if (!L) return false;
+  let r;
+  try { r = refill({ ...engineInput(), keep: keepList() }, L, { swap: id, to }); } catch (e) { console.error(e); return false; }
+  if (!r.layouts.length) { S.flash = r.problems[0] ? r.problems[0].message : "That one doesn't fit here."; return false; }
+  const prev = L;
+  const next = { ...r.layouts[0], history: L.history, moved: L.moved };
+  replaceWall(L.key, next);
+  remember(next);
+  S.ui.saved = null; persist();
+  S.undo = { label: 'Swapped.', run: () => { replaceWall(prev.key, prev); S.sheet = null; S.selected = null; persist(); } };
+  return true;
 }
 function toggleSave(id) {
   const d = S.draft;
@@ -1142,8 +1168,9 @@ function sheetHtml() {
   if (!S.sheet) return '';
   const body = S.sheet === 'change' ? changeSheet() : S.sheet.piece ? pieceSheet(S.sheet.piece) : '';
   if (!body) return '';
-  return `<div class="backdrop" data-act="close-sheet"></div>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" id="sheet">
+  const isPiece = !!(S.sheet && S.sheet.piece);
+  return `<div class="backdrop${isPiece ? ' is-light' : ''}" data-act="close-sheet"></div>
+  <div class="sheet${S.ui.sheetStay ? ' stay' : ''}${isPiece ? ' is-piece' : ''}${isPiece && S.ui.allFor === S.sheet.piece ? ' is-tall' : ''}" role="dialog" aria-modal="true" aria-labelledby="sheet-h" id="sheet">
     <button type="button" class="icon-btn sheet-x" data-act="close-sheet" aria-label="Close">×</button>
     ${body}
   </div>`;
@@ -1188,14 +1215,25 @@ function pieceSheet(id) {
   const item = byId.get(id);
   const c = item.offers && item.offers.length ? offersAt(item, p.w, p.h).main : null;
   const saved = d.saved.includes(id), kept = keptSet().has(id);
+  const all = kept ? [] : choicesFor(L, id);
+  const showAll = S.ui.allFor === id;
+  const list = showAll ? all : all.slice(0, 4);
+  const ar = p.w / p.h;
+  const choice = (ch) => {
+    const it = byId.get(ch.id);
+    return `<li><button type="button" class="choice" data-choice="${esc(ch.id)}" data-for="${esc(id)}" aria-label="Put ${esc(it.title)} here${ch.favorite ? ', a favorite' : ''}">
+      <span class="tn new" style="aspect-ratio:${ar}"><img src="${it.imageData}" alt=""></span>${ch.favorite ? `<span class="fav-mark" aria-hidden="true">${heart(true)}</span>` : ''}
+    </button></li>`;
+  };
   return `<h2 id="sheet-h">${esc(item.title)}</h2>
-    <div class="sheet-art"><span class="art-big" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt="${esc(item.title)}"></span></div>
-    <p class="meta">${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}</p>
-    <p class="meta">${p.w} x ${p.h} in</p>
+    <p class="meta">${p.w} x ${p.h} in. ${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}</p>
+    ${kept ? '<p class="pencil small">Kept in every wall. Tap Kept to let it change again.</p>'
+      : all.length ? `<ul class="choices${showAll ? ' is-all' : ''}${ar >= 1 ? ' is-wide' : ''}">${list.map(choice).join('')}</ul>
+      ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
+      : '<p class="pencil small">No other print comes in this size for this spot.</p>'}
     <div class="acts left">
       <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} ${saved ? 'Saved' : 'Save'}</button>
-      <button type="button" class="btn quiet" data-act="swap" data-id="${esc(id)}"${kept || S.busy ? ' disabled' : ''}>${S.busy === `swap:${id}` ? 'Swapping…' : 'Swap this one'}</button>
-      <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept in every wall' : 'Keep it in every wall'}</button>
+      <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep in every wall'}</button>
     </div>
     ${c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
 }
@@ -1938,7 +1976,12 @@ document.addEventListener('click', (e) => {
   if (t.dataset.fullness) { S.draft.fullness = t.dataset.fullness; rebuild('fullness'); return; }
   if (t.dataset.just !== undefined) { S.draft.justMine = t.dataset.just === '1'; rebuild('just'); return; }
   if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
-  if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; S.selected = t.dataset.piece; render(); return; }
+  if (t.dataset.choice) {
+    const to = t.dataset.choice;
+    if (swapTo(t.dataset.for, to)) { S.sheet = { piece: to }; S.selected = to; S.ui.allFor = null; S.ui.sheetStay = true; }
+    render(); return;
+  }
+  if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; S.selected = t.dataset.piece; S.ui.allFor = null; S.ui.sheetStay = false; render(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.pick) {
     const q = S.quiz; const [x, y] = q.pair; const winner = x.id === t.dataset.pick ? x : y;
     q.picks.push({ winner, loser: winner === x ? y : x }); advanceQuiz(true); return;
@@ -1955,7 +1998,7 @@ document.addEventListener('click', (e) => {
     S.ui.confirmDelete = null; S.flash = store.demoMode ? 'Sample mode: nothing is deleted.' : 'Deleted, with its photo.'; render(); return;
   }
   if (S.edit && t.classList.contains('art')) return;
-  if (t.classList.contains('art') && route()[0] === 'wall') { S.sheet = { piece: t.dataset.id }; S.selected = t.dataset.id; render(); return; }
+  if (t.classList.contains('art') && route()[0] === 'wall') { S.sheet = { piece: t.dataset.id }; S.selected = t.dataset.id; S.ui.allFor = null; S.ui.sheetStay = false; render(); return; }
   switch (a) {
     case 'corners-ok': {
       if (!S.draft.photo || S.busy) break;
@@ -1992,6 +2035,7 @@ document.addEventListener('click', (e) => {
       if (orig) { const now = L; replaceWall(L.key, orig); delete v.orig[L.key]; S.undo = { label: 'Put back.', run: () => replaceWall(now.key, now) }; persist(); }
       S.sheet = null; render(); break;
     }
+    case 'all-choices': S.ui.allFor = S.ui.allFor === t.dataset.id ? null : t.dataset.id; S.ui.sheetStay = true; render(); break;
     case 'swap': {
       const id = t.dataset.id; S.flash = null;
       S.busy = `swap:${id}`; render();

@@ -421,3 +421,21 @@ svg.is-dragging .measure { opacity: 0.25; }
 .piece-name { color: var(--pencil); font-size: 14px; line-height: 19px; padding-right: 40px; overflow-wrap: anywhere; }
 .piece-kept { color: var(--tape-keep); font-size: 13px; line-height: 18px; margin-top: -6px; }
 .piece .heart { position: absolute; right: -8px; bottom: -8px; margin: 0; }
+
+/* ---------- v4: a piece's choices (round 1) ---------- */
+/* The piece sheet keeps the wall in view: a light scrim, a short sheet, no big image. */
+.backdrop.is-light { background: rgba(20, 22, 24, 0.08); }
+.sheet.is-piece { max-height: 52svh; }
+.sheet.stay { animation: none; }
+.sheet.is-piece.is-tall { max-height: 88svh; }
+.choices { list-style: none; margin: 4px 0 0; padding: 4px 4px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 12px; align-items: end; }
+.choices.is-all { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+.choice { position: relative; width: 100%; min-height: 44px; border: 0; background: none; padding: 4px 2px; cursor: pointer; display: block; }
+.choice .tn { width: 100%; height: auto; }
+.choice .tn img { height: 100%; }
+.choice .tn.new::before, .choice .tn.new::after { width: 11px; height: 4px; top: -2px; }
+.choice .tn.new::before { left: -4px; } .choice .tn.new::after { right: -4px; }
+.choice:active .tn { transform: scale(0.97); }
+.fav-mark { position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
+.fav-mark svg { width: 14px; height: 14px; }
+.sheet.is-piece .link[data-act="all-choices"] { justify-self: start; min-height: 44px; padding: 0; }
