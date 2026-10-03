@@ -10,6 +10,9 @@ BASE = os.environ.get('WD_BASE', 'http://localhost:8830/index.html')
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'walk'
 os.makedirs(OUT, exist_ok=True)
 
+# Get it's controls by kind: each row's buttons count once, every print service link once.
+CTL = "new Set([...document.querySelectorAll('.bar a, .bar button, .get a.btn, .get button, .get input, .prices a')].map(e => e.closest('.buy-row') ? 'row:' + (e.textContent.startsWith('Find') ? 'frame' : 'get') : e.closest('.prices') ? 'printer' : e.textContent.trim() || e.id)).size"
+
 def vis(pg, sel):
     l = pg.locator(sel)
     v = [l.nth(i) for i in range(l.count()) if l.nth(i).is_visible()]
@@ -264,7 +267,7 @@ with sync_playwright() as p:
         vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
         check(f'{W} Get it opens', '#/get' in pg.url)
         pg.screenshot(path=f'{OUT}/get-{W}.png', full_page=True)
-        check(f'{W} no prices on Get it', '$' not in pg.evaluate('document.body.innerText'))
+        check(f'{W} no shop prices on Get it', '$' not in pg.evaluate("[...document.querySelectorAll('.get > :not(.where)')].map(e => e.innerText).join(' ')"))
         rows = pg.locator('.buy-row').count()
         news = pg.evaluate("document.querySelectorAll('#guide g.art.is-new, #guide g.art.is-kept').length")
         check(f'{W} one buy row per new piece', rows == news and rows > 0, f'{rows} rows, {news} new')
@@ -283,12 +286,43 @@ with sync_playwright() as p:
         check(f'{W} Get it has no sideways scroll', sw <= cw, f'{sw} > {cw}')
         small = pg.evaluate("[...document.querySelectorAll('.get a.btn, .get button.btn, .bar .btn')].filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height).filter(h => h < 44).length")
         check(f'{W} Get it targets 44 px', small == 0, str(small))
-        ctl = pg.evaluate("new Set([...document.querySelectorAll('.bar a, .bar button, .get a.btn, .get button, .get input')].map(e => e.closest('.buy-row') ? 'row:' + (e.textContent.startsWith('Find') ? 'frame' : 'get') : e.textContent.trim() || e.id)).size")
-        check(f'{W} Get it within its 7 controls', ctl <= 7, str(ctl))
+        ctl = pg.evaluate(CTL)
+        check(f'{W} Get it within its 8 controls', ctl <= 8, str(ctl))
         sv = vis(pg, '.get [data-act=save]')
         if sv.is_enabled():
             sv.click(); pg.wait_for_timeout(1200)
         check(f'{W} Save on Get it reads Saved after', vis(pg, '.get [data-act=save]').text_content().strip() == 'Saved')
+        check(f'{W} no errors', not errs, '; '.join(errs[:2]))
+        ctx.close()
+
+    # Where to print: free photos get every print service, the best ones marked, and a question for your AI.
+    for W in (390, 320):
+        ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+        ctx.grant_permissions(['clipboard-read', 'clipboard-write'], origin=BASE.split('/index')[0])
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(BASE + '#/sample/bedroom'); pg.wait_for_timeout(3500)
+        pg.locator('.entry-link').nth(0).click(); pg.wait_for_timeout(1500)
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+        vis(pg, '#sheet [data-art=photos]').click(); pg.wait_for_timeout(3000)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
+        vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
+        check(f'{W} free photos get Where to print', pg.locator('.where').count() == 1)
+        check(f'{W} Where to print lists the services', pg.locator('.prices tbody tr').count() >= 5, str(pg.locator('.prices tbody tr').count()))
+        check(f'{W} the best price is marked', pg.locator('.prices tr.is-pick .pr-tag', has_text='Best price').count() == 1)
+        check(f'{W} every service links to its own site in a new tab', pg.evaluate("[...document.querySelectorAll('.prices tbody tr')].every(r => { const a = r.querySelector('td a'); return a && a.href.startsWith('https://') && a.target === '_blank' })"))
+        tot = pg.evaluate("(() => { const th = [...document.querySelectorAll('.prices th')].pop().getBoundingClientRect(); return th.right })()")
+        check(f'{W} the Total column fits on screen', tot <= W, str(tot))
+        check(f'{W} Where to print has no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
+        pg.locator('.where').screenshot(path=f'{OUT}/where-{W}.png')
+        vis(pg, '[data-act=copy-ai]').click(); pg.wait_for_timeout(600)
+        check(f'{W} Copy for your AI says Copied', 'Copied' in pg.locator('.copy-status').text_content())
+        check(f'{W} focus stays on Copy', pg.evaluate("document.activeElement && document.activeElement.dataset.act") == 'copy-ai')
+        q = pg.evaluate('navigator.clipboard.readText()')
+        check(f'{W} the copied question has the table and asks for codes', '| Service |' in q and 'discount codes' in q and '\u2014' not in q, q[:80])
+        ctl = pg.evaluate(CTL)
+        check(f'{W} Get it with Where to print within its 8 controls', ctl <= 8, str(ctl))
         check(f'{W} no errors', not errs, '; '.join(errs[:2]))
         ctx.close()
 

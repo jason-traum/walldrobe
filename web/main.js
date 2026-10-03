@@ -13,6 +13,7 @@ import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } f
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
+import { PRICES_CHECKED, printOptions, picks as printPicks, aiQuestion, sizeKey } from './printers.js';
 import { segment, modelCached } from './segment.js';
 import { packLabels, unpackLabels } from './segcore.js';
 
@@ -110,7 +111,7 @@ window.addEventListener('popstate', () => {
   if (S.ui.ownBack) { S.ui.ownBack = false; return; }
   if (S.sheet) { S.ui.sheetStep = false; S.sheet = null; S.selected = null; S.ui.allFor = null; render(); }
 });
-window.addEventListener('hashchange', () => { S.mem.under = null; S.flash = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { S.mem.under = null; S.flash = null; S.ui.copied = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
 
 // ---------- Shell ----------
 
@@ -1664,6 +1665,46 @@ function nailRef(n, obstacles) {
   return `${hz}, ${vt}`;
 }
 
+// The prints the free photos on this wall need, by size: [{ key: '8x10', count }].
+// A frame with a standard mat holds the smaller print; a frame without one (the
+// statement sizes) holds a print its own size.
+function printNeeds(L) {
+  const m = new Map();
+  for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
+    const item = byId.get(p.ref.id);
+    if (!item || (item.offers && item.offers.length)) continue;
+    const ps = printSize(p.w, p.h) || [p.w, p.h];
+    const k = sizeKey(ps[0], ps[1]);
+    m.set(k, (m.get(k) || 0) + 1);
+  }
+  const area = (k) => k.split('x').reduce((a, b) => a * b, 1);
+  return [...m].map(([key, count]) => ({ key, count })).sort((a, b) => area(b.key) - area(a.key));
+}
+// Where to print them: every service with its regular price for each size, the best
+// three marked, and a question to paste into your own AI for today's codes.
+function whereToPrint(L) {
+  const needed = printNeeds(L);
+  if (!needed.length) return '';
+  const rows = printOptions(needed);
+  const pk = printPicks(rows);
+  const tag = (r) => [r === pk.cheapest && 'Best price', r === pk.today && 'Same day', r === pk.better && 'Better print'].filter(Boolean);
+  const usd = (n) => `$${n.toFixed(2)}`;
+  const sz = (n) => `${n.key.replace('x', '\u00a0x\u00a0')}${n.count > 1 ? `<span class="pr-count">${n.count} prints</span>` : ''}`;
+  const lead = needed.map((n) => `${n.count} at ${n.key.replace('x', '\u00a0x\u00a0')}\u00a0in`).join(', ');
+  const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all</li>`,
+    pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
+    pk.better && `<li><span class="pr-tag">Better print</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}, a pro lab</li>`].filter(Boolean).join('');
+  return `<section class="where" aria-labelledby="where-h"><h2 id="where-h">Where to print</h2>
+    <p>Your free photos need ${lead}. Plain photo or poster paper. Regular prices, before any code.</p>
+    ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Print prices"><table class="prices"><thead><tr><th scope="col">Service</th>${needed.map((n) => `<th scope="col">${sz(n)}</th>`).join('')}<th scope="col">Total</th></tr></thead>
+      <tbody>${rows.map((r) => { const t = tag(r); return `<tr${t.length ? ' class="is-pick"' : ''}><td><a href="${esc(r.p.url)}" target="_blank" rel="noopener">${esc(r.p.name)}</a>${t.map((x) => `<span class="pr-tag">${x}</span>`).join('')}<span class="pr-note">${esc(r.p.kind === 'Store' ? r.p.pickup : `Ships ${r.p.ships[0].toLowerCase()}${r.p.ships.slice(1)}`)}. ${esc(r.p.note)}.</span></td>${r.each.map((x) => `<td>${x == null ? '<span class="pr-none">No</span>' : usd(x)}</td>`).join('')}<td>${r.all ? usd(r.total) : '<span class="pr-none">Not all</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+    <p class="pencil small">Prices checked ${PRICES_CHECKED}. Most of these run codes every week, often 40 to 75% off. Copy this table into ChatGPT, Gemini or Claude and it will look for today's codes and the cheapest way.</p>
+    <div class="acts left copy-row"><button type="button" class="btn quiet" data-act="copy-ai">Copy for your AI</button><span class="copy-status" role="status">${S.ui.copied === 'ok' ? 'Copied. Paste it into your AI.' : S.ui.copied === 'no' ? 'Could not copy. Select the table and copy it.' : ''}</span></div>
+    <p class="pencil small">Walldrobe takes nothing on these prints. The photos are free for your own wall, not to sell.</p>
+  </section>`;
+}
+
 function getScreen() {
   if (need()) { go(need()); return ''; }
   const wait = building();
@@ -1723,6 +1764,7 @@ function getScreen() {
       <ul class="buy-list">${buy}</ul>
       ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
     </section>` : ''}
+    ${whereToPrint(L)}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <h2 id="guide-h">Where the nails go</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size came from your photo, so a spot can be off by an inch or two. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : ''}
@@ -2631,6 +2673,16 @@ document.addEventListener('click', (e) => {
     case 'save': saveThisWall(); render(); break;
     case 'get': S.draft.chosen = { layout: bareLayout(shown()), inputKey: viewKey() }; persist(); go('#/get'); break;
     case 'print': window.print(); break;
+    case 'copy-ai': {
+      const L = shown(); if (!L) break;
+      const needed = printNeeds(L);
+      const text = aiQuestion(needed, printOptions(needed));
+      const done = (ok) => { S.ui.copied = ok ? 'ok' : 'no'; render(); const b = document.querySelector('[data-act="copy-ai"]'); if (b) b.focus({ preventScroll: true }); };
+      const old = () => { try { const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch { return false; } };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(old()));
+      else done(old());
+      break;
+    }
     case 'cancel-delete': S.ui.confirmDelete = null; render(); break;
     default: break;
   }
