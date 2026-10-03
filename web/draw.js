@@ -208,7 +208,7 @@ function measures(L, W, H, s) {
     <text x="${g.x + g.w / 2}" y="${ty - s * 0.45}" text-anchor="middle" font-size="${s}">${esc(inches(g.w))}</text>
     <line x1="${lx}" x2="${lx}" y1="${bottom}" y2="${H}"/>
     <line x1="${lx - s * 0.5}" x2="${lx + s * 0.5}" y1="${bottom}" y2="${bottom}"/>
-    <text x="${lx - s * 0.45}" y="${bottom + (H - bottom) / 2}" text-anchor="end" font-size="${s}">${esc(inches(g.y))}</text>
+    ${(() => { const t = inches(g.y), room = lx - s * 0.45 >= t.length * s * 0.58; return `<text x="${room ? lx - s * 0.45 : lx + s * 0.45}" y="${room ? bottom + (H - bottom) / 2 : bottom + s * 1.3}" text-anchor="${room ? 'end' : 'start'}" font-size="${s}">${esc(t)}</text>`; })()}
     ${nails}
   </g>`;
 }

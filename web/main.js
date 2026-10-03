@@ -1431,28 +1431,46 @@ function getScreen() {
   const anyRef = [...refs.values()].some(Boolean);
   const estimate = !sizeMeasured(d);
   const nameOf = (p) => (byId.get(p.ref.id) ? byId.get(p.ref.id).title : `Your ${p.title}`);
-  const total = wallCost(L);
-  const buy = fresh.map((p) => {
+  const kept = keptSet();
+  // A thumbnail at the piece's own shape, never stretched: yours framed, new ones taped up.
+  const tn = (p, box) => {
+    const own = p.ref.source !== 'catalog';
+    const o = own ? d.owned.find((x) => x.id === p.ref.id) : null;
+    const item = own ? null : byId.get(p.ref.id);
+    const ar = p.w / p.h, h = ar < 1 ? box : box / ar, w = h * ar;
+    const img = own ? (o && o.thumb) : item && item.imageData;
+    const cls = own ? 'tn own' : `tn new${kept.has(p.ref.id) ? ' kept' : ''}`;
+    return `<span class="${cls}" style="width:${w.toFixed(0)}px;height:${h.toFixed(0)}px">${img ? `<img src="${img}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`;
+  };
+  const size = (w, h) => `${w}\u00a0x\u00a0${h}\u00a0in`;
+  // What to buy for each new piece, the frame said in words.
+  const buy = [...fresh].sort((a, b) => b.w * b.h - a.w * a.h).map((p) => {
     const item = byId.get(p.ref.id);
     const shop = item.offers && item.offers.length ? offersAt(item, p.w, p.h) : null;
-    const thumb = `<span class="thumb" style="aspect-ratio:${item.aspect || p.w / p.h}"><img src="${item.imageData}" alt=""></span>`;
-    if (shop && shop.main) {
-      const o = shop.main;
-      return `<li class="row buy">${thumb}<span class="row-text"><span class="name">${esc(item.title)}</span>
-        <span class="meta">Art by ${esc(item.artist)}, ${esc(item.source)}. ${o.w ? `${o.w} x ${o.h} in print${o.framed ? ', framed' : `, fits ${aOrAn(o.w)} ${o.w} x ${o.h} in frame`}` : `${p.w} x ${p.h} in frame`}</span>
-        <span class="row-acts"><a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>${o.framed ? '' : `<a class="btn quiet small" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a>`}</span></span></li>`;
+    const o = shop && shop.main;
+    let credit, frame, get;
+    if (o) {
+      credit = `Art by ${esc(item.artist)}, sold by ${esc(item.source)}`;
+      const pw = o.w || p.w, ph = o.h || p.h, same = Math.min(pw, ph) === Math.min(p.w, p.h) && Math.max(pw, ph) === Math.max(p.w, p.h);
+      frame = o.framed ? `Comes framed, ${size(p.w, p.h)}.` : same ? `Print ${size(pw, ph)}. Frame ${size(p.w, p.h)}, no mat.` : `Print ${size(pw, ph)}. Frame ${size(p.w, p.h)} with a mat.`;
+      get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
+    } else {
+      const ps = printSize(p.w, p.h);
+      credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
+      frame = ps ? `Print it ${size(ps[0], ps[1])}. Frame ${size(p.w, p.h)} with a mat.` : `Frame ${size(p.w, p.h)}.`;
+      get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
     }
-    const ps = printSize(p.w, p.h);
-    return `<li class="row buy">${thumb}<span class="row-text"><span class="name">${esc(item.title)}</span>
-      <span class="meta">Photo by ${esc(item.artist)} on ${esc(item.source)}. ${ps ? `Print it ${ps[0]} x ${ps[1]} in for a ${p.w} x ${p.h} in frame with a mat` : `${p.w} x ${p.h} in frame`}. Free under the ${esc(item.record.source.license)}.</span>
-      <span class="row-acts"><a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a><a class="btn quiet small" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener">Find ${aOrAn(Math.min(p.w, p.h))} ${Math.min(p.w, p.h)} x ${Math.max(p.w, p.h)} in frame</a></span></span></li>`;
+    const findFrame = o && o.framed ? '' : `<a class="btn quiet small" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener" aria-label="Find a ${esc(size(Math.min(p.w, p.h), Math.max(p.w, p.h)))} frame">Find a frame</a>`;
+    return `<li class="buy-row"><span class="buy-art">${tn(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
+      <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
+      <span class="row-acts">${get}${findFrame}</span></li>`;
   }).join('');
   return `${bar(back('#/wall', 'This wall'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
   <main class="page get">
     <h1>${fresh.length ? 'Get it, tape it, hang it' : 'Tape it, hang it'}</h1>
     ${flashHtml()}
     ${fresh.length ? `<section aria-labelledby="buy-h"><h2 id="buy-h">What to get</h2>
-      <ul class="rows">${buy}</ul>
+      <ul class="buy-list">${buy}</ul>
       ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
     </section>` : ''}
     <section class="guide" id="guide" aria-labelledby="guide-h">
@@ -1463,9 +1481,9 @@ function getScreen() {
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
         <span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>
       </form>
-      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: keptSet(), measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
-      <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">Frame</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
-        <tbody>${hangOrder.map((p) => `<tr><td>${esc(nameOf(p))}${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.w} x ${p.h} in</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
+      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
+      <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
+        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${esc(size(p.w, p.h))} frame</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
         <li>Cut a piece of paper or tape to each frame's size and stick it up where the drawing shows it. Step back and look before you drill.</li>
         <li>Hang the biggest piece first; the others measure off it.</li>
@@ -1474,8 +1492,7 @@ function getScreen() {
       </ol>
     </section>
     <div class="acts left">
-      <button type="button" class="btn" data-act="save">${S.ui.saved === d.id && !store.demoMode ? 'Saved on this device' : 'Save this wall'}</button>
-      <a class="btn quiet" href="#/wall">Back to this wall</a>
+      <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button>
     </div>
   </main>${credits()}`;
 }
