@@ -1424,7 +1424,7 @@ function pieceSheet(id) {
   const choice = (ch) => {
     const it = byId.get(ch.id);
     return `<li><button type="button" class="choice" data-choice="${esc(ch.id)}" data-for="${esc(id)}" aria-label="Put ${esc(it.title)} here${ch.favorite ? ', a favorite' : ''}">
-      <span class="tn new" style="aspect-ratio:${ar}"><img src="${it.imageData}" alt=""></span>${ch.favorite ? `<span class="fav-mark" aria-hidden="true">${heart(true)}</span>` : ''}
+      <span class="tn new" style="aspect-ratio:${ar}"><img src="${it.imageData}" alt="" data-title="${esc(it.title)}"></span>${ch.favorite ? `<span class="fav-mark" aria-hidden="true">${heart(true)}</span>` : ''}
     </button></li>`;
   };
   return `<h2 id="sheet-h">${esc(item.title)}</h2>
@@ -2509,7 +2509,7 @@ document.addEventListener('error', (e) => {
   if (!(img instanceof HTMLImageElement)) return;
   // A taped thumbnail's corners are its tape, so its title goes in as text, not as ::after.
   const tn = img.closest('.tn');
-  if (tn) { tn.classList.add('tn-gone'); const t = document.createElement('span'); t.className = 'tn-title'; t.textContent = img.alt || (tn.offsetWidth >= 60 ? 'No image' : ''); img.replaceWith(t); return; }
+  if (tn) { tn.classList.add('tn-gone'); const t = document.createElement('span'); t.className = 'tn-title'; t.textContent = img.alt || img.dataset.title || (tn.offsetWidth >= 60 ? 'No image' : ''); img.replaceWith(t); return; }
   const box = img.closest('.thumb, .art-big, .pick-art');
   if (box) { box.classList.add('is-missing'); if (img.alt) box.dataset.missing = img.alt; img.remove(); }
 }, true);

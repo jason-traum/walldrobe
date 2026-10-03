@@ -98,3 +98,27 @@ The corners screen says "We couldn't see where the wall meets the floor" while t
 | Behavior | 3 | Undo after every change, good focus and keyboard. Fails on the Adjust freeze and flash (H3), back with a sheet open (M1), double-tap fall-through (M2), no Undo for unhearting (M3), blank slow load (M5). |
 | Integrity | 3 | Samples labeled, no invented prices. But the ghost frame (H1), the floor and ceiling claims and "Nothing in the way" (M7), Save meaning two things (H2), Kept under 4.5:1 (M11), print and frame orientations disagreeing (M13). |
 | Continuity | 4 | Tokens and components match DESIGN v4 and the references at 320, 390 and desktop; dark preference renders light. Drift: the Sample label, measurement labels over art (M12), spacing under Yours (N7). |
+
+## Confirmation round (build ad66a58, 2026-10-03)
+
+One read-only pass, same method: screens, not code. Screenshots are in `.../scratchpad/b3/confirm/`.
+
+| Item | Result | Evidence |
+|---|---|---|
+| H1 frame ghost on the photo path | Fixed | The confirm screen now boxes the whole frame (`c1-check.png`). No ghost frame on any wall, and your larger piece is drawn framed with its mat on the wall, in Yours and on the hanging guide (`c1-photo-feed.png`, `c1-photo-wall.png`, `c1-photo-getit-crop.png`). |
+| H2 the heart is Favorite | Fixed | The sheet reads Favorite while the wall's button reads Save, and every heart is named "Favorite [title]". After a save the bar says Saved and the hearts keep their own word (`c2-sheet-and-wall.png`, `c2-after-fav-and-save.png`). |
+| H3 Adjust, Structured then Full on wall 3 | Fixed | The sheet stays up. At 4x CPU the first painted frame (115 ms after the tap) shows the pressed segment and "Building the walls…"; then "Changed. Undo" appears inside the sheet. Nothing shows through from the page (`c4-frame-00-115ms.png`, `c4-frame-01-2814ms.png`). The page still does not respond for about 2.7 s at 4x, but the tap is acknowledged first. |
+| Images failing (media.desenio.com, cdn.shopify.com, /art/ blocked) | Partly | No broken-image icons on any screen. Titles show in the grid, on Favorites and on most of the drawing. Still open: the sheet's four choices all read "No image", so they can't be told apart (`c5-img-fail-sheet.png`). The drawing cuts titles to "Swans.", "Ocean.", "Aiqi." Your two pieces show empty mats, with no title and no swatch (`c5-img-fail-wall.png`). On Get it one thumbnail is blank and the next reads "No image" (`c5-fav-getit-combo.png`). |
+| Drawn piece inside a Your walls card | Fixed | At both 390 and 1280, tapping a print inside the card opens that wall's sheet (`c6-390-card-piece-tap.png`, `c6-1280-card-piece-tap.png`). |
+| Focus ring on an Adjust segment and the photo button | Fixed | The segment shows a 2 px blue ring inside its edge (`c7-adjust-segment-focus-crop.png`), and the photo button shows a 2 px ring with offset (`c7-start-photo-focus-crop.png`). The photo button's ring is square around a rounded button, which is cosmetic. |
+| Kept at 4.5:1 | Fixed | The word is now `#25733F`: 5.3:1 on the page and 5.8:1 on white (`c8-320-wall-hard.png`). |
+| M2 double tap Keep | Fixed | The second tap no longer opens another piece's sheet. One keep, no sheet left open (`c2-double-tap-keep.png`). |
+| M13 print and frame orientation | Fixed | Every row now matches, for example "Print 16 x 12 in. Frame 16 x 12 in, no mat." (`c7-getit-orientation.png`). |
+
+The fixes broke nothing I could find. At 320, swap, keep, remove and their Undos still work, with no horizontal scroll, and the open wall matches the reference (`c8-320-wall-hard.png`).
+
+New or remaining notes from this pass:
+
+- "Changed. Undo" is inserted at the top of the Adjust sheet and pushes every segment down about 24 px at the moment it appears. A second tap made during that shift can land on the wrong option. Medium.
+- Adjust's Undo goes back only one step. After Structured then Full, one Undo restores Balanced, but no Undo is left for Structured, and closing the sheet leaves you on wall 1 rather than the wall 3 you started from. PRODUCT says Undo steps back one change at a time. Medium. Seen in the c4 run; same-run screenshot: `c4-frame-03-6843ms.png`.
+- On the photo wall's hanging guide, "57 in to center" still runs up to the edge of a print (M12, `c1-photo-getit-crop.png`), and the dresser is still missing from that drawing (M7).
