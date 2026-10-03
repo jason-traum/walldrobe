@@ -83,12 +83,29 @@ with sync_playwright() as p:
             check(f'{W} See all shows more', pg.locator('#sheet [data-choice]').count() > n4, f"{n4} then {pg.locator('#sheet [data-choice]').count()}")
             pg.screenshot(path=f'{OUT}/all-{W}.png')
         vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
-        # Keep in every wall, then Undo.
+        # Keep in every wall: the same wall, same place in the list, the piece marked; then Undo.
+        cnt = lambda: pg.evaluate("document.querySelector('.pager .count').innerText")
+        here0, a0 = cnt(), arts(pg)
         vis(pg, 'button.piece-open').click(); pg.wait_for_timeout(900)
         vis(pg, '[data-act=keep]').click(); pg.wait_for_timeout(2200)
         check(f'{W} keep shows Kept', pg.locator('.piece-kept').count() >= 1)
+        check(f'{W} keep stays on the same wall', cnt().split(' of ')[0] == here0.split(' of ')[0] and sorted(arts(pg)) == sorted(a0), f'{here0} then {cnt()}')
+        check(f'{W} kept piece has green tape', pg.locator('#drawing g.art.is-kept').count() == 1)
         u = vis(pg, '[data-act=undo]'); check(f'{W} undo after keep', u is not None)
         if u: u.click(); pg.wait_for_timeout(1500); check(f'{W} undo removes Kept', pg.locator('.piece-kept').count() == 0)
+        # Remove this frame: one fewer, every other frame where it was; Undo brings it back.
+        box = lambda: pg.evaluate("[...document.querySelectorAll('#drawing g.art')].map(g => { const r = g.querySelector('rect'); return g.dataset.id + '@' + r.getAttribute('x') + ',' + r.getAttribute('y'); }).sort()")
+        b0 = box()
+        opens = pg.locator('button.piece-open'); gone = opens.nth(opens.count() - 1).get_attribute('data-piece'); opens.nth(opens.count() - 1).click(); pg.wait_for_timeout(900)
+        rm = vis(pg, '[data-act=remove]'); check(f'{W} Remove this frame is there', rm is not None)
+        if rm:
+            rm.click(); pg.wait_for_timeout(1500)
+            b1 = box()
+            check(f'{W} remove takes one frame off', len(b1) == len(b0) - 1)
+            check(f'{W} the other frames stay put', b1 == [x for x in b0 if not x.startswith(gone + '@')])
+            pg.evaluate('window.scrollTo(0, 0)'); pg.screenshot(path=f'{OUT}/removed-{W}.png')
+            u = vis(pg, '[data-act=undo]'); check(f'{W} undo after remove', u is not None)
+            if u: u.click(); pg.wait_for_timeout(1500); check(f'{W} undo puts the frame back', box() == b0)
         # Your piece opens its sheet.
         y = vis(pg, '.yours-pc')
         if y: y.click(); pg.wait_for_timeout(800); check(f'{W} your piece sheet opens', vis(pg, '#sheet') is not None); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
