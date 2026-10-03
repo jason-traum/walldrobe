@@ -1235,7 +1235,7 @@ const cleanReason = (r) => String(r || '').replace('close to what you picked in 
 
 function sheetHtml() {
   if (!S.sheet) return '';
-  const body = S.sheet === 'change' ? changeSheet() : S.sheet.piece ? pieceSheet(S.sheet.piece) : '';
+  const body = S.sheet === 'change' ? changeSheet() : S.sheet.piece ? pieceSheet(S.sheet.piece) : S.sheet.wall ? wallSheet(S.sheet.wall) : '';
   if (!body) return '';
   const isPiece = !!(S.sheet && S.sheet.piece) || S.sheet === 'change';
   return `<div class="backdrop${isPiece ? ' is-light' : ''}" data-act="close-sheet"></div>
@@ -1472,24 +1472,59 @@ function getScreen() {
 
 // ---------- Your walls ----------
 
+function savedSvg(w, pxWide) {
+  return wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles, photo: w.photo && (w.photo.clean || w.photo.flat), layout: w.chosen && w.chosen.layout, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: (id) => { const o = w.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color, art: !!o.art } : null; }, hideObstacles: !!(w.photo && w.photo.flat), pxWide, still: true, label: w.name });
+}
+// Your walls: every saved wall, two across. Tap one for it; Compare puts two together.
 function walls() {
   const all = store.listWalls();
-  const date = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch { return ''; } };
-  return `${bar(back(S.draft && S.draft.width ? '#/wall' : '#/', S.draft && S.draft.width ? 'Your wall' : 'Walldrobe'), '<a class="btn quiet small" href="#/new">Start a wall</a>')}
-  <main class="page">
+  const picking = S.ui.picking || null;
+  const back = S.draft && S.draft.width ? ['#/wall', 'Your wall'] : ['#/', 'Walldrobe'];
+  const right = all.length >= 2 ? (picking ? '<button type="button" class="btn quiet small" data-act="compare-cancel">Cancel</button>' : '<button type="button" class="btn quiet small" data-act="compare">Compare</button>') : '';
+  const card = (w) => {
+    const on = picking && picking.includes(w.id);
+    return `<li><button type="button" class="wall-card${on ? ' is-on' : ''}" ${picking ? `data-pickwall="${esc(w.id)}" aria-pressed="${!!on}"` : `data-wallcard="${esc(w.id)}"`} aria-label="${esc(w.name)}">
+      <span class="drawing small-drawing">${savedSvg(w, 180)}</span><span class="wall-name">${esc(w.name)}</span></button></li>`;
+  };
+  return `${bar(`<a class="back" href="${back[0]}"><span aria-hidden="true">‹</span> ${esc(back[1])}</a>`, `${right}<a class="btn quiet small" href="#/new">New wall</a>`)}
+  <main class="page walls-page">
     <h1>Your walls</h1>
-    <p class="lede">Saved on this device. Walls and photos stay here and are never uploaded.</p>
+    ${picking ? `<p class="pencil">${picking.length ? 'Pick one more.' : 'Pick two to compare.'}</p>` : ''}
     ${flashHtml()}
-    ${all.length ? `<ul class="wall-list">${all.map((w) => `<li class="wall-item">
-      <span class="drawing small-drawing">${wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles, photo: w.photo && (w.photo.clean || w.photo.flat), layout: w.chosen && w.chosen.layout, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: (id) => { const o = w.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color, art: !!o.art } : null; }, hideObstacles: !!(w.photo && w.photo.flat), pxWide: 320, still: true, label: w.name })}</span>
-      <span class="wall-meta">
-        <label class="name-in"><span class="sr">Name</span><input type="text" maxlength="40" value="${esc(w.name)}" data-rename="${esc(w.id)}"></label>
-        <span class="meta">${esc(feet(w.width))} x ${esc(feet(w.height))}. Saved ${esc(date(w.savedAt))}.</span>
-        ${S.ui.confirmDelete === w.id ? `<span class="error">Delete this wall and its photo? This can't be undone.</span>
-          <span class="acts left"><button type="button" class="btn danger small" data-delete="${esc(w.id)}">Delete</button><button type="button" class="btn quiet small" data-act="cancel-delete">Keep it</button></span>`
-        : `<span class="acts left"><button type="button" class="btn small" data-open="${esc(w.id)}">Open</button><button type="button" class="btn quiet small" data-ask-delete="${esc(w.id)}">Delete</button></span>`}
-      </span>
-    </li>`).join('')}</ul>` : '<p class="pencil">No walls yet. Start one with a photo, or try a sample wall from the start page.</p>'}
+    ${all.length ? `<ul class="wall-grid">${all.map(card).join('')}</ul>` : '<p class="pencil">Save a wall and it lands here. Save two to compare them.</p>'}
+  </main>${sheetHtml()}`;
+}
+// One saved wall, one level down: open it, rename it, delete it.
+function wallSheet(id) {
+  const w = store.getWall(id);
+  if (!w) return '';
+  const date = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };
+  return `<h2 id="sheet-h" class="sr-only">${esc(w.name)}</h2>
+    <div class="drawing">${savedSvg(w, 360)}</div>
+    <label class="name-in"><span class="sr-only">Name</span><input type="text" maxlength="40" value="${esc(w.name)}" data-rename="${esc(w.id)}"></label>
+    <p class="meta">Saved ${esc(date(w.savedAt))}.</p>
+    ${S.ui.confirmDelete === w.id ? `<p class="error">Delete this wall? This can't be undone.</p>
+      <div class="acts left"><button type="button" class="btn danger" data-delete="${esc(w.id)}">Delete</button><button type="button" class="btn quiet" data-act="cancel-delete">Keep it</button></div>`
+    : `<div class="acts left"><button type="button" class="btn" data-open="${esc(w.id)}">Open</button><button type="button" class="btn quiet" data-ask-delete="${esc(w.id)}">Delete</button></div>`}`;
+}
+// Two saved walls, one above the other, each with what only it has.
+function compare() {
+  const [, a, b] = route();
+  const A = store.getWall(a), B = store.getWall(b);
+  if (!A || !B) { go('#/walls'); return ''; }
+  const ids = (w) => new Set(((w.chosen && w.chosen.layout.pieces) || []).map((p) => p.ref.id));
+  const ia = ids(A), ib = ids(B);
+  const only = (w, mine, other) => ((w.chosen && w.chosen.layout.pieces) || []).filter((p) => p.ref.source === 'catalog' && mine.has(p.ref.id) && !other.has(p.ref.id));
+  const strip = (ps) => (ps.length ? `<span class="only-strip" aria-label="Only in this one">${ps.map((p) => { const it = byId.get(p.ref.id); const ar = p.w / p.h, h = ar < 1 ? 44 : 44 / ar; return it ? `<span class="tn new" style="width:${(h * ar).toFixed(0)}px;height:${h.toFixed(0)}px"><img src="${it.imageData}" alt="${esc(it.title)}"></span>` : ''; }).join('')}</span>` : '<span class="pencil small">Nothing the other doesn\'t have.</span>');
+  const side = (w, ps) => `<section class="cmp" aria-label="${esc(w.name)}">
+    <div class="drawing">${savedSvg(w, pxNow())}</div>
+    <div class="cmp-row"><span class="wall-name">${esc(w.name)}</span><button type="button" class="btn quiet small" data-open="${esc(w.id)}">Open</button></div>
+    ${strip(ps)}
+  </section>`;
+  return `${bar(back('#/walls', 'Your walls'))}
+  <main class="page compare-page">
+    ${side(A, only(A, ia, ib))}
+    ${side(B, only(B, ib, ia))}
   </main>`;
 }
 
@@ -1511,7 +1546,7 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls };
+  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, compare };
   const fn = screens[r0] || home;
   document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
@@ -2101,9 +2136,16 @@ document.addEventListener('click', (e) => {
     if (w) { S.draft = upgradeDraft({ ...clone(w), id: store.newId(), from: w.from || w.id, base: w.base || w.name }); S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); persist(); ensurePixels().then(() => { S.mem.clean = null; render(); }); go('#/wall'); }
     return;
   }
+  if (t.dataset.wallcard) { S.sheet = { wall: t.dataset.wallcard }; S.ui.confirmDelete = null; render(); return; }
+  if (t.dataset.pickwall) {
+    const id = t.dataset.pickwall, p = S.ui.picking || [];
+    S.ui.picking = p.includes(id) ? p.filter((x) => x !== id) : [...p, id];
+    if (S.ui.picking.length === 2) { const [a, b] = S.ui.picking; S.ui.picking = null; go(`#/compare/${a}/${b}`); return; }
+    render(); return;
+  }
   if (t.dataset.askDelete) { S.ui.confirmDelete = t.dataset.askDelete; render(); return; }
   if (t.dataset.delete) {
-    store.deleteWall(t.dataset.delete);
+    store.deleteWall(t.dataset.delete); S.sheet = null;
     if (S.draft && S.draft.id === t.dataset.delete) { S.draft = null; store.clearDraft(); }
     S.ui.confirmDelete = null; S.flash = store.demoMode ? 'Sample mode: nothing is deleted.' : 'Deleted, with its photo.'; render(); return;
   }
@@ -2147,6 +2189,12 @@ document.addEventListener('click', (e) => {
     }
     case 'remove': removeFrame(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
     case 'new-art': newArt(); S.sheet = null; S.selected = null; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
+    case 'compare': {
+      const all = store.listWalls();
+      if (all.length === 2) { go(`#/compare/${all[0].id}/${all[1].id}`); break; }
+      S.ui.picking = []; render(); break;
+    }
+    case 'compare-cancel': S.ui.picking = null; render(); break;
     case 'all-choices': S.ui.allFor = S.ui.allFor === t.dataset.id ? null : t.dataset.id; S.ui.sheetStay = true; render(); break;
     case 'swap': {
       const id = t.dataset.id; S.flash = null;
