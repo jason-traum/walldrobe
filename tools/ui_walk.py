@@ -295,6 +295,28 @@ with sync_playwright() as p:
         check(f'{W} no errors', not errs, '; '.join(errs[:2]))
         ctx.close()
 
+    # On a computer the open wall uses the room it has, and the taste test shows each print whole.
+    for W, H in ((1440, 900), (1024, 768)):
+        ctx = b.new_context(viewport={'width': W, 'height': H}, color_scheme='light')
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(3500)
+        pg.locator('.entry-link').nth(0).click(); pg.wait_for_timeout(2000)
+        r = pg.evaluate("(() => { const b = document.querySelector('#drawing').getBoundingClientRect(); const g = document.querySelector('[data-act=get]').getBoundingClientRect(); return [b.width, b.height, g.bottom] })()")
+        check(f'{W} the open wall fills the window, wide or tall', r[0] >= W * 0.6 or r[1] >= (H - 200), f'{r[0]:.0f} x {r[1]:.0f}')
+        check(f'{W} Get it is in view without scrolling', r[2] <= H, f'{r[2]:.0f} > {H}')
+        pg.screenshot(path=f'{OUT}/wall-desk-{W}.png')
+        pg.goto(BASE + '#/taste'); pg.wait_for_timeout(1500)
+        cut = []
+        for _ in range(10):
+            for a, ar in pg.evaluate("[...document.querySelectorAll('.pick-art')].map(e => { const b = e.getBoundingClientRect(); return [parseFloat(e.style.getPropertyValue('--a')), b.width / b.height] })"):
+                if abs(ar / a - 1) > 0.03: cut.append(f'{a} shown {ar:.2f}')
+            pg.locator('.pick').first.click(); pg.wait_for_timeout(400)
+        check(f'{W} taste test prints keep their shape, never cut to a box', not cut, ', '.join(cut[:3]))
+        check(f'{W} no errors on a computer', not errs, '; '.join(errs[:2]))
+        ctx.close()
+
     # Where to print: free photos get every print service, the best ones marked, and a question for your AI.
     for W in (390, 320):
         ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')

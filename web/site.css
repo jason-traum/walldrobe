@@ -324,8 +324,12 @@ input[type="color"] { width: 44px; height: 44px; border: 1px solid var(--field);
 .wall-page h2 { margin-top: 16px; }
 .wall-main, .wall-side { display: grid; gap: 8px; align-content: start; min-width: 0; }
 @media (min-width: 1000px) {
-  body.on-wall .bar, body.on-wall .demo-note { max-width: 1120px; }
-  .wall-page { max-width: 1120px; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr); gap: 40px; align-items: start; }
+  /* On a computer the wall takes the room it has: as wide as the window allows,
+     but never taller than the window, so the pager and Get it stay in view. */
+  body.on-wall #app { max-width: 1680px; }
+  body.on-wall .bar, body.on-wall .demo-note { max-width: 1680px; padding-left: 32px; padding-right: 32px; }
+  .wall-page { max-width: 1680px; padding: 4px 32px 48px; grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px); gap: clamp(32px, 3vw, 48px); align-items: start; }
+  .wall-main { width: min(100%, calc((100svh - 180px) * var(--ar, 1.4))); justify-self: center; }
   .wall-side h2 { margin-top: 0; }
   .wall-page .drawing-wrap { margin: 0 0 8px; }
 }
@@ -375,7 +379,10 @@ svg.is-dragging .measure { opacity: 0.25; }
 .pair-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 .pick { display: grid; gap: 8px; border: 0; background: var(--wall); border-radius: var(--r-control); padding: 16px 12px 12px; cursor: pointer; color: var(--wall-ink); font: inherit; transition: transform 120ms var(--ease); }
 .pick:active { transform: scale(0.97); }
-.pick-art { display: block; width: 100%; max-height: 260px; background: var(--mat); padding: 5px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); overflow: hidden; }
+.pick { --pick-h: 260px; }
+/* The whole print at its own shape: a tall one gets narrower, never cut to fit a box. */
+.pick-art { display: block; aspect-ratio: var(--a); width: min(100%, calc(var(--pick-h) * var(--a))); justify-self: center; background: var(--mat); padding: 5px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); overflow: hidden; }
+@media (min-width: 900px) { .pick { --pick-h: 380px; } }
 .pick-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pick-name { font-size: 14px; line-height: 20px; }
 
