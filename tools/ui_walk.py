@@ -364,9 +364,9 @@ with sync_playwright() as p:
         own = pg.locator('#check-wall g.box[data-kind=own]')
         if own.count():
             oid = own.first.get_attribute('data-box')
-            meta = lambda: pg.evaluate(f"(() => {{ const r = document.querySelector('[data-box=\"{oid}\"] rect'); return [Number(r.getAttribute('width')), Number(r.getAttribute('height')), Number(r.getAttribute('x'))]; }})()")
+            meta = lambda: pg.evaluate(f"(() => {{ const r = document.querySelector('[data-box=\"{oid}\"] .owned-box-mark'); return [Number(r.getAttribute('width')), Number(r.getAttribute('height')), Number(r.getAttribute('x'))]; }})()")
             sel = f'#check-wall g.box[data-box="{oid}"]'
-            box = pg.locator(sel + ' rect').bounding_box()
+            box = pg.locator(sel + ' .owned-box-mark').bounding_box()
             pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2); pg.wait_for_timeout(600)
             check(f'{W} a tap picks a box, with four corners and its size', pg.locator(sel + '.is-picked .box-h').count() == 4 and pg.locator(sel + ' .box-size').count() == 1)
             check(f'{W} a picked box stops the page scrolling under a drag', pg.evaluate("getComputedStyle(document.querySelector('#check-wall svg')).touchAction") == 'none')
@@ -379,7 +379,7 @@ with sync_playwright() as p:
             check(f'{W} dragging a corner resizes the box', w1[0] > w0[0] and w1[1] > w0[1], f'{w0} to {w1}')
             row = pg.locator(f'input[data-ok="w"][data-oid="{oid}"]')
             check(f'{W} the row shows the new size', row.count() == 1 and abs(float(row.input_value()) - w1[0]) < 0.6, row.input_value() if row.count() else 'no row')
-            box = pg.locator(sel + ' rect').bounding_box()
+            box = pg.locator(sel + ' .owned-box-mark').bounding_box()
             mx, my = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
             pg.mouse.move(mx, my); pg.mouse.down(); pg.mouse.move(mx - 20, my, steps=5); pg.mouse.up(); pg.wait_for_timeout(1200)
             check(f'{W} dragging the middle moves the box, same size', meta()[2] < w1[2] and meta()[0] == w1[0], f'{w1} to {meta()}')
@@ -388,6 +388,16 @@ with sync_playwright() as p:
         # Mark a dresser, then say it is really a wall edge.
         vis(pg, 'a[href="#/things"]').click(); pg.wait_for_timeout(1200)
         vis(pg, '[data-add="dresser"]').click(); pg.wait_for_timeout(800)
+        # A small outlet can be picked up and dragged: its touch area is at least 44 px.
+        vis(pg, '[data-add="outlet"]').click(); pg.wait_for_timeout(800)
+        og = pg.locator('#edit-wall .ob').last; oid2 = og.get_attribute('data-ob')
+        hb = og.locator('.hit-pad').bounding_box() if og.locator('.hit-pad').count() else og.locator('.ob-box').bounding_box()
+        check(f'{W} a small outlet has a 44 px touch area', hb['width'] >= 43.5 and hb['height'] >= 43.5, str(hb))
+        ox0 = pg.evaluate(f"JSON.parse(localStorage.getItem('walldrobe.draft.v1')).obstacles.find(o => o.id === '{oid2}').x")
+        bx = og.locator('.ob-box').bounding_box(); cx, cy = bx['x'] + bx['width'] / 2 + 12, bx['y'] + bx['height'] / 2
+        pg.mouse.move(cx, cy); pg.mouse.down(); pg.mouse.move(cx + 40, cy - 30, steps=6); pg.mouse.up(); pg.wait_for_timeout(1000)
+        ox1 = pg.evaluate(f"JSON.parse(localStorage.getItem('walldrobe.draft.v1')).obstacles.find(o => o.id === '{oid2}').x")
+        check(f'{W} a touch next to the outlet still drags it', ox1 > ox0 + 3, f'{ox0} to {ox1}')
         vis(pg, '.bar a').click(); pg.wait_for_timeout(1500)
         check(f'{W} back on the confirm screen with the dresser', '#/check' in pg.url and 'Dresser' in pg.evaluate('document.body.innerText'))
         fx = pg.locator('[data-fix][aria-label="Fix the Dresser"]')
