@@ -689,14 +689,15 @@ export const SUBJECT_NAMES = Object.freeze({
 export const subjectOf = (x) => { const r = recordOf(x); return r ? r.category : (x && x.category) || null; };
 export const subjectName = (s) => SUBJECT_NAMES[s] || s;
 
-// Evidence per subject: picks count 1, saves 1, swaps away 0.35. Lean is -1 to 1, shrunk by n / (n + 2).
-export function subjectStats({ picks = [], saved = [], skipped = [] } = {}, byId = null) {
+// Evidence per subject: picks count 1, saves 1, swaps away 0.35, "not for me" 1.5. Lean is -1 to 1, shrunk by n / (n + 2).
+export function subjectStats({ picks = [], saved = [], skipped = [], disliked = [] } = {}, byId = null) {
   const at = new Map();
   const add = (s, w, n) => { if (!s) return; const o = at.get(s) || { win: 0, loss: 0, n: 0 }; if (w > 0) o.win += w; else o.loss -= w; o.n += n; at.set(s, o); };
   for (const p of picks) { const a = subjectOf(p.winner), b = subjectOf(p.loser); if (a && b && a === b) continue; add(a, 1, 1); add(b, -1, 1); }
   const get = (id) => (byId ? byId.get(id) : null);
   for (const id of saved) add(subjectOf(get(id)), 1, 1);
   for (const id of skipped) add(subjectOf(get(id)), -0.35, 0.35);
+  for (const id of disliked) add(subjectOf(get(id)), -1.5, 1.5);
   const out = new Map();
   for (const [s, o] of at) {
     const raw = (o.win - o.loss) / Math.max(1, o.win + o.loss);
@@ -755,4 +756,23 @@ export function nextAdaptivePair(catalog, picks = [], shown = new Set(), { seed 
     }
   }
   return nextAxisPair(pool, picks, shown, { seed });
+}
+
+// Art like a piece you said is not for you comes up less: the closer a piece is to one
+// of them in style, color and subject (cosine of the taste features), the lower it
+// scores, down to 0.35 for a near twin. Pieces unlike every one of them keep 1.
+export function dislikeFactor(item, dislikedItems = []) {
+  if (!item || !dislikedItems.length) return 1;
+  const f = features(item);
+  const norm = (v) => Math.sqrt(dot(v, v)) || 1;
+  const nf = norm(f);
+  let worst = 0;
+  for (const d of dislikedItems) {
+    if (!d) continue;
+    const g = features(d);
+    const sim = dot(f, g) / (nf * norm(g));
+    if (sim > worst) worst = sim;
+  }
+  // Below 0.5 alike, no change; from 0.5 to 1, down in a straight line to 0.35.
+  return worst <= 0.5 ? 1 : 1 - 0.65 * ((worst - 0.5) / 0.5);
 }
