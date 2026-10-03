@@ -29,6 +29,12 @@ export function saveWall(w) {
   all.unshift({ ...w, savedAt: new Date().toISOString() });
   return write(WALLS, all);
 }
+// A saved wall is a copy: every Save adds one, and nothing later changes it.
+export function addWall(w) {
+  const all = listWalls();
+  all.unshift({ ...w, savedAt: new Date().toISOString() });
+  return write(WALLS, all);
+}
 export function deleteWall(id) { return write(WALLS, listWalls().filter((x) => x.id !== id)); }
 export function renameWall(id, name) { return write(WALLS, listWalls().map((x) => (x.id === id ? { ...x, name } : x))); }
 export const getWall = (id) => listWalls().find((x) => x.id === id) || null;

@@ -117,6 +117,7 @@ function bar(left, right = '') {
   ${S.saveFailed ? `<div class="note is-error" role="alert"><p>Didn't save on this device. It may be full; deleting an old wall under Your walls frees space. Your wall is still here until you close the page.</p><button type="button" class="btn quiet small" data-act="retry-save">Try again</button></div>` : ''}`;
 }
 const wordmark = () => '<a class="wordmark" href="#/" aria-label="Walldrobe"><span class="tab" aria-hidden="true"></span>walldrobe</a>';
+const yourWalls = () => { const n = store.listWalls().length; return n ? `<a class="walls-link" href="#/walls">Your walls ${n}</a>` : ''; };
 const back = (href, label) => `<a class="back" href="${href}"><span aria-hidden="true">‹</span> ${esc(label)}</a>`;
 function credits() {
   return `<footer class="credits">
@@ -1147,7 +1148,7 @@ function feed() {
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
     </a>
   </li>`).join('');
-  return `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Adjust</button>')}
+  return `${bar(wordmark(), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Adjust</button>`)}
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
@@ -1195,14 +1196,14 @@ function wallScreen() {
     </li>`;
   }).join('');
   const total = wallCost(L);
-  return `${bar(back('#/layouts', 'All walls'), '<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Adjust</button>')}
+  return `${bar(back('#/layouts', 'All walls'), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Adjust</button>`)}
   <main class="wall-page">
     <div class="wall-main">
     <div class="drawing-wrap${S.edit ? ' is-editing' : ''}" id="drawing-wrap">
       <div class="drawing" id="drawing">${drawWall(L, pxNow(), { selected: S.selected, measure: S.measure || S.edit, label: `Wall ${i + 1} of ${v.list.length}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
     </div>
     <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button>
-      <span class="wall-acts"><button type="button" class="btn quiet" data-act="save">${S.ui.saved === d.id && !store.demoMode ? 'Saved' : 'Save'}</button><button type="button" class="btn" data-act="get">${total.priced || total.free ? 'Get it' : 'Hang it'}</button></span></div>
+      <span class="wall-acts"><button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button><button type="button" class="btn" data-act="get">${total.priced || total.free ? 'Get it' : 'Hang it'}</button></span></div>
     ${S.edit ? editBar(L) : ''}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
@@ -1313,12 +1314,23 @@ function pieceSheet(id) {
     ${c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
 }
 
+// What a wall looks like, for telling whether this one is saved already.
+const wallSig = (L) => (L ? L.pieces.map((p) => `${p.ref.id}@${p.x},${p.y},${p.w}x${p.h}`).sort().join('|') : '');
+const savedNow = (L) => !!L && store.listWalls().some((w) => (w.from || w.id) === (S.draft.from || S.draft.id) && w.chosen && wallSig(w.chosen.layout) === wallSig(L));
+// Save adds a copy of this wall, as it is now, to Your walls. Editing afterwards
+// changes the wall you're working on, never the saved one; saving again adds another.
 function saveThisWall() {
   const L = shown();
-  S.draft.chosen = L ? { layout: bareLayout(L), inputKey: viewKey() } : null;
-  const ok = store.saveWall(S.draft) && persist();
-  if (ok) { S.ui.saved = S.draft.id; S.flash = store.demoMode ? 'Sample mode: nothing is saved.' : 'Saved on this device. Find it under Your walls.'; }
-  else S.flash = "Didn't save. This device's storage may be full. Try again after deleting an old wall.";
+  if (!L) return;
+  const d = S.draft;
+  const from = d.from || d.id;
+  const base = d.base || d.name || 'Wall';
+  const n = store.listWalls().filter((w) => (w.from || w.id) === from).length + 1;
+  const { edits, openKey, ...rest } = clone(d);
+  const copy = { ...rest, id: store.newId(), from, base, name: `${base} ${n}`, chosen: { layout: bareLayout(L), inputKey: viewKey(), at: 0 } };
+  if (!store.addWall(copy)) { S.flash = "Didn't save. This device's storage may be full. Try again after deleting an old wall."; return; }
+  if (store.demoMode) { S.flash = 'Sample mode: nothing is saved.'; return; }
+  S.undo = { label: `Saved as ${copy.name}.`, run: () => { store.deleteWall(copy.id); } };
 }
 
 // ---------- Get it: the hanging guide ----------
@@ -1463,13 +1475,13 @@ function getScreen() {
 function walls() {
   const all = store.listWalls();
   const date = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch { return ''; } };
-  return `${bar(back('#/', 'Walldrobe'), '<a class="btn quiet small" href="#/new">Start a wall</a>')}
+  return `${bar(back(S.draft && S.draft.width ? '#/wall' : '#/', S.draft && S.draft.width ? 'Your wall' : 'Walldrobe'), '<a class="btn quiet small" href="#/new">Start a wall</a>')}
   <main class="page">
     <h1>Your walls</h1>
     <p class="lede">Saved on this device. Walls and photos stay here and are never uploaded.</p>
     ${flashHtml()}
     ${all.length ? `<ul class="wall-list">${all.map((w) => `<li class="wall-item">
-      <span class="drawing small-drawing">${wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles, photo: w.photo && (w.photo.clean || w.photo.flat), layout: w.chosen && w.chosen.layout, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: (id) => { const o = w.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color } : null; }, hideObstacles: !!(w.photo && w.photo.flat), pxWide: 320, still: true, label: w.name })}</span>
+      <span class="drawing small-drawing">${wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles, photo: w.photo && (w.photo.clean || w.photo.flat), layout: w.chosen && w.chosen.layout, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: (id) => { const o = w.owned.find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color, art: !!o.art } : null; }, hideObstacles: !!(w.photo && w.photo.flat), pxWide: 320, still: true, label: w.name })}</span>
       <span class="wall-meta">
         <label class="name-in"><span class="sr">Name</span><input type="text" maxlength="40" value="${esc(w.name)}" data-rename="${esc(w.id)}"></label>
         <span class="meta">${esc(feet(w.width))} x ${esc(feet(w.height))}. Saved ${esc(date(w.savedAt))}.</span>
@@ -2086,7 +2098,7 @@ document.addEventListener('click', (e) => {
   }
   if (t.dataset.open) {
     const w = store.getWall(t.dataset.open);
-    if (w) { S.draft = upgradeDraft(w); S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); persist(); ensurePixels().then(() => { S.mem.clean = null; render(); }); go('#/wall'); }
+    if (w) { S.draft = upgradeDraft({ ...clone(w), id: store.newId(), from: w.from || w.id, base: w.base || w.name }); S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); persist(); ensurePixels().then(() => { S.mem.clean = null; render(); }); go('#/wall'); }
     return;
   }
   if (t.dataset.askDelete) { S.ui.confirmDelete = t.dataset.askDelete; render(); return; }
