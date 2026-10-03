@@ -317,3 +317,18 @@ In `rerank(layouts, { ..., art })`, `art` is the catalog items and your pieces (
 Scale contrast between frames isn't in complement(); the design checks already judge sizes on the wall.
 
 Tests: test/taste_axes.test.js.
+
+## Walls with sections (2026-10-03)
+
+A wall edge (kind `edge`: a corner, a step, a column) splits the wall into sections, and art never crosses one (it keeps 3 in clear, like any blocker). On its own, layout() builds one group, so it sits in one section and the others stay bare. `wallSections(input)` lists the sections left to right as `{ x0, x1 }`.
+
+When there are two or more sections at least 24 in wide (and no exact piece count or base is asked for), layout() also builds walls with art in more than one section:
+
+1. **Each section as its own wall.** The obstacles in it, shifted to its own inches; your pieces whose middle hangs in it; pieces with no place yet and kept prints go to the widest section. Up to 6 of its walls, plus "bare" for a section that holds none of your must-keeps.
+2. **Every combination, judged quickly.** Each section's score weighted by its width (0.75) and how the groups sit together (0.25): a middle or top line they share (within 8 in, 0.6) and art in step with each section's width (0.4). At least two sections must have art.
+3. **No print twice.** In the best combinations, a print already used in an earlier section is swapped (refill) for the next best in that frame.
+4. **Judged as one wall.** `scoreArrangement()` on the whole wall: the same hard checks and the same fit, color and design layout() uses, across every section at once, so one color story, balance across the whole wall and no look-alikes. Score = 0.55 whole wall + 0.3 sections + 0.15 together.
+5. **In the list.** Up to 6 section walls (`variant: 'sections'`, family `flow`, `sections: [{ x0, x1, art }]`, `parts.together`) go in among the others by score; the first wall stays the one layout() led with unless a section wall beats it by 0.02. refill() and spotChoices() work on them like any free-form wall.
+
+Two walls seen in one corner photo are still read as one plane, so the far face is drawn flat; reading each face with its own corners comes next. Tests: test/sections.test.js.
+

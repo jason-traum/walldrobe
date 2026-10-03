@@ -502,7 +502,7 @@ export function layout(input) {
   const r = layoutOnce(input);
   const prefs = (input && input.prefs) || {};
   const out = !r.layouts.length && prefs.dropFewest ? dropFewest(input, r) : r;
-  return withAsIs(input, out);
+  return withSections(input, withAsIs(input, out));
 }
 
 function layoutOnce(input) {
@@ -1142,4 +1142,153 @@ function finish(L, rank, ctx) {
   out.why = whyLine(out, { ownedTotal: (ctx.owned || []).length, obstacles: ctx.obstacles || [] });
   out.notes = layoutNotes({ color: c, design: L.design, checks: L.checks, family: L.family, pieces: L.pieces });
   return out;
+}
+
+// ---------- Walls with sections ----------
+// A wall edge (a corner, a step, a column) splits the wall into sections that art
+// never crosses. One group can only sit in one of them, so on its own layout() leaves
+// the others bare. Here each section wide enough gets its own walls, and they are put
+// together and judged as one: the whole wall's color, balance and design, each
+// section's own score, a line the groups share, and the bigger section carrying the
+// bigger group. No print goes up twice.
+
+const SECTION = {
+  minWidth: 24,      // narrower than this, a section gets no art of its own
+  perSection: 6,     // walls tried per section
+  combos: 240,       // most combinations judged quickly
+  finalists: 10,     // combinations judged as a whole wall
+  count: 8,          // walls asked of each section
+  keep: 6,           // section walls returned
+  weights: { whole: 0.55, sections: 0.3, together: 0.15 },
+};
+
+// The wall's sections, left to right, from its wall edges: [{ x0, x1 }].
+export function wallSections(input) {
+  const W = input && input.wall ? input.wall.width : 0;
+  const edges = ((input && input.obstacles) || []).filter((o) => o && o.kind === 'edge').map((o) => o.x + o.w / 2).filter((x) => x > 0 && x < W).sort((a, b) => a - b);
+  const out = [];
+  let x0 = 0;
+  for (const e of edges) { if (e - x0 > 0.5) out.push({ x0, x1: e }); x0 = e; }
+  if (W - x0 > 0.5) out.push({ x0, x1: W });
+  return out;
+}
+
+const centerX = (o) => (o.at ? o.at.x + o.w / 2 : null);
+
+// One section as a wall of its own: the obstacles in it, shifted; your pieces that hang
+// in it; the pieces with no place yet and the kept prints go to the widest section.
+function sectionInput(input, sec, widest) {
+  const obstacles = (input.obstacles || []).filter((o) => o.kind !== 'edge' && o.x < sec.x1 && o.x + o.w > sec.x0).map((o) => {
+    const x0 = Math.max(o.x, sec.x0), x1 = Math.min(o.x + o.w, sec.x1);
+    return { ...o, x: x0 - sec.x0, w: Math.max(0.5, x1 - x0) };
+  });
+  const owned = (input.owned || []).filter((o) => {
+    const cx = centerX(o);
+    return cx === null ? widest : cx >= sec.x0 && cx < sec.x1;
+  }).map((o) => (o.at ? { ...o, at: { x: o.at.x - sec.x0, y: o.at.y } } : o));
+  const prefs = { ...(input.prefs || {}) };
+  delete prefs.pieces;
+  return {
+    ...input, wall: { width: sec.x1 - sec.x0, height: input.wall.height }, obstacles, owned,
+    keep: widest ? input.keep : [], base: undefined, avoid: undefined, count: SECTION.count, prefs,
+  };
+}
+
+function withSections(input, r) {
+  const prefs = (input && input.prefs) || {};
+  if (!input || !input.wall || (num(prefs.pieces) && prefs.pieces >= 1) || (Array.isArray(input.base) && input.base.length)) return r;
+  const secs = wallSections(input);
+  if (secs.length < 2) return r;
+  const open = secs.filter((sc) => sc.x1 - sc.x0 >= SECTION.minWidth);
+  if (open.length < 2) return r;
+  const widest = open.reduce((a, b) => (b.x1 - b.x0 > a.x1 - a.x0 ? b : a));
+  const owned = input.owned || [];
+  const mustIn = (sec) => owned.some((o) => !o.pinned && o.keep === 'must' && (centerX(o) === null ? sec === widest : centerX(o) >= sec.x0 && centerX(o) < sec.x1));
+  // Each section's own walls, back in the whole wall's inches.
+  const options = [];
+  for (const sec of open) {
+    const sub = sectionInput(input, sec, sec === widest);
+    let got = [];
+    try { got = layoutOnce(sub).layouts; } catch { got = []; }
+    const walls = got.filter((L) => L.variant !== 'asis').slice(0, SECTION.perSection).map((L) => ({ sec, sub, L, score: L.score }));
+    const list = mustIn(sec) ? walls : [{ sec, sub, L: null, score: 0 }, ...walls];
+    if (!list.length) return r; // a section that must hold your pieces has no wall
+    options.push(list);
+  }
+  const total = open.reduce((t, sc) => t + (sc.x1 - sc.x0), 0);
+  const placedOf = (o) => (o.L ? o.L.pieces.filter((p) => p.role !== 'pinned').map((p) => {
+    const sl = p.slot || { x: p.x, y: p.y, w: p.w, h: p.h };
+    return { id: p.ref.id, x: sl.x + o.sec.x0, y: sl.y, w: sl.w, h: sl.h, src: p.ref.source, cy: sl.y + sl.h / 2, top: sl.y + sl.h };
+  }) : []);
+  // How the groups sit together: a shared middle or top line, and art in step with each section's width.
+  const together = (combo) => {
+    const lit = combo.filter((o) => o.L);
+    if (lit.length < 2) return 0;
+    const spans = lit.map((o) => { const ps = placedOf(o); const y0 = Math.min(...ps.map((p) => p.y)), y1 = Math.max(...ps.map((p) => p.top)); return { mid: (y0 + y1) / 2, top: y1, area: ps.reduce((a, p) => a + p.w * p.h, 0), width: o.sec.x1 - o.sec.x0 }; });
+    let line = 0, n = 0;
+    for (let i = 0; i < spans.length; i++) for (let j = i + 1; j < spans.length; j++) {
+      const d = Math.min(Math.abs(spans[i].mid - spans[j].mid), Math.abs(spans[i].top - spans[j].top));
+      line += Math.max(0, 1 - d / 8); n++;
+    }
+    const art = spans.reduce((a, x) => a + x.area, 0), wid = spans.reduce((a, x) => a + x.width, 0);
+    const share = 1 - spans.reduce((a, x) => a + Math.abs(x.area / art - x.width / wid), 0) / 2;
+    return 0.6 * (line / n) + 0.4 * share;
+  };
+  const quick = (combo) => combo.reduce((t, o) => t + (o.L ? o.score : 0) * ((o.sec.x1 - o.sec.x0) / total), 0);
+  // Every combination, up to the cap, judged quickly first.
+  let combos = [[]];
+  for (const list of options) {
+    const next = [];
+    for (const c of combos) for (const o of list) next.push([...c, o]);
+    combos = next.slice(0, SECTION.combos * 4);
+  }
+  combos = combos.filter((c) => c.filter((o) => o.L).length >= 2);
+  if (!combos.length) return r;
+  combos = combos.map((c) => ({ c, q: quick(c) * 0.75 + together(c) * 0.25 })).sort((a, b) => b.q - a.q).slice(0, SECTION.combos);
+  const finals = [];
+  const seenKeys = new Set();
+  for (const { c } of combos) {
+    if (finals.length >= SECTION.finalists) break;
+    // No print twice: a section that repeats one from an earlier section gets another in that frame.
+    const used = new Set();
+    const fixed = [];
+    let ok = true;
+    for (const o of c) {
+      if (!o.L) { fixed.push(o); continue; }
+      let L = o.L;
+      for (const p of L.pieces.filter((x) => x.ref.source === 'catalog' && used.has(x.ref.id))) {
+        let rr = null;
+        try { rr = refill({ ...o.sub, exclude: [...idList(o.sub.exclude, 'exclude'), ...used] }, L, { swap: p.ref.id }); } catch { rr = null; }
+        if (!rr || !rr.layouts.length) { ok = false; break; }
+        L = rr.layouts[0];
+      }
+      if (!ok) break;
+      for (const p of L.pieces) if (p.ref.source === 'catalog') used.add(p.ref.id);
+      fixed.push({ ...o, L, score: L.score });
+    }
+    if (!ok) continue;
+    const placed = fixed.flatMap(placedOf).map(({ id, x, y, w, h }) => ({ id, x, y, w, h }));
+    let a;
+    try { a = scoreArrangement(input, placed, { variant: 'sections' }); } catch { continue; }
+    if (!a.ok) continue;
+    const key = `sections|${fixed.map((o) => (o.L ? o.L.key : 'bare')).join('|')}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    const secMean = quick(fixed);
+    const tog = together(fixed);
+    const w = SECTION.weights;
+    const score = w.whole * a.score + w.sections * secMean + w.together * tog;
+    finals.push({ ...a.layout, key, family: 'flow', variant: 'sections', score: r3(Math.max(0, Math.min(1, score))), sections: fixed.map((o) => ({ x0: o.sec.x0, x1: o.sec.x1, art: !!o.L })), parts: { ...a.layout.parts, together: r3(tog), sections: r3(secMean) } });
+  }
+  if (!finals.length) return r;
+  finals.sort((x, y) => y.score - x.score || cmpStr(x.key, y.key));
+  const add = finals.slice(0, SECTION.keep);
+  // Section walls go in among the others by score; the wall as it hangs stays last.
+  const asis = r.layouts.filter((L) => L.variant === 'asis');
+  const rest = r.layouts.filter((L) => L.variant !== 'asis');
+  const merged = [...rest, ...add].sort((x, y) => y.score - x.score || cmpStr(x.key, y.key));
+  // The first wall stays the one layout() led with unless a section wall beats it clearly.
+  if (rest.length && merged[0] !== rest[0] && merged[0].score < rest[0].score + 0.02) { merged.splice(merged.indexOf(rest[0]), 1); merged.unshift(rest[0]); }
+  const layouts = [...merged, ...asis].map((L, i) => ({ ...L, rank: i + 1 }));
+  return { ...r, layouts, sections: secs };
 }
