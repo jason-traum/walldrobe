@@ -835,8 +835,8 @@ function check() {
   const sizeTag = (b, w, h) => `<text x="${b.x + b.w / 2}" y="${b.y + b.h + s * 1.1}" font-size="${s * 0.85}" class="box-size">${r2(w)} x ${r2(h)} in</text>`;
   const picked = S.ui.fix;
   const boxes = [
-    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
-    ...d.owned.filter((o) => o.at).map((o) => { const b = { x: o.at.x, y: H - o.at.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="owned-mark box${o.keep === 'skip' ? ' is-skip' : ''}${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="own"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="owned-box-mark"/>${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
+    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
+    ...d.owned.filter((o) => o.at).map((o) => { const b = { x: o.at.x, y: H - o.at.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="owned-mark box${o.keep === 'skip' ? ' is-skip' : ''}${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="own">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="owned-box-mark"/>${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
   ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
   const from = auto && p.auto.guess ? p.auto.guess.from : null;
@@ -932,7 +932,8 @@ function wireCheck() {
     const g = svg.querySelector(`[data-box="${CSS.escape(box.o.id)}"]`);
     if (!g) return;
     const b = box.get(), top = H - b.y - b.h;
-    const r = g.querySelector('rect'); r.setAttribute('x', b.x); r.setAttribute('y', top); r.setAttribute('width', b.w); r.setAttribute('height', b.h);
+    const r = g.querySelector('.ob-box, .owned-box-mark'); r.setAttribute('x', b.x); r.setAttribute('y', top); r.setAttribute('width', b.w); r.setAttribute('height', b.h);
+    const hp = g.querySelector('.hit-pad'); if (hp) { const pw = Math.max(b.w, Number(hp.getAttribute('width'))), ph = Math.max(b.h, Number(hp.getAttribute('height'))); hp.setAttribute('x', b.x - (pw - b.w) / 2); hp.setAttribute('y', top - (ph - b.h) / 2); }
     const lab = g.querySelector('.ob-label'); if (lab) { lab.setAttribute('x', b.x + b.w / 2); lab.setAttribute('y', top + b.h / 2); }
     const pts = [[b.x, top], [b.x + b.w, top], [b.x + b.w, top + b.h], [b.x, top + b.h]];
     g.querySelectorAll('.box-h').forEach((h, i) => h.querySelectorAll('circle').forEach((c) => { c.setAttribute('cx', pts[i][0]); c.setAttribute('cy', pts[i][1]); }));
@@ -1119,12 +1120,20 @@ function clampOb(o) {
 }
 
 const editPx = () => Math.min((window.innerWidth || 700) - 50, 760);
+// A see-through touch area at least 44 px square around a small box (an outlet is
+// about 9 px wide on a phone), so it can be picked up and dragged. x, y: svg top left.
+function hitPad(x, y, w, h) {
+  const ppi = editPx() / Math.max(1, S.draft.width), min = 44 / ppi;
+  if (w >= min && h >= min) return '';
+  const pw = Math.max(w, min), ph = Math.max(h, min);
+  return `<rect x="${x - (pw - w) / 2}" y="${y - (ph - h) / 2}" width="${pw}" height="${ph}" class="hit-pad"/>`;
+}
 function obstacleLayer(showHandles = true) {
   const H = S.draft.height;
   const s = labelSize(S.draft.width, editPx());
   return S.draft.obstacles.map((o) => `
     <g class="ob" data-ob="${esc(o.id)}">
-      <rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>
+      ${hitPad(o.x, H - o.y - o.h, o.w, o.h)}<rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>
       ${o.w >= 10 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.9}" class="ob-label">${esc(obName(o))}</text>` : ''}
       ${showHandles && o.w >= 6 ? `<circle cx="${o.x + o.w}" cy="${H - o.y - o.h}" r="${s * 0.55}" class="ob-resize" data-resize="${esc(o.id)}"/>` : ''}
     </g>`).join('');
@@ -2158,7 +2167,8 @@ function wireThings() {
   const place = (o) => {
     const g = svg.querySelector(`.ob[data-ob="${CSS.escape(o.id)}"]`);
     if (!g) return;
-    const r = g.querySelector('rect'); r.setAttribute('x', o.x); r.setAttribute('y', H - o.y - o.h); r.setAttribute('width', o.w); r.setAttribute('height', o.h);
+    const r = g.querySelector('.ob-box'); r.setAttribute('x', o.x); r.setAttribute('y', H - o.y - o.h); r.setAttribute('width', o.w); r.setAttribute('height', o.h);
+    const hp = g.querySelector('.hit-pad'); if (hp) { const pw = Number(hp.getAttribute('width')), ph = Number(hp.getAttribute('height')); hp.setAttribute('x', o.x - (pw - o.w) / 2); hp.setAttribute('y', H - o.y - o.h - (ph - o.h) / 2); }
     const t = g.querySelector('text'); if (t) { t.setAttribute('x', o.x + o.w / 2); t.setAttribute('y', H - o.y - o.h / 2); }
     const c = g.querySelector('.ob-resize'); if (c) { c.setAttribute('cx', o.x + o.w); c.setAttribute('cy', H - o.y - o.h); }
   };

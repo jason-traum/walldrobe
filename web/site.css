@@ -542,3 +542,6 @@ svg.is-dragging .measure { opacity: 0.25; }
 .no-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .no-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
 .no-list .tn { justify-self: center; }
+
+/* The touch area around a small box: invisible, but it takes the tap. */
+.hit-pad { fill: transparent; stroke: none; pointer-events: all; }
