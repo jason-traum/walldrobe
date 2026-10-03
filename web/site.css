@@ -440,3 +440,10 @@ svg.is-dragging .measure { opacity: 0.25; }
 .fav-mark svg { width: 14px; height: 14px; }
 .sheet.is-piece .link[data-act="all-choices"] { justify-self: start; min-height: 44px; padding: 0; }
 .sheet.is-piece .seg { justify-self: start; }
+
+/* ---------- v4: Adjust (round 5) ---------- */
+.sheet.is-piece .sheet-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.sheet.is-piece .sheet-row .label { flex-basis: 100%; color: var(--pencil); font-size: 14px; line-height: 18px; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); }
+.stepper .icon-btn { width: 44px; height: 44px; }
+.step-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: 500; }

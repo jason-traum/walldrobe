@@ -141,6 +141,32 @@ with sync_playwright() as p:
         vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(800)
         check(f'{W} Adjust opens', vis(pg, '#sheet') is not None)
         pg.screenshot(path=f'{OUT}/adjust-{W}.png')
+        # How many: set, one more, one fewer; stepping back brings the same wall back.
+        start = sorted(arts(pg))
+        vis(pg, '#sheet [data-count]:not([data-count=any])').click(); pg.wait_for_timeout(2500)
+        n0 = int(pg.locator('#sheet .step-n').inner_text())
+        plus = vis(pg, '#sheet [aria-label="More pieces"]')
+        if plus and plus.is_enabled():
+            plus.click(); pg.wait_for_timeout(3000)
+            check(f'{W} one more piece', len(arts(pg)) == n0 + 1, f'{n0} then {len(arts(pg))}')
+            pg.screenshot(path=f'{OUT}/count-up-{W}.png')
+            vis(pg, '#sheet [aria-label="Fewer pieces"]').click(); pg.wait_for_timeout(2500)
+            check(f'{W} stepping back brings the same wall back', sorted(arts(pg)) == start, f'{len(start)} vs {len(arts(pg))}')
+        vis(pg, '#sheet [data-count=any]').click(); pg.wait_for_timeout(2500)
+        # Kind, then Undo.
+        vis(pg, '#sheet [data-style=structured]').click(); pg.wait_for_timeout(3000)
+        check(f'{W} kind set to Structured', vis(pg, '#sheet [data-style=structured][aria-pressed=true]') is not None)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        u = vis(pg, '[data-act=undo]'); check(f'{W} undo after a change in Adjust', u is not None)
+        if u:
+            u.click(); pg.wait_for_timeout(2500)
+            vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+            check(f'{W} undo puts Any back', vis(pg, '#sheet [data-style=""][aria-pressed=true]') is not None)
+        # Free art only.
+        vis(pg, '#sheet [data-art=photos]').click(); pg.wait_for_timeout(3000)
+        ids = [i for i in arts(pg) if i not in ('blue', 'pink')]
+        check(f'{W} Free art shows only free photos', ids and all(not i.startswith(('des-', 'hos-')) for i in ids), ','.join(ids[:3]))
+        vis(pg, '#sheet [data-art=prints]').click(); pg.wait_for_timeout(2500)
         vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
         # Get it.
         vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
