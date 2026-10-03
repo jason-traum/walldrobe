@@ -92,6 +92,9 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 
 /* ---------- The bar ---------- */
 .bar { max-width: 760px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 8px 16px; position: sticky; top: 0; z-index: 4; background: var(--canvas); }
+/* Safari draws the page behind its own bars at the top. The header's color runs up
+   behind them, so art scrolling past never shows above the header. */
+.bar { box-shadow: 0 -400px 0 0 var(--canvas); }
 .bar-l, .bar-r { display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* The door in the bar reads as a link in the action blue, like the reference; still a 44 px target. */
 .bar-r .btn[data-act="change"] { background: none; border: 0; color: var(--tape); padding: 0 4px 0 8px; font-weight: 500; }
