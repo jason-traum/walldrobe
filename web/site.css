@@ -439,3 +439,4 @@ svg.is-dragging .measure { opacity: 0.25; }
 .fav-mark { position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
 .fav-mark svg { width: 14px; height: 14px; }
 .sheet.is-piece .link[data-act="all-choices"] { justify-self: start; min-height: 44px; padding: 0; }
+.sheet.is-piece .seg { justify-self: start; }
