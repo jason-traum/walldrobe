@@ -292,9 +292,9 @@ input[type="color"] { width: 44px; height: 44px; border: 1px solid var(--field);
 .wall-edit .ob { cursor: grab; }
 
 /* ---------- Corners ---------- */
-.photo-wrap { background: var(--surface); border-radius: var(--r-sheet); padding: 8px; }
+.photo-wrap { background: var(--surface); border-radius: var(--r-sheet); padding: 16px; }
 .notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--pencil); font-size: 14px; line-height: 20px; }
-.photo-svg { display: block; width: 100%; height: auto; max-height: 60svh; touch-action: none; -webkit-user-select: none; user-select: none; }
+.photo-svg { display: block; width: 100%; height: auto; max-height: 60svh; overflow: visible; touch-action: none; -webkit-user-select: none; user-select: none; }
 .quad { fill: rgba(47, 127, 208, 0.14); stroke: var(--tape-strip); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .has-error .quad { fill: rgba(161, 42, 20, 0.2); stroke: var(--error); stroke-dasharray: 8 6; }
 .handle { cursor: grab; outline: none; }
@@ -465,7 +465,8 @@ svg.is-dragging .measure { opacity: 0.25; }
 .sheet.stay { animation: none; }
 .sheet.is-piece.is-tall { max-height: 88svh; }
 .choices { list-style: none; margin: 4px 0 0; padding: 4px 4px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 12px; align-items: end; }
-.choices.is-all { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+.choices.is-all { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); max-height: 38svh; overflow-y: auto; overscroll-behavior: contain; padding: 6px 6px 6px 2px; margin-right: -6px; }
+/* Every print that fits scrolls in its own box, so Favorite, Keep and Remove stay in reach under it. */
 .choice { position: relative; width: 100%; min-height: 44px; border: 0; background: none; padding: 4px 2px; cursor: pointer; display: block; }
 .choice .tn { width: 100%; height: auto; }
 .choice .tn img { height: 100%; }

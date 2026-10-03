@@ -159,9 +159,20 @@ function pinStrip(x, y, id) {
 function waitTitle(title, cx, cy, iw, ppi) {
   const fs = Math.max(10 / (ppi || 3), Math.min(2.4, iw / 8));
   const fit = Math.max(3, Math.floor(iw / (fs * 0.56)));
-  const t = String(title || '');
-  const txt = t.length > fit ? `${t.slice(0, fit - 1).trimEnd()}.` : t;
-  return `<text x="${cx}" y="${cy}" font-size="${fs}" class="art-wait">${esc(txt)}</text>`;
+  // Up to two lines, broken at spaces; only what still doesn't fit is cut.
+  const words = String(title || '').split(/\s+/).filter(Boolean);
+  const lines = [''];
+  for (const w of words) {
+    const cur = lines[lines.length - 1];
+    if (!cur) lines[lines.length - 1] = w;
+    else if (`${cur} ${w}`.length <= fit) lines[lines.length - 1] = `${cur} ${w}`;
+    else if (lines.length < 2) lines.push(w);
+    else { lines[1] = `${lines[1]} ${w}`; }
+  }
+  const cut = (t) => (t.length > fit ? `${t.slice(0, fit - 1).trimEnd()}.` : t);
+  const shown = lines.map(cut);
+  const lh = fs * 1.2, y0 = cy - ((shown.length - 1) * lh) / 2;
+  return `<text x="${cx}" y="${y0}" font-size="${fs}" class="art-wait">${shown.map((t, i) => `<tspan x="${cx}" dy="${i ? lh : 0}">${esc(t)}</tspan>`).join('')}</text>`;
 }
 function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }) {
   const y = H - p.y - p.h;
@@ -210,7 +221,12 @@ function measures(L, W, H, s) {
   const nails = L.pieces.filter((p) => p.role !== 'pinned').map((p) => `<circle cx="${p.nail.x}" cy="${H - p.nail.y}" r="${s * 0.22}" class="nail"/>`).join('');
   return `<g class="measure">
     <line x1="0" x2="${W}" y1="${H - 57}" y2="${H - 57}" class="centerline"/>
-    ${(() => { const left = g.x >= W - (g.x + g.w); return `<text x="${left ? s * 0.4 : W - s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s}" text-anchor="${left ? 'start' : 'end'}">57 in to center</text>`; })()}
+    ${(() => {
+      // On the wider side of the group, and only as much text as fits there without touching a print.
+      const left = g.x >= W - (g.x + g.w), room = (left ? g.x : W - (g.x + g.w)) - s * 0.8;
+      const t = room >= 15 * s * 0.56 ? '57 in to center' : room >= 5 * s * 0.56 ? '57 in' : '';
+      return t ? `<text x="${left ? s * 0.4 : W - s * 0.4}" y="${H - 57 - s * 0.35}" font-size="${s}" text-anchor="${left ? 'start' : 'end'}">${t}</text>` : '';
+    })()}
     <line x1="${g.x}" x2="${g.x + g.w}" y1="${ty}" y2="${ty}"/>
     <line x1="${g.x}" x2="${g.x}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>
     <line x1="${g.x + g.w}" x2="${g.x + g.w}" y1="${ty - s * 0.5}" y2="${ty + s * 0.5}"/>

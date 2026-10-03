@@ -9,19 +9,67 @@ export const demoMode = (() => {
   try { return new URLSearchParams(location.search).has('demo'); } catch { return false; }
 })();
 
+// Photos (and thumbnails cut from them) are big, and every saved copy of a wall
+// carries the same ones. So each image is kept once, under its own key, and the
+// wall keeps a short reference to it. Safari gives a site about 5 MB in all.
+const BLOB = 'walldrobe.img.';
+const BIG = 2000; // characters: a string longer than this (a photo, the photo's labels) is kept on its own
+function hashOf(str) {
+  let h1 = 0x811c9dc5, h2 = 0x1000193;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619); h2 = Math.imul(h2 + c, 2654435761); }
+  return `${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}${str.length.toString(36)}`;
+}
+const keyCache = new Map(); // the same photo string is saved on every change: hash it once
+// Swap big strings for { $img: key }, writing each image once. Returns null if storage is full.
+function pack(v, out) {
+  if (typeof v === 'string') {
+    if (v.length <= BIG) return v;
+    let key = keyCache.get(v);
+    if (!key) { key = BLOB + hashOf(v); keyCache.set(v, key); if (keyCache.size > 64) keyCache.delete(keyCache.keys().next().value); }
+    out.add(key);
+    try { if (localStorage.getItem(key) === null) localStorage.setItem(key, v); } catch { out.full = true; }
+    return { $img: key };
+  }
+  if (Array.isArray(v)) return v.map((x) => pack(x, out));
+  if (v && typeof v === 'object') { const o = {}; for (const [k, x] of Object.entries(v)) o[k] = pack(x, out); return o; }
+  return v;
+}
+function unpack(v) {
+  if (Array.isArray(v)) return v.map(unpack);
+  if (v && typeof v === 'object') {
+    if (typeof v.$img === 'string' && Object.keys(v).length === 1) { try { return localStorage.getItem(v.$img); } catch { return null; } }
+    const o = {}; for (const [k, x] of Object.entries(v)) o[k] = unpack(x); return o;
+  }
+  return v;
+}
 function read(key, fallback) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  try { const v = localStorage.getItem(key); return v ? unpack(JSON.parse(v)) : fallback; } catch { return fallback; }
 }
 
 // Returns true when it saved. A full storage is the likely failure (photos are big).
 function write(key, value) {
   if (demoMode) return true;
-  try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; }
+  const used = new Set();
+  const packed = pack(value, used);
+  if (used.full) { sweep(); return false; }
+  try { localStorage.setItem(key, JSON.stringify(packed)); } catch { sweep(); return false; }
+  if (used.size) sweep();
+  return true;
+}
+// Images no wall points at any more are removed.
+function sweep() {
+  try {
+    const live = new Set();
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('walldrobe.') && !k.startsWith(BLOB)) keys.push(k); }
+    for (const k of keys) { const raw = localStorage.getItem(k); if (raw) for (const m of raw.matchAll(/"\$img":"([^"]+)"/g)) live.add(m[1]); }
+    for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith(BLOB) && !live.has(k)) localStorage.removeItem(k); }
+  } catch { /* nothing to sweep */ }
 }
 
 export const loadDraft = () => read(DRAFT, null);
 export const saveDraft = (d) => write(DRAFT, d);
-export function clearDraft() { if (demoMode) return; try { localStorage.removeItem(DRAFT); } catch { /* nothing to clear */ } }
+export function clearDraft() { if (demoMode) return; try { localStorage.removeItem(DRAFT); } catch { /* nothing to clear */ } sweep(); }
 
 export const listWalls = () => read(WALLS, []);
 export function saveWall(w) {
@@ -35,7 +83,7 @@ export function addWall(w) {
   all.unshift({ ...w, savedAt: new Date().toISOString() });
   return write(WALLS, all);
 }
-export function deleteWall(id) { return write(WALLS, listWalls().filter((x) => x.id !== id)); }
+export function deleteWall(id) { const ok = write(WALLS, listWalls().filter((x) => x.id !== id)); sweep(); return ok; }
 export function renameWall(id, name) { return write(WALLS, listWalls().map((x) => (x.id === id ? { ...x, name } : x))); }
 export const getWall = (id) => listWalls().find((x) => x.id === id) || null;
 
