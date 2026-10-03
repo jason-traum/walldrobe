@@ -6,7 +6,7 @@
 
 import { layout, refill, rerank, spotChoices, scoreArrangement, RULES } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
-import { fitTaste, scoreTaste, nextPair } from '../engine/taste.js';
+import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
@@ -49,7 +49,7 @@ function blankDraft() {
   return {
     id: store.newId(), name: 'My wall', sample: null, width: null, height: null,
     photo: null, obstacles: [], owned: [], room: null,
-    taste: { source: 'none', weights: null, picks: [] }, kept: [], saved: [], skipped: [], chosen: null, fullness: 'balanced', justMine: false,
+    taste: { source: 'none', weights: null, picks: [] }, kept: [], saved: [...store.loadMe().saved], skipped: [], chosen: null, fullness: 'balanced', justMine: false,
   };
 }
 // Sample rooms are never written over your own wall in progress.
@@ -160,12 +160,17 @@ const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped]);
 // Saves and swaps tell us what you like: a saved piece beats one you swapped away.
 function rankTaste() {
   const d = S.draft;
+  if (!d.saved.length && !d.skipped.length) return null;
   const pairs = [];
   for (const w of d.saved) for (const l of d.skipped) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
-  if (!pairs.length) return null;
   const quiz = (d.taste.picks || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
   const ids = new Set(S.view.all.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => p.ref.id)));
-  return scoreTaste(fitTaste([...quiz, ...pairs]), CATALOG.filter((c) => ids.has(c.id)));
+  const pool = CATALOG.filter((c) => ids.has(c.id));
+  const t = pairs.length ? scoreTaste(fitTaste([...quiz, ...pairs]), pool) : scoreTaste(d.taste.weights, pool);
+  // What a piece is of counts too: subjects you save lift it, subjects you swap away pull it down.
+  const st = subjectStats({ picks: quiz, saved: d.saved, skipped: d.skipped }, byId);
+  for (const c of pool) if (t[c.id] != null) t[c.id] = Math.min(1, t[c.id] * subjectFactor(st, null, subjectOf(c)));
+  return t;
 }
 
 function run() {
@@ -352,6 +357,10 @@ function toggleSave(id) {
   d.saved = on ? d.saved.filter((x) => x !== id) : [...d.saved, id];
   // Saving a piece you'd swapped away takes it off the swapped list.
   if (!on) d.skipped = d.skipped.filter((x) => x !== id);
+  // Favorites are yours, not one wall's: every wall ranks with them and the Favorites page lists them.
+  const me = store.loadMe();
+  me.saved = on ? me.saved.filter((x) => x !== id) : [...me.saved.filter((x) => x !== id), id];
+  store.saveMe(me);
   persist();
 }
 function toggleKeep(id) {
@@ -1271,6 +1280,7 @@ function changeSheet() {
       <li><a class="sheet-item" href="#/taste">Make it mine: pick between pairs of art</a></li>
       <li><a class="sheet-item" href="${d.photo ? '#/check' : '#/things'}">Check what's marked on the wall</a></li>
       <li><a class="sheet-item" href="#/new">Start a new wall</a></li>
+      <li><a class="sheet-item" href="#/saved">Favorites${S.draft.saved.length ? ` <span class="pencil">${S.draft.saved.length}</span>` : ''}</a></li>
       <li><a class="sheet-item" href="#/walls">Your walls</a></li>
     </ul>`;
 }
@@ -1494,6 +1504,31 @@ function walls() {
     ${all.length ? `<ul class="wall-grid">${all.map(card).join('')}</ul>` : '<p class="pencil">Save a wall and it lands here. Save two to compare them.</p>'}
   </main>${sheetHtml()}`;
 }
+// Favorites: every print you hearted, from any wall. See it on my wall keeps it in every wall.
+function savedScreen() {
+  const d = S.draft;
+  const ids = (d && d.saved && d.saved.length ? d.saved : store.loadMe().saved).filter((id) => byId.get(id));
+  const hasWall = !!(d && d.width);
+  const kept = d ? keptSet() : new Set();
+  const tile = (id) => {
+    const it = byId.get(id);
+    const ar = it.aspect || 0.8, h = ar < 1 ? 150 : 128 / ar;
+    const shop = it.offers && it.offers.length ? it.offers[0] : null;
+    return `<li class="piece">
+      <span class="piece-art"><span class="tn new${kept.has(id) ? ' kept' : ''}" style="width:${(h * ar).toFixed(0)}px;height:${h.toFixed(0)}px"><img src="${it.imageData}" alt="${esc(it.title)}"></span></span>
+      <span class="piece-name">${esc(it.title)}</span>
+      <span class="fav-acts">${hasWall ? (kept.has(id) ? '<span class="piece-kept">On your wall</span>' : `<button type="button" class="link" data-onwall="${esc(id)}">See it on my wall</button>`) : ''}
+      ${shop && shop.url ? `<a class="link" href="${esc(shop.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : it.url ? `<a class="link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : ''}</span>
+      <button type="button" class="heart" data-save="${esc(id)}" aria-pressed="true" aria-label="Unsave ${esc(it.title)}">${heart(true)}</button>
+    </li>`;
+  };
+  return `${bar(back(hasWall ? '#/wall' : '#/', hasWall ? 'Your wall' : 'Walldrobe'))}
+  <main class="page saved-page">
+    <h1>Favorites</h1>
+    ${flashHtml()}
+    ${ids.length ? `<ul class="pieces">${ids.map(tile).join('')}</ul>` : '<p class="pencil">Tap the heart on any print and it lands here.</p>'}
+  </main>`;
+}
 // One saved wall, one level down: open it, rename it, delete it.
 function wallSheet(id) {
   const w = store.getWall(id);
@@ -1546,7 +1581,7 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, compare };
+  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, compare, saved: savedScreen };
   const fn = screens[r0] || home;
   document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
@@ -2135,6 +2170,17 @@ document.addEventListener('click', (e) => {
     const w = store.getWall(t.dataset.open);
     if (w) { S.draft = upgradeDraft({ ...clone(w), id: store.newId(), from: w.from || w.id, base: w.base || w.name }); S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); persist(); ensurePixels().then(() => { S.mem.clean = null; render(); }); go('#/wall'); }
     return;
+  }
+  if (t.dataset.onwall) {
+    const id = t.dataset.onwall, it = byId.get(id), d = S.draft;
+    const sizes = (it.record && it.record.sizes) || it.sizes || [];
+    const pick = sizes.length ? [...sizes].sort((a, b) => a.w * a.h - b.w * b.h)[Math.floor((sizes.length - 1) / 2)] : null;
+    if (!pick) { S.flash = 'That print has no size listed yet.'; render(); return; }
+    const prev = clone(d.kept || []);
+    d.kept = [...prev.filter((k) => k.id !== id), { id, w: pick.w, h: pick.h }];
+    d.chosen = null;
+    rebuild('onwall', { label: 'Kept in every wall.', run: () => { d.kept = prev; persist(); } });
+    go('#/wall'); return;
   }
   if (t.dataset.wallcard) { S.sheet = { wall: t.dataset.wallcard }; S.ui.confirmDelete = null; render(); return; }
   if (t.dataset.pickwall) {

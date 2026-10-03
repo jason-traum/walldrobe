@@ -125,6 +125,9 @@ with sync_playwright() as p:
         check(f'{W} still on the wall it opened after keep and undo', here.startswith(f'{target + 1} of'), here)
         # The working wall keeps itself: swap here, go next and back, then out to the list and back in.
         pg.evaluate('window.scrollTo(0, 0)')
+        for _ in range(4):
+            if pg.locator('button.piece-open').count(): break
+            vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
         opens = pg.locator('button.piece-open'); opens.nth(0).click(); pg.wait_for_timeout(900)
         vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
         mine = sorted(arts(pg)); at = cnt()
@@ -211,6 +214,22 @@ with sync_playwright() as p:
         stored = pg.evaluate("JSON.parse(localStorage.getItem('walldrobe.walls.v1')).map(w => w.chosen.layout.pieces.map(p => p.ref.id).sort())")
         check(f'{W} the first save is unchanged by the edit', saved1 in stored and saved2 in stored and saved1 != saved2)
         pg.go_back(); pg.wait_for_timeout(1500)
+        # Favorites: a heart lands there; See it on my wall keeps it in every wall.
+        for _ in range(4):
+            vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
+            if pg.locator('.piece .heart').count(): break
+        hp = pg.locator('.piece .heart').first; fav = hp.get_attribute('data-save')
+        if hp.get_attribute('aria-pressed') != 'true': hp.click(); pg.wait_for_timeout(600)
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+        vis(pg, '#sheet a[href="#/saved"]').click(); pg.wait_for_timeout(1200)
+        check(f'{W} Favorites lists the heart', pg.locator(f'.saved-page [data-save="{fav}"]').count() == 1)
+        check(f'{W} Favorites no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
+        pg.screenshot(path=f'{OUT}/favorites-{W}.png', full_page=True)
+        others = [x for x in pg.evaluate("[...document.querySelectorAll('[data-onwall]')].map(b => b.dataset.onwall)")]
+        if others:
+            pg.locator(f'[data-onwall="{others[0]}"]').click(); pg.wait_for_timeout(3000)
+            check(f'{W} See it on my wall puts it up, kept', '#/wall' in pg.url and pg.locator(f'#drawing g.art.is-kept[data-id="{others[0]}"]').count() == 1)
+            vis(pg, '[data-act=undo]').click(); pg.wait_for_timeout(2500)
         # Get it.
         vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
         check(f'{W} Get it opens', '#/get' in pg.url)
