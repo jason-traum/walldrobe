@@ -197,6 +197,7 @@ One line per call: date, decision, and why. Newest at the bottom. Change a decis
 - 2026-10-03: Buying comes next after framing: the cheapest way to get each print (shops, downloads, print labs for free photos), the cheapest frame that fits, and one list for the wall. To do in PRODUCT.md "Next: buying it".
 - 2026-10-03: v4 goes live: main is moved up to v4 (a fast-forward; nothing on main was missing from v4), so the GitHub Pages site serves it. The old main is kept as the branch pre-v4-main, and the v2 and v3 branches keep the features that wait. Jason: "u can just push the preview and have this version live, we can always update... i want to send to friends."
 - 2026-10-03: "Adjust" is now "Preferences", in the bar and as the sheet's heading. Most of the sheet is preferences (kind, how many, how full, art); Favorites and New art in the open frames stay in it. Jason: "adjust seems vague."
+- 2026-10-03: The sticky header's color runs 400 px up behind Safari's own top bar (a box shadow, so it adds no width), because Safari 26 draws the page behind its bars and art scrolling past showed above the header, which looked like it was floating. Jason: "the top part looks messed up. The header is like floating."
 
 
 ## Design
