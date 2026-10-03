@@ -123,6 +123,20 @@ with sync_playwright() as p:
         k = int(here.split(' of ')[0])
         check(f'{W} next wall', cnt().startswith(f'{k + 1} of'), f'{here} then {cnt()}')
         check(f'{W} still on the wall it opened after keep and undo', here.startswith(f'{target + 1} of'), here)
+        # The working wall keeps itself: swap here, go next and back, then out to the list and back in.
+        pg.evaluate('window.scrollTo(0, 0)')
+        opens = pg.locator('button.piece-open'); opens.nth(0).click(); pg.wait_for_timeout(900)
+        vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        mine = sorted(arts(pg)); at = cnt()
+        vis(pg, '.pager [aria-label="Wall before"]').click(); pg.wait_for_timeout(1000)
+        vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
+        check(f'{W} previous and next keep your swap', sorted(arts(pg)) == mine and cnt() == at, f'{at} then {cnt()}')
+        vis(pg, 'a.back').click(); pg.wait_for_timeout(1500)
+        k = int(at.split(' of ')[0]) - 1
+        listed = pg.evaluate(f"[...document.querySelectorAll('.entry-link')[{k}].querySelectorAll('g.art')].map(g => g.dataset.id).sort()")
+        check(f'{W} the list shows the wall as you left it', listed == mine)
+        pg.locator('.entry-link').nth(k).click(); pg.wait_for_timeout(1500)
+        check(f'{W} opening it again finds your swap', sorted(arts(pg)) == mine)
         # Adjust opens.
         vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(800)
         check(f'{W} Adjust opens', vis(pg, '#sheet') is not None)
