@@ -1292,7 +1292,7 @@ const pxNow = () => ($('#drawing') && $('#drawing').clientWidth) || Math.min(760
 function noWalls(v) {
   const d = S.draft;
   const p = v.problems.find((x) => x.code !== 'FAMILY_SKIPPED' && x.code !== 'ALL_SHOWN' && x.code !== 'LOOSENED');
-  return `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="change">Adjust</button>')}
+  return `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="change">Preferences</button>')}
   <main class="page">
     <div class="drawing">${drawWall(null, pxNow(), { still: true })}</div>
     <h1 class="why">There isn't room for art on this wall.</h1>
@@ -1331,7 +1331,7 @@ function feed() {
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
     </a>
   </li>`).join('');
-  return `${bar(wordmark(), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Adjust</button>`)}
+  return `${bar(wordmark(), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="feed-page">
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
@@ -1342,7 +1342,7 @@ function feed() {
 }
 
 // One wall, open: the drawing, why it works, what's in it, and Get this wall.
-// The list and the open wall stay on screen under Adjust while a change builds the
+// The list and the open wall stay on screen under Preferences while a change builds the
 // walls again, so the tap shows at once and the page doesn't blank and fade back.
 function keepUnder(name, fn) {
   return () => {
@@ -1391,7 +1391,7 @@ function wallScreen() {
     </li>`;
   }).join('');
   const total = wallCost(L);
-  return `${bar(back('#/layouts', 'All walls'), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Adjust</button>`)}
+  return `${bar(back('#/layouts', 'All walls'), `${yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="wall-page">
     <div class="wall-main">
     <div class="drawing-wrap${S.edit ? ' is-editing' : ''}" id="drawing-wrap">
@@ -1452,7 +1452,7 @@ function changeSheet() {
   const n = d.pieces || (L ? L.pieces.length : null);
   const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
   const arts = [['prints', 'Shop prints'], ['photos', 'Free art'], ['both', 'Both'], ...(keptOwned().length ? [['mine', 'Just mine']] : [])];
-  return `<h2 id="sheet-h">Adjust</h2>
+  return `<h2 id="sheet-h">Preferences</h2>
     <p class="sheet-status" role="status">${stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : ''}</p>
     ${seg('kind-l', 'Kind', [[null, 'Any'], ['structured', 'Structured'], ['gallery', 'Loose']], d.style || null, 'style')}
     <div class="sheet-row"><span class="label" id="count-l">How many</span>
