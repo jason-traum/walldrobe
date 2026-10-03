@@ -447,3 +447,7 @@ svg.is-dragging .measure { opacity: 0.25; }
 .stepper { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); }
 .stepper .icon-btn { width: 44px; height: 44px; }
 .step-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* ---------- v4: Your walls (round 7) ---------- */
+.walls-link { color: var(--tape); text-decoration: none; font-weight: 500; min-height: 44px; display: inline-flex; align-items: center; padding: 0 4px; font-variant-numeric: tabular-nums; }
+.wall-acts .btn[aria-pressed="true"] { background: var(--tape-soft); color: var(--tape); border-color: transparent; opacity: 1; }
