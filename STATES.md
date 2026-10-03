@@ -159,9 +159,9 @@ Undo stays until the next change. Versions stay with the wall, on this device.
 
 | State | What they see | Action |
 |---|---|---|
-| Default | The step bar (5 Hang), "Get it, tape it, hang it", the why line, "What to get": each new piece with artist, shop, print size and price, its frame in words with a Change link back to Frames, then the total | Buy at [shop], Find a frame, Change |
+| Default | The step bar (5 Hang), "Get it, hang it", the why line, "What to get": each new piece with artist, shop, print size and price, its frame in words with a Change link back to Frames, then the total | Buy at [shop], Find a frame, Change |
 | Free photo | "Photo by [artist] on Unsplash. Print it 8 x 10 in for an 11 x 14 in frame with a mat. Free under the Unsplash License." | Get it on [site], Find a frame |
-| Nothing new | "Tape it, hang it", no buy list | |
+| Nothing new | "Hang it", no buy list | |
 | Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |
 | A piece of yours moves | "Take it down and rehang it here." under its name | |
 | Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows | Type a number |

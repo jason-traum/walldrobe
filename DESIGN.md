@@ -21,7 +21,7 @@ The wall is the hero. People are judging art, and art needs neutral surroundings
 
 ## The direction and its source
 
-Blue painter's tape on a white wall. It is what the person already does: tape rectangles on the wall to see where frames would go before hanging anything. In Walldrobe, proposed pieces are drawn as tape, pieces you own are drawn as frames, and the hanging guide tells you where to put real tape before you drill.
+Blue painter's tape on a white wall. It is what the person already does: tape rectangles on the wall to see where frames would go before hanging anything. In Walldrobe, proposed pieces are drawn as tape, pieces you own are drawn as frames, and the hanging guide gives the nail spots. The app is the step back and look, so there is no taping step before you hang (FEEDBACK 90).
 
 The tape is drawn as tape, not as a blue border:
 
