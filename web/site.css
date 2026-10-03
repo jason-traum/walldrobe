@@ -451,3 +451,18 @@ svg.is-dragging .measure { opacity: 0.25; }
 /* ---------- v4: Your walls (round 7) ---------- */
 .walls-link { color: var(--tape); text-decoration: none; font-weight: 500; min-height: 44px; display: inline-flex; align-items: center; padding: 0 4px; font-variant-numeric: tabular-nums; }
 .wall-acts .btn[aria-pressed="true"] { background: var(--tape-soft); color: var(--tape); border-color: transparent; opacity: 1; }
+
+/* ---------- v4: Your walls and compare (round 8) ---------- */
+.walls-page h1 { margin-bottom: 4px; }
+.wall-grid { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; }
+.wall-card { width: 100%; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; display: grid; gap: 6px; border-radius: var(--r-control); }
+.wall-card.is-on { outline: 2px solid var(--tape); outline-offset: 3px; }
+.wall-name { font-size: 14px; line-height: 19px; color: var(--ink); }
+.compare-page { display: grid; gap: 28px; }
+.cmp { display: grid; gap: 8px; }
+.cmp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.only-strip { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 4px 0; align-items: flex-end; }
+.only-strip .tn.new::before, .only-strip .tn.new::after { width: 10px; height: 4px; top: -2px; }
+.name-in input { width: 100%; }
+.sheet-x { z-index: 2; }
+.sheet > .drawing { margin-top: 36px; }
