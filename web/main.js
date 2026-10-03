@@ -6,7 +6,7 @@
 
 import { layout, refill, rerank, spotChoices, scoreArrangement, RULES } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
-import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf } from '../engine/taste.js';
+import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
@@ -141,7 +141,9 @@ function engineInput() {
   // Shop prints, free art or both (prints lean ahead a little); your own pieces only, when asked.
   const mode = artMode();
   const isShop = (c) => c.offers && c.offers.length > 0;
-  const catalog = d.justMine ? [] : CATALOG.filter((c) => keptIds.has(c.id) || mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c)));
+  // A piece you said is not for you never comes back, on any wall.
+  const no = notForMe();
+  const catalog = d.justMine ? [] : CATALOG.filter((c) => !no.has(c.id) && (keptIds.has(c.id) || mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c))));
   const taste = scoreTaste(d.taste.weights, catalog);
   if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
@@ -155,21 +157,25 @@ const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art 
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
 const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
-const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped]);
+const notForMe = () => new Set(store.loadMe().disliked);
+const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped, [...notForMe()]]);
 
 // Saves and swaps tell us what you like: a saved piece beats one you swapped away.
 function rankTaste() {
   const d = S.draft;
-  if (!d.saved.length && !d.skipped.length) return null;
+  const no = [...notForMe()];
+  if (!d.saved.length && !d.skipped.length && !no.length) return null;
   const pairs = [];
-  for (const w of d.saved) for (const l of d.skipped) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
+  for (const w of d.saved) for (const l of [...d.skipped, ...no, ...no]) { const a = byId.get(w), b = byId.get(l); if (a && b) pairs.push({ winner: a, loser: b }); }
   const quiz = (d.taste.picks || []).map(([w, l]) => ({ winner: byId.get(w), loser: byId.get(l) })).filter((x) => x.winner && x.loser);
   const ids = new Set(S.view.all.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => p.ref.id)));
   const pool = CATALOG.filter((c) => ids.has(c.id));
   const t = pairs.length ? scoreTaste(fitTaste([...quiz, ...pairs]), pool) : scoreTaste(d.taste.weights, pool);
   // What a piece is of counts too: subjects you save lift it, subjects you swap away pull it down.
-  const st = subjectStats({ picks: quiz, saved: d.saved, skipped: d.skipped }, byId);
-  for (const c of pool) if (t[c.id] != null) t[c.id] = Math.min(1, t[c.id] * subjectFactor(st, null, subjectOf(c)));
+  const st = subjectStats({ picks: quiz, saved: d.saved, skipped: d.skipped, disliked: no }, byId);
+  // Art like a piece that's not for you comes up less, by how alike they are.
+  const noItems = no.map((id) => byId.get(id)).filter(Boolean);
+  for (const c of pool) if (t[c.id] != null) t[c.id] = Math.min(1, t[c.id] * subjectFactor(st, null, subjectOf(c)) * dislikeFactor(c, noItems));
   return t;
 }
 
@@ -220,6 +226,7 @@ function build(key) {
 }
 function rank() {
   const v = S.view;
+  purgeNotForMe();
   const before = v.list.map((L) => L.key);
   v.list = rerank(v.all, { taste: rankTaste(), saved: S.draft.saved, skipped: S.draft.skipped, distinct: true });
   // A saved wall leads, the way it was left; a wall you kept a piece on stays where it was.
@@ -244,7 +251,7 @@ function shown() {
   return v.list.find((L) => L.key === S.openKey) || v.list[0] || null;
 }
 // A wall changed (swapped, moved): it replaces the one it came from.
-function replaceWall(key, next) {
+function replaceWall(key, next, { quiet = false } = {}) {
   const v = S.view;
   // The wall as it was first built, for "put it back".
   v.orig = v.orig || {};
@@ -257,9 +264,65 @@ function replaceWall(key, next) {
   const keys = Object.keys(edits);
   for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete edits[k];
   S.draft.edits = edits;
-  holdOpen(key);
   v.rankKey = null;
+  if (quiet) return;
+  holdOpen(key);
   S.openKey = key;
+}
+// Every wall in the list that has a piece you said is not for you gets another print
+// in that frame; a wall with no other print for it leaves the list. Returns what it changed.
+function purgeNotForMe() {
+  const v = S.view, no = notForMe();
+  if (!v || !no.size) return [];
+  const changed = [];
+  const input = engineInput();
+  for (const L of [...v.all]) {
+    const bad = L.pieces.filter((p) => p.ref.source === 'catalog' && no.has(p.ref.id));
+    if (!bad.length) continue;
+    let cur = L, ok = true;
+    for (const p of bad) {
+      let r = null;
+      try { r = refill({ ...input, keep: keepList() }, cur, { swap: p.ref.id }); } catch (e) { r = null; }
+      if (!r || !r.layouts.length) { ok = false; break; }
+      cur = { ...r.layouts[0], history: L.history, moved: L.moved };
+    }
+    changed.push([L.key, L]);
+    if (ok) { replaceWall(L.key, cur, { quiet: true }); remember(cur); }
+    else { v.all = v.all.filter((x) => x.key !== L.key); v.list = v.list.filter((x) => x.key !== L.key); }
+  }
+  return changed;
+}
+// Not for me: this print never comes back on any wall, art like it comes up less,
+// and the frame it was in gets another print. Undo puts everything back.
+function notForThis(id) {
+  const d = S.draft, v = S.view;
+  const me = store.loadMe();
+  const wasSaved = d.saved.includes(id), wasMeSaved = me.saved.includes(id);
+  const prevKept = clone(d.kept || []), prevOpen = S.openKey;
+  const prevAll = v.all.slice(), prevList = v.list.slice(), prevEdits = { ...(d.edits || {}) };
+  me.disliked = [...me.disliked.filter((x) => x !== id), id];
+  me.saved = me.saved.filter((x) => x !== id);
+  store.saveMe(me);
+  d.saved = d.saved.filter((x) => x !== id);
+  d.kept = (d.kept || []).filter((k) => k.id !== id);
+  holdOpen(S.openKey);
+  purgeNotForMe();
+  if (!v.list.some((L) => L.key === prevOpen)) S.openKey = null;
+  S.choices = null;
+  persist();
+  S.undo = {
+    label: 'Not for me.',
+    run: () => {
+      const m = store.loadMe();
+      m.disliked = m.disliked.filter((x) => x !== id);
+      if (wasMeSaved && !m.saved.includes(id)) m.saved = [...m.saved, id];
+      store.saveMe(m);
+      if (wasSaved && !d.saved.includes(id)) d.saved = [...d.saved, id];
+      d.kept = prevKept; d.edits = prevEdits;
+      v.all = prevAll; v.list = prevList; v.rankKey = null; S.openKey = prevOpen; S.choices = null;
+      persist();
+    },
+  };
 }
 // A wall you're changing keeps its place in the list while you change it.
 function holdOpen(key) {
@@ -1434,7 +1497,7 @@ function pieceSheet(id) {
       ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
       : '<p class="pencil small">No other print comes in this size for this spot.</p>'}
     <div class="acts left">
-      <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button>
+      <span class="seg feel" role="group" aria-label="How you feel about ${esc(item.title)}"><button type="button" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button><button type="button" data-act="not-for-me" data-id="${esc(id)}">Not for me</button></span>
       <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep in every wall'}</button>
       ${L.pieces.length > 1 ? `<button type="button" class="btn quiet" data-act="remove" data-id="${esc(id)}">Remove this frame</button>` : ''}
     </div>
@@ -1643,6 +1706,7 @@ function walls() {
 function savedScreen() {
   const d = S.draft;
   const ids = (d && d.saved && d.saved.length ? d.saved : store.loadMe().saved).filter((id) => byId.get(id));
+  const no = [...notForMe()].filter((id) => byId.get(id));
   const hasWall = !!(d && d.width);
   const kept = d ? keptSet() : new Set();
   const tile = (id) => {
@@ -1663,6 +1727,9 @@ function savedScreen() {
     ${flashHtml()}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${ids.length ? `<ul class="pieces">${ids.map(tile).join('')}</ul>` : '<p class="pencil">Tap the heart on any print and it lands here.</p>'}
+    ${no.length ? `<details class="not-for-me"><summary>Not for me, ${no.length}</summary>
+      <ul class="no-list">${no.map((id) => { const it = byId.get(id); const ar = it.aspect || 0.8, h = ar < 1 ? 56 : 56 / ar; return `<li><span class="tn new" style="width:${(h * ar).toFixed(0)}px;height:${h.toFixed(0)}px"><img src="${it.imageData}" alt=""></span><span class="no-name">${esc(it.title)}</span><button type="button" class="link" data-act="show-again" data-id="${esc(id)}">Show it again</button></li>`; }).join('')}</ul>
+    </details>` : ''}
   </main>`;
 }
 // One saved wall, one level down: open it, rename it, delete it.
@@ -2442,6 +2509,8 @@ document.addEventListener('click', (e) => {
       if (orig) { const now = L; replaceWall(L.key, orig); delete v.orig[L.key]; S.undo = { label: 'Put back.', run: () => replaceWall(now.key, now) }; persist(); }
       S.sheet = null; render(); break;
     }
+    case 'not-for-me': notForThis(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
+    case 'show-again': { const m = store.loadMe(); m.disliked = m.disliked.filter((x) => x !== t.dataset.id); store.saveMe(m); if (S.view) S.view.rankKey = null; render(); } break;
     case 'remove': removeFrame(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
     case 'new-art': newArt(); S.sheet = null; S.selected = null; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;
     case 'compare': {

@@ -44,7 +44,7 @@ export const newId = () => `w${Date.now().toString(36)}${Math.random().toString(
 // You, apart from any one wall: the pieces you saved, the ones you swapped
 // away, and art you own that isn't up anywhere yet. Every wall reads from this.
 const ME = 'walldrobe.me.v1';
-export const loadMe = () => { const m = read(ME, null) || {}; return { saved: m.saved || [], skipped: m.skipped || [], art: m.art || [], never: m.never || [], name: m.name || '' }; };
+export const loadMe = () => { const m = read(ME, null) || {}; return { saved: m.saved || [], skipped: m.skipped || [], art: m.art || [], never: m.never || [], disliked: m.disliked || [], name: m.name || '' }; };
 export const saveMe = (m) => write(ME, m);
 
 // What people do, kept on this device so Walldrobe can learn from everyone

@@ -532,3 +532,13 @@ svg.is-dragging .measure { opacity: 0.25; }
 /* Adjust's one line of news: building, or what changed with its Undo. */
 /* Always holds its line, so news arriving never pushes the options down under a finger. */
 .sheet-status { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; gap: 0 6px; margin: -8px 0 0; font-size: 14px; line-height: 20px; color: var(--pencil); }
+
+/* Favorite or Not for me, one pair in the piece sheet. */
+.seg.feel button { display: inline-flex; align-items: center; gap: 6px; }
+.seg.feel svg { width: 18px; height: 18px; }
+/* The prints you said are not for you, at the foot of Favorites, each one can come back. */
+.not-for-me { margin-top: 32px; border-top: 1px solid var(--hairline); }
+.not-for-me summary { min-height: 44px; display: flex; align-items: center; color: var(--pencil); cursor: pointer; }
+.no-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.no-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.no-list .tn { justify-self: center; }
