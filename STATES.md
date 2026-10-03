@@ -137,7 +137,7 @@ Adjust (one sheet, from your wall and from Suggestions): "Any change here builds
 | Tape colors | No legend (v4). The row of a kept piece says "Kept in every wall"; a pinned piece of yours says "Stays where it hangs"; keeping one says so once in the Undo line | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." | |
 | New art in the open frames | From Adjust: the same frames, new picks; kept and yours stay. "New art in all 6 frames. Undo" | Undo |
-| Saved a piece | Heart fills | Unsave |
+| Favorited a piece | Heart fills; the piece lands on Favorites. The button is "Favorite", so it never reads like the wall's Save (v4) | Tap again to take it off |
 | Moving pieces | Adjust, "Move pieces by hand": drag a frame or use the arrow keys; snaps as before | Done, Undo, Put them back |
 | Moved to a spot that breaks a rule | The frame turns to the error style with the reason; on letting go it goes back | |
 | Changed, want it back | A version in the row, or Adjust, "Put it back as it was built" | |
@@ -172,7 +172,8 @@ Undo stays until the next change. Versions stay with the wall, on this device.
 
 | State | What they see | Action |
 |---|---|---|
-| None | "Nothing saved yet. Tap the heart on any piece and it lands here, and the walls rank for it." | Browse every print |
+| None | "Tap the heart on any print and it lands here." (v4) | |
+| Taken off Favorites | The piece leaves the list. "Out of favorites. Undo" (v4) | Undo |
 | Saved pieces | Each with its thumbnail, artist, the sizes it comes in with the price at each, and where it is ("On the wall you have open", "Kept in every wall"); "Browse every print" after the list | See it on my wall, See it at [shop], unsave, Browse every print |
 | See it on my wall | Back to the feed, the piece kept in every wall at a size it comes in: "[title] is in every wall now, at 20 x 28 in." | |
 | No wall yet | The list, without See it on my wall | Start a wall |

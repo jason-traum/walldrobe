@@ -991,9 +991,53 @@ export function readWall(img, opts = {}) {
   const items2 = final.map((it) => {
     let box = [up(it.box[0]), up(it.box[1]), up(it.box[2] + 1), up(it.box[3] + 1)];
     if (it.kind === 'art' || it.kind === 'tv') box = snapEdges(img, box, reach, (x, y) => model.at(x * s, y * s));
+    if (it.kind === 'art') box = growToFrame(img, box, (x, y) => model.at(x * s, y * s));
     return { kind: it.kind, confidence: it.confidence, ...(it.kind === 'tv' ? { alone: it.alone, onStand: it.onStand } : {}), x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1] };
   });
   return { wallColor: model.at(w / 2, h * 0.3), items: items2 };
+}
+
+// A white mat on a white wall reads as wall, so a framed print can come out as
+// just the print, with its frame and mat left on the wall around it. Look out
+// from each side for a band that isn't wall (the frame) with wall again past it.
+// Only when all four sides find one, of about the same width, does the box grow
+// to the frame's outer edge.
+function growToFrame(img, box, wallAt) {
+  const W = img.width, H = img.height;
+  const [x0, y0, x1, y1] = box;
+  const bw = x1 - x0, bh = y1 - y0;
+  if (bw < 8 || bh < 8) return box;
+  const px = (x, y) => { const X = Math.max(0, Math.min(W - 1, Math.round(x))), Y = Math.max(0, Math.min(H - 1, Math.round(y))), o = (Y * W + X) * 4; return toLab(img.data[o], img.data[o + 1], img.data[o + 2]); };
+  const dist = (p, q) => Math.hypot(p[0] - q[0], (p[1] - q[1]) * 1.4, (p[2] - q[2]) * 1.4);
+  const far = Math.round(Math.min(bw, bh) * 0.6);
+  // side: 0 left, 1 top, 2 right, 3 bottom. Returns the outer edge, or null.
+  const side = (k) => {
+    const horiz = k % 2 === 0, sign = k < 2 ? -1 : 1, base = [x0, y0, x1 - 1, y1 - 1][k];
+    const lo = horiz ? y0 : x0, hi = horiz ? y1 : x1;
+    const ts = []; for (let i = 1; i < 12; i++) ts.push(lo + ((hi - lo) * i) / 12);
+    const offWall = (d) => { const at = base + sign * d; let n = 0; for (const t of ts) { const [x, y] = horiz ? [at, t] : [t, at]; if (x < 0 || y < 0 || x >= W || y >= H) return -1; if (dist(px(x, y), wallAt(x, y)) > 18) n++; } return n / ts.length; };
+    let d = 1;
+    while (d <= 3 && offWall(d) >= 0.8) d++; // a pixel or two of the print the box's edge left out
+    if (d > 3) return null; // no mat: the box already runs into the frame, or into something else
+    while (d <= far && offWall(d) >= 0 && offWall(d) < 0.8) d++; // the mat
+    if (d > far || offWall(d) < 0) return null;
+    const start = d;
+    while (d <= far && offWall(d) >= 0.8) d++; // the frame
+    if (d > far || offWall(d) < 0) return null;
+    const band = d - start;
+    // Wall just past it, along nearly all of the side.
+    const past = offWall(d + 1);
+    if (past < 0 || past > 0.2 || offWall(d + 2) > 0.2) return null;
+    return { edge: base + sign * (d - 1) + (sign > 0 ? 1 : 0), band, gap: start - 1 };
+  };
+  const sides = [0, 1, 2, 3].map(side);
+  if (sides.some((x) => !x)) return box;
+  const bands = sides.map((x) => x.band), gaps = sides.map((x) => x.gap);
+  if (Math.max(...bands) > Math.min(...bands) * 2 + 2) return box;
+  if (Math.max(...gaps) > Math.min(...gaps) * 2 + 3) return box;
+  // A mat narrower than two pixels all round is no mat: the box already holds the frame.
+  if (Math.max(...gaps) < 2) return box;
+  return [sides[0].edge, sides[1].edge, sides[2].edge, sides[3].edge];
 }
 
 // Move each side of a box [x0, y0, x1, y1] (full image pixels, x1 and y1 just

@@ -66,12 +66,12 @@ with sync_playwright() as p:
         # Favorites that fit come first and are marked; See all lists more than four.
         opens = pg.locator('button.piece-open'); opens.nth(opens.count() - 1).click(); pg.wait_for_timeout(900)
         second = pg.locator('#sheet [data-choice]').nth(2).get_attribute('data-choice')
-        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         # Make the third choice a favorite: put it up, save it, undo the swap. It should then lead the list, marked.
         opens = pg.locator('button.piece-open'); opens.nth(opens.count() - 1).click(); pg.wait_for_timeout(900)
         pg.locator('#sheet [data-choice]').nth(2).click(); pg.wait_for_timeout(1500)
         vis(pg, '#sheet [data-save]').click(); pg.wait_for_timeout(800)
-        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         vis(pg, '[data-act=undo]').click(); pg.wait_for_timeout(1500)
         opens = pg.locator('button.piece-open'); opens.nth(opens.count() - 1).click(); pg.wait_for_timeout(900)
         lead = pg.locator('#sheet [data-choice]').first
@@ -82,12 +82,14 @@ with sync_playwright() as p:
             n4 = pg.locator('#sheet [data-choice]').count(); sa.click(); pg.wait_for_timeout(800)
             check(f'{W} See all shows more', pg.locator('#sheet [data-choice]').count() > n4, f"{n4} then {pg.locator('#sheet [data-choice]').count()}")
             pg.screenshot(path=f'{OUT}/all-{W}.png')
-        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         # Keep in every wall: the same wall, same place in the list, the piece marked; then Undo.
         cnt = lambda: pg.evaluate("document.querySelector('.pager .count').innerText")
         here0, a0 = cnt(), arts(pg)
         vis(pg, 'button.piece-open').click(); pg.wait_for_timeout(900)
         vis(pg, '[data-act=keep]').click(); pg.wait_for_timeout(2200)
+        kc = pg.evaluate("(() => { const k = document.querySelector('.piece-kept'); return k ? getComputedStyle(k).color : 'none'; })()")
+        check(f'{W} the word Kept uses the darker green', kc in ('rgb(37, 115, 63)', 'none'), kc)
         check(f'{W} keep shows Kept', pg.locator('.piece-kept').count() >= 1)
         check(f'{W} keep stays on the same wall', cnt().split(' of ')[0] == here0.split(' of ')[0] and sorted(arts(pg)) == sorted(a0), f'{here0} then {cnt()}')
         check(f'{W} kept piece has green tape', pg.locator('#drawing g.art.is-kept').count() == 1)
@@ -129,7 +131,7 @@ with sync_playwright() as p:
             if pg.locator('button.piece-open').count(): break
             vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
         opens = pg.locator('button.piece-open'); opens.nth(0).click(); pg.wait_for_timeout(900)
-        vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         mine = sorted(arts(pg)); at = cnt()
         vis(pg, '.pager [aria-label="Wall before"]').click(); pg.wait_for_timeout(1000)
         vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
@@ -157,16 +159,24 @@ with sync_playwright() as p:
             check(f'{W} stepping back brings the same wall back', sorted(arts(pg)) == start, f'{len(start)} vs {len(arts(pg))}')
         vis(pg, '#sheet [data-count=any]').click(); pg.wait_for_timeout(2500)
         # Kind, then Undo.
-        vis(pg, '#sheet [data-style=structured]').click(); pg.wait_for_timeout(3000)
+        vis(pg, '#sheet [data-style=structured]').click()
+        quick = pg.evaluate("(() => { const s = document.querySelector('#sheet'); const b = s && s.querySelector('[data-style=structured]'); return [!!s, b && b.getAttribute('aria-pressed'), !!document.querySelector('.wall-page, .feed-page .entry-link'), (document.querySelector('.sheet-status') || {}).textContent || ''] })()")
+        check(f'{W} Adjust stays up while the walls build, the tap shows at once', quick[0] and quick[1] == 'true' and quick[2], str(quick))
+        pg.wait_for_timeout(3000)
         check(f'{W} kind set to Structured', vis(pg, '#sheet [data-style=structured][aria-pressed=true]') is not None)
-        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        check(f'{W} the sheet does not slide in again', 'stay' in (pg.locator('#sheet').get_attribute('class') or ''))
+        check(f'{W} Adjust says Changed with its Undo', 'Changed.' in pg.locator('.sheet-status').inner_text() and pg.locator('.sheet-status [data-act=undo]').count() == 1)
+        pg.evaluate("document.querySelectorAll('#sheet .seg button')[1].focus()"); pg.keyboard.press('Shift+Tab')
+        fr = pg.evaluate("(() => { const b = document.activeElement; return b.closest('.seg') ? getComputedStyle(b).outlineOffset : 'not a segment: ' + b.outerHTML.slice(0, 60); })()")
+        check(f'{W} a focused segment draws its ring inside', fr == '-3px', fr)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         u = vis(pg, '[data-act=undo]'); check(f'{W} undo after a change in Adjust', u is not None)
         if u:
             u.click(); pg.wait_for_timeout(2500)
             vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
             check(f'{W} undo puts Any back', vis(pg, '#sheet [data-style=""][aria-pressed=true]') is not None)
         # New art in the open frames: the frames stay, every new piece changes; Undo brings them back.
-        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         box0 = box(); a0 = arts(pg)
         vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
         na = vis(pg, '#sheet [data-act=new-art]'); check(f'{W} New art in the open frames is there', na is not None)
@@ -192,7 +202,7 @@ with sync_playwright() as p:
         check(f'{W} Your walls 1 in the bar', (vis(pg, '.walls-link') or pg.locator('body')).inner_text().strip() == 'Your walls 1')
         saved1 = sorted(arts(pg))
         opens = pg.locator('button.piece-open'); opens.nth(0).click(); pg.wait_for_timeout(900)
-        vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         check(f'{W} after a change Save is back', vis(pg, '.wall-acts [data-act=save]').inner_text().strip() == 'Save')
         vis(pg, '[data-act=save]').click(); pg.wait_for_timeout(800)
         saved2 = sorted(arts(pg))
@@ -208,9 +218,9 @@ with sync_playwright() as p:
         pg.screenshot(path=f'{OUT}/compare-{W}.png', full_page=True)
         pg.go_back(); pg.wait_for_timeout(1200)
         # A saved wall's sheet: open, rename, delete one level down.
-        pg.locator('.wall-card').first.click(); pg.wait_for_timeout(700)
-        check(f'{W} a saved wall opens its sheet', vis(pg, '#sheet [data-open]') is not None and vis(pg, '#sheet [data-rename]') is not None)
-        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        pg.locator('.wall-card').first.locator('g.art').first.click(force=True); pg.wait_for_timeout(700)
+        check(f'{W} a tap on a piece in a saved wall opens its sheet', vis(pg, '#sheet [data-open]') is not None and vis(pg, '#sheet [data-rename]') is not None)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         stored = pg.evaluate("JSON.parse(localStorage.getItem('walldrobe.walls.v1')).map(w => w.chosen.layout.pieces.map(p => p.ref.id).sort())")
         check(f'{W} the first save is unchanged by the edit', saved1 in stored and saved2 in stored and saved1 != saved2)
         pg.go_back(); pg.wait_for_timeout(1500)
@@ -219,10 +229,15 @@ with sync_playwright() as p:
             vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
             if pg.locator('.piece .heart').count(): break
         hp = pg.locator('.piece .heart').first; fav = hp.get_attribute('data-save')
+        check(f'{W} the heart says Favorite, not Save', (hp.get_attribute('aria-label') or '').startswith('Favorite '), hp.get_attribute('aria-label'))
         if hp.get_attribute('aria-pressed') != 'true': hp.click(); pg.wait_for_timeout(600)
         vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
         vis(pg, '#sheet a[href="#/saved"]').click(); pg.wait_for_timeout(1200)
         check(f'{W} Favorites lists the heart', pg.locator(f'.saved-page [data-save="{fav}"]').count() == 1)
+        pg.locator(f'.saved-page [data-save="{fav}"]').click(); pg.wait_for_timeout(600)
+        check(f'{W} taking one out of Favorites has an Undo', pg.locator(f'.saved-page [data-save="{fav}"]').count() == 0 and vis(pg, '.saved-page [data-act=undo]') is not None)
+        vis(pg, '.saved-page [data-act=undo]').click(); pg.wait_for_timeout(600)
+        check(f'{W} Undo puts it back in Favorites', pg.locator(f'.saved-page [data-save="{fav}"]').count() == 1)
         check(f'{W} Favorites no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
         pg.screenshot(path=f'{OUT}/favorites-{W}.png', full_page=True)
         others = [x for x in pg.evaluate("[...document.querySelectorAll('[data-onwall]')].map(b => b.dataset.onwall)")]
@@ -240,6 +255,11 @@ with sync_playwright() as p:
         check(f'{W} one buy row per new piece', rows == news and rows > 0, f'{rows} rows, {news} new')
         words = pg.evaluate("[...document.querySelectorAll('.frame-words')].map(e => e.textContent)")
         check(f'{W} every row says its frame in words', len(words) == rows and all(('Frame' in w or 'framed' in w) and 'in' in w for w in words), str(words[:2]))
+        import re as _re
+        def _up(w):
+            sizes = [tuple(map(float, m)) for m in _re.findall(r'(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)', w.replace('\u00a0', ' '))]
+            return len(set((a > b) for a, b in sizes if a != b)) <= 1
+        check(f'{W} print and frame are said the same way up', all(_up(w) for w in words), str(words[:2]))
         check(f'{W} every row has a way to get it', pg.evaluate("[...document.querySelectorAll('.buy-row')].every(r => r.querySelector('a[href^=http]'))"))
         trs = pg.locator('.nails tbody tr').count(); allp = pg.evaluate("document.querySelectorAll('#guide g.art').length")
         check(f'{W} a nail row for every piece', trs == allp, f'{trs} rows, {allp} pieces')
@@ -255,6 +275,38 @@ with sync_playwright() as p:
             sv.click(); pg.wait_for_timeout(1200)
         check(f'{W} Save on Get it reads Saved after', vis(pg, '.get [data-act=save]').text_content().strip() == 'Saved')
         check(f'{W} no errors', not errs, '; '.join(errs[:2]))
+        ctx.close()
+
+    # Images that fail to load, and the second tap of a double tap.
+    for W in (390,):
+        ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(BASE + '#/sample/bedroom'); pg.wait_for_timeout(3500)
+        pg.locator('.entry-link').nth(2).click(); pg.wait_for_timeout(1500)
+        # Double tap on Keep: the second tap must not open the piece under the sheet.
+        for _ in range(5):
+            if pg.locator('button.piece-open').count() >= 2: break
+            vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
+        vis(pg, 'button.piece-open').click(); pg.wait_for_timeout(900)
+        k = vis(pg, '[data-act=keep]'); kb = k.bounding_box()
+        pg.mouse.click(kb['x'] + kb['width'] / 2, kb['y'] + kb['height'] / 2); pg.wait_for_timeout(120)
+        pg.mouse.click(kb['x'] + kb['width'] / 2, kb['y'] + kb['height'] / 2); pg.wait_for_timeout(1500)
+        check(f'{W} a double tap on Keep does not open what was under the sheet', vis(pg, '#sheet') is None)
+        vis(pg, '[data-act=undo]').click(); pg.wait_for_timeout(2000)
+        ctx.close()
+        ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+        pg = ctx.new_page()
+        pg.route('**/*', lambda r: r.abort() if r.request.resource_type == 'image' and not r.request.url.startswith('data:') else r.continue_())
+        pg.goto(BASE + '#/sample/bedroom'); pg.wait_for_timeout(3500)
+        pg.locator('.entry-link').first.click(); pg.wait_for_timeout(3000)
+        imgs = pg.evaluate("document.querySelectorAll('#drawing image').length")
+        titles = pg.evaluate("[...document.querySelectorAll('#drawing g.art.is-new text.art-wait, #drawing g.art.is-kept text.art-wait')].map(t => t.getBoundingClientRect().height)")
+        check(f'{W} failed prints leave their titles on the drawing, readable', imgs == 0 and titles and min(titles) >= 9, f'{imgs} images, title heights {titles[:3]}')
+        miss = pg.evaluate("[...document.querySelectorAll('.get .tn, .pieces .tn, .yours .tn')].map(t => { const i = t.querySelector('img'); return i ? (i.src.startsWith('data:') ? 'loaded' : 'broken') : t.querySelector('.tn-title') ? 'title' : 'swatch'; })")
+        check(f'{W} failed thumbnails show the title, not a broken image', 'broken' not in miss and len(miss) > 0, str(miss))
+        pg.screenshot(path=f'{OUT}/images-failed-{W}.png', full_page=True)
         ctx.close()
 
     # The photo path: corners (nudge, close-up), then the confirm screen (pick, drag, change kind, wall edge).

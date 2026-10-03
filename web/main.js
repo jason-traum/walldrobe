@@ -106,7 +106,7 @@ upgradeDraft(S.draft);
 
 const route = () => (location.hash.replace(/^#\/?/, '') || '').split('/');
 function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
-window.addEventListener('hashchange', () => { S.flash = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { S.mem.under = null; S.flash = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
 
 // ---------- Shell ----------
 
@@ -1266,10 +1266,22 @@ function feed() {
     ${flashHtml()}
     <ol class="feed">${items}</ol>
     <p class="feed-end pencil">That's every wall that fits.</p>
-  </main>${sheetHtml()}`;
+  </main><!--sheet-->${sheetHtml()}`;
 }
 
 // One wall, open: the drawing, why it works, what's in it, and Get this wall.
+// The list and the open wall stay on screen under Adjust while a change builds the
+// walls again, so the tap shows at once and the page doesn't blank and fade back.
+function keepUnder(name, fn) {
+  return () => {
+    const fresh = S.view && S.view.key === viewKey();
+    if (S.sheet === 'change' && !fresh && S.mem.under && S.mem.under.name === name && !need()) { building(); return S.mem.under.html + sheetHtml(); }
+    const html = fn();
+    const i = html ? html.indexOf('<!--sheet-->') : -1;
+    if (i >= 0 && S.view && S.view.key === viewKey()) S.mem.under = { name, html: html.slice(0, i), L: name === 'wall' ? shown() : null };
+    return html;
+  };
+}
 function wallScreen() {
   if (need()) { go(need()); return ''; }
   const wait = building();
@@ -1303,7 +1315,7 @@ function wallScreen() {
     const saved = d.saved.includes(p.ref.id);
     return `<li class="piece">
       <button type="button" class="piece-open" data-piece="${esc(p.ref.id)}" aria-haspopup="dialog" aria-label="${esc(item.title)}${kept.has(p.ref.id) ? ', kept' : ''}"><span class="piece-art">${tile(p, true)}</span><span class="piece-name">${esc(item.title)}</span>${kept.has(p.ref.id) ? '<span class="piece-kept">Kept</span>' : ''}</button>
-      <button type="button" class="heart" data-save="${esc(p.ref.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Saved' : 'Save'} ${esc(item.title)}">${heart(saved)}</button>
+      <button type="button" class="heart" data-save="${esc(p.ref.id)}" aria-pressed="${saved}" aria-label="Favorite ${esc(item.title)}">${heart(saved)}</button>
     </li>`;
   }).join('');
   const total = wallCost(L);
@@ -1325,7 +1337,7 @@ function wallScreen() {
     ${L.left && L.left.length ? `<p class="pencil small">Left off: ${L.left.map((l) => `your ${esc(l.title)}`).join(', ')}.</p>` : ''}
     ${fresh.length ? `<ul class="pieces">${grid}</ul>` : ''}
     </section>
-  </main>${sheetHtml()}`;
+  </main><!--sheet-->${sheetHtml()}`;
 }
 // Where a piece of yours goes in this wall, against where it hangs now.
 function moveNote(p) {
@@ -1358,7 +1370,9 @@ function sheetHtml() {
 function changeSheet() {
   const d = S.draft;
   const onWall = route()[0] === 'wall';
-  const L = onWall ? shown() : null;
+  // While the walls are being built again, the sheet stays up over the walls as they were.
+  const stale = !(S.view && S.view.key === viewKey());
+  const L = onWall ? (stale ? (S.mem.under && S.mem.under.L) || null : shown()) : null;
   const dis = S.busy ? ' disabled' : '';
   const asIs = S.view && S.view.list.find((x) => x.variant === 'asis');
   const seg = (id, label, pairs, cur, attr) => `<div class="sheet-row"><span class="label" id="${id}">${label}</span><span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span></div>`;
@@ -1367,6 +1381,7 @@ function changeSheet() {
   const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
   const arts = [['prints', 'Shop prints'], ['photos', 'Free art'], ['both', 'Both'], ...(keptOwned().length ? [['mine', 'Just mine']] : [])];
   return `<h2 id="sheet-h">Adjust</h2>
+    <p class="sheet-status" role="status">${stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : ''}</p>
     ${seg('kind-l', 'Kind', [[null, 'Any'], ['structured', 'Structured'], ['gallery', 'Loose']], d.style || null, 'style')}
     <div class="sheet-row"><span class="label" id="count-l">How many</span>
       <span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
@@ -1419,7 +1434,7 @@ function pieceSheet(id) {
       ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
       : '<p class="pencil small">No other print comes in this size for this spot.</p>'}
     <div class="acts left">
-      <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} ${saved ? 'Saved' : 'Save'}</button>
+      <button type="button" class="btn quiet" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button>
       <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep in every wall'}</button>
       ${L.pieces.length > 1 ? `<button type="button" class="btn quiet" data-act="remove" data-id="${esc(id)}">Remove this frame</button>` : ''}
     </div>
@@ -1553,7 +1568,9 @@ function getScreen() {
     let credit, frame, get;
     if (o) {
       credit = `Art by ${esc(item.artist)}, sold by ${esc(item.source)}`;
-      const pw = o.w || p.w, ph = o.h || p.h, same = Math.min(pw, ph) === Math.min(p.w, p.h) && Math.max(pw, ph) === Math.max(p.w, p.h);
+      // The print said the same way up as the frame it goes in.
+      const ow = o.w || p.w, oh = o.h || p.h, land = p.w > p.h;
+      const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(p.w, p.h) && Math.max(pw, ph) === Math.max(p.w, p.h);
       frame = o.framed ? `Comes framed, ${size(p.w, p.h)}.` : same ? `Print ${size(pw, ph)}. Frame ${size(p.w, p.h)}, no mat.` : `Print ${size(pw, ph)}. Frame ${size(p.w, p.h)} with a mat.`;
       get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
     } else {
@@ -1638,13 +1655,14 @@ function savedScreen() {
       <span class="piece-name">${esc(it.title)}</span>
       <span class="fav-acts">${hasWall ? (kept.has(id) ? '<span class="piece-kept">On your wall</span>' : `<button type="button" class="link" data-onwall="${esc(id)}">See it on my wall</button>`) : ''}
       ${shop && shop.url ? `<a class="link" href="${esc(shop.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : it.url ? `<a class="link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : ''}</span>
-      <button type="button" class="heart" data-save="${esc(id)}" aria-pressed="true" aria-label="Unsave ${esc(it.title)}">${heart(true)}</button>
+      <button type="button" class="heart" data-save="${esc(id)}" data-unfav="1" aria-label="Take ${esc(it.title)} out of favorites">${heart(true)}</button>
     </li>`;
   };
   return `${bar(back(hasWall ? '#/wall' : '#/', hasWall ? 'Your wall' : 'Walldrobe'))}
   <main class="page saved-page">
     <h1>Favorites</h1>
     ${flashHtml()}
+    ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${ids.length ? `<ul class="pieces">${ids.map(tile).join('')}</ul>` : '<p class="pencil">Tap the heart on any print and it lands here.</p>'}
   </main>`;
 }
@@ -1700,7 +1718,7 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: feed, wall: wallScreen, get: getScreen, walls, compare, saved: savedScreen };
+  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), get: getScreen, walls, compare, saved: savedScreen };
   const fn = screens[r0] || home;
   document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
@@ -1713,6 +1731,11 @@ function render() {
     html = brokeScreen();
   }
   if (html) app().innerHTML = html;
+  // A sheet that just closed leaves a short calm, so the second tap of a double tap
+  // doesn't land on whatever was under the sheet. The time is the tap's own, so a tap
+  // that waited behind a slow build still counts as part of the double tap.
+  if (S.ui.hadSheet && !S.sheet) S.ui.calm = performance.now() + 300;
+  S.ui.hadSheet = !!S.sheet;
   document.body.classList.toggle('has-sheet', !!S.sheet);
   document.body.classList.toggle('on-wall', r0 === 'wall');
   document.body.classList.toggle('on-home', !r0);
@@ -2219,9 +2242,11 @@ document.addEventListener('change', (e) => {
 function rebuild(name, undo = null) { S.flash = null; S.undo = undo; S.openKey = null; S.sheet = null; S.selected = null; S.focusAfter = undo ? '[data-act="undo"]' : '[data-act="change"]'; persist(); render(); }
 
 document.addEventListener('click', (e) => {
+  if (S.ui.calm && e.timeStamp < S.ui.calm && !e.target.closest('#sheet')) { e.preventDefault(); return; }
   // A drawn piece inside a wall in the list opens that wall, like a tap anywhere else on it.
   const hit = e.target.closest('button, .art, a[data-act], a[data-wall], .backdrop');
-  const link = hit && hit.classList.contains('art') ? hit.closest('a[data-wall]') : null;
+  // The same for a drawn piece inside a saved wall's card: the tap belongs to the card.
+  const link = hit && hit.classList.contains('art') ? hit.closest('a[data-wall], button') : null;
   const t = link || hit;
   if (!t) return;
   const a = t.dataset.act;
@@ -2331,10 +2356,16 @@ document.addEventListener('click', (e) => {
     if (['fullness', 'style', 'art', 'justMine', 'pieces'].every((k) => was[k] === d[k])) { S.stepBase = null; return; }
     S.openKey = S.draft.chosen && S.draft.chosen.inputKey === viewKey() ? S.draft.chosen.layout.key : null;
     rebuild('shape', { label: 'Changed.', run: () => { Object.assign(d, was); S.stepBase = null; S.openKey = openWas; persist(); } });
-    S.sheet = 'change'; S.focusAfter = null; render();
+    S.sheet = 'change'; S.ui.sheetStay = true; S.focusAfter = null; render();
     return;
   }
-  if (t.dataset.save) { toggleSave(t.dataset.save); render(); return; }
+  if (t.dataset.save) {
+    const id = t.dataset.save;
+    toggleSave(id);
+    // Taking one off the Favorites page removes it from the list, so it gets an Undo.
+    if (t.dataset.unfav) { S.undo = { label: 'Out of favorites.', where: 'saved', run: () => toggleSave(id) }; S.focusAfter = '[data-act="undo"]'; }
+    render(); return;
+  }
   if (t.dataset.choice) {
     const to = t.dataset.choice;
     if (swapTo(t.dataset.for, to)) { S.sheet = { piece: to }; S.selected = to; S.ui.allFor = null; S.ui.sheetStay = true; }
@@ -2473,9 +2504,14 @@ window.addEventListener('resize', () => {
 // An image that doesn't load says so, instead of leaving a blank box.
 document.addEventListener('error', (e) => {
   const img = e.target;
+  // On the drawing, a print that doesn't load leaves its title on the paper or mat under it.
+  if (img instanceof SVGImageElement) { img.remove(); return; }
   if (!(img instanceof HTMLImageElement)) return;
+  // A taped thumbnail's corners are its tape, so its title goes in as text, not as ::after.
+  const tn = img.closest('.tn');
+  if (tn) { tn.classList.add('tn-gone'); const t = document.createElement('span'); t.className = 'tn-title'; t.textContent = img.alt || (tn.offsetWidth >= 60 ? 'No image' : ''); img.replaceWith(t); return; }
   const box = img.closest('.thumb, .art-big, .pick-art');
-  if (box) { box.classList.add('is-missing'); img.remove(); }
+  if (box) { box.classList.add('is-missing'); if (img.alt) box.dataset.missing = img.alt; img.remove(); }
 }, true);
 // iOS needs a touch listener for :active press states.
 document.addEventListener('touchstart', () => {}, { passive: true });
