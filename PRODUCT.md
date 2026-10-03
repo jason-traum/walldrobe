@@ -145,6 +145,16 @@ These are secondary, not dropped. Their code stays on the v2 and v3 branches and
 | On a computer, small icons on hover (heart, keep) to skip opening the sheet | The phone comes first; same actions, added later | 39, 64 |
 | Tap to lock, double tap to like | Replaced: a tap opens the piece (row 64); no double tap, it fights zoom on iPhone | 39 |
 
+### Next: buying it (to do, after framing)
+
+Jason, 2026-10-03: "after framing the next steps we should do are like helping connect people with the cheapest place to actually buy and download the prints... and get the frames."
+
+| To do | What it means | FEEDBACK |
+|---|---|---|
+| Cheapest way to get each print | For the same art at the frame's size: every shop that sells it, a digital download where the artist offers one, and printing a free photo at an online or local print lab; price with shipping, cheapest first. Links only, never their images re-hosted | 93 |
+| Cheapest frame that fits | A frame in that exact size (and the mat opening for the print), from a few frame sellers, cheapest first, with the mat said in words | 93 |
+| One list for the whole wall | Every print and frame with its cheapest source and the total; prices come back here once they are real (hidden for now, row 72) | 72, 93 |
+
 ### Engine only (no interface)
 
 Generate once, rank many (3). The first wall adds new art (7). No price term (10). Move penalty for hung pieces (11). Free-form walls, the packer, the anchor (12, 51). Wall edges (20). Subject in taste, the adaptive test (40). Deeper taste beyond seven axes (28). Seven axes, complements, the event log (46). Scale from every reference, early model download (47). Catalog health (48). Reader fixes (52). Favorites that fit tried first when filling and in a spot's choices (59).
