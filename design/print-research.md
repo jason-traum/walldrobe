@@ -76,6 +76,33 @@ Print-on-demand (price to a business, for a future integration): Printful poster
 - Printful, Lumaprints (sandbox), Artelo, FinerWorks (test mode), Gooten: business APIs where Walldrobe pays and charges the customer, which is selling prints.
 - Everyone else: product deep links only, no photo attached.
 
+## Statement pieces: 30x40 and up (checked 2026-10-03)
+
+None of the retailers (Walmart, CVS, Walgreens, Snapfish, Shutterfly) print paper past 24x36. Past that it's pro labs, a few poster shops, and print shops.
+
+| Service (paper) | 24x36 | 30x40 | 36x48 | 40x60 | Biggest |
+|---|---|---|---|---|---|
+| Printkeg (archival matte or satin) | $29.99 | $49.99 | $69.99 | n/o | 36x60 $79.99 |
+| Mpix poster (30 lb poster paper, thin) | $39.99 | n/o | $49.99 | n/o | 36x48 |
+| Social Print Studio (Kodak luster) | $55.20 | $57.50 | n/o | n/o | 30x45 $59.80 |
+| Bay Photo (Fuji lustre photo paper) | $69.99 | $74.15 | n/o | $166.75 | 48x96 $333.80 |
+| Nations (lustre photo paper) | $78.95 | $82.45 | n/o | n/o | 30x45 $95.45 |
+| Nations giclee | $102.25 | $119.75 | n/o | $230.75 | 42x50 |
+| Printique fine art paper | $78.99 | $101.99 | $156.99 | $179.99 | 40x60 |
+| Mpix giclee | $98.45 | $109.99 | n/o | n/o | 24x48 |
+| Lumaprints archival matte (business account) | $21.10 | $28.44 | n/o | $54.43 | 40x60 |
+| Artelo matte poster (business account, +$8.10 ship) | $15.45 | $19.11 | $24.85 | $32.15 | 40x70 |
+| FedEx Office, Office Depot, Staples posters | nv | n/o | nv | Office Depot lists 40x60 | 36x48 at most stores |
+| Staples engineering print (bond paper) | from $4.50 | n/o | from $9.00 | n/o | black and white prices; thin, washed-out color, not for photos |
+
+- Big prints ship rolled in tubes. Mpix says 24x36 and up ship 2nd day (Expedited $19.99). Bay ships 12x18 and up in tubes at its flat $3.99 to $7.99. Nations' free shipping stops at items over 20 in on a side.
+- Same day for big: FedEx Office posters up to 36x48 ("same day or within 24 hours", price nv); Office Depot lists same-day and 40x60 (nv). Staples can't do a 36x48 poster same day.
+- Picks: cheapest decent 36x48 is Printkeg ($69.99 + $10 shipping); cheapest real photo paper at 40x60 is Bay Photo ($166.75); best quality big is Bay Photo, then Nations and Printique.
+
+## Other reports compared (ChatGPT and Gemini, same prompt, 2026-10-03)
+
+- ChatGPT matched these prices for Walmart, Mpix, Nations, Printique and Bay to the cent. It found a Walgreens developer catalog (Sept 1, 2026) with lower poster prices than the consumer site ($10.99, $15.99, $23.99, $29.99 against $12.99, $19.99, $25.99, $31.99); use the consumer prices on screen. New from it: Mpix has a partner web service (CreateSession, upload, PreflightOrder, SubmitOrder) by agreement; Printique has a "Wall Design Wizard" that lets a customer upload a photo of their own room and plan a wall, the closest thing to Walldrobe found so far; Google Photos printing in the US just moved to a Fujifilm print store; PCMag (July 2026) picks Mpix overall, CVS for same day, Walmart for price; Mpix had a sale on 89% of days over 90 days. On licenses it went further: the Unsplash API rules say "You cannot use the API to sell unaltered Unsplash photos directly or indirectly", Pexels and Pixabay call resizing and cropping still unaltered, and Pixabay images published before Jan 9, 2019 marked CC0 are a public-domain exception.
+- Gemini's report said an affiliate commission on an unaltered print does not break the licenses. That conflicts with the Unsplash API wording above; don't rely on it. Several of its prices disagree with the services' own pages (Mpix 8x10 $2.99 against $3.99, Mpix 36x48 "from $14.99" against $49.99) and many cells are not verified.
 ## Sources
 
 Retail: photo.walgreens.com/store/prints, /store/posters, developer.walgreens.com/api/photoprints/native; cvs.com/photo/photo-prints-prodid-7201007, /poster-prints-prodid-7201020, /cvs-photo-coupons; photos3.walmart.com/about/prints, /about/posters, /about/same-day; costco.com/f/-/photo; shutterfly.com/prints, /global/shipping, support.shutterfly.com (Amazon and Costco benefits); snapfish.com/prints, /large-print; reviewed.com (best online photo printing, Feb 2025); hgtv.com (Apr 2025); clark.com cheapest places to print photos (June 2026); dealnews.com CVS and Shutterfly code pages; slickdeals.net threads 16967230, 18293791, 16931305.
