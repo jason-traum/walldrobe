@@ -105,23 +105,23 @@ Reached from "Suggestions" at the top of your wall. The five-step bar shows Pick
 | State | What they see | Action |
 |---|---|---|
 | Building | The bare wall, "Finding every wall that fits…" | Wait |
-| Ready | "Every wall that fits, best first, each with the 2 pieces you keep. Tap one to make it your wall; the one you have now is kept as a version." Then the list: each wall at full width, "1 of 12", the why line, the cost | Tap a wall, Adjust |
+| Ready | "Every wall that fits, best first, each with the 2 pieces you keep. Tap one to make it your wall; the one you have now is kept as a version." Then the list: each wall at full width, "1 of 12", the why line, the cost | Tap a wall, Preferences |
 | The one you have | "3 of 12 · the one you have now" | |
 | Has a piece you saved | "1 of 12 · has a piece you saved" | |
 | Kept pieces don't all fit | The engine leaves out as few as it can and says which at the top | |
 | A count this kind can't make | Moves to the nearest one that works and says so | |
 | Nothing fits the picks | Kind and count let go: "Nothing structured, 6 pieces fits here, so these are what does." | |
-| End of the list | "That's every wall that fits." and a link to Adjust | |
+| End of the list | "That's every wall that fits." and a link to Preferences | |
 | No room for art | The bare wall, "There isn't room for art on this wall." and the reason | Check what's marked, Try another wall |
 | Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again |
 
-Adjust (one sheet, from your wall and from Suggestions): "Any change here builds the walls again. The one you have now stays as a version." How many pieces (minus, the count, plus; "Any number" when a count is set); dropdowns for How full (Calm, Balanced, Full), Kind of wall (Any, Structured, Loose), Which art (Shop prints, Free photos, Both, Just my pieces), People in the art (Fine, Leave them out), Price per print, Color (Any, Color only, Black and white only), From (when Both). This wall: New art in the open frames, Move pieces by hand, Show measurements, Put it back, See it as it hangs now. Links: Fix what's marked, Taste test, What we learned, New wall.
+Preferences (one sheet, from your wall and from Suggestions): "Any change here builds the walls again. The one you have now stays as a version." How many pieces (minus, the count, plus; "Any number" when a count is set); dropdowns for How full (Calm, Balanced, Full), Kind of wall (Any, Structured, Loose), Which art (Shop prints, Free photos, Both, Just my pieces), People in the art (Fine, Leave them out), Price per print, Color (Any, Color only, Black and white only), From (when Both). This wall: New art in the open frames, Move pieces by hand, Show measurements, Put it back, See it as it hangs now. Links: Fix what's marked, Taste test, What we learned, New wall.
 
 ## 9. Your wall (the Pick step)
 
 | State | What they see | Action |
 |---|---|---|
-| Default | The step bar (3 Pick), the drawing at true scale, the why line, the cost, "Frames next" (or "Hang it next" with nothing new), "Adjust". "Tap a piece below to keep it, swap it or let it go." Under it, "In this wall": your pieces first, each with a state (Yours, Kept, New), thumbnail, size, price and shop, one reason, a heart | Tap a piece, Frames next, Adjust, Suggestions |
+| Default | The step bar (3 Pick), the drawing at true scale, the why line, the cost, "Frames next" (or "Hang it next" with nothing new), "Preferences". "Tap a piece below to keep it, swap it or let it go." Under it, "In this wall": your pieces first, each with a state (Yours, Kept, New), thumbnail, size, price and shop, one reason, a heart | Tap a piece, Frames next, Preferences, Suggestions |
 | Versions | Once the wall has changed: "Every version so far. Tap one to bring it back." and a row of small drawings, newest first, the one on screen marked "Now", the others "3 pieces" | Tap a version |
 | Brought back | The version is on screen; the one you had joins the row | |
 | New piece sheet | Title, size and price, the reason, then Keep it, Let it go, Save for later. "Swap it for": four other pieces for this spot at this size. Then the image, artist and shop, the sizes the shop sells, the nail spot | Keep it, Let it go, Save, tap a swap, pick a size, See it at [shop] |
@@ -132,15 +132,15 @@ Adjust (one sheet, from your wall and from Suggestions): "Any change here builds
 | Let go | One fewer, the other frames stay where they are: "[title] is out. 3 pieces now. Undo" | Undo |
 | Last piece | "That is the last piece. Pick another wall from Suggestions instead." | |
 | Your piece sheet | Thumbnail, size, move note, reason, nail spot | Pin it where it hangs (or Let it move), Leave it out |
-| One more or fewer | In Adjust, minus and plus from this wall; frames already up stay where they are | |
-| As it hangs now | From Adjust. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: ..." | |
+| One more or fewer | In Preferences, minus and plus from this wall; frames already up stay where they are | |
+| As it hangs now | From Preferences. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: ..." | |
 | Tape colors | No legend (v4). The row of a kept piece says "Kept in every wall"; a pinned piece of yours says "Stays where it hangs"; keeping one says so once in the Undo line | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." | |
-| New art in the open frames | From Adjust: the same frames, new picks; kept and yours stay. "New art in all 6 frames. Undo" | Undo |
+| New art in the open frames | From Preferences: the same frames, new picks; kept and yours stay. "New art in all 6 frames. Undo" | Undo |
 | Favorited a piece | Heart fills; the piece lands on Favorites. The button is "Favorite", so it never reads like the wall's Save (v4) | Tap again to take it off |
-| Moving pieces | Adjust, "Move pieces by hand": drag a frame or use the arrow keys; snaps as before | Done, Undo, Put them back |
+| Moving pieces | Preferences, "Move pieces by hand": drag a frame or use the arrow keys; snaps as before | Done, Undo, Put them back |
 | Moved to a spot that breaks a rule | The frame turns to the error style with the reason; on letting go it goes back | |
-| Changed, want it back | A version in the row, or Adjust, "Put it back as it was built" | |
+| Changed, want it back | A version in the row, or Preferences, "Put it back as it was built" | |
 | Sample | "Sample wall" chip on the drawing | |
 
 Undo stays until the next change. Versions stay with the wall, on this device.

@@ -144,7 +144,7 @@ with sync_playwright() as p:
         check(f'{W} opening it again finds your swap', sorted(arts(pg)) == mine)
         # Adjust opens.
         vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(800)
-        check(f'{W} Adjust opens', vis(pg, '#sheet') is not None)
+        check(f'{W} Preferences opens', vis(pg, '#sheet') is not None)
         pg.screenshot(path=f'{OUT}/adjust-{W}.png')
         # How many: set, one more, one fewer; stepping back brings the same wall back.
         start = sorted(arts(pg))
