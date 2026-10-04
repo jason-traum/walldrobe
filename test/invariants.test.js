@@ -153,3 +153,9 @@ test('art you picked goes in first on other walls where its size fits', () => {
   const r = layout({ ...livingRoom, catalog, taste, prefer: [pick.id] });
   assert.ok(r.layouts.some((L) => L.pieces.some((p) => p.ref.id === pick.id)), 'the picked piece is on a wall');
 });
+
+test('asking for more walls puts any weaker one after every stronger one', () => {
+  const r = layout({ ...livingRoom, catalog, taste, count: 24 });
+  const firstWeak = r.layouts.findIndex((L) => L.weak);
+  if (firstWeak >= 0) for (const L of r.layouts.slice(firstWeak)) assert.ok(L.weak || L.variant === 'sections' || L.variant === 'asis', `${L.key} strong after a weak one`);
+});

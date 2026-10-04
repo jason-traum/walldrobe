@@ -351,3 +351,9 @@ layout(), refill(), walls with sections and scoreArrangement() now keep the same
 
 A catalog size is what the frame is sold as. On the wall it takes the frame's outside: the size plus `RULES.frameBorder` (0.75 in) each side, unless the shop sells it framed (`framed: true` on the size, from its offers), when the size is already the outside. Candidates, kept prints and refills all work in outside sizes; `priceOf` and the checks look up the size sold through `soldAs()`. Each catalog piece in a result has `frame: { w, h, border }`, the size sold and the moulding. `keep` takes the size sold. Your own frames are measured outside to outside and match a standard frame's outside within 1 in.
 
+## Look-alikes, the gate and speed (2026-10-03)
+
+- Look-alikes are steered away from when picking (`LOOK_PICK`) and judged once in the design score (`distinct`). The extra per-pair penalty on the total is gone.
+- The composition gate always applies. When fewer walls pass than were asked for, the best of the rest come after them, marked `weak: true`; `rerank()` keeps weak walls after every passing one.
+- Palette similarity and look-alike caches use numeric pair keys.
+

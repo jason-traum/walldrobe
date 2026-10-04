@@ -51,7 +51,8 @@ export function rerank(layouts, { taste = null, saved = [], skipped = [], hung =
     const s = (L.score || 0) + fits + WEIGHTS.taste * (now - was) + Math.min(SAVE_CAP, SAVE_BONUS * savedN) - SKIP_PENALTY * skippedN - moved - WANT_PENALTY * missing - ORDER_PRIOR * Math.min(i, 10) - 1e-6 * i;
     return { L, s, i, fresh: fresh.length, asis: L.variant === 'asis', missing };
   });
-  scored.sort((a, b) => b.s - a.s || a.i - b.i);
+  // A wall below the composition gate (weak) stays after every wall that passed it.
+  scored.sort((a, b) => (!!a.L.weak - !!b.L.weak) || b.s - a.s || a.i - b.i);
   // The first wall is a finished one: it adds new art whenever any wall does.
   // Of those, it leaves out as few of the pieces you said to keep as any of them does.
   const least = Math.min(...scored.filter((x) => x.fresh > 0 && !x.asis).map((x) => x.missing));

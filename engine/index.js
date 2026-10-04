@@ -27,7 +27,9 @@ const SAME_ARTIST = 0.02;
 const PLACE_SHOW = 0.85;
 const COMP_FIT = 0.55;     // share of the composition score that is fit; the rest is design
 const COMP_GATE = 0.15;    // layouts this far below the best composition are dropped when enough others are left
-const LOOKALIKE_PAIR = 0.04; // off the total for each pair of pieces that look almost the same
+// Look-alikes are steered away from when picking (LOOK_PICK) and judged once, in the
+// design score's `distinct`. A third penalty on the total (0.04 a pair) came off on
+// Oct 3: three of them punished a planned series or an eclectic wall three times over.
 const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-alikes
 const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans the pick toward stronger photos
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
@@ -182,12 +184,21 @@ function prepare(input) {
 // calls by the palettes' colors. Same colors, same answer, so this stays pure.
 const SIM_CACHE = new Map();
 const SIM_CACHE_MAX = 400000;
+// Each distinct palette gets a small number once, so a pair's cache key is a number,
+// not two long strings joined on every call (that was the slowest line in a profile).
+const SIG_NUM = new Map();
+const SIG_SPAN = 1 << 20;
 function pairSimFactory(palettes) {
-  const sig = new Map();
-  for (const [id, pal] of palettes) sig.set(id, pal.map((c) => `${c.hex}:${c.weight.toFixed(4)}`).join(','));
+  const num = new Map();
+  for (const [id, pal] of palettes) {
+    const sig = pal.map((c) => `${c.hex}:${c.weight.toFixed(4)}`).join(',');
+    let n = SIG_NUM.get(sig);
+    if (n === undefined) { n = SIG_NUM.size + 1; SIG_NUM.set(sig, n); }
+    num.set(id, n);
+  }
   return (a, b) => {
-    const sa = sig.get(a) || '', sb = sig.get(b) || '';
-    const k = sa < sb ? `${sa}|${sb}` : `${sb}|${sa}`;
+    const na = num.get(a) || 0, nb = num.get(b) || 0;
+    const k = na < nb ? na * SIG_SPAN + nb : nb * SIG_SPAN + na;
     let v = SIM_CACHE.get(k);
     if (v === undefined) {
       v = paletteSimilarity(palettes.get(a) || [], palettes.get(b) || []);
@@ -201,10 +212,13 @@ function pairSimFactory(palettes) {
 // Look-alike penalty between two pieces by id (the room and unknown ids are never look-alikes).
 function lookFactory(profiles) {
   const memo = new Map();
+  const idx = new Map();
+  const at = (id) => { let i = idx.get(id); if (i === undefined) { i = idx.size; idx.set(id, i); } return i; };
   return (a, b) => {
     const pa = profiles.get(a), pb = profiles.get(b);
     if (!pa || !pb) return 0;
-    const k = a < b ? `${a}\u0001${b}` : `${b}\u0001${a}`;
+    const ia = at(a), ib = at(b);
+    const k = ia < ib ? ia * SIG_SPAN + ib : ib * SIG_SPAN + ia;
     let v = memo.get(k);
     if (v === undefined) { v = lookPenalty(lookalike(pa, pb)); memo.set(k, v); }
     return v;
@@ -487,7 +501,7 @@ function judge(L, ctx) {
   // composition are dropped before ranking).
   const comp = COMP_FIT * fit + (1 - COMP_FIT) * d.score;
   const picked = ctx.prefer && ctx.prefer.size ? L.pieces.filter((p) => ctx.prefer.has(p.ref.id)).length : 0;
-  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - LOOKALIKE_PAIR * d.alike.length;
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists;
   return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 
@@ -742,14 +756,17 @@ function layoutOnce(input) {
   }
 
   // The arrangement has to pass before taste and color rank it.
+  // Asking for more walls never lets a weaker one in ahead of a stronger one: walls
+  // below the gate only fill what's left, after all the passing ones, marked weak.
   if (valid.length) {
     const bestComp = Math.max(...valid.map((L) => L.comp));
     const passing = valid.filter((L) => L.comp >= bestComp - COMP_GATE);
     if (passing.length >= Math.min(count, valid.length)) valid = passing;
+    else valid = [...passing, ...valid.filter((L) => !passing.includes(L)).sort((a, b) => b.comp - a.comp).slice(0, count - passing.length).map((L) => ({ ...L, weak: true }))];
   }
   // Rank for variety: best of each family first, then the next best overall. Each
   // layout after the first gets art the earlier ones don't use, when there's enough.
-  valid.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
+  valid.sort((a, b) => (!!a.weak - !!b.weak) || b.score - a.score || cmpStr(a.key, b.key));
   const order = [];
   const top = valid.length ? valid[0].score : 0;
   // Your own happy-to-move pieces are the point: the best layout that uses the most
@@ -802,7 +819,7 @@ function layoutOnce(input) {
     chosen.push(pick);
     for (const id of newArt(pick)) used.add(id);
   }
-  chosen.sort((a, b) => b.score - a.score || cmpStr(a.key, b.key));
+  chosen.sort((a, b) => (!!a.weak - !!b.weak) || b.score - a.score || cmpStr(a.key, b.key));
   // First: the one with your pieces, else the best in the main place (over the TV
   // or furniture); the rest by score.
   const lead = (baseLead && chosen.find((L) => L.key === baseLead.key)) || (ownLead && chosen.find((L) => L.key === ownLead.key && ownUse(L) === mostOwn)) || chosen.find((L) => L.family === 'flow') || chosen.find((L) => L.zc.zone === zones[0]);
@@ -1237,7 +1254,7 @@ function finish(L, rank, ctx) {
   const newCount = L.pieces.filter((p) => p.ref.source === 'catalog' && !p.kept).length;
   const c = L.color;
   const out = {
-    rank, key: L.key, place: zone.place, family: L.family, variant: L.variant, score: r3(Math.max(0, Math.min(1, L.score))),
+    rank, key: L.key, place: zone.place, family: L.family, variant: L.variant, score: r3(Math.max(0, Math.min(1, L.score))), ...(L.weak ? { weak: true } : {}),
     parts: r3map(L.parts),
     checks: r3map(L.checks),
     color: {
