@@ -39,6 +39,7 @@ States that apply everywhere:
 | Wrong type or too large | "That file won't open. Use a JPG, PNG or HEIC under 20 MB." | Choose another |
 | Upload failed | The photo stays on the device | Retry |
 | Private note | Under the photo: "Only you can see this photo." | Link to delete |
+| Tip | Under the lede: "The farther back you stand, the truer furniture sizes come out. Use the 1x lens if the wall fits; 0.5x bends the edges." | |
 
 ## 4. Corners and measurement
 
@@ -84,6 +85,9 @@ One screen after the corners: the flattened photo with what we found marked, the
 | Art from before | "Your art from before": pieces added on another wall that aren't up yet | Add it to this wall, Forget it |
 | Adding art that isn't up | A frame size picker (standard sizes) with Turn it sideways or upright, and wide and tall fields | Pick, turn, type |
 | Skipped piece | Its mark on the photo goes faint | Keep again |
+| Furniture, corrected for depth | Under "In the way": "Furniture stands out from the wall, so the photo makes it look bigger. We take that out from where you stood, about 13 ft back. If you know a piece's real width, tap Fix and type it." Each piece's row: "74 x 24 in, about 82.5 in wide in the photo". The box on the photo stays where the photo shows it; its size label is the real size | Fix |
+| Taken close | Under 6 ft away: "You took this close to the wall (about 5 ft back), so furniture sizes are rough. If you know a piece's real width, tap Fix and type it." | Fix |
+| A size typed | The row reads "68 x 34 in, as you typed it"; no correction | Fix |
 
 Pinning (stays exactly where it hangs) is not here. It lives one tap deeper, in the piece sheet on the open wall (section 9).
 

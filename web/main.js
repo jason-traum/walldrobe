@@ -16,6 +16,7 @@ import * as store from './store.js';
 import { PRICES_CHECKED, printOptions, picks as printPicks, aiQuestion, sizeKey } from './printers.js';
 import { segment, modelCached } from './segment.js';
 import { packLabels, unpackLabels } from './segcore.js';
+import { cameraPose, standOut, DEPTH } from './camera.js';
 
 const QUIZ_LENGTH = 10;
 const WALLS_ASKED = 24; // walls built once per wall; the list shows the distinct ones
@@ -155,7 +156,7 @@ function engineInput() {
   // Art you picked for a spot goes in first on other walls too, where its size fits.
   const ids = new Set(catalog.map((c) => c.id));
   const prefer = (d.picked || []).filter((x) => ids.has(x) && !keptIds.has(x));
-  return { wall: { width: d.width, height: d.height }, obstacles: d.obstacles, owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined, prefer,
+  return { wall: { width: d.width, height: d.height }, obstacles: trueObs(d), owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined, prefer,
     // The piece count is everything on the wall, pieces that stay put included.
     prefs: { fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
 }
@@ -571,6 +572,7 @@ function start() {
   <main class="page">
     <h1>Start with a photo of one wall</h1>
     <p class="lede">Stand back and get the whole wall, floor to ceiling if you can. People in the photo aren't needed.</p>
+    <p class="pencil small">The farther back you stand, the truer furniture sizes come out. Use the 1x lens if the wall fits; 0.5x bends the edges.</p>
     ${flashHtml()}
     <label class="upload">
       <input type="file" accept="image/*" id="photo-input">
@@ -736,6 +738,33 @@ const AUTO_KIND = (k) => (KIND_NAME[k] ? k : 'furniture');
 const AUTO_LABEL = (k, model) => (k === 'lamp' && !model ? 'Lamp or plant' : KIND_NAME[AUTO_KIND(k)]);
 const r2 = (v) => Math.round(v * 2) / 2;
 
+// Where the camera stood, from the photo's corners and the wall's size (web/camera.js).
+// The corners span the whole wall height in the manual path, and the read region in
+// the automatic one; either way their bottom is the floor.
+function poseOf(d) {
+  const p = d && d.photo;
+  if (!p || !p.corners || !p.w || !p.h || !d.width) return null;
+  const a = p.mode === 'auto' && p.auto && p.auto.rw ? p.auto : null;
+  const spanH = a ? (a.rh * d.width) / a.rw : d.height;
+  const key = JSON.stringify([p.corners, p.w, p.h, d.width, spanH]);
+  if (S.mem.poseKey === key) return S.mem.pose;
+  let pose = null;
+  try { const { focal } = aspectFromCorners(p.corners, p.w, p.h); pose = cameraPose(p.corners, p.w, p.h, d.width, spanH, focal); } catch { pose = null; }
+  S.mem.pose = pose ? { ...pose, spanH } : null; S.mem.poseKey = key;
+  return S.mem.pose;
+}
+// A box read from the photo at its real size: furniture stands out from the wall and the
+// photo makes it look bigger. A size you typed is already real.
+function trueOb(o, d = S.draft) {
+  if (!o || o.real || !DEPTH[o.kind] || !d.photo) return o;
+  const pose = poseOf(d);
+  if (!pose) return o;
+  const t = standOut(o, pose, pose.spanH);
+  if (Math.abs(t.factor - 1) < 0.01) return o;
+  return { ...o, x: r2(t.x), y: r2(t.y), w: r2(t.w), h: r2(t.h), read: { w: o.w, h: o.h } };
+}
+const trueObs = (d = S.draft) => (d.obstacles || []).map((o) => trueOb(o, d));
+
 // What was found on the flattened wall, in wall inches, measured up from the floor
 // (the bottom corners). The width sets the scale.
 function applyAuto() {
@@ -888,7 +917,7 @@ function check() {
   const sizeTag = (b, w, h) => `<text x="${b.x + b.w / 2}" y="${b.y + b.h + s * 1.1}" font-size="${s * 0.85}" class="box-size">${r2(w)} x ${r2(h)} in</text>`;
   const picked = S.ui.fix;
   const boxes = [
-    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
+    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id, t = trueOb(o, d); return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, t.w, t.h) : ''}</g>`; }),
     ...d.owned.filter((o) => o.at).map((o) => { const b = { x: o.at.x, y: H - o.at.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="owned-mark box${o.keep === 'skip' ? ' is-skip' : ''}${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="own">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="owned-box-mark"/>${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
   ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
@@ -911,13 +940,20 @@ function check() {
         </span>` : `<button type="button" class="link" data-fix="${esc(o.id)}" aria-label="Fix your ${esc(o.title)}">Fix</button>`}</span>
       ${KEEP_SEG(o)}
     </li>`).join('');
-  const obRows = d.obstacles.map((o) => `<li class="row">
+  const obRows = d.obstacles.map((o0) => { const o = trueOb(o0, d); return `<li class="row">
       <span class="thumb"><span class="kind">${esc(obName(o).split(' ')[0])}</span></span>
-      <span class="row-text"><span class="name">${esc(obName(o))}</span><span class="meta">${o.w} x ${o.h} in</span>
+      <span class="row-text"><span class="name">${esc(obName(o))}</span><span class="meta">${o.w} x ${o.h} in${o.read ? `, about ${r2(o.read.w)} in wide in the photo` : o.real ? ', as you typed it' : ''}</span>
         ${fix === o.id ? `<span class="fix"><label class="inline"><span>It's a</span><select data-obkind="${esc(o.id)}">${OB_KINDS.map((k) => `<option value="${k}"${o.kind === k ? ' selected' : ''}>${esc(KIND_NAME[k])}</option>`).join('')}</select></label><span class="nums">${num(o, 'w', 'Wide', 'data-obk')}${num(o, 'h', 'Tall', 'data-obk')}${num(o, 'x', 'From left', 'data-obk')}${num(o, 'y', 'From floor', 'data-obk')}</span>
           <span class="fix-acts">${o.autoId && o.kind !== 'tv' ? `<button type="button" class="link" data-is-art="${esc(o.autoId)}">It's art</button>` : ''}<button type="button" class="link" data-remove-ob="${esc(o.id)}">Remove</button><button type="button" class="btn quiet small" data-fix="">Done</button></span></span>`
         : `<button type="button" class="link" data-fix="${esc(o.id)}" aria-label="Fix the ${esc(obName(o))}">Fix</button>`}</span>
-    </li>`).join('');
+    </li>`; }).join('');
+  const pose = poseOf(d);
+  const furn = d.obstacles.some((o) => DEPTH[o.kind] && !o.real);
+  const away = pose ? `about ${feet(Math.round(pose.distance / 6) * 6)}` : null;
+  const furnNote = !furn ? '' : pose && pose.distance < 72
+    ? `You took this close to the wall (${away} back), so furniture sizes are rough. If you know a piece's real width, tap Fix and type it.`
+    : pose ? `Furniture stands out from the wall, so the photo makes it look bigger. We take that out from where you stood, ${away} back. If you know a piece's real width, tap Fix and type it.`
+    : 'Furniture stands out from the wall, so the photo makes it look a little wider than it is. If you know its real width, tap Fix and type it.';
   return `${bar(back('#/corners', 'Corners'))}
   <main class="page">
     <h1>Here's your wall</h1>
@@ -939,7 +975,7 @@ function check() {
     ${d.owned.length ? `<ul class="rows">${artRows}</ul>` : '<p class="pencil">We didn\'t find any art on this wall.</p>'}
     <div class="acts left"><button type="button" class="btn quiet small" data-act="add-not-up">Add art that isn't up yet</button><a class="btn quiet small" href="#/pieces">Mark art we missed</a></div>
     <h2>In the way</h2>
-    ${d.obstacles.some((o) => FURNITURE.has(o.kind)) ? '<p class="pencil small">Furniture stands out from the wall, so the photo makes it look a little wider than it is. If you know its real width, tap Fix and type it.</p>' : ''}
+    ${furnNote ? `<p class="pencil small">${esc(furnNote)}</p>` : ''}
     ${d.obstacles.length ? `<ul class="rows">${obRows}</ul>` : '<p class="pencil">We didn\'t find anything in the way. If something is there, mark it so the art clears it.</p>'}
     <div class="acts left"><a class="btn quiet small" href="#/things">Mark something we missed</a></div>
     <div class="dock"><a class="btn wide" href="#/layouts">Show me my wall</a></div>
@@ -975,6 +1011,7 @@ function syncItem(box) {
   if (box.kind === 'own' && S.mem.photo && rw) { try { Object.assign(it, thumbAndPalette(regionImg(), it)); o.thumb = it.thumb; o.palette = it.palette; o.color = it.palette && it.palette[0] ? it.palette[0].hex : o.color; } catch { /* keep the old thumb */ } }
   if (box.kind === 'own' && p.ppi) o.rect = { x: o.at.x * p.ppi, y: (d.height - o.at.y - o.h) * p.ppi, w: o.w * p.ppi, h: o.h * p.ppi };
   if (box.kind === 'ob' && o.fuzz) o.fuzz = 0; // fixed by hand: no longer a guess
+  if (box.kind === 'ob') o.real = false; // drawn on the photo again: its size is the photo's, corrected for depth
 }
 function wireCheck() {
   const svg = document.querySelector('#check-wall svg');
@@ -991,9 +1028,10 @@ function wireCheck() {
     const lab = g.querySelector('.ob-label'); if (lab) { lab.setAttribute('x', b.x + b.w / 2); lab.setAttribute('y', top + b.h / 2); }
     const pts = [[b.x, top], [b.x + b.w, top], [b.x + b.w, top + b.h], [b.x, top + b.h]];
     g.querySelectorAll('.box-h').forEach((h, i) => h.querySelectorAll('circle').forEach((c) => { c.setAttribute('cx', pts[i][0]); c.setAttribute('cy', pts[i][1]); }));
-    const t = g.querySelector('.box-size'); if (t) { t.setAttribute('x', b.x + b.w / 2); t.setAttribute('y', top + b.h + Number(t.getAttribute('font-size')) * 1.3); t.textContent = `${r2(b.w)} x ${r2(b.h)} in`; }
+    const tb = box.kind === 'ob' ? trueOb({ ...box.o, ...b, real: false }) : b;
+    const t = g.querySelector('.box-size'); if (t) { t.setAttribute('x', b.x + b.w / 2); t.setAttribute('y', top + b.h + Number(t.getAttribute('font-size')) * 1.3); t.textContent = `${r2(tb.w)} x ${r2(tb.h)} in`; }
     const row = document.querySelector(`.row [data-oid="${CSS.escape(box.o.id)}"], .row [data-obid="${CSS.escape(box.o.id)}"]`);
-    if (row) { const inW = document.querySelector(`input[data-ok="w"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="w"][data-obid="${CSS.escape(box.o.id)}"]`); const inH = document.querySelector(`input[data-ok="h"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="h"][data-obid="${CSS.escape(box.o.id)}"]`); if (inW) inW.value = r2(b.w); if (inH) inH.value = r2(b.h); }
+    if (row) { const inW = document.querySelector(`input[data-ok="w"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="w"][data-obid="${CSS.escape(box.o.id)}"]`); const inH = document.querySelector(`input[data-ok="h"][data-oid="${CSS.escape(box.o.id)}"], input[data-obk="h"][data-obid="${CSS.escape(box.o.id)}"]`); if (inW) inW.value = r2(tb.w); if (inH) inH.value = r2(tb.h); }
   };
   dragOn(svg, (e) => {
     const g = e.target.closest('[data-box]');
@@ -1210,7 +1248,7 @@ function things() {
     <div class="drawing wall-edit" id="edit-wall">
       ${wallSvg({ wall: { width: d.width, height: d.height }, photo, obstacles: [], extra: obstacleLayer(), pxWide: editPx(), label: d.name })}
     </div>
-    ${d.obstacles.length ? `<ul class="rows">${d.obstacles.map((o) => `<li class="row">
+    ${d.obstacles.length ? `<ul class="rows">${trueObs(d).map((o) => `<li class="row">
         <span class="row-text"><span class="name">${esc(obName(o))}</span>
         <span class="nums">${num(o, 'w', 'Wide')}${num(o, 'h', 'Tall')}${num(o, 'x', 'From left')}${num(o, 'y', 'From floor')}</span>
         ${['couch', 'headboard'].includes(o.kind) ? `<span class="help">Tall is the floor to the top of the ${o.kind === 'couch' ? 'back' : 'headboard'}.</span>` : ''}</span>
@@ -1345,7 +1383,7 @@ const ownedInfo = (id) => { const o = S.draft.owned.find((x) => x.id === id); re
 function drawWall(L, pxWide, opts = {}) {
   const d = S.draft;
   return wallSvg({
-    wall: { width: d.width, height: d.height }, obstacles: d.obstacles, photo: d.photo && d.photo.flat ? cleanWall() : null,
+    wall: { width: d.width, height: d.height }, obstacles: trueObs(d), photo: d.photo && d.photo.flat ? cleanWall() : null,
     layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: keptSet(), selected: opts.selected || null,
     measure: !!opts.measure, pxWide, label: opts.label || d.name, still: !!opts.still,
     hideObstacles: !!(d.photo && d.photo.flat), extra: opts.extra || '',
@@ -1739,7 +1777,7 @@ function getScreen() {
   const drop = typeof d.drop === 'number' && d.drop >= 0 ? d.drop : RULES.defaultDrop;
   const LG = { ...L, pieces: L.pieces.map((p) => (p.role === 'pinned' || !p.nailNote ? p : { ...p, nail: { x: p.nail.x, y: Math.round((p.y + p.h - drop) * 4) / 4 } })) };
   const hangOrder = [...LG.pieces].filter((p) => p.role !== 'pinned').sort((a, b) => b.w * b.h - a.w * a.h);
-  const refs = new Map(hangOrder.map((p) => [p.ref.id, nailRef(p.nail, d.obstacles)]));
+  const refs = new Map(hangOrder.map((p) => [p.ref.id, nailRef(p.nail, trueObs(d))]));
   const anyRef = [...refs.values()].some(Boolean);
   const estimate = !sizeMeasured(d);
   const nameOf = (p) => (byId.get(p.ref.id) ? byId.get(p.ref.id).title : `Your ${p.title}`);
@@ -1796,7 +1834,7 @@ function getScreen() {
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
         <span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>
       </form>
-      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: d.obstacles, layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
+      <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
         <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${esc(size(p.w, p.h))} frame</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
@@ -2327,7 +2365,7 @@ function wireThings() {
     const at = wallPoint(svg, e);
     const dx = at.x - ctx.start.x, dy = at.y - ctx.start.y;
     if (ctx.mode === 'move') { ctx.o.x = ctx.orig.x + dx; ctx.o.y = ctx.orig.y + dy; }
-    else { ctx.o.w = ctx.orig.w + dx; ctx.o.h = ctx.orig.h + dy; }
+    else { ctx.o.w = ctx.orig.w + dx; ctx.o.h = ctx.orig.h + dy; ctx.o.real = false; }
     clampOb(ctx.o); place(ctx.o);
   }, () => { resetLayouts(); persist(); render(); });
 }
@@ -2435,7 +2473,13 @@ document.addEventListener('change', (e) => {
   if (t.form && t.form.id === 'dims-form') { changeDims(t.form); return; }
   if (t.dataset.obk) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obid);
-    if (o) { if (o.autoId) forgetAuto(o.autoId); o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0); }
+    if (o) {
+      if (o.autoId) forgetAuto(o.autoId);
+      // The inputs show the real size; typing one makes the whole box real, not the photo's.
+      const tb = trueOb(o);
+      if (!o.real) { o.x = tb.x; o.y = tb.y; o.w = tb.w; o.h = tb.h; o.real = true; }
+      o[t.dataset.obk] = Number(t.value); clampOb(o); resetLayouts(); persist(); setTimeout(render, 0);
+    }
   }
   if (t.dataset.obkind) {
     const o = S.draft.obstacles.find((x) => x.id === t.dataset.obkind);
