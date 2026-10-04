@@ -4,7 +4,7 @@
 // Screens are plain functions that return HTML; every change re-renders.
 // Design rules: DESIGN.md. Product rules: PRODUCT.md. States: STATES.md.
 
-import { layout, refill, rerank, spotChoices, scoreArrangement, RULES } from '../engine/index.js';
+import { layout, refill, rerank, spotChoices, scoreArrangement, RULES, assignMats } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
@@ -159,7 +159,7 @@ function engineInput() {
   const prefer = (d.picked || []).filter((x) => ids.has(x) && !keptIds.has(x));
   return { wall: { width: d.width, height: d.height }, obstacles: trueObs(d), owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined, prefer,
     // The piece count is everything on the wall, pieces that stay put included.
-    prefs: { mats: matLevel() === 'none' ? 'none' : undefined, fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
+    prefs: { mats: matLevel() === 'none' ? 'none' : undefined, matLevel: matLevel(), fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
 }
 const keepList = () => (S.draft.justMine ? [] : S.draft.kept || []);
 const ART_MODES = ['prints', 'both', 'photos'];
@@ -1667,20 +1667,18 @@ const soldW = (p) => (p.frame ? p.frame.w : p.w), soldH = (p) => (p.frame ? p.fr
 // A free photo is printed smaller and matted in its frame; a shop print fills its frame.
 function printOf(p) {
   if (!matFor(p)) return null;
-  return p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : printSize(soldW(p), soldH(p));
+  if (p.frame && p.frame.print) return [p.frame.print.w, p.frame.print.h];
+  if (p.frame && p.frame.can && p.frame.can.mat) return [p.frame.can.mat.w, p.frame.can.mat.h];
+  return printSize(soldW(p), soldH(p));
 }
 // The size a shop print is sold at: the frame's size, or the print inside it when the wall hangs it matted a frame up.
 const shopPrint = (p) => (p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : [soldW(p), soldH(p)]);
-// Mat or not, piece by piece, the way anyone framing a print decides: either is fine.
-// A free photo can go either way in the same frame: printed smaller with a mat, or at the
-// frame's size without one. A shop print fills its frame, unless the wall hangs it a frame
-// up, matted. How many get one is a preference on a scale (MAT_LEVELS), not a rule:
-//  - Only what's easy to get counts: a mat needs the smaller print to be printable and a
-//    frame sold "matted to" it; no mat needs the full-size print and a plain frame. When
-//    only one way is easy, that's the way.
-//  - The rest go by the scale, whole frame sizes at a time so same-size pieces match,
-//    smallest frames first (a mat gives a small print room; a big one does the work).
-//  - A piece you flip wins.
+// Mat or not, piece by piece. The engine decides with the wall (engine/mats.js): a
+// structured wall all the same, a loose one mixed with care, smallest frames first, as
+// many as the level you pick. Here the catalog says which ways each size is easy to buy:
+// a free photo can go matted (the smaller print in a frame sold "matted to" it) or plain
+// (the full-size print in a plain frame); a shop print fills its frame, or hangs a frame
+// up matted when the wall picked that size. A piece you flip wins.
 const MAT_LEVELS = [['none', 'None'], ['few', 'A few'], ['some', 'Some'], ['most', 'Most'], ['all', 'All']];
 const MAT_SHARE = { none: 0, few: 0.25, some: 0.5, most: 0.75, all: 1 };
 // The level you picked last carries to new walls.
@@ -1688,55 +1686,39 @@ let ME_MAT = null;
 const matLevel = () => { const v = S.draft && S.draft.mat; if (MAT_SHARE[v] != null) return v; if (ME_MAT === null) ME_MAT = store.loadMe().matLevel || ''; return MAT_SHARE[ME_MAT] != null ? ME_MAT : 'some'; };
 const cheapestPrint = (k) => Math.min(...PRINTERS.map((x) => x.sizes[k]).filter((v) => v != null));
 const cheapestFrame = (k, mat) => Math.min(...FRAMERS.map((f) => f.sizes[k]).filter(Boolean).filter(([, m]) => mat === undefined || m === mat).map(([pr]) => pr));
-function matWays(p) {
-  const F = frameKey(soldW(p), soldH(p)), ps = printSize(soldW(p), soldH(p));
-  const P = ps ? frameKey(ps[0], ps[1]) : null;
-  return {
-    mat: !!P && Number.isFinite(cheapestPrint(P)) && Number.isFinite(cheapestFrame(F, P)),
-    plain: Number.isFinite(cheapestPrint(F)) && Number.isFinite(cheapestFrame(F)),
-  };
+// Mark each size with the ways it's easy to buy, once.
+for (const c of CATALOG) {
+  const shop = c.offers && c.offers.length;
+  for (const z of c.sizes) {
+    if (shop) { if (!z.matted) z.plainOk = true; continue; }
+    const F = frameKey(z.w, z.h), ps = printSize(z.w, z.h), P = ps ? frameKey(ps[0], ps[1]) : null;
+    const matEasy = !!P && Number.isFinite(cheapestPrint(P)) && Number.isFinite(cheapestFrame(F, P));
+    const plainEasy = Number.isFinite(cheapestPrint(F)) && Number.isFinite(cheapestFrame(F));
+    if (matEasy) z.matPrint = { w: ps[0], h: ps[1] };
+    z.plainOk = plainEasy || !matEasy;
+  }
 }
-let MAT_PLAN = { key: null, plan: new Map() };
-function matPlan(L) {
-  const lv = matLevel();
-  const key = `${L.key}|${lv}|${L.pieces.map((p) => `${p.ref.id}:${soldW(p)}x${soldH(p)}`).join(',')}`;
-  if (MAT_PLAN.key === key) return MAT_PLAN.plan;
-  const plan = new Map();
-  const free = L.pieces.filter((p) => { const it = p.ref.source === 'catalog' && byId.get(p.ref.id); return it && !(it.offers && it.offers.length) && printSize(soldW(p), soldH(p)); });
-  const open = [];
-  for (const p of free) {
-    const w = matWays(p);
-    if (w.mat && !w.plain) plan.set(p.ref.id, true);
-    else if (!w.mat) plan.set(p.ref.id, false);
-    else open.push(p);
-  }
-  // Whole frame sizes at a time, smallest first, until the share asked for is reached.
-  const groups = new Map();
-  for (const p of open) { const k = frameKey(soldW(p), soldH(p)); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
-  const order = [...groups].sort((a, b) => a[0].split('x').reduce((x, y) => x * y, 1) - b[0].split('x').reduce((x, y) => x * y, 1));
-  // A size is matted when that brings the count closer to the share asked for.
-  const want = MAT_SHARE[lv] * open.length;
-  let n = 0;
-  for (const [, ps] of order) {
-    const take = lv === 'all' || (lv !== 'none' && Math.abs(n + ps.length - want) < Math.abs(n - want));
-    for (const p of ps) plan.set(p.ref.id, take);
-    if (take) n += ps.length;
-  }
-  MAT_PLAN = { key, plan };
-  return plan;
+let MAT_MEMO = { key: null, map: null };
+function matsOf(L) {
+  const lv = matLevel(), key = `${L.key}|${lv}|${L.pieces.map((p) => `${p.ref.id}@${p.w}x${p.h}`).join(',')}`;
+  if (MAT_MEMO.key !== key) MAT_MEMO = { key, map: assignMats(L.pieces, { family: L.family, variant: L.variant, level: lv }) };
+  return MAT_MEMO.map;
 }
 function matFor(p) {
   const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
   if (!item) return false;
   if (item.offers && item.offers.length) return !!(p.frame && p.frame.print);
-  if (!printSize(soldW(p), soldH(p))) return false;
+  const can = p.frame && p.frame.can;
+  if (!can || !can.mat) return false;
   const d = S.draft || {}, one = (d.matFor || {})[p.ref.id];
-  if (typeof one === 'boolean') return one;
+  if (typeof one === 'boolean' && can.plain) return one;
+  if (!can.plain) return true;
   const L = S.view ? shown() : null;
-  if (L && L.pieces.some((x) => x.ref.id === p.ref.id)) { const v = matPlan(L).get(p.ref.id); if (typeof v === 'boolean') return v; }
-  return MAT_SHARE[matLevel()] >= 0.5 && matWays(p).mat;
+  if (L && L.pieces.some((x) => x.ref.id === p.ref.id)) { const v = matsOf(L).get(p.ref.id); if (typeof v === 'boolean') return v; }
+  return typeof p.mat === 'boolean' ? p.mat : MAT_SHARE[matLevel()] >= 0.5;
 }
-const canMat = (p) => { const item = byId.get(p.ref.id); return !!item && !(item.offers && item.offers.length) && !!printSize(soldW(p), soldH(p)); };
+// A piece you can flip: it's easy to get either way.
+const canMat = (p) => { const can = p.frame && p.frame.can; return !!(can && can.mat && can.plain) && !(byId.get(p.ref.id).offers || []).length; };
 setPrintFor(printOf);
 // The frames step: one look for every new frame, and a mat or not on the free photos.
 const FRAME_LOOKS = {
@@ -2040,7 +2022,7 @@ function framesScreen() {
     </fieldset>
     ${free.length ? `<fieldset class="choose"><legend>How many mats</legend>
       <span class="seg" role="group" aria-label="Mats">${MAT_LEVELS.map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
-      <span class="help">A mat is the white card between the print and the frame; with one, the photo is printed smaller. Pick how many: the smallest frames get them first, pieces the same size match, and only ways you can easily buy are used. Tap Mat on any piece to change just that one.</span>
+      <span class="help">A mat is the white card between the print and the frame; with one, the photo is printed smaller. Pick how many. A grid or a row keeps every mat the same; a looser wall mixes them, smallest frames first, same sizes matching. Only ways you can easily buy are used. Tap Mat on a piece to change just that one.</span>
     </fieldset>` : ''}
     <h2>Sizes</h2>
     <ul class="frame-list">${rows}</ul>

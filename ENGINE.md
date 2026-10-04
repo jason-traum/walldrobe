@@ -361,3 +361,12 @@ A catalog size is what the frame is sold as. On the wall it takes the frame's ou
 
 `toCandidate()` adds, for a shop print sold unframed, the next standard frame up with the print matted inside (`MATTED_UP`: 8x12 in 12x16, 12x16 in 16x20, 12x18 in 18x24, 20x28 in 24x36), unless the shop sells that size itself. The size carries `matted` (the print); a result piece's `frame.print` says so. `prefs.mats: 'none'` leaves these sizes out.
 
+## Mats (2026-10-04, engine/mats.js)
+
+`assignMats(pieces, { family, variant, level })` and `matScore(pieces, mats, opts)`. A catalog size can say how it's easy to buy: `matPrint` (the print a frame sold matted to it holds) and `plainOk`; shop sizes hung a frame up carry `matted`. These become `frame.can = { mat, plain }` on the piece.
+
+- Structured (grid, line, column, statement, flow neat): all the same. Level above some: all matted; below: none; some: the majority of the pieces with no choice.
+- Loose: sizes grouped, smallest area first; a size is matted when that brings the count closer to level x pieces with a choice. No single odd one out among four or more, unless it's the unique biggest piece.
+- Score: structured, 0.75 x uniformity + 0.25 x level fit; loose, 0.6 x (0.35 no lone one, 0.35 same sizes match, 0.3 matted pieces centered) + 0.4 x level fit. `judge()` subtracts 0.04 x (1 minus it); `parts.mats` reports it; `finish()` sets each piece's `mat` and `print`.
+- `prefs.matLevel`: none, few, some (default), most, all.
+
