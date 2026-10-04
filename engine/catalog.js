@@ -143,6 +143,35 @@ function liveSizes(r) {
   return r.sizes.filter(sells);
 }
 
+// A shop print can also go in the next standard frame up, matted: the print sits in the
+// mat's window and the frame takes more room on the wall. Frame size as sold, short side first.
+export const MATTED_UP = Object.freeze({ '8x12': [12, 16], '12x16': [16, 20], '12x18': [18, 24], '20x28': [24, 36] });
+
+// Every size a piece can hang at. A size the shop sells framed is already the frame's
+// outside; anything else gets framed. A shop print that comes unframed can also go in
+// the frame a size up with a mat (`matted` is the print inside), unless the shop
+// sells that frame size itself.
+function candidateSizes(r) {
+  const live = liveSizes(r);
+  const isShop = (r.offers || []).length > 0;
+  const out = live.map(({ w, h, price }) => {
+    const framed = (r.offers || []).some((o) => !o.gone && o.framed && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
+    return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}) };
+  });
+  if (!isShop) return out;
+  const has = new Set(out.map((z) => `${z.w}x${z.h}`));
+  for (const z of out.slice()) {
+    if (z.framed) continue;
+    const up = MATTED_UP[`${Math.min(z.w, z.h)}x${Math.max(z.w, z.h)}`];
+    if (!up) continue;
+    const [fw, fh] = z.w <= z.h ? up : [up[1], up[0]];
+    if (has.has(`${fw}x${fh}`)) continue;
+    has.add(`${fw}x${fh}`);
+    out.push({ w: fw, h: fh, ...(z.price == null ? {} : { price: z.price }), matted: { w: z.w, h: z.h } });
+  }
+  return out;
+}
+
 export function toCandidate(r) {
   return {
     id: r.id,
@@ -153,11 +182,7 @@ export function toCandidate(r) {
     url: r.source.page,
     image: r.image.src,
     palette: r.color.palette.map(({ hex, weight }) => ({ hex, weight })),
-    // A size the shop sells framed is already the frame's outside; anything else gets framed.
-    sizes: liveSizes(r).map(({ w, h, price }) => {
-      const framed = (r.offers || []).some((o) => !o.gone && o.framed && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
-      return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}) };
-    }),
+    sizes: candidateSizes(r),
     bw: r.color.bw,
     quality: r.quality && typeof r.quality.score === 'number' ? r.quality.score : null,
     weight: r.composition.weight,

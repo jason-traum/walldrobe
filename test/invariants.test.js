@@ -76,8 +76,9 @@ test('a size the shop stopped selling is not a candidate size', () => {
   const stillSold = (z) => rec.offers.some((o) => !o.gone && ((o.w === z.w && o.h === z.h) || (o.w === z.h && o.h === z.w)));
   const c = toCandidate(rec);
   assert.ok(c.sizes.length > 0);
-  for (const z of c.sizes) assert.ok(stillSold(z), `${z.w}x${z.h} is no longer sold`);
-  if (!stillSold(gone)) assert.ok(!c.sizes.some((z) => (z.w === gone.w && z.h === gone.h) || (z.w === gone.h && z.h === gone.w)));
+  // A matted size is the print in the next frame up: the print is what must still be sold.
+  for (const z of c.sizes) assert.ok(stillSold(z.matted || z), `${z.w}x${z.h} is no longer sold`);
+  if (!stillSold(gone)) assert.ok(!c.sizes.some((z) => { const q = z.matted || z; return (q.w === gone.w && q.h === gone.h) || (q.w === gone.h && q.h === gone.w); }));
 });
 
 test('scoreArrangement says when a wall is not one we would suggest', () => {
@@ -158,4 +159,15 @@ test('asking for more walls puts any weaker one after every stronger one', () =>
   const r = layout({ ...livingRoom, catalog, taste, count: 24 });
   const firstWeak = r.layouts.findIndex((L) => L.weak);
   if (firstWeak >= 0) for (const L of r.layouts.slice(firstWeak)) assert.ok(L.weak || L.variant === 'sections' || L.variant === 'asis', `${L.key} strong after a weak one`);
+});
+
+test('a shop print can hang matted in the next standard frame up', () => {
+  const recs = JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url)));
+  const list = Array.isArray(recs) ? recs : recs.items || recs.records;
+  const rec = list.find((r) => r.id.startsWith('des-') && r.sizes.some((z) => Math.min(z.w, z.h) === 12 && Math.max(z.w, z.h) === 16));
+  const c = toCandidate(rec);
+  const m = c.sizes.find((z) => z.matted && Math.min(z.w, z.h) === 16 && Math.max(z.w, z.h) === 20);
+  assert.ok(m, 'a 16 x 20 frame matted to 12 x 16');
+  assert.equal(Math.min(m.matted.w, m.matted.h), 12);
+  assert.equal(m.w > m.h, m.matted.w > m.matted.h, 'the frame turns the same way as the print');
 });

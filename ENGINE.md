@@ -357,3 +357,7 @@ A catalog size is what the frame is sold as. On the wall it takes the frame's ou
 - The composition gate always applies. When fewer walls pass than were asked for, the best of the rest come after them, marked `weak: true`; `rerank()` keeps weak walls after every passing one.
 - Palette similarity and look-alike caches use numeric pair keys.
 
+## Shop prints matted a frame up (2026-10-04)
+
+`toCandidate()` adds, for a shop print sold unframed, the next standard frame up with the print matted inside (`MATTED_UP`: 8x12 in 12x16, 12x16 in 16x20, 12x18 in 18x24, 20x28 in 24x36), unless the shop sells that size itself. The size carries `matted` (the print); a result piece's `frame.print` says so. `prefs.mats: 'none'` leaves these sizes out.
+
