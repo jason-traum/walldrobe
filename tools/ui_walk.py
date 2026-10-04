@@ -405,6 +405,27 @@ with sync_playwright() as p:
         pg.screenshot(path=f'{OUT}/images-failed-{W}.png', full_page=True)
         ctx.close()
 
+    # Furniture read from a real photo comes back to its real size, from where the camera stood.
+    for W in (390,):
+        ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(BASE + '#/start'); pg.wait_for_timeout(2500)
+        pg.set_input_files('#photo-input', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'fixtures', 'living_room.png')); pg.wait_for_timeout(15000)
+        vis(pg, '[data-act="corners-ok"]').click(); pg.wait_for_timeout(8000)
+        if '#/size' in pg.url:
+            pg.fill('input[name=ft]', '11'); pg.fill('input[name=in]', '0')
+            pg.get_by_role('button', name='Show me my wall').click(); pg.wait_for_timeout(5000)
+        rows = pg.evaluate("[...document.querySelectorAll('.rows .row .row-text .meta')].map(e => e.innerText)")
+        import re as _re2
+        fixed = [r for r in rows if 'in the photo' in r]
+        check(f'{W} furniture shows its real size and the photo size', len(fixed) >= 1 and all(float(_re2.match(r'([\d.]+)', r).group(1)) < float(_re2.search(r'about ([\d.]+) in wide', r).group(1)) for r in fixed), str(rows))
+        check(f'{W} the confirm screen says where you stood', 'back.' in pg.evaluate("document.body.innerText") and 'ft back' in pg.evaluate("document.body.innerText"))
+        pg.screenshot(path=f'{OUT}/check-depth-{W}.png', full_page=True)
+        check(f'{W} no errors on the depth pass', not errs, '; '.join(errs[:2]))
+        ctx.close()
+
     # The photo path: corners (nudge, close-up), then the confirm screen (pick, drag, change kind, wall edge).
     PHOTO = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'photos', 'drawn-wall.jpg')
     for W in (390, 320):
