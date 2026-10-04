@@ -130,7 +130,7 @@ const back = (href, label) => `<a class="back" href="${href}"><span aria-hidden=
 function credits() {
   return `<footer class="credits">
     <p>Plan the wall here. Each piece links to the shop that sells it, or to the free photo. Soon you'll get it all in one order.</p>
-    <p>Your photos and picks never leave this device.</p>
+    <p>Your photos and picks never leave <em>your device</em>.</p>
   </footer>`;
 }
 const flashHtml = () => (S.flash ? `<p class="flash">${esc(S.flash)}</p>` : '');
@@ -220,6 +220,14 @@ function build(key) {
     r = layout({ ...engineInput(), keep: keepList() });
     for (const o of stuck) delete o.loosen;
     if (r.layouts.length) problems.unshift({ code: 'LOOSENED', message: stuck.length === 1 ? `Your ${stuck[0].title} doesn't fit with new art here, so some walls leave it out.` : "Your pieces don't all fit with new art here, so some walls leave one out." });
+  }
+  // Too full for this wall: step down, Full to Balanced to Calm, and say so.
+  if (!r.layouts.length) {
+    const base = engineInput(), from = base.prefs.fullness || 'balanced';
+    for (const f of { full: ['balanced', 'calm'], balanced: ['calm'] }[from] || []) {
+      const again = layout({ ...base, prefs: { ...base.prefs, fullness: f }, keep: keepList() });
+      if (again.layouts.length) { r = again; problems.unshift({ code: 'LOOSENED', message: `${from === 'full' ? 'Full' : 'Balanced'} doesn't fit this wall, so these are ${f}.` }); break; }
+    }
   }
   // Nothing under the budget as asked: keep looking before giving up. Fewer pieces first,
   // then a calmer wall, then no mats, then both kinds of art; the first that works is
@@ -636,7 +644,7 @@ function start() {
       <span class="btn wide" data-busy-label>${S.busy === 'photo' ? busyPhotoLabel() : '<span class="on-touch">Take a photo</span><span class="on-desk">Choose a photo</span>'}</span>
     </label>
     <label class="upload choose"><input type="file" accept="image/*" id="photo-input-2" data-photo-pick="1"><span class="link">Or choose one you have</span></label>
-    <p class="small pencil">Only you can see it. It stays on this device, and so does the photo reader: the first photo downloads it, about 30 MB, and it runs right here.</p>
+    <p class="small pencil">Nothing is sent to a server. Your photos and picks never leave <em>your device</em>.</p>
     ${S.ui.photoErr ? `<p class="error">${esc(S.ui.photoErr)}</p>` : ''}
     ${d && d.photo ? '<p><a href="#/check">Keep using the photo you added</a></p>' : ''}
     <details class="more"${S.ui.sizeErr ? ' open' : ''}>
@@ -1871,17 +1879,21 @@ function taste() {
   <main class="page quiz">
     <h1>Which would you rather have on your wall?</h1>
     ${knownBar(pct)}
+    <p class="pencil small known-words">${enoughWords(pct)}</p>
     <div class="pair-picks">${card(a)}${card(b)}</div>
     <div class="acts left">
       <button type="button" class="btn quiet small" data-act="quiz-skip">Neither, show me another two</button>
-      ${q.n >= 3 ? '<button type="button" class="btn quiet small" data-act="quiz-done">That\'s enough, show my walls</button>' : ''}
+      ${q.n >= 3 ? `<button type="button" class="btn${pct >= ENOUGH ? '' : ' quiet'} small" data-act="quiz-done">${pct >= ENOUGH ? 'Show my walls' : "That's enough, show my walls"}</button>` : ''}
     </div>
   </main>`;
 }
 // How well we know your taste, 0 to 100, from every pick plus saves against swaps.
 // It climbs toward 100 and never gets there (engine/taste.js, tasteKnown).
 const knownPct = (picks) => Math.min(99, Math.round(100 * tasteKnown(picks).known));
-const knownBar = (pct, label = 'How well we know your taste') => `<div class="known" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span class="known-fill" style="width:${pct}%"></span></div>`;
+// Half way is enough to build good walls; past it, picks fine-tune them. Said the same way everywhere.
+const ENOUGH = 50;
+const enoughWords = (pct) => (pct >= ENOUGH ? 'Enough for good walls. More picks fine-tune them.' : `${ENOUGH}% is enough for good walls.`);
+const knownBar = (pct, label = 'How well we know your taste') => `<div class="known" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span class="known-fill" style="width:${pct}%"></span><span class="known-enough" aria-hidden="true"></span></div>`;
 // Saves against swaps, as pairs, the same way rankTaste() uses them.
 function feedPairs() {
   const d = S.draft;
@@ -1907,11 +1919,12 @@ function quizCheck(q) {
       ${less.length ? `<dt>Less into</dt><dd>${esc(less.join(', '))}</dd>` : ''}
       <dt>Still learning</dt><dd>${esc(k.unsure.join(', '))}</dd>
     </dl>
-    <p class="pencil small">Picks, saves and swaps all teach it.</p>
+    <p class="pencil small">${enoughWords(pct)} Saves and swaps teach it too.</p>
     <div class="acts left">
       <button type="button" class="btn" data-act="quiz-done">Show my walls</button>
       <button type="button" class="btn quiet" data-act="quiz-more">Keep going</button>
     </div>
+    <p><button type="button" class="link" data-act="reset-taste">Start over</button></p>
   </main>`;
 }
 function saveQuiz() {
@@ -2016,7 +2029,7 @@ function feed() {
   // The taste test, in the list where it's seen: after the second wall, until you've done it.
   const tasteCard = d.taste && d.taste.source === 'yours' ? (() => {
     const pct = knownPct([...yourPicks(), ...feedPairs()]);
-    return `<li class="taste-card"><a href="#/taste" class="taste-link is-text"><span class="taste-text"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">More picks, closer walls.</span></span></a></li>`;
+    return `<li class="taste-card"><a href="#/taste" class="taste-link is-text"><span class="taste-text"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">${enoughWords(pct)}</span></span></a></li>`;
   })() : (() => {
     const pair = nextPair(CATALOG, [], new Set()) || [];
     const tn = (it) => (it ? `<span class="tn new" style="width:${Math.round(56 * Math.min(1, it.aspect || 0.8))}px;height:${Math.round(56 / Math.max(1, it.aspect || 0.8))}px"><img src="${it.imageData}" alt="" loading="lazy"></span>` : '');
@@ -2039,7 +2052,7 @@ function feed() {
     ${readLine(d)}
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
-    ${S.undo && /^(Budget|No budget)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
+    ${S.undo && /^(Budget|No budget|Taste test reset)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
     <div class="feed-end"><button type="button" class="btn quiet" data-act="more-walls"${S.busy ? ' disabled' : ''}>${S.busy === 'more' ? 'Making more…' : 'Show more walls'}</button>${S.ui.noMore ? '<span class="pencil small">No more new walls fit here. Try a change in Preferences.</span>' : ''}</div>
@@ -2175,10 +2188,16 @@ function sheetHtml() {
     ${body}
   </div>`;
 }
-const BUDGETS = [null, 150, 300, 600, 1000];
+const BUDGETS = [null, 300, 600, 1000, 2000];
 // What the budget counts, said the same way everywhere.
-const BUDGET_WORDS = 'Art, frames and mats, all in. Frames you own are free.';
-const budgetForm = (where) => `<form class="budget-form" data-budget-form="${where}" novalidate><label><span>Or type it</span><span class="num-in">$<input type="number" inputmode="numeric" min="20" max="20000" step="10" name="budget" value="${S.draft.budget && !BUDGETS.includes(S.draft.budget) ? S.draft.budget : ''}" placeholder="250"></span></label><button type="submit" class="btn quiet small">Set</button></form>`;
+const BUDGET_WORDS = 'All in: art, frames and mats. Frames you own are free.';
+const budgetForm = (where) => `<form class="budget-form" data-budget-form="${where}" novalidate><label class="num-in"><span class="sr-only">Your budget</span>$<input type="number" inputmode="numeric" min="20" max="20000" step="10" name="budget" value="${S.draft.budget && !BUDGETS.includes(S.draft.budget) ? S.draft.budget : ''}" placeholder="Type any"></label><button type="submit" class="btn quiet small">Set</button></form>`;
+// The look in one line: lined up or mixed, and how much of the wall.
+function lookWords(style, fullness) {
+  const how = { calm: 'a few pieces, lots of bare wall', balanced: 'room to breathe', full: 'a gallery wall, close together' }[fullness] || 'room to breathe';
+  const kind = { structured: 'Lined up, even sizes', gallery: 'Mixed sizes' }[style];
+  return kind ? `${kind}, ${how}.` : `${how[0].toUpperCase()}${how.slice(1)}.`;
+}
 function changeSheet() {
   const d = S.draft;
   const onWall = route()[0] === 'wall';
@@ -2187,27 +2206,30 @@ function changeSheet() {
   const L = onWall ? (stale ? (S.mem.under && S.mem.under.L) || null : shown()) : null;
   const dis = S.busy ? ' disabled' : '';
   // Each row says what the choice it has means, in a few words, so nothing needs a guess.
-  const seg = (id, label, pairs, cur, attr, help = null) => `<div class="sheet-row"><span class="label" id="${id}">${label}</span><span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span>${help && help[cur == null ? '' : cur] ? `<span class="row-help">${esc(help[cur == null ? '' : cur])}</span>` : ''}</div>`;
+  // Each row: a short label beside its choices. Only Look and Budget need a line of help.
+  const segBtns = (id, pairs, cur, attr) => `<span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span>`;
+  const seg = (id, label, pairs, cur, attr) => `<div class="sheet-row"><span class="label" id="${id}">${label}</span>${segBtns(id, pairs, cur, attr)}</div>`;
   const counts = (S.view && S.view.counts) || [];
   const n = d.pieces || (L ? L.pieces.length : null);
   const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
-  const arts = [['prints', 'Shop prints'], ['photos', 'Free only'], ['both', 'Both'], ...(keptOwned().length ? [['mine', 'Just mine']] : [])];
+  const arts = [['both', 'Both'], ['photos', 'Free only'], ['prints', 'Shop'], ...(keptOwned().length ? [['mine', 'Mine']] : [])];
   const tastePct = d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0;
   const status = stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : '';
   return `<h2 id="sheet-h">Preferences</h2>
     ${status ? `<p class="sheet-status" role="status">${status}</p>` : '<p class="sheet-status is-empty" role="status"></p>'}
-    <a class="taste-promo" href="#/taste"><span class="taste-promo-text"><span class="name">${tastePct ? `We know your taste ${tastePct}%` : 'Teach it your taste'}</span><span class="pencil small">${tastePct ? 'More picks, closer walls.' : 'A minute of picks, and every wall ranks for you.'}</span></span>${knownBar(tastePct)}<span class="taste-promo-go">${tastePct ? 'Keep going' : 'Start'}</span></a>
-    ${seg('kind-l', 'Kind', [[null, 'Any'], ['structured', 'Structured'], ['gallery', 'Loose']], d.style || null, 'style', { '': 'Every kind.', structured: 'Grids, rows, one big piece.', gallery: 'Mixed sizes, relaxed.' })}
+    <a class="taste-promo" href="#/taste"><span class="taste-promo-text"><span class="name">${tastePct ? `We know your taste ${tastePct}%` : 'Teach it your taste'}</span><span class="pencil small">${tastePct ? enoughWords(tastePct) : 'A minute of picks, and every wall ranks for you.'}</span></span>${knownBar(tastePct)}<span class="taste-promo-go">${tastePct ? 'Keep going' : 'Start'}</span></a>
+    ${tastePct || (d.quizState && d.quizState.picks && d.quizState.picks.length) ? `<p class="row-help taste-reset"><button type="button" class="link" data-act="reset-taste"${dis}>Start the taste test over</button></p>` : ''}
+    <div class="sheet-row look-row"><span class="label" id="look-l">Look</span>
+      <span class="look-segs">${segBtns('look-l', [[null, 'Any'], ['structured', 'Lined up'], ['gallery', 'Mixed']], d.style || null, 'style')}${segBtns('look-l', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness')}</span>
+      <span class="row-help">${esc(lookWords(d.style || null, d.fullness || 'balanced'))}</span></div>
     <div class="sheet-row"><span class="label" id="count-l">How many</span>
-      <span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
-      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}
-      <span class="row-help">${d.pieces ? 'Yours count too.' : 'As many as look right.'}</span></div>
-    ${seg('full-l', 'How full', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness', { calm: 'A few pieces, lots of wall.', balanced: 'Some art, room to breathe.', full: 'Gallery wall, close together.' })}
-    ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art', { prints: 'Buy from a shop.', photos: 'Free downloads you print.', both: 'Shop and free.', mine: 'Only what you own.' })}
-    ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone', { '': 'Any colors.', warm: 'Reds, golds, wood.', cool: 'Blues, greens, grays.' })}
-    ${seg('budget-l', 'Budget', BUDGETS.map((v) => [v, v ? `$${v.toLocaleString('en-US')}` : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}
-    ${budgetForm('sheet')}
-    <p class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></p>
+      <span class="count-ctl"><span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
+      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</span></div>
+    ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
+    ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
+    <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
+      <span class="budget-ctl">${segBtns('budget-l', BUDGETS.map((v) => [v, v ? (v >= 1000 ? `$${v / 1000}k` : `$${v}`) : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}${budgetForm('sheet')}</span>
+      <span class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span></div>
     <div class="acts left"><button type="button" class="link" data-act="reset-prefs"${dis}>Reset preferences</button></div>`;
 }
 function pieceSheet(id) {
@@ -3970,6 +3992,24 @@ document.addEventListener('click', (e) => {
     case 'stuff-add-frame': { const list = myStuff(); list.push({ id: stuffId(), kind: 'frame', w: 11, h: 14, color: 'black' }); saveStuff(list); render(); break; }
     case 'browse-clear': { const f = S.ui.browse; if (f) { Object.assign(f, { theme: '', color: '', mood: '', shape: '', kind: '', price: '', n: BROWSE_PAGE }); render(); } break; }
     case 'browse-more': { const f = S.ui.browse; if (f) { f.n += BROWSE_PAGE; render(); } break; }
+    case 'reset-taste': {
+      // The taste test from scratch: your picks, the pairs you've seen, and the swaps that
+      // taught it. Favorites stay saved. With Undo.
+      const d = S.draft, me = store.loadMe(), q = S.quiz;
+      // Picks made in a test that's still open count too, so Undo brings them back as taste.
+      const open = q ? q.picks : d.quizState ? picksOf(d.quizState.picks) : [];
+      const all = open.length ? [...(q ? q.prior || [] : yourPicks()), ...open].slice(-60) : null;
+      const before = all ? { source: 'yours', weights: fitTaste(all), picks: all.map((x) => [x.winner.id, x.loser.id]) } : d.taste;
+      const was = { taste: before, skipped: d.skipped, seen: me.quizSeen };
+      d.taste = { source: 'none', weights: null, picks: [] }; d.skipped = []; d.quizState = null;
+      me.quizSeen = []; store.saveMe(me); S.quiz = null;
+      S.openKey = null; S.stepBase = null; S.flash = null; S.selected = null; if (S.view) S.view.rankKey = null;
+      S.undo = { label: 'Taste test reset.', run: () => { d.taste = was.taste; d.skipped = was.skipped; const m = store.loadMe(); m.quizSeen = was.seen || []; store.saveMe(m); persist(); } };
+      persist();
+      if (route()[0] === 'taste') { go('#/layouts'); break; }
+      S.sheet = 'change'; S.ui.sheetStay = true; S.focusAfter = '[data-act="undo"]'; render();
+      break;
+    }
     case 'reset-prefs': {
       const d = S.draft, keys = ['style', 'pieces', 'fullness', 'art', 'justMine', 'tone', 'budget'];
       const was = Object.fromEntries(keys.map((k) => [k, d[k]]));

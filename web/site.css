@@ -777,3 +777,28 @@ svg.is-dragging .measure { opacity: 0.25; }
   .page.browse { max-width: 1320px; padding-left: 24px; padding-right: 24px; }
   .page.browse .art-grid { columns: 3 300px; column-gap: 20px; }
 }
+/* The meter's half way mark: enough to build good walls. */
+.known-enough { position: absolute; top: -2px; bottom: -2px; left: 50%; width: 2px; background: var(--ink, #1E1E1E); opacity: .35; }
+.known { overflow: visible; }
+.known-fill { overflow: hidden; }
+.quiz .known-words { margin: -10px 0 12px; }
+/* The price sits centered under the wall it prices. */
+.price-tag, .price-line { text-align: center; }
+.wall-main .price-line { margin: 2px 0 4px; font-size: 16px; }
+/* Preferences, tight: a short label beside its choices; Look holds two rows of choices. */
+#sheet .sheet-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 6px; }
+#sheet .sheet-row > .label { flex-basis: auto; color: var(--ink); }
+#sheet .sheet-row > .label { font-size: 14px; line-height: 18px; }
+#sheet .sheet-row > .row-help { grid-column: 2; margin: -2px 0 0; }
+#sheet .sheet-row .seg { width: 100%; }
+#sheet .look-segs, #sheet .budget-ctl { display: grid; gap: 6px; min-width: 0; }
+#sheet .look-row > .label { align-self: start; padding-top: 12px; }
+#sheet .count-ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#sheet .count-ctl .seg { width: auto; }
+#sheet .budget-row > .label { align-self: start; padding-top: 12px; }
+#sheet .budget-ctl .seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+#sheet .budget-ctl .seg button { padding: 0 2px; font-size: 14px; }
+#sheet .budget-form { margin: 0; flex-wrap: nowrap; align-items: center; }
+#sheet .budget-form .num-in input { width: 110px; }
+#sheet { gap: 10px; }
+#sheet .count-ctl .seg button { flex: 0 0 auto; padding: 0 16px; }

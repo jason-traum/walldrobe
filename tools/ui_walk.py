@@ -705,6 +705,19 @@ with sync_playwright() as p:
         vis(pg, '[data-act=quiz-skip]').click(); pg.wait_for_timeout(500)
         pg.goto(BASE + '#/taste'); pg.wait_for_timeout(800)
         vis(pg, '.pick').click(); pg.wait_for_timeout(500)
+        # The taste test can start over from Preferences, with Undo.
+        pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(3000)
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+        rt = vis(pg, '#sheet [data-act=reset-taste]')
+        check(f'{W} Preferences can start the taste test over', rt is not None)
+        if rt:
+            rt.click(); pg.wait_for_timeout(2500)
+            check(f'{W} starting over forgets the picks', 'Teach it your taste' in pg.evaluate("(document.querySelector('#sheet .taste-promo')||{}).innerText || ''"))
+            u = vis(pg, '#sheet [data-act=undo]')
+            if u: u.click(); pg.wait_for_timeout(2500)
+            if not vis(pg, '#sheet'): vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+            check(f'{W} Undo brings the taste back', pg.locator('#sheet [data-act=reset-taste]').count() == 1)
+            vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
         # Browse: every piece, filters, save and not for me.
         pg.goto(BASE + '#/browse'); pg.wait_for_timeout(2500)
         check(f'{W} Browse shows the art', pg.locator('.art-card').count() >= 30)
