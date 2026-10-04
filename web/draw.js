@@ -236,7 +236,7 @@ function measures(L, W, H, s) {
   const bottom = H - g.y;
   const ty = Math.max(s * 1.6, top - s * 1.4);
   const lx = g.x - s * 1.2;
-  const nails = L.pieces.filter((p) => p.role !== 'pinned').map((p) => `<circle cx="${p.nail.x}" cy="${H - p.nail.y}" r="${s * 0.22}" class="nail"/>`).join('');
+  const nails = L.pieces.filter((p) => p.role !== 'pinned').flatMap((p) => p.nails || [p.nail]).map((n) => `<circle cx="${n.x}" cy="${H - n.y}" r="${s * 0.22}" class="nail"/>`).join('');
   return `<g class="measure">
     <line x1="0" x2="${W}" y1="${H - 57}" y2="${H - 57}" class="centerline"/>
     ${(() => {

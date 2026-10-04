@@ -290,6 +290,15 @@ with sync_playwright() as p:
         check(f'{W} Get it targets 44 px', small == 0, str(small))
         ctl = pg.evaluate(CTL)
         check(f'{W} Get it within its 8 controls', ctl <= 8, str(ctl))
+        # Two D-rings: two nails a frame, the table says both.
+        n1 = pg.locator('#guide circle.nail').count()
+        pg.select_option('#hanger', 'rings'); pg.wait_for_timeout(600)
+        n2 = pg.locator('#guide circle.nail').count()
+        check(f'{W} two D-rings put two nails on each frame', n2 > n1 and pg.locator('#ring-in').count() == 1 and 'and ' in pg.locator('.nails tbody tr').first.inner_text(), f'{n1} then {n2}')
+        check(f'{W} the hanger choice keeps focus', pg.evaluate("document.activeElement && document.activeElement.id") == 'hanger')
+        pg.screenshot(path=f'{OUT}/get-rings-{W}.png', full_page=True)
+        pg.select_option('#hanger', 'wire'); pg.wait_for_timeout(600)
+        check(f'{W} back to a wire, one nail each', pg.locator('#guide circle.nail').count() == n1)
         sv = vis(pg, '.get [data-act=save]')
         if sv.is_enabled():
             sv.click(); pg.wait_for_timeout(1200)

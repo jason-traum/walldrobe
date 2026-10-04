@@ -1852,9 +1852,20 @@ function getScreen() {
   if (!L) { go('#/layouts'); return ''; }
   const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
   const drop = typeof d.drop === 'number' && d.drop >= 0 ? d.drop : RULES.defaultDrop;
-  const LG = { ...L, pieces: L.pieces.map((p) => (p.role === 'pinned' || !p.nailNote ? p : { ...p, nail: { x: p.nail.x, y: Math.round((p.y + p.h - drop) * 4) / 4 } })) };
+  // Hung on a wire: one nail in the middle, the drop below the top. On two D-rings: two
+  // nails, each the rings' inset in from its side, at the rings' height.
+  const rings = d.hanger === 'rings';
+  const inset = typeof d.ringIn === 'number' && d.ringIn >= 0 ? d.ringIn : RULES.ringInset;
+  const q4 = (v) => Math.round(v * 4) / 4;
+  const hang = (p) => {
+    if (p.role === 'pinned') return p;
+    const y = q4(p.y + p.h - drop);
+    if (rings && p.w > 2 * inset + 2) return { ...p, nail: { x: p.nail.x, y }, nails: [{ x: q4(p.x + inset), y }, { x: q4(p.x + p.w - inset), y }] };
+    return p.nailNote || rings ? { ...p, nail: { x: p.nail.x, y } } : p;
+  };
+  const LG = { ...L, pieces: L.pieces.map(hang) };
   const hangOrder = [...LG.pieces].filter((p) => p.role !== 'pinned').sort((a, b) => b.w * b.h - a.w * a.h);
-  const refs = new Map(hangOrder.map((p) => [p.ref.id, nailRef(p.nail, trueObs(d))]));
+  const refs = new Map(hangOrder.map((p) => [p.ref.id, p.nails ? nailRef(p.nails[0], trueObs(d)) : nailRef(p.nail, trueObs(d))]));
   const anyRef = [...refs.values()].some(Boolean);
   const estimate = !sizeMeasured(d);
   const nameOf = (p) => (byId.get(p.ref.id) ? byId.get(p.ref.id).title : `Your ${p.title}`);
@@ -1911,17 +1922,22 @@ function getScreen() {
       <h2 id="guide-h">Where the nails go</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
       <form class="fields drop-form" id="drop-form" novalidate>
-        <label for="drop">Wire or hanger sits</label>
+        <label for="hanger">Each frame hangs on</label>
+        <select id="hanger" name="hanger"><option value="wire"${rings ? '' : ' selected'}>a wire or one hook</option><option value="rings"${rings ? ' selected' : ''}>two D-rings</option></select>
+        <label for="drop">${rings ? 'The rings sit' : 'Wire or hanger sits'}</label>
         <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
-        <span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>
+        ${rings ? `<label for="ring-in">Each ring is</label>
+        <span class="pair"><input type="number" id="ring-in" name="ring-in" inputmode="decimal" min="0" max="12" step="0.25" value="${inset}"> in from the side of the frame</span>
+        <span class="help">Measure from the top of a ring to the top of the frame, and from the ring to the nearest side.</span>` : '<span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>'}
       </form>
       <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
-        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(size(soldW(p), soldH(p)))} frame, ${esc(size(p.w, p.h))} outside` : `${esc(size(p.w, p.h))} frame`}</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
+        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(size(soldW(p), soldH(p)))} frame, ${esc(size(p.w, p.h))} outside` : `${esc(size(p.w, p.h))} frame`}</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
         ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${d.photo.mode === 'auto' ? '#/check' : '#/size'}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>
         <li>Mark each nail in pencil, then nail or drill.</li>
+        ${rings ? '<li>Two nails a frame: put a level across the two marks before you drill, so the frame hangs straight.</li>' : ''}
         ${anyRef ? `<li>Measuring from the nearest edge, like the TV's, keeps any error small${estimate ? ', which helps while the wall size is an estimate' : ''}.</li>` : ''}
         <li>A photo can't see wires or studs. Near an outlet or switch, check with a stud finder before you drill.</li>
       </ol>
@@ -2475,7 +2491,7 @@ function wireDraw() {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
-  if (f.id === 'drop-form') { const i = $('#drop'); if (i) i.dispatchEvent(new Event('change', { bubbles: true })); return; }
+  if (f.id === 'drop-form') { for (const id of ['#drop', '#ring-in']) { const i = $(id); if (i) i.dispatchEvent(new Event('change', { bubbles: true })); } return; }
   if (f.id === 'dims-form') { changeDims(f); return; }
   if (f.id === 'size-form') {
     const v = (n) => Number(f.elements[n].value || 0);
@@ -2523,6 +2539,12 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.id === 'hanger') { S.draft.hanger = t.value === 'rings' ? 'rings' : 'wire'; persist(); render(); const again = $('#hanger'); if (again) again.focus({ preventScroll: true }); return; }
+  if (t.id === 'ring-in') {
+    const v = Number(t.value);
+    if (Number.isFinite(v) && v >= 0 && v <= 12) { S.draft.ringIn = Math.round(v * 4) / 4; persist(); render(); const again = $('#ring-in'); if (again) again.focus({ preventScroll: true }); }
+    return;
+  }
   if (t.id === 'drop') {
     const v = Number(t.value);
     if (Number.isFinite(v) && v >= 0 && v <= 12) { S.draft.drop = Math.round(v * 4) / 4; persist(); render(); const again = $('#drop'); if (again) again.focus({ preventScroll: true }); }
