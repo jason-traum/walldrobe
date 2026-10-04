@@ -7,7 +7,10 @@
 //    chosen: pieces the same size match; no single piece is the odd one out; the matted
 //    ones spread across the wall rather than bunching on one side.
 //  - A mat gives a small print room; a big piece does the work on its own. When mixing,
-//    the smallest frames get mats first.
+//    the smallest frames get mats first. The one statement piece in a statement wall,
+//    and any frame 30 in or more on its long side, goes without unless you pick All:
+//    ready-made frames mostly stop coming with a mat around 24 x 36, and a big piece
+//    with a mat reads as fussy. The pieces around it still match each other.
 //  - Only what's easy to buy: each size says whether it can go matted (`can.mat`, the
 //    print inside) and whether it can go without (`can.plain`). A piece with one way has
 //    that way.
@@ -21,6 +24,21 @@ export const isStructured = (family, variant) => STRUCTURED.has(family) || (fami
 const shareOf = (level) => (SHARE[level] != null ? SHARE[level] : SHARE.some);
 const key = (p) => `${Math.min(p.w, p.h)}x${Math.max(p.w, p.h)}`;
 const canOf = (p) => (p.frame && p.frame.can) || null;
+const idOf = (p) => (p.ref ? p.ref.id : p.id);
+// A frame this big goes without a mat unless you pick All.
+export const BIG_FRAME = 30;
+
+// The pieces that go without a mat in a structured wall unless the level is All: the
+// statement piece (the single biggest in a statement wall) and any big frame.
+function bareSet(pieces, family) {
+  const out = new Set();
+  for (const p of pieces) if (Math.max(p.w, p.h) >= BIG_FRAME) out.add(idOf(p));
+  if (family === 'statement' && pieces.length) {
+    const by = [...pieces].sort((a, b) => b.w * b.h - a.w * a.h);
+    if (by.length === 1 || by[0].w * by[0].h > by[1].w * by[1].h) out.add(idOf(by[0]));
+  }
+  return out;
+}
 
 /**
  * Which new pieces get a mat.
@@ -41,11 +59,13 @@ export function assignMats(pieces, { family = 'flow', variant = null, level = 's
   const share = shareOf(level);
   const id = (p) => (p.ref ? p.ref.id : p.id);
   if (isStructured(family, variant)) {
-    // One system: all the same. Some leans to whatever the pieces that have no choice already are.
-    const forced = [...out.values()];
+    // One system: all the same, apart from the statement piece and big frames, which go
+    // without. Some leans to whatever the pieces that have no choice already are.
+    const bare = share >= 1 ? new Set() : bareSet(pieces.filter((p) => canOf(p)), family);
+    const forced = [...out].filter(([k]) => !bare.has(k)).map(([, v]) => v);
     const m = forced.filter(Boolean).length;
     const all = share > 0.5 ? true : share < 0.5 ? false : m > forced.length - m;
-    for (const p of flex) out.set(id(p), all);
+    for (const p of flex) out.set(id(p), bare.has(id(p)) ? false : all);
     return out;
   }
   // A mix: a whole size at a time, smallest first, while that brings the count closer.
@@ -93,9 +113,18 @@ export function matScore(pieces, mats, { family = 'flow', variant = null, level 
   if (n < 2) return 1;
   const on = (p) => mats.get(p.ref ? p.ref.id : p.id);
   const m = ps.filter(on).length;
-  const majority = Math.max(m, n - m) / n;
   const fit = 1 - Math.abs(m / n - shareOf(level));
-  if (isStructured(family, variant)) return 0.75 * ((majority - 0.5) * 2) + 0.25 * fit;
+  if (isStructured(family, variant)) {
+    // The statement piece and big frames are judged on their own: plain is right for them.
+    const bare = shareOf(level) >= 1 ? new Set() : bareSet(ps, family);
+    const rest = ps.filter((p) => !bare.has(idOf(p)));
+    const bareOk = bare.size ? ps.filter((p) => bare.has(idOf(p)) && !on(p)).length / bare.size : 1;
+    if (!rest.length) return 0.8 + 0.2 * bareOk;
+    const rm = rest.filter(on).length;
+    const uniform = rest.length < 2 ? 1 : (Math.max(rm, rest.length - rm) / rest.length - 0.5) * 2;
+    const restFit = 1 - Math.abs(rm / rest.length - shareOf(level));
+    return (0.75 * uniform + 0.25 * restFit) * (0.8 + 0.2 * bareOk);
+  }
   const lonely = n >= 4 && loneOne(ps, mats, (p) => (p.ref ? p.ref.id : p.id)) ? 0 : 1;
   let pairs = 0, off = 0;
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (key(ps[i]) === key(ps[j])) { pairs++; if (on(ps[i]) !== on(ps[j])) off++; }

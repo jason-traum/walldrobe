@@ -50,3 +50,24 @@ test('the score likes a uniform grid and a balanced mix', () => {
   const lone = [piece('a', 11, 14, 0), piece('b', 11, 14, 14), piece('c', 11, 14, 28), piece('d', 11, 14, 42)];
   assert.ok(matScore(lone, spread, { family: 'salon', level: 'some' }) > matScore(lone, left, { family: 'salon', level: 'some' }));
 });
+
+test('a statement piece goes without a mat unless you pick All; the pieces beside it match', () => {
+  const wall = [piece('big', 24, 30, 20), piece('l1', 11, 14, 0), piece('r1', 11, 14, 50)];
+  for (const level of ['few', 'some', 'most']) {
+    const m = assignMats(wall, { family: 'statement', level });
+    assert.equal(m.get('big'), false, level);
+    assert.equal(m.get('l1'), m.get('r1'), level);
+  }
+  assert.equal(assignMats(wall, { family: 'statement', level: 'most' }).get('l1'), true);
+  assert.equal(assignMats(wall, { family: 'statement', level: 'all' }).get('big'), true);
+  assert.equal(assignMats([piece('solo', 24, 30, 0)], { family: 'statement', level: 'most' }).get('solo'), false);
+  const plain = new Map([['big', false], ['l1', true], ['r1', true]]);
+  const matted = new Map([['big', true], ['l1', true], ['r1', true]]);
+  assert.ok(matScore(wall, plain, { family: 'statement', level: 'most' }) > matScore(wall, matted, { family: 'statement', level: 'most' }));
+});
+
+test('a big frame goes without a mat on a structured wall unless you pick All', () => {
+  const two = [piece('a', 24, 36, 0), piece('b', 24, 36, 30)];
+  assert.ok([...assignMats(two, { family: 'line', level: 'most' }).values()].every((v) => !v));
+  assert.ok([...assignMats(two, { family: 'line', level: 'all' }).values()].every(Boolean));
+});

@@ -209,7 +209,8 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     const b = p.frame.border || Math.min(0.75, Math.min(p.w, p.h) / 10);
     const ow = p.w - 2 * b, oh = p.h - 2 * b;
     const pr = printFor ? printFor(p) : null;
-    const pw = pr ? Math.min(pr[0], ow) : ow, ph = pr ? Math.min(pr[1], oh) : oh;
+    // A mat's window is a half inch smaller than the print: a quarter inch hides on each side.
+    const pw = pr ? Math.min(pr[0] - 0.5, ow) : ow, ph = pr ? Math.min(pr[1] - 0.5, oh) : oh;
     const ix = p.x + b + (ow - pw) / 2, iy = y + b + (oh - ph) / 2;
     return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame frame-new" filter="url(#wd-shadow)"/>

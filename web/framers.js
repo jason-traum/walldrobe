@@ -37,8 +37,9 @@ export const FRAMERS = [
   {
     id: 'americanflat', name: 'Americanflat', kind: 'Online', url: 'https://americanflat.com/collections/picture-frames',
     pickup: 'Mail only, also on Amazon', ships: 'From $7, free over $99',
-    // Streamline Matted where a mat fits, Streamline without one past that.
-    sizes: { '8x10': [8.99, '5x7'], '11x14': [11.99, '8x10'], '12x16': [15.99, '8x12'], '16x20': [21.99, '11x14'], '18x24': [24.99, '12x18'], '24x30': [45.99, '18x24'], '24x36': [36.99], '30x40': [59.99], '16x16': [19.99, '12x12'], '20x20': [29.99, '16x16'] },
+    // Streamline Matted where a mat fits, Streamline without one past that. Their 16x20 is
+    // matted to 12x16 (their size guide), not 11x14 like most stores.
+    sizes: { '8x10': [8.99, '5x7'], '11x14': [11.99, '8x10'], '12x16': [15.99, '8x12'], '16x20': [21.99, '12x16'], '18x24': [24.99, '12x18'], '24x30': [45.99, '18x24'], '24x36': [36.99], '30x40': [59.99], '16x16': [19.99, '12x12'], '20x20': [29.99, '16x16'] },
     note: 'Real glass, slim black frame; the top seller on Amazon',
   },
   {

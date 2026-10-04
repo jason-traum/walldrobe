@@ -1880,7 +1880,7 @@ function whereToFrame(L) {
     <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for plain black; ${lookOf() === 'black' ? 'regular prices before any sale' : `look for ${FRAME_LOOKS[lookOf()].name.toLowerCase()} on each seller's page, usually about the same price`}.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
-    ${anyMat ? '<p class="pencil small">Mats come in the frame: look for one sold "matted to" your print size (an 11 x 14 frame matted to 8 x 10). Where a seller\'s mat is for another size, buy the frame alone and a precut mat for that frame with your print\'s window.</p>' : ''}
+    ${anyMat ? '<p class="pencil small">Mats come already in the frame: look for one sold "matted to" your print size (an 11 x 14 frame matted to 8 x 10). Ready-made mats are white. The window is a half inch smaller than the print, so a quarter inch hides on each side; keep a signature or text off the very edge. Where a seller\'s mat is for another size, buy the frame and a precut mat on its own, the frame\'s size outside with your print\'s window: about $3 at Hobby Lobby, about $10 acid-free with a backing board.</p>' : ''}
     <p class="pencil small">Prices checked ${FRAMES_CHECKED}.</p>
   </section>`;
 }
@@ -2022,7 +2022,7 @@ function framesScreen() {
     </fieldset>
     ${free.length ? `<fieldset class="choose"><legend>How many mats</legend>
       <span class="seg" role="group" aria-label="Mats">${MAT_LEVELS.map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
-      <span class="help">A mat is the white card between the print and the frame; with one, the photo is printed smaller. Pick how many. A grid or a row keeps every mat the same; a looser wall mixes them, smallest frames first, same sizes matching. Only ways you can easily buy are used. Tap Mat on a piece to change just that one.</span>
+      <span class="help">A mat is the white card between the print and the frame; with one, the photo is printed smaller. It comes in the frame and lifts out. Pick how many; one big piece goes without unless you pick All. A grid or a row keeps every mat the same; a looser wall mixes them, smallest frames first, same sizes matching. Only ways you can easily buy are used. Tap Mat on a piece to change just that one.</span>
     </fieldset>` : ''}
     <h2>Sizes</h2>
     <ul class="frame-list">${rows}</ul>
@@ -2130,6 +2130,7 @@ function hangScreen() {
         <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${thumbFor(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(sz(soldW(p), soldH(p)))} frame, ${esc(sz(p.w, p.h))} outside` : `${esc(sz(p.w, p.h))} frame`}</span>${p.hanger ? `<span class="nail-ref">${esc(HANGER_WORDS[p.hanger.type])}${p.hanger.set ? '' : ', assumed'}</span>` : ''}</span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
         ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${fix}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
+        ${hangOrder.some((p) => p.ref.source === 'catalog' && matFor(p)) ? '<li>Matted frames: tape each print to the back of its mat along the top edge only, so it hangs flat and doesn\'t buckle.</li>' : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>
         <li>Mark each nail in pencil, then nail or drill.</li>
         ${hangOrder.some((p) => p.nails) ? '<li>Two nails for a frame on D-rings: put a level across the two marks before you drill, so it hangs straight.</li>' : ''}
