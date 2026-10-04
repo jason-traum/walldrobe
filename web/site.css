@@ -593,3 +593,4 @@ svg.is-dragging .measure { opacity: 0.25; }
 .pr-mat.is-off { color: var(--pencil); }
 .wall-sum { font-size: 15px; }
 .where.ask { margin-top: 8px; }
+.nail-two { display: block; }

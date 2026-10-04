@@ -24,6 +24,7 @@ export const RULES = Object.freeze({
   minAnchorWidth: 30,    // narrower furniture doesn't set the layout
   minOpenWidth: 12,      // narrower than this is not a place to hang art
   defaultDrop: 2,        // wire or hanger below the top edge, when unknown
+  ringInset: 2,          // D-rings on the back of a frame, in from each side, when unknown
   frameBorder: 0.75,     // a standard frame's moulding: a frame sold as 11 x 14 holds an 11 x 14 print or mat and is about 12.5 x 15.5 outside
   soloMinRatio: 0.35,    // one piece alone may be this narrow, since frames stop at 40 in
   anchorShift: 0.15,     // a group may slide at most this share of the furniture's width off center

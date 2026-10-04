@@ -173,6 +173,7 @@ Undo stays until the next change. Versions stay with the wall, on this device.
 | Nothing new | "Hang it", no buy list | |
 | Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |
 | A piece of yours moves | "Take it down and rehang it here." under its name | |
+| Two D-rings | "Each frame hangs on [two D-rings]", "The rings sit [2] in below the top of the frame", "Each ring is [2] in from the side of the frame". Each row's From the left gives both nails ("21½ in, and 39 in"); the drawing shows two nails a frame; a step: "Two nails a frame: put a level across the two marks before you drill." | Pick the hanger, type the drop and inset |
 | Wire drop | "Wire or hanger sits [2] in below the top of the frame." Every nail height follows | Type a number |
 | Size from the photo | "These spots are estimates. The wall's size was worked out from [the TV] in your photo, not measured, so a spot can be off by several inches. Measure the wall's width once and every spot firms up." | Measure |
 | Width measured, photo wall | "The wall's width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling." | |
