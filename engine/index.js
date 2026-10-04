@@ -10,6 +10,7 @@
 import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.js';
 import { assignMats, matScore, MAT_LEVELS } from './mats.js';
 export { assignMats, matScore, MAT_LEVELS, isStructured } from './mats.js';
+export { assignHome, HOME } from './home.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS, FURNITURE } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
@@ -364,7 +365,9 @@ const catalogExtra = (c) => ({ artist: c.artist || null, year: c.year || null, c
 // shop sells it framed, the framed piece itself. On the wall it takes the frame's
 // outside: the size plus the moulding on each side. All geometry (gaps, clearances,
 // nails) uses the outside; the buy list uses the size it's sold as.
-const borderOf = (z) => (z && z.framed ? 0 : RULES.frameBorder);
+// A size can say how wide its frame's moulding is (`border`, a slim or a wide frame);
+// a size the shop sells framed is already its outside.
+const borderOf = (z) => (z && z.framed ? 0 : z && num(z.border) && z.border >= 0 ? z.border : RULES.frameBorder);
 const outerOf = (z) => { const b = borderOf(z); return { w: z.w + 2 * b, h: z.h + 2 * b }; };
 // The catalog size behind an outside size on the wall.
 const soldAs = (c, w, h) => (c.sizes || []).find((z) => { const o = outerOf(z); return Math.abs(o.w - w) < 1e-6 && Math.abs(o.h - h) < 1e-6; }) || null;

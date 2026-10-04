@@ -3,7 +3,12 @@
 // "I like this one more" nudges a weight vector toward the winner (a Bradley-Terry
 // model, fit by gradient steps). The quiz picks each next pair where the model is
 // least sure, so ten picks teach it more than ten random ones. Pure and deterministic.
-// Later the features get image embeddings; the interface stays the same.
+// A record can also carry `vision` (tools/vision.py, open image models run once
+// offline): how good it looks, how much it reads as art rather than a stock photo,
+// how strongly it reads as each of a few dozen plain ideas, and its image features
+// squeezed to a few numbers. The taste model learns from those too, and since it knows
+// how good each piece looks, a pick that's explained by one piece being better made
+// isn't credited to its color or subject.
 
 import { THEMES, STYLES, MOODS } from './catalog.js';
 import { normalizePalette, paletteSimilarity, lch } from './color.js';
@@ -12,13 +17,32 @@ import { PROFILE, COMPLEMENT } from './constants.js';
 
 const rec = (item) => item.record || item;
 
+// The plain ideas tools/vision.py scores every image on, in its order.
+export const VISION_CONCEPTS = Object.freeze(['retro', 'minimal', 'moody', 'playful', 'serene', 'energetic', 'dreamy', 'gritty',
+  'elegant', 'cozy', 'surreal', 'film', 'graphic', 'botanical', 'architecture', 'coastal', 'mountains', 'pastel', 'earthy', 'neon',
+  'textured', 'geometric', 'cinematic', 'fashion', 'witty', 'luxe', 'rustic', 'food', 'travel', 'figure']);
+export const VISION_EMBED = 8;
+
 export const FEATURE_NAMES = [
   ...THEMES.map((t) => `theme:${t}`),
   ...STYLES.map((s) => `style:${s}`),
   ...MOODS.map((m) => `mood:${m}`),
   'black and white', 'painting', 'people',
   'light', 'contrast', 'vivid', 'warm', 'busy', 'empty space',
+  'well made', 'art not stock',
+  ...VISION_CONCEPTS.map((c) => `concept:${c}`),
+  ...Array.from({ length: VISION_EMBED }, (_, i) => `look:${i}`),
 ];
+const CONCEPT_AT = FEATURE_NAMES.indexOf(`concept:${VISION_CONCEPTS[0]}`);
+
+// How good a piece looks, 0 to 1: the image model's rank when there is one, else the tag pass's score.
+export function looksGood(item) {
+  const r = rec(item);
+  if (r && r.vision && typeof r.vision.looks === 'number') return r.vision.looks;
+  if (r && r.vision && typeof r.vision.aesthetic === 'number') return r.vision.aesthetic;
+  return r && r.quality && typeof r.quality.score === 'number' ? r.quality.score : 0.5;
+}
+const artOf = (r) => (r.vision && typeof r.vision.art === 'number' ? r.vision.art : 0.5);
 
 export function features(item) {
   const r = rec(item);
@@ -37,6 +61,11 @@ export function features(item) {
     c.warmth / 2,
     (k.busyness - 0.2) * 2,     // busyness spans about 0 to 0.5, so scale it to match the others
     k.negativeSpace - 0.35,
+    looksGood(r) - 0.5,
+    artOf(r) - 0.5,
+    // Concept scores are z-scores across the catalog; a third keeps them on the scale of the rest.
+    ...VISION_CONCEPTS.map((_, i) => (r.vision && r.vision.concepts ? (r.vision.concepts[i] || 0) / 3 : 0)),
+    ...Array.from({ length: VISION_EMBED }, (_, i) => (r.vision && r.vision.embed ? (r.vision.embed[i] || 0) / 4 : 0)),
   ];
 }
 
@@ -79,18 +108,24 @@ export function scoreTaste(weights, items) {
   return out;
 }
 
-// A shortlist for the quiz: a few pieces per theme, the clearest examples first
-// (strong measured character), so pairs are easy to judge.
+// A shortlist for the quiz: a few pieces per theme, only good-looking ones, best first,
+// so a pick is about taste and not about which is better made. With image scores, a
+// piece must rank in the top part of the catalog for looks and read as art; without
+// them, the tag pass's quality.
+const QUIZ_LOOKS = 0.55, QUIZ_ART = 0.35;
+const quizWorthy = (it) => {
+  const r = rec(it);
+  const tagged = r.quality && typeof r.quality.score === 'number' ? r.quality.score : 0.75;
+  if (r.vision && typeof r.vision.looks === 'number') return looksGood(it) >= QUIZ_LOOKS && artOf(r) >= QUIZ_ART && tagged >= 0.75;
+  return tagged >= 0.75;
+};
 function shortlist(items, perTheme = 6) {
   const out = [];
+  const good = items.filter(quizWorthy);
+  const pool = good.length >= 24 ? good : items;
   for (const th of THEMES) {
-    const list = items.filter((it) => rec(it).tags.theme === th)
-      .sort((a, b) => {
-        const ka = rec(a), kb = rec(b);
-        const sa = ka.color.contrast + ka.color.colorfulness + (1 - ka.composition.busyness);
-        const sb = kb.color.contrast + kb.color.colorfulness + (1 - kb.composition.busyness);
-        return sb - sa || cmp(a.id, b.id);
-      });
+    const list = pool.filter((it) => rec(it).tags.theme === th)
+      .sort((a, b) => looksGood(b) + 0.3 * artOf(rec(b)) - looksGood(a) - 0.3 * artOf(rec(a)) || cmp(a.id, b.id));
     // Spread picks across categories inside a theme.
     const byCat = new Map();
     for (const it of list) { const c = rec(it).category; if (!byCat.has(c)) byCat.set(c, []); byCat.get(c).push(it); }
@@ -104,6 +139,7 @@ function shortlist(items, perTheme = 6) {
   return out;
 }
 
+const QUIZ_GAP = 0.15;
 const OPENERS = [['summer', 'art'], ['city', 'nature'], ['still life', 'mono'], ['animals', 'sport']];
 
 function bestPair(sl, feats, scoreOf) {
@@ -112,9 +148,12 @@ function bestPair(sl, feats, scoreOf) {
     for (let j = i + 1; j < sl.length; j++) {
       const a = sl[i], b = sl[j];
       if (rec(a).category === rec(b).category) continue;
+      // Two pieces about as good as each other, so the pick says what you like.
+      const gap = Math.abs(looksGood(a) - looksGood(b));
+      if (gap > QUIZ_GAP) continue;
       const fa = feats.get(a.id), fb = feats.get(b.id);
       const d = fa.map((x, n) => x - fb[n]);
-      const score = scoreOf(d, a, b);
+      const score = scoreOf(d, a, b) - 2 * gap;
       const key = `${a.id}|${b.id}`;
       if (!best || score > best.score + 1e-12 || (Math.abs(score - best.score) <= 1e-12 && key < best.key)) best = { score, key, pair: [a, b] };
     }
@@ -136,7 +175,8 @@ export function nextPair(items, picks, shownIds = new Set()) {
   const opener = OPENERS[step % OPENERS.length];
   if (step < OPENERS.length || !picks.length) {
     const a = sl.find((it) => rec(it).tags.theme === opener[0]);
-    const b = sl.find((it) => rec(it).tags.theme === opener[1] && it !== a);
+    const b = a && (sl.find((it) => rec(it).tags.theme === opener[1] && it !== a && Math.abs(looksGood(it) - looksGood(a)) <= QUIZ_GAP)
+      || sl.find((it) => rec(it).tags.theme === opener[1] && it !== a));
     if (a && b) return [a, b];
   }
   const w = fitTaste(picks) || new Array(FEATURE_NAMES.length).fill(0);
@@ -144,11 +184,15 @@ export function nextPair(items, picks, shownIds = new Set()) {
   const abs = w.map(Math.abs);
   const maxW = Math.max(...abs, 1e-9);
   const known = abs.map((x) => x / maxW);
+  // Pairs are chosen on what can be named; how well made a piece is and its raw image
+  // features are held about equal instead, never asked about.
+  const ask = FEATURE_NAMES.map((f) => (ASKED(f) ? 1 : 0));
   if (step % 2 === 0) {
-    return bestPair(sl, feats, (d) => d.reduce((s, x, n) => s + known[n] * Math.abs(x), 0));
+    return bestPair(sl, feats, (d) => d.reduce((s, x, n) => s + ask[n] * known[n] * Math.abs(x), 0));
   }
-  return bestPair(sl, feats, (d) => d.reduce((s, x, n) => s + (1 - known[n]) * Math.abs(x), 0));
+  return bestPair(sl, feats, (d) => d.reduce((s, x, n) => s + ask[n] * (1 - known[n]) * Math.abs(x), 0));
 }
+const ASKED = (f) => f !== 'well made' && f !== 'art not stock' && !f.startsWith('look:');
 
 // Plain words for what the model learned, strongest first, e.g.
 // ["sunny summer shots", "black and white", "lots of empty space"].
@@ -160,6 +204,14 @@ const WORDS = {
   'mood:sunny': 'sunny', 'mood:calm': 'calm', 'mood:moody': 'moody and dark', 'mood:bold': 'bold color', 'mood:playful': 'playful', 'mood:elegant': 'elegant',
   'black and white': 'black and white', painting: 'paintings', people: 'people in the picture', light: 'light and bright',
   contrast: 'high contrast', vivid: 'vivid color', warm: 'warm tones', busy: 'lots going on', 'empty space': 'lots of empty space',
+  'concept:retro': 'retro', 'concept:minimal': 'minimal', 'concept:moody': 'moody and dark', 'concept:playful': 'playful',
+  'concept:serene': 'calm and quiet', 'concept:energetic': 'motion and energy', 'concept:dreamy': 'soft and dreamy', 'concept:gritty': 'gritty and raw',
+  'concept:elegant': 'elegant', 'concept:cozy': 'cozy', 'concept:surreal': 'surreal', 'concept:film': 'film photos',
+  'concept:graphic': 'graphic', 'concept:botanical': 'plants and flowers', 'concept:architecture': 'architecture', 'concept:coastal': 'the sea and the coast',
+  'concept:mountains': 'mountains and wide landscapes', 'concept:pastel': 'pastels', 'concept:earthy': 'earthy tones', 'concept:neon': 'neon color',
+  'concept:textured': 'texture and brushwork', 'concept:geometric': 'geometric shapes', 'concept:cinematic': 'cinematic scenes', 'concept:fashion': 'fashion',
+  'concept:witty': 'witty and funny', 'concept:luxe': 'glamour', 'concept:rustic': 'rustic and country', 'concept:food': 'food and drink',
+  'concept:travel': 'travel views', 'concept:figure': 'people in the picture',
 };
 // Words that say the same thing share a group, and only the strongest of a
 // group is used. Opposites share a group too, so "calm" and "lots going on"
@@ -171,12 +223,18 @@ const GROUP = {
   'mood:sunny': 'light', light: 'light', 'mood:moody': 'light',
   'mood:calm': 'busy', busy: 'busy', 'empty space': 'busy', 'style:minimal': 'busy',
   'theme:still life': 'still', 'style:still life': 'still',
+  'concept:retro': 'film', 'concept:film': 'film', 'concept:minimal': 'busy', 'concept:serene': 'busy', 'concept:energetic': 'busy',
+  'concept:moody': 'light', 'concept:graphic': 'graphic', 'concept:geometric': 'graphic', 'concept:textured': 'art',
+  'concept:botanical': 'plants', 'concept:coastal': 'sea', 'theme:summer': 'sea', 'concept:architecture': 'city', 'theme:city': 'city',
+  'concept:figure': 'people', people: 'people', 'concept:neon': 'color', 'concept:food': 'still',
+  'concept:mountains': 'nature', 'theme:nature': 'nature',
 };
-export function describeTaste(weights, n = 3) {
+// sign -1 says what you're less into instead.
+export function describeTaste(weights, n = 3, sign = 1) {
   if (!weights) return [];
   const used = new Set();
   const out = [];
-  for (const { f } of FEATURE_NAMES.map((f, i) => ({ f, w: weights[i] })).filter((x) => x.w > 0.05).sort((a, b) => b.w - a.w || cmp(a.f, b.f))) {
+  for (const { f } of FEATURE_NAMES.map((f, i) => ({ f, w: sign * weights[i] })).filter((x) => x.w > 0.05).sort((a, b) => b.w - a.w || cmp(a.f, b.f))) {
     const g = GROUP[f] || f;
     const word = WORDS[f];
     if (!word || used.has(g) || out.includes(word)) continue;
@@ -783,4 +841,46 @@ export function dislikeFactor(item, dislikedItems = []) {
   }
   // Below 0.5 alike, no change; from 0.5 to 1, down in a straight line to 0.35.
   return worst <= 0.5 ? 1 : 1 - 0.65 * ((worst - 0.5) / 0.5);
+}
+
+// ---------------------------------------------------------------------------
+// How well we know your taste: 0 to 1, rising with every pick toward 1 and never
+// reaching it. It counts what the picks have tested: the seven axes (warm or cool,
+// calm or busy...) and the plain ideas the image model scores (retro, moody,
+// botanical...). Each is "sure" by the information the pairs carry on it, the same
+// way as the profile's axes (sureOf), so a pick that splits something new teaches
+// more than one more pick on what we already know. Saves against swaps count too:
+// pass them as picks.
+
+const KNOW_PRIOR = 0.04;
+function sureOn(diffs, n) {
+  const I = eye(n, KNOW_PRIOR);
+  for (const d of diffs) for (let i = 0; i < n; i++) { if (!d[i]) continue; for (let j = 0; j < n; j++) I[i][j] += 0.25 * d[i] * d[j]; }
+  return inverseDiag(I).map((v) => clamp01(1 - Math.sqrt(KNOW_PRIOR * v)));
+}
+
+/**
+ * @param {({winner, loser}|[string, string])[]} picks pieces or ids
+ * @param {object[]} [catalog] for ids
+ * @returns {{ known: number, parts: { name: string, sure: number }[], unsure: string[] }}
+ *   known 0 to 1; parts least sure first; unsure the names of what we know least, in words
+ */
+export function tasteKnown(picks, catalog) {
+  const ps = resolvePicks(picks, catalog).filter((p) => recordOf(p.winner) && recordOf(p.loser));
+  const ax = sureOn(ps.map((p) => axisDiff(p.winner, p.loser)), K);
+  const cd = ps.map((p) => {
+    const a = features(p.winner), b = features(p.loser);
+    return VISION_CONCEPTS.map((_, i) => a[CONCEPT_AT + i] - b[CONCEPT_AT + i]);
+  });
+  const hasVision = ps.some((p) => recordOf(p.winner).vision);
+  const co = hasVision || !ps.length ? sureOn(cd, VISION_CONCEPTS.length) : [];
+  const parts = [
+    ...AXES.map((a, i) => ({ name: a.name, sure: r3(ax[i]) })),
+    ...co.map((v, i) => ({ name: WORDS[`concept:${VISION_CONCEPTS[i]}`], sure: r3(v) })),
+  ];
+  const mean = (xs) => (xs.length ? xs.reduce((t, x) => t + x, 0) / xs.length : 0);
+  // The axes and the ideas count half each, so thirty ideas don't drown seven axes.
+  const known = co.length ? 0.5 * mean(ax) + 0.5 * mean(co) : mean(ax);
+  const order = [...parts].sort((x, y) => x.sure - y.sure || cmp(x.name, y.name));
+  return { known: r3(known), parts: order, unsure: order.slice(0, 3).map((x) => x.name) };
 }

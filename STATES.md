@@ -16,7 +16,7 @@ States that apply everywhere:
 
 | State | What they see | Action |
 |---|---|---|
-| New visitor | One finished sample wall, full width, before any text. One line: "A wardrobe for your walls." | "Start with your wall", "See a sample wall" |
+| New visitor | One finished sample wall, full width, before any text. One line: "A wardrobe for your walls." | "Start", "See a sample wall" |
 | Returning, signed in | Their last saved wall | "Open", "Start a new wall" |
 | Demo embed | A sample wall picker (three walls) | Pick a wall |
 
@@ -91,18 +91,56 @@ One screen after the corners: the flattened photo with what we found marked, the
 
 Pinning (stays exactly where it hangs) is not here. It lives one tap deeper, in the piece sheet on the open wall (section 9).
 
+## 1b. One wall or a whole home (Oct 4)
+
+From Start. "What are you doing?" Two cards: One wall (Basic): "One photo of the wall, a few minutes." A whole home (Advanced): "What you already own first, then a photo of each wall."
+
+| State | What they see | Action |
+|---|---|---|
+| First time | Both cards | One wall goes to the photo; A whole home goes to Your stuff |
+| A home already started | The same; A whole home goes to Your home | |
+
+## 1c. Your stuff (Oct 4)
+
+"What you already have": art you own, up now or in a closet, and empty frames. Kept on the person, used by every wall.
+
+| State | What they see | Action |
+|---|---|---|
+| Empty | "Nothing yet." under Art and "None." under Empty frames | Add art from a photo, Add without a photo, Add an empty frame |
+| A piece of art | Its picture (or a color swatch), What is it?, Framed or Not framed, Wide and Tall, a line: framed "Measure the outside of the frame."; not framed "The art itself. It goes in a 12 x 16 in frame with a mat." | Edit, Remove |
+| Added from a photo | Shaped like the photo, 20 in on the long side, and "Added. Put in its real size, and say whether it is framed." | |
+| An empty frame | A swatch in its color, Wide and Tall, Black, White, Oak, Brass, "Walls that need this size use it, and it costs nothing." | Edit, Remove |
+| On a wall after spreading | "On Living room." after the size line | |
+| In the home path | "Next: your walls" docked ("Nothing yet, go to your walls" when empty) | |
+| From one wall (Preferences, or the budget's link) | Each piece has On this wall; back goes to Your walls | Tick it: the piece is on this wall as yours |
+
+## 1d. Your home (Oct 4)
+
+| State | What they see | Action |
+|---|---|---|
+| No walls yet | "Your home", a line on how it works, "No walls yet." | Add a wall, Your stuff |
+| Walls | Each wall: a small drawing, its name (Main wall first), width, its preferences, how many are up already, "Yours here: ..." | Rename, Open, Remove, Add a wall |
+| Ready to spread | "Spread your pieces": biggest on the main wall, then by fit, color and warm or cool | Spread my pieces across the walls |
+| Spread | "Done. Open a wall to see it with your pieces..." | Spread them again |
+| A piece too big for every wall | "Too big for these walls: ..." | |
+| Adding a wall | The photo screen says "A photo of Wall 2", back goes to Your home; after the photo (or the size and pieces), "Done, back to your home" | |
+| An open home wall | The feed's back link is "Your home" | |
+
 ## 7. Taste quiz ("Make it mine")
 
 After the first wall, never before it. Reached from Change.
 
 | State | What they see | Action |
 |---|---|---|
-| Question | Two pieces side by side, "Which would you rather have on your wall?", "7 of 20" | Tap one, "Neither, show me another two" |
+| Question | Two pieces side by side, "Which would you rather have on your wall?", "38% known" in the bar and a thin meter under the title. Only good-looking art, the two about as good as each other | Tap one, "Neither, show me another two" |
 | After three picks | Also "That's enough, show my walls" | Finish early |
+| Every ten picks | "We know your taste 38%", the meter, You like, Less into, Still learning (the three things we know least), a line that it climbs toward 100 and never gets there | Show my walls, Keep going |
 | Image failed | The failed one shows its title | Pick the other, or Neither |
-| Done | Back to the feed, ranked again for the picks | |
+| Done | Back to the feed, ranked again for the picks. The feed's taste card becomes "We know your taste 38%" with the meter | Tap it to keep going |
 
 ## 8. Suggestions (every wall that fits, ranked)
+
+Oct 4: after a photo is read, this is where you land, not the confirm screen. Above the list: "We read your wall: 11 ft wide (from the TV); couch, lamp; 2 pieces of yours. Something off? Fix it", the link going to the confirm screen. With a budget nothing fits: "Nothing fits a $150 budget yet." and why, with Change the budget. After the fourth wall, until a budget is set or No limit picked: "What's your budget for this wall, all in?", what it counts ("the art (or printing a free photo), a frame for each new piece, and any mat. Not shipping, tax or nails. Frames you already have cost nothing."), Add frames and art you have, $150, $300, $600, $1,000, No limit, and "Or type it" with Set. Picking one says "Budget $300, all in." with Undo and the walls build again. Preferences has the same, under Color.
 
 Reached from "Suggestions" at the top of your wall. The five-step bar shows Pick as the current step.
 
@@ -162,6 +200,12 @@ From the open wall's Frame it. One look for every new frame, a mat or not, and t
 | Flipped by hand | None of the three is pressed; that piece keeps its own | Pick one of the three to reset all |
 | Shop sells it framed | "Comes framed, 14.5 x 18.5 in." | |
 | Nothing new | The wall's Hang it goes straight to Hang it | |
+| Frame width (Oct 4) | Slim, Standard (pressed), Wide; a line on the moulding; with Wide, "easy in 8 x 10, 12 x 16, 16 x 20 and 20 x 28 (IKEA EDSBRUK); other sizes are made to order" | Pick one: the frames grow or shrink about their centers, "Slim frames." with Undo |
+| A width that doesn't fit | "Wide frames don't fit this wall as it's laid out." and the rule it breaks; nothing changes | |
+| Mat width (Oct 4) | When a free photo has a mat: Standard (pressed), Wide; Wide prints the photo two sizes down, "a precut mat with that window, about $10 to $15" | Pick one |
+| A size per piece (Oct 4) | Each new piece with more than one size its way round has a size list | Pick a size: "Now 16 x 20 in." with Undo |
+| A size that doesn't fit | "24 x 36 in doesn't fit there." and the rule it breaks; nothing changes | |
+| Your art that isn't framed | "Your print: 12 x 16 in, in a 12 x 16 in frame, no mat." | |
 
 ## 10a. Get it (v4, Oct 3)
 

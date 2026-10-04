@@ -1,17 +1,24 @@
 // Where to frame a print, and what one plain black frame costs before any sale.
-// Prices checked on each seller's own site on the date below (a research pass on
-// Oct 3, 2026; Amazon blocks reading, so brands that sell there are priced from their
+// Prices checked on each seller's own site on the date below (research passes on
+// Oct 3 and 4, 2026; Amazon blocks reading, so brands that sell there are priced from their
 // own stores). Sizes are the frame's size as sold, short side first. `mat` is the print
-// the included mat holds, or null when the frame comes without one.
+// the included mat holds, or null when the frame comes without one. `sizes` are black;
+// `colors` has white, oak (light wood) and brass (gold), each [price] or [price, mat]
+// (a price alone keeps black's mat). A size missing from a color isn't sold in it.
 // Walldrobe takes nothing on these.
 
-export const FRAMES_CHECKED = 'Oct 3, 2026';
+export const FRAMES_CHECKED = 'Oct 4, 2026';
 
 export const FRAMERS = [
   {
     id: 'walmart', name: 'Walmart (Mainstays)', kind: 'Store', url: 'https://www.walmart.com/browse/home/picture-frames/4044_133012_1155693',
     pickup: 'Pickup next day', ships: 'Free over $35',
-    sizes: { '8x10': [1.98], '11x14': [9.92, '8x10'], '12x16': [4.98], '16x20': [5.72], '18x24': [9.92], '24x36': [11.92], '12x12': [9.92] },
+    sizes: { '8x10': [1.98], '11x14': [9.92, '8x10'], '12x16': [4.98], '16x20': [5.72], '18x24': [9.92], '24x36': [11.92], '12x12': [3.98] },
+    // White and gold past 11x14 are the Thin Flat Profile line, a bit dearer.
+    colors: {
+      white: { '8x10': [1.98], '16x20': [12.96], '18x24': [14.97], '24x36': [19.97] },
+      brass: { '11x14': [9.92], '16x20': [12.96], '18x24': [14.97], '24x36': [19.97] },
+    },
     note: 'Cheapest; most have a plastic front, not glass',
   },
   {
@@ -20,18 +27,35 @@ export const FRAMERS = [
     // FISKBO without a mat; RÖDALM with one, a size down.
     // 8x12 is A4 (YLLEVAD), 20x28 is 50 x 70 cm and 28x39 is 70 x 100 cm (RÖDALM): the metric sizes many shop prints come in.
     sizes: { '8x10': [3.99], '8x12': [4.99], '12x16': [6.99], '16x20': [11.99], '20x28': [24.99], '24x36': [34.99, '20x28'], '28x39': [49.99, '20x28'] },
+    // White: FISKBO and RODALM. Oak: RODALM birch or oak effect. Brass: LOMVIKEN gold.
+    colors: {
+      white: { '8x10': [3.99], '12x16': [6.99], '16x20': [11.99], '20x28': [24.99], '24x36': [34.99], '28x39': [49.99] },
+      oak: { '8x10': [9.99], '12x16': [14.99], '16x20': [19.99], '20x28': [29.99], '24x36': [39.99], '28x39': [54.99] },
+      brass: { '8x10': [12.99], '12x16': [16.99], '16x20': [22.99], '20x28': [34.99], '24x36': [44.99, null] },
+    },
     note: 'Fits the metric sizes shop prints come in; no 11x14 or 18x24',
   },
   {
     id: 'target', name: 'Target', kind: 'Store', url: 'https://www.target.com/c/frames-home-decor/-/N-5xtfi',
     pickup: 'Same day pickup', ships: 'Ships too',
     sizes: { '8x10': [6.0], '11x14': [20.0, '8x10'], '16x20': [28.0, '11x14'], '18x24': [15.0], '24x36': [22.0], '16x16': [25.0, '12x12'] },
+    // Threshold in white and natural; gold is the Thin Metal Matted line.
+    colors: {
+      white: { '8x10': [6.0], '11x14': [20.0], '16x20': [28.0] },
+      oak: { '8x10': [6.0], '16x20': [28.0] },
+      brass: { '16x20': [40.0, '11x14'] },
+    },
     note: 'Room Essentials poster frames are the cheap ones',
   },
   {
     id: 'michaels', name: 'Michaels', kind: 'Store', url: 'https://www.michaels.com/shop/frames',
     pickup: 'Same day pickup', ships: 'Free over $49',
     sizes: { '8x10': [9.79], '11x14': [12.99, '5x7'], '12x16': [13.99], '16x20': [24.99, '11x14'], '18x24': [44.99, '12x18'], '24x30': [48.99, '18x24'], '12x12': [22.49, '8x8'] },
+    // Sale prices, which run most of the time. Champagne is their gold.
+    colors: {
+      white: { '8x10': [9.79], '12x12': [22.49] },
+      brass: { '8x10': [10.49], '12x12': [22.49] },
+    },
     note: 'Often 50% off frames; check before you pay full price',
   },
   {
@@ -39,14 +63,38 @@ export const FRAMERS = [
     pickup: 'Mail only, also on Amazon', ships: 'From $7, free over $99',
     // Streamline Matted where a mat fits, Streamline without one past that. Their 16x20 is
     // matted to 12x16 (their size guide), not 11x14 like most stores.
-    sizes: { '8x10': [8.99, '5x7'], '11x14': [11.99, '8x10'], '12x16': [15.99, '8x12'], '16x20': [21.99, '12x16'], '18x24': [24.99, '12x18'], '24x30': [45.99, '18x24'], '24x36': [36.99], '30x40': [59.99], '16x16': [19.99, '12x12'], '20x20': [29.99, '16x16'] },
+    // Their 18x24 and 24x30 Streamline come without a mat; the 16x16 and 20x20 have wide mats for small prints.
+    sizes: { '8x10': [8.99, '5x7'], '11x14': [11.99, '8x10'], '12x16': [15.99, '8x12'], '16x20': [21.99, '12x16'], '18x24': [24.99], '24x30': [33.99], '24x36': [36.99], '30x40': [59.99], '16x16': [19.99, '5x7'], '20x20': [29.99, '8x10'] },
+    // White: Streamline. Oak and gold: the Hudson (matted) and Epic (no mat) lines.
+    colors: {
+      white: { '8x10': [11.99], '11x14': [15.99], '12x16': [15.99], '16x20': [21.99], '18x24': [24.99], '24x36': [48.99], '20x20': [26.99] },
+      oak: { '11x14': [19.99], '16x20': [31.99, null], '18x24': [34.99, '12x18'], '24x36': [55.99] },
+      brass: { '11x14': [12.99], '16x20': [24.99], '18x24': [34.99, '12x18'], '24x36': [49.99] },
+    },
     note: 'Real glass, slim black frame; the top seller on Amazon',
   },
   {
     id: 'upsimples', name: 'Upsimples', kind: 'Online', url: 'https://upsimples.com/collections/picture-frames',
     pickup: 'Mail only, also on Amazon', ships: 'Varies',
     sizes: { '11x14': [10.99, '8x10'], '12x16': [15.99], '16x20': [25.99, '11x14'], '18x24': [33.99, '16x20'], '24x36': [53.99, '20x30'], '12x12': [12.99, '8x8'], '16x16': [29.99, '12x12'] },
+    colors: {
+      white: { '11x14': [10.99], '12x16': [13.99], '16x20': [31.99], '18x24': [33.99], '12x12': [12.99] },
+      oak: { '11x14': [10.99], '12x16': [15.99], '16x20': [31.99], '18x24': [35.45], '12x12': [12.99] },
+      brass: { '11x14': [19.99], '12x16': [26.99], '16x20': [31.99], '18x24': [35.73], '12x12': [13.99] },
+    },
     note: 'Mats a size down; plastic front',
+  },
+];
+
+// Wide moulding, about 1 1/2 in: easy only at IKEA (EDSBRUK, black-stained or white, the
+// same price) and made to order at Framebridge (its Walnut and Ash Wide, about $25 more).
+export const WIDE_FRAMERS = [
+  {
+    id: 'ikea-edsbruk', name: 'IKEA (EDSBRUK)', kind: 'Store', url: 'https://www.ikea.com/us/en/p/edsbruk-frame-black-stained-70427631/',
+    pickup: 'In store', ships: 'Delivery from $29, orders over $35',
+    sizes: { '8x10': [16.99], '12x16': [22.99], '16x20': [29.99], '20x28': [39.99] },
+    colors: { white: { '8x10': [16.99], '12x16': [22.99], '16x20': [29.99], '20x28': [39.99] } },
+    note: 'Wide flat moulding; no 11x14, 18x24 or 24x36',
   },
 ];
 
@@ -54,7 +102,7 @@ export const FRAMERS = [
 export const FRAMEBRIDGE = {
   id: 'framebridge', name: 'Framebridge', kind: 'Custom', url: 'https://www.framebridge.com/pricing',
   pickup: 'Mail, or pickup at their stores', ships: 'Free over $100',
-  note: 'Prints, mats and frames it for you; the finished option',
+  note: 'Prints, mats and frames it for you; the finished option. Every color costs the same',
   // [longest short side, longest long side, price with a mat]
   tiers: [[5, 7, 90], [9, 12, 115], [12, 18, 150], [18, 24, 200], [24, 34, 265], [32, 40, 365]],
 };
@@ -66,15 +114,31 @@ function framebridgePrice(printKey) {
 
 export const frameKey = (w, h) => `${Math.min(w, h)}x${Math.max(w, h)}`;
 
+// A seller's sizes in one frame color: black is `sizes`; another color is its own list,
+// where a price alone keeps black's mat and [price, null] says it comes without one.
+export function sizesIn(p, look = 'black') {
+  if (!look || look === 'black') return p.sizes;
+  const c = p.colors && p.colors[look];
+  if (!c) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(c)) {
+    const mat = v.length > 1 ? v[1] : p.sizes[k] ? p.sizes[k][1] : undefined;
+    out[k] = mat ? [v[0], mat] : [v[0]];
+  }
+  return out;
+}
+
 /**
  * Every seller with a price for each frame needed.
  * @param {{ key: string, mat: string|null, count: number }[]} needed key: the frame as sold; mat: the print it should hold, or null
  * @returns {{ p, each: ({ price: number, matOk: boolean }|null)[], total: number, all: boolean }[]} every size first, cheapest first
  */
-export function frameOptions(needed) {
-  const rows = FRAMERS.map((p) => {
+export function frameOptions(needed, look = 'black', width = 'standard') {
+  const wide = width === 'wide';
+  const rows = (wide ? WIDE_FRAMERS : FRAMERS).map((p) => {
+    const sizes = sizesIn(p, look);
     const each = needed.map((n) => {
-      const s = p.sizes[n.key];
+      const s = sizes[n.key];
       if (!s) return null;
       const [price, mat] = s;
       return { price: price * n.count, matOk: !n.mat || mat === n.mat, mat: mat || null };
@@ -82,7 +146,7 @@ export function frameOptions(needed) {
     return row(p, each);
   });
   // Framebridge, by the print's size (the frame's own size when there's no mat).
-  rows.push(row(FRAMEBRIDGE, needed.map((n) => { const pr = framebridgePrice(n.mat || n.key); return pr == null ? null : { price: pr * n.count, matOk: true, mat: n.mat, custom: true }; })));
+  rows.push(row(FRAMEBRIDGE, needed.map((n) => { const pr = framebridgePrice(n.mat || n.key); return pr == null ? null : { price: (pr + (wide ? 25 : 0)) * n.count, matOk: true, mat: n.mat, custom: true }; })));
   const out = rows.filter((r) => r.some);
   out.sort((a, b) => (b.all - a.all) || a.total - b.total);
   return out;

@@ -371,3 +371,20 @@ A catalog size is what the frame is sold as. On the wall it takes the frame's ou
 - Score: structured, (0.75 x uniformity + 0.25 x level fit, both over the pieces that are not bare) x (0.8 + 0.2 x share of bare pieces left plain); loose, 0.6 x (0.35 no lone one, 0.35 same sizes match, 0.3 matted pieces centered) + 0.4 x level fit. `judge()` subtracts 0.04 x (1 minus it); `parts.mats` reports it; `finish()` sets each piece's `mat` and `print`.
 - `prefs.matLevel`: none, few, some (default), most, all.
 
+
+## Image scores and the taste meter (2026-10-04, engine/taste.js)
+
+`tools/vision.py` looks at every catalog image once, offline, with free open models (CLIP ViT-L/14 and the LAION improved aesthetic predictor) and writes `tools/vision.json`; `tools/apply_vision.py` puts it on each record as `vision`: `aesthetic` and `art` (ranks within the record's theme, 0 to 1), `looks` (their mean), `concepts` (z-scores for the 30 ideas in `VISION_CONCEPTS`: retro, moody, botanical...) and `embed` (8 PCA numbers). The engine never runs a model.
+
+- Features: `features()` adds `well made` (looks), `art not stock`, one per concept (z / 3) and the 8 image numbers (/ 4). Knowing how well made each piece is lets a pick that's explained by one piece being better stop counting as a lean to its color or subject.
+- The quiz (`nextPair`): the shortlist is pieces with looks at least 0.55, art at least 0.35 and the tag pass's quality at least 0.75, best first. A pair differs by at most 0.15 in looks (`QUIZ_GAP`), and pairs are chosen on what can be named; looks and the image numbers are never what's asked about.
+- `tasteKnown(picks)`: how sure the picks make us on each of the 7 axes and the 30 concepts, by the information the pairs carry (as `sureOf`, prior 0.04), averaged half and half. 0 with no picks, rising with each pick, never 1. About 36% after 10 picks, 57% after 30, 75% after 60 on a steady picker. `unsure` names the three least known. Saves against swaps count as picks.
+- `describeTaste(weights, n, -1)` says what you're less into.
+
+## A whole home (2026-10-04, engine/home.js)
+
+`assignHome(walls, pieces)`: walls main first ({ id, width, height, obstacles, tone }), pieces as they hang ({ id, w, h, palette }). The biggest piece goes on the main wall when it fits there; then each piece, biggest first, goes to the wall where it fits (at most 0.8 of the width and 0.55 of the height) scoring 1 x room left (of 30% of the wall's art zone) + 0.6 x color fit with what's already there + 0.4 x match to the wall's warm or cool. Returns { byWall, unplaced }. Each wall is then laid out on its own with its pieces as must-keeps and its own preferences.
+
+## Frame width (2026-10-04)
+
+A catalog size may carry `border`, the moulding's width; `borderOf` uses it (a size sold framed is still 0). The app sets it for every size when the wall's frame width is Slim (0.5) or Wide (1.5), so outside sizes, slots and the hanging guide all follow.

@@ -4,3 +4,4 @@ out/
 .cache/
 tools/health.dry.json
 tools/health.json
+.vision-cache/
