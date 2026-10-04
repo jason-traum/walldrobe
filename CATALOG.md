@@ -144,6 +144,13 @@ When a shop approves Walldrobe as an affiliate, its network (Impact, CJ, Awin or
 
 For the beta, `tools/feeds/desenio.tsv` was read from Desenio's product pages (each page carries its sizes and prices as schema.org data) in a real browser, not from an affiliate feed. Same file format, same rules.
 
+Oct 4, 2026, more shops for the beta, read from their public product lists (Shopify's /products.json), link out only:
+
+- Society6 (`tools/fetch_society6.py`): the first pages of about 55 art print collections (abstract, botanical, landscape, beach, city, food, dogs, western...), Art Prints only. Its images are white mockups; the row's image link asks Shopify's CDN for the print alone (`crop=region`, the print sits in the same place on every 8x10 mockup).
+- Juniper Print Shop (`tools/fetch_juniper.py`): every print, without the shop's vintage reproductions.
+- Both leave out old masters resold as prints. Next when they stop limiting requests: Desenio (more), Posterstore. Minted and Saatchi Art block automated reading; Etsy needs a developer key.
+- Order for a new shop: fetch the feed, `python3 tools/vision.py <cache> --feed tools/feeds/<shop>.tsv` to score every candidate, keep the strong ones, look at and tag those (tools/tags.json), hide the rest, then `analyze.py`, `vision.py` and `apply_vision.py`.
+
 Credit reads "Art by {artist}, sold by {shop}". `rights.sell` stays false: the shop sells, Walldrobe links.
 
 ## Rules for adding art

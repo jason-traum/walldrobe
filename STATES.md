@@ -163,6 +163,7 @@ Preferences (one sheet, from your wall and from Suggestions): "Any change here b
 
 | State | What they see | Action |
 |---|---|---|
+| Love the layout, not the art (Oct 4) | Under the drawing: "Love the layout, not the art? New art in these frames" | Tap: same frames, new picks, with Undo |
 | Default | The step bar (3 Pick), the drawing at true scale, the why line, the cost, "Frames next" (or "Hang it next" with nothing new), "Preferences". "Tap a piece below to keep it, swap it or let it go." Under it, "In this wall": your pieces first, each with a state (Yours, Kept, New), thumbnail, size, price and shop, one reason, a heart | Tap a piece, Frames next, Preferences, Suggestions |
 | Versions | Once the wall has changed: "Every version so far. Tap one to bring it back." and a row of small drawings, newest first, the one on screen marked "Now", the others "3 pieces" | Tap a version |
 | Brought back | The version is on screen; the one you had joins the row | |
@@ -278,6 +279,19 @@ Every piece in the catalog, apart from any wall: shop prints (Desenio, House of 
 | Posts | Name, room, date, a line; Before and After drawings; Also considered, three small walls with their why lines; the pieces with hearts | Save a piece, Try these on my wall, Remove |
 | Share sheet (Get it) | What goes up, a name field, a line | Share, Not now |
 | Try these on my wall | Their new pieces kept in every wall of yours at their sizes: "3 pieces from that wall, kept in every wall of yours." | |
+
+## 10e. Browse (Oct 4)
+
+From Preferences ("Browse all the art"), the feed (after the seventh wall) and Favorites.
+
+| State | What they see | Action |
+|---|---|---|
+| Default | "All the art", the count, a line on what saving does (and "Teach it your taste" before the test), Filter and sort folded, then a grid of every piece at its own shape: title, artist and shop (or "free photo"), "from $29", a heart, Not for me | Open Filter and sort, save, Not for me, Favorites |
+| Filters open | Subject, Color, Mood, Shape, From, Price, Sort (For you once there's a taste) | Pick; "Clear filters" when any are on |
+| Saved | "Saved The Dream." with Undo; the heart filled | Undo |
+| Not for me | The piece leaves the grid, "Not for me." with Undo | Undo |
+| Nothing matches | "Nothing matches. Try fewer filters." | |
+| More than 60 | "Show more" and "60 of 442" | Show more |
 
 ## 11. Your walls
 

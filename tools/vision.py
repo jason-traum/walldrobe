@@ -11,7 +11,10 @@ For each piece:
               model can learn likes the words don't cover
 
 Free, open models, run once offline. The engine reads the numbers; it never runs a
-model. Usage: python3 tools/vision.py [cache dir]
+model. Usage: python3 tools/vision.py [cache dir] [--feed tools/feeds/x.tsv]
+With --feed, it scores a shop feed's rows instead (before they're in the catalog) and
+writes tools/vision_candidates_<shop>.json: how good each looks and how much it reads as art,
+so only the strong ones get looked at and tagged. The image features are cached either way.
 Needs: torch (CPU is fine), open_clip_torch, numpy, pillow.
 """
 
@@ -27,7 +30,10 @@ import torch
 from PIL import Image
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-CACHE = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, ".vision-cache")
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+FEED = sys.argv[sys.argv.index("--feed") + 1] if "--feed" in sys.argv else None
+if FEED in ARGS: ARGS.remove(FEED)
+CACHE = ARGS[0] if ARGS else os.path.join(ROOT, ".vision-cache")
 os.makedirs(os.path.join(CACHE, "img"), exist_ok=True)
 
 AES_URL = "https://huggingface.co/camenduru/improved-aesthetic-predictor/resolve/main/sac%2Blogos%2Bava1-l14-linearMSE.pth"
@@ -108,12 +114,19 @@ def rank01(v):
 
 def main():
     torch.set_num_threads(os.cpu_count() or 2)
-    items = json.load(open(os.path.join(ROOT, "demo/catalog.json")))["items"]
-    model, _, prep = open_clip.create_model_and_transforms("ViT-L-14", pretrained="openai")
-    tok = open_clip.get_tokenizer("ViT-L-14")
+    if FEED:
+        items = []
+        for line in open(FEED):
+            if line.startswith("#") or not line.strip(): continue
+            f = line.rstrip("\n").split("\t")
+            items.append({"id": f[0], "title": f[3], "category": f[5], "image": {"src": f[6]}})
+    else:
+        items = json.load(open(os.path.join(ROOT, "demo/catalog.json")))["items"]
+    model, _, prep = open_clip.create_model_and_transforms("ViT-L-14-quickgelu", pretrained="openai")
+    tok = open_clip.get_tokenizer("ViT-L-14-quickgelu")
     model.eval()
 
-    feats_path = os.path.join(CACHE, "feats.npz")
+    feats_path = os.path.join(CACHE, "feats-quickgelu.npz")
     have = dict(np.load(feats_path)) if os.path.exists(feats_path) else {}
     todo = [it for it in items if it["id"] not in have]
     print(f"{len(items)} pieces, {len(todo)} to look at", flush=True)
@@ -151,6 +164,14 @@ def main():
         return (m / m.norm()).numpy()
 
     art_raw = X @ text(ART_PROMPTS) - X @ text(STOCK_PROMPTS)
+    if FEED:
+        by = {it["id"]: it for it in items}
+        out = {k: {"aestheticRaw": round(float(raw_aes[n]), 2), "artRaw": round(float(art_raw[n]), 4), "category": by[k]["category"], "title": by[k]["title"]} for n, k in enumerate(ids)}
+        name = "tools/vision_candidates_%s.json" % os.path.basename(FEED).rsplit(".", 1)[0]
+        with open(os.path.join(ROOT, name), "w") as f:
+            json.dump(out, f, separators=(",", ":"))
+        print("wrote", name, len(out), flush=True)
+        return
     concept = {}
     for k, prompts in CONCEPTS.items():
         s = X @ text(prompts)
@@ -162,7 +183,7 @@ def main():
     P = P / (P.std(0) + 1e-9)
 
     a_rank, art_rank = rank01(raw_aes), rank01(art_raw)
-    out = {"model": "CLIP ViT-L/14 (OpenAI) + LAION improved aesthetic predictor", "concepts": list(CONCEPTS), "items": {}}
+    out = {"model": "CLIP ViT-L/14 quickgelu (OpenAI) + LAION improved aesthetic predictor", "concepts": list(CONCEPTS), "items": {}}
     for n, k in enumerate(ids):
         out["items"][k] = {
             "aesthetic": round(float(a_rank[n]), 3),

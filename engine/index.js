@@ -9,8 +9,12 @@
 
 import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.js';
 import { assignMats, matScore, MAT_LEVELS } from './mats.js';
+import { stylingScore } from './styling.js';
+// How much the stylist's rules move a wall: about as much as the mats.
+const STYLE_WEIGHT = 0.04;
 export { assignMats, matScore, MAT_LEVELS, isStructured } from './mats.js';
 export { assignHome, HOME } from './home.js';
+export { stylingScore, STYLE_PARTS } from './styling.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS, FURNITURE } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
@@ -523,7 +527,11 @@ function judge(L, ctx) {
   const mopts = { family: L.family, variant: L.variant, level: ctx.prefs.matLevel };
   const mats = matScore(L.pieces, assignMats(L.pieces, mopts), mopts);
   parts.mats = mats;
-  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - MAT_WEIGHT * (1 - mats);
+  // How a stylist would hang it (engine/styling.js): busy pieces apart, weight balanced,
+  // a color thread, mostly color or mostly black and white. A nudge, not a rule.
+  const styling = stylingScore(PC);
+  parts.styling = styling.score;
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - MAT_WEIGHT * (1 - mats) - STYLE_WEIGHT * (1 - styling.score);
   return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 

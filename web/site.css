@@ -674,3 +674,70 @@ svg.is-dragging .measure { opacity: 0.25; }
 .budget-form label { display: grid; gap: 4px; font-size: 14px; color: var(--pencil); }
 .budget-form .num-in { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
 .budget-form input { width: 96px; min-height: 40px; font: inherit; padding: 0 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); }
+
+/* Preferences, tighter (Oct 4): a line under each choice says what it means */
+.sheet.is-piece .sheet-row .row-help, .sheet .row-help { flex-basis: 100%; color: var(--pencil); font-size: 13px; line-height: 18px; margin: 0; }
+.sheet .sheet-status.is-empty { display: none; }
+.sheet .sheet-status { min-height: 32px; margin: -4px 0 0; }
+.sheet:has(.taste-promo) { gap: 14px; }
+.sheet .seg button { min-height: 40px; }
+.budget-form { margin: -6px 0 0; }
+.taste-promo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--tape-soft); color: var(--ink); text-decoration: none; }
+.taste-promo .known { grid-column: 1 / -1; margin: 4px 0 0; background: var(--surface); }
+.taste-promo-text { display: grid; gap: 2px; }
+.taste-promo .name { font-weight: 600; color: var(--tape); }
+.taste-promo-go { font-weight: 600; color: var(--tape); white-space: nowrap; }
+
+/* Browse: every piece, filtered like a shop. Images keep their own shape: never stretched, never cut. */
+.filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 12px; margin: 8px 0 20px; }
+.filter { display: grid; gap: 4px; font-size: 13px; color: var(--pencil); }
+.filter select { min-height: 40px; font: inherit; font-size: 15px; color: var(--ink); padding: 0 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); width: 100%; }
+.art-grid { list-style: none; margin: 0; padding: 0; columns: 2 150px; column-gap: 16px; }
+@media (min-width: 900px) { .art-grid { columns: 4 180px; } }
+.art-card { break-inside: avoid; margin: 0 0 20px; display: grid; gap: 6px; }
+.art-card-img img { display: block; width: 100%; height: auto; background: var(--wall); border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.art-card-text { display: grid; gap: 2px; }
+.art-card-text .name { font-weight: 600; font-size: 15px; line-height: 20px; }
+.art-card-acts { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.art-card-acts .link.small { font-size: 13px; color: var(--pencil); min-height: 44px; }
+.layout-not-art { margin: 0 0 12px; font-size: 15px; color: var(--pencil); }
+.filter-box { margin: 4px 0 20px; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.filter-box summary { min-height: 48px; display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; }
+.filter-box .filters { margin: 4px 0 12px; }
+.filter-box .link { margin: 0 0 12px; }
+
+/* Where you are, on a computer: a quiet list of the steps at the left. */
+.rail { display: none; }
+@media (min-width: 1180px) {
+  body.has-rail { padding-left: 240px; }
+  body.has-rail .rail { display: grid; align-content: start; gap: 16px; position: fixed; top: 0; bottom: 0; left: 0; width: 240px; padding: 18px 24px 24px; overflow-y: auto; background: var(--canvas); border-right: 1px solid var(--hairline); z-index: 5; }
+  body.has-rail .bar .wordmark { visibility: hidden; }
+  .rail-wall { margin: 8px 0 0; color: var(--pencil); font-size: 14px; line-height: 20px; display: grid; gap: 2px; }
+  .rail-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .rail-steps a, .rail-steps .rail-off { display: grid; gap: 1px; padding: 8px 0; color: var(--pencil); text-decoration: none; }
+  .rail-steps .rail-off { opacity: .6; }
+  .rail-name { font-size: 16px; line-height: 22px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .rail-note { font-size: 13px; line-height: 18px; color: var(--pencil); font-variant-numeric: tabular-nums; }
+  .rail-steps .is-done .rail-name { color: var(--ink); font-weight: 500; }
+  .rail-steps .is-now .rail-name { color: var(--tape); font-weight: 600; }
+  .rail-steps .is-now .rail-note { color: var(--ink); }
+  .rail-check { color: var(--pencil); flex: none; }
+  .rail-steps a:hover .rail-name { text-decoration: underline; text-underline-offset: 3px; }
+  .rail-more { display: grid; gap: 8px; margin: 8px 0 0; padding-top: 16px; border-top: 1px solid var(--hairline); font-size: 14px; }
+}
+.feed-intro { margin: 0 0 8px; font-size: 16px; line-height: 22px; color: var(--ink); text-wrap: pretty; }
+.wall-hint { margin: 0 0 8px; font-size: 15px; line-height: 22px; color: var(--ink); text-wrap: pretty; }
+
+/* Marking the wall: grouped by what each thing does to the art, quiet buttons, no pills. */
+.add-groups { display: grid; gap: 14px; }
+.add-group { display: grid; gap: 6px; }
+.add-label { font-size: 14px; line-height: 20px; color: var(--pencil); font-weight: 500; }
+.add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.two-up, .two-up-main, .two-up-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+/* On a computer: the photo on the left, what we found and what to fix beside it, so nothing sits far below. */
+@media (min-width: 1000px) {
+  .page:has(.two-up) { max-width: 1320px; }
+  .two-up { grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr); gap: 32px; align-items: start; }
+  .two-up-main { position: sticky; top: 72px; }
+  .two-up-side .dock { position: static; padding: 0; background: none; box-shadow: none; }
+}
