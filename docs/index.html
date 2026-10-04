@@ -158,6 +158,8 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .page { padding: 8px 16px 48px; max-width: 760px; margin: 0 auto; display: grid; gap: 16px; align-content: start; }
 .page > h2 { margin-top: 16px; }
 .credits { padding: 24px 16px 40px; max-width: 760px; margin: 0 auto; color: var(--pencil); font-size: 13px; line-height: 19px; }
+.credits p + p { margin-top: 8px; }
+.home-copy .credits { padding: 0; margin: 24px 0 0; max-width: 46ch; }
 
 /* ---------- Drawings ---------- */
 .drawing { position: relative; display: block; }
@@ -853,9 +855,9 @@ ${a}`}var de={url:"https://huggingface.co/Xenova/segformer-b2-finetuned-ade-512-
         ${n?'<a class="btn quiet" href="#/resume">Back to your wall</a>':'<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
       <p class="how">Take a photo. Pick a wall. Frame it, hang it.</p>
+      ${od()}
     </div>
-  </main>
-  ${od()}`}function xd(){let t=h.draft&&!h.draft.sample?h.draft:null,e=s=>s?Math.floor(s/12):"",o=s=>s?Math.round(s%12):"",n=h.draft&&h.draft.home;return`${zt(n?Bt("#/home","Your home"):Bt("#/begin","Back"))}
+  </main>`}function xd(){let t=h.draft&&!h.draft.sample?h.draft:null,e=s=>s?Math.floor(s/12):"",o=s=>s?Math.round(s%12):"",n=h.draft&&h.draft.home;return`${zt(n?Bt("#/home","Your home"):Bt("#/begin","Back"))}
   <main class="page">
     <h1>${n?`A photo of ${O(h.draft.name||"this wall")}`:"Start with a photo of one wall"}</h1>
     <p class="lede">Stand back. Get the whole wall, floor to ceiling.</p>
