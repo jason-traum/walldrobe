@@ -212,7 +212,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     const pw = pr ? Math.min(pr[0], ow) : ow, ph = pr ? Math.min(pr[1], oh) : oh;
     const ix = p.x + b + (ow - pw) / 2, iy = y + b + (oh - ph) / 2;
     return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
-    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame" filter="url(#wd-shadow)"/>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame frame-new" filter="url(#wd-shadow)"/>
     <rect x="${p.x + b}" y="${y + b}" width="${ow}" height="${oh}" class="mat"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, pw, ppi)}
     ${img ? `<image href="${img}" x="${ix}" y="${iy}" width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice"/>` : ''}
