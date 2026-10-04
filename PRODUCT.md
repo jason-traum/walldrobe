@@ -155,6 +155,9 @@ Jason, 2026-10-03: "after framing the next steps we should do are like helping c
 | Done Oct 3: printing free photos | Where to print on Get it: every print service with prices for your sizes, the best three marked, Copy for your AI to find today's codes | 101 |
 | Cheapest frame that fits | A frame in that exact size (and the mat opening for the print), from a few frame sellers, cheapest first, with the mat said in words | 93 |
 | One list for the whole wall | Every print and frame with its cheapest source and the total; prices come back here once they are real (hidden for now, row 72) | 72, 93 |
+| Way more art (Oct 4) | Today 1,406 active pieces: 658 free photos (Unsplash, Pexels, Pixabay) and Desenio and House of Spoils prints. Next, in order: more free photos through the same pipeline (cheapest, already works); the affiliate feeds decided Sept 30 (Minted, Saatchi Art, Society6, JUNIQE, Artfinder, through Impact, CJ, Awin, Sovrn) once a shop approves; local Philadelphia artists (Open Studio Tours Oct 17 to 18, First Friday Old City, Crane Arts, InLiquid, Cherry Street Pier). Every new piece: tags in tools/tags.json, then `python3 tools/vision.py` and `python3 tools/apply_vision.py` | 127 |
+| Ask more (Oct 4) | Jason: "data is powerful and we should ask a ton". Questions asked in the feed, one at a time, never blocking: budget first (built); room colors, who else lives with the wall, what's already framed | 127 |
+| Wall reading | Dressers, couch and shelf read as one, corner photos, soffits. Matters more now that the check is skipped by default | 124 |
 
 ### Engine only (no interface)
 
