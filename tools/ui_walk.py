@@ -474,6 +474,11 @@ with sync_playwright() as p:
         if '#/size' in pg.url:
             pg.fill('input[name=ft]', '11'); pg.fill('input[name=in]', '0')
             pg.get_by_role('button', name='Show me my wall').click(); pg.wait_for_timeout(5000)
+        # A read photo goes straight to the walls, saying what we read, with the fixing one tap away.
+        if '#/layouts' in pg.url:
+            check(f'{W} a read photo goes straight to the walls, saying what we read', pg.locator('.read-line a[href="#/check"]').count() == 1, pg.evaluate("(document.querySelector('.read-line')||{}).innerText"))
+            pg.screenshot(path=f'{OUT}/read-line-{W}.png')
+            pg.locator('.read-line a').click(); pg.wait_for_timeout(2500)
         rows = pg.evaluate("[...document.querySelectorAll('.rows .row .row-text .meta')].map(e => e.innerText)")
         import re as _re2
         fixed = [r for r in rows if 'in the photo' in r]
@@ -514,6 +519,9 @@ with sync_playwright() as p:
         if '#/size' in pg.url:
             pg.fill('input[name=ft]', '10'); pg.fill('input[name=in]', '0')
             pg.get_by_role('button', name='Show me my wall').click(); pg.wait_for_timeout(5000)
+        check(f'{W} after the corners, straight to the walls', '#/layouts' in pg.url, pg.url)
+        if '#/layouts' in pg.url and pg.locator('.read-line a').count():
+            pg.locator('.read-line a').click(); pg.wait_for_timeout(2500)
         check(f'{W} the confirm screen opens', '#/check' in pg.url, pg.url)
         own = pg.locator('#check-wall g.box[data-kind=own]')
         if own.count():
@@ -596,6 +604,92 @@ with sync_playwright() as p:
         pg.reload(); pg.wait_for_timeout(4000)
         check(f'{W} a saved photo wall still shows its photo after a reload', pg.evaluate("(() => { const w = JSON.parse(localStorage.getItem('walldrobe.walls.v1'))[0]; return JSON.stringify(w).includes('$img'); })()") and pg.locator('svg image').count() > 0, pg.url)
         check(f'{W} no errors on the photo path', not errs, '; '.join(errs[:2]))
+        ctx.close()
+
+    # Oct 4: one wall or a whole home, your stuff, your home, the taste meter, budget,
+    # frame width and size per piece. At 320, 390 and desktop.
+    IMG = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'demo', 'art', sorted(os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'demo', 'art')))[5])
+    for W, H in ((390, 844), (320, 700), (1280, 860)):
+        mobile = W < 600
+        ctx = b.new_context(viewport={'width': W, 'height': H}, device_scale_factor=2, has_touch=mobile, is_mobile=mobile, color_scheme='light')
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        side = lambda: pg.evaluate('document.documentElement.scrollWidth') <= W
+        pg.goto(BASE + '#/'); pg.wait_for_timeout(2500)
+        vis(pg, 'a[href="#/begin"]').click(); pg.wait_for_timeout(700)
+        check(f'{W} Start asks one wall or a whole home', pg.locator('a.path').count() == 2 and 'Basic' in pg.evaluate('document.body.innerText') and 'Advanced' in pg.evaluate('document.body.innerText'))
+        check(f'{W} the fork has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/begin-{W}.png')
+        pg.locator('a.path').nth(1).click(); pg.wait_for_timeout(700)
+        check(f'{W} a whole home starts with your stuff', '#/stuff/home' in pg.url and pg.locator('#stuff-photo').count() == 1)
+        pg.screenshot(path=f'{OUT}/stuff-empty-{W}.png')
+        pg.set_input_files('#stuff-photo', IMG); pg.wait_for_timeout(1500)
+        check(f'{W} art from a photo joins your stuff with its picture', pg.locator('.stuff-row .thumb img').count() == 1)
+        vis(pg, '[data-act=stuff-add-art]').click(); pg.wait_for_timeout(400)
+        pg.locator('[data-stuff-set=framed][data-v="0"]').nth(1).click(); pg.wait_for_timeout(400)
+        for k, v in (('w', '12'), ('h', '16')):
+            el = pg.locator(f'input[data-sk={k}]').nth(1); el.fill(v); el.dispatch_event('change'); pg.wait_for_timeout(300)
+        check(f'{W} art that is not framed says the frame it goes in', '12 x 16 in frame' in pg.evaluate('document.body.innerText').replace('\xa0', ' '))
+        vis(pg, '[data-act=stuff-add-frame]').click(); pg.wait_for_timeout(400)
+        check(f'{W} an empty frame joins your stuff', pg.locator('[data-stuff-color]').count() == 4)
+        check(f'{W} your stuff has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/stuff-{W}.png', full_page=True)
+        pg.locator('.dock a').click(); pg.wait_for_timeout(700)
+        check(f'{W} then your home, with no walls yet', '#/home' in pg.url and 'No walls yet' in pg.evaluate('document.body.innerText'))
+        pg.screenshot(path=f'{OUT}/home-empty-{W}.png')
+        for ft in (12, 10):
+            vis(pg, 'a[href="#/home-add"]').click(); pg.wait_for_timeout(900)
+            pg.locator('details.more summary').click()
+            pg.fill('input[name=wft]', str(ft)); pg.fill('input[name=hft]', '8')
+            pg.locator('#size-form button[type=submit]').click(); pg.wait_for_timeout(900)
+            vis(pg, 'a.btn[href="#/pieces"]').click(); pg.wait_for_timeout(600)
+            vis(pg, 'a.btn[href="#/home"]').click(); pg.wait_for_timeout(900)
+        check(f'{W} each wall joins the home', pg.locator('.home-row').count() == 2, str(pg.locator('.home-row').count()))
+        vis(pg, '[data-act=plan-home]').click(); pg.wait_for_timeout(900)
+        placed = pg.evaluate("[...document.querySelectorAll('.home-row .pencil')].map(e => e.innerText).join(' | ')")
+        check(f'{W} your pieces are spread across the walls', placed.count('Yours here') >= 1, placed)
+        check(f'{W} your home has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/home-planned-{W}.png', full_page=True)
+        vis(pg, '[data-open-home]').click(); pg.wait_for_timeout(6000)
+        check(f'{W} a home wall opens with your piece on it', pg.locator('.entry-link').count() > 0 and pg.locator('.entry-link').first.locator('g.art.is-own, g.art.own, g.art:not(.is-new)').count() >= 1)
+        check(f'{W} a home wall goes back to your home', pg.locator('.bar a[href="#/home"]').count() == 1)
+        # Budget and color in Preferences.
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+        check(f'{W} Preferences has color and an all-in budget', pg.locator('[data-tone]').count() == 3 and pg.locator('[data-budget]').count() == 5)
+        pg.locator('[data-budget="300"]').click(); pg.wait_for_timeout(6000)
+        check(f'{W} the budget sheet has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/prefs-budget-{W}.png')
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(600)
+        # Frame it: width, mats and a size per piece.
+        if pg.locator('.entry-link').count():
+            pg.locator('.entry-link').first.click(); pg.wait_for_timeout(1500)
+            g = vis(pg, '[data-act=get]')
+            if g:
+                g.click(); pg.wait_for_timeout(1500)
+                check(f'{W} Frame it has frame width', pg.locator('[data-fwidth]').count() == 3)
+                if pg.locator('[data-fwidth=slim]').count():
+                    pg.locator('[data-fwidth=slim]').click(); pg.wait_for_timeout(2500)
+                    check(f'{W} slim frames say so, with Undo', 'Slim frames.' in pg.evaluate('document.body.innerText') or pg.locator('.flash').count() == 1)
+                check(f'{W} Frame it has no sideways scroll', side())
+                pg.screenshot(path=f'{OUT}/frames-home-{W}.png', full_page=True)
+        # The taste test: the meter, then the stop at ten picks.
+        pg.goto(BASE + '#/taste'); pg.wait_for_timeout(1500)
+        check(f'{W} the taste test shows how well we know you', pg.locator('.known[role=meter]').count() == 1 and '% known' in pg.evaluate('document.body.innerText'))
+        pg.screenshot(path=f'{OUT}/quiz-meter-{W}.png')
+        for _ in range(10):
+            pk = vis(pg, '.pick')
+            if not pk: break
+            pk.click(); pg.wait_for_timeout(500)
+        check(f'{W} ten picks stop to say what we know', pg.locator('.quiz-check').count() == 1 and 'Still learning' in pg.evaluate('document.body.innerText'))
+        check(f'{W} the stop has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/quiz-check-{W}.png', full_page=True)
+        vis(pg, '[data-act=quiz-more]').click(); pg.wait_for_timeout(700)
+        check(f'{W} Keep going keeps going', pg.locator('.pick').count() == 2)
+        vis(pg, '[data-act=quiz-skip]').click(); pg.wait_for_timeout(500)
+        pg.goto(BASE + '#/taste'); pg.wait_for_timeout(800)
+        vis(pg, '.pick').click(); pg.wait_for_timeout(500)
+        check(f'{W} no errors on the home path', not errs, '; '.join(errs[:2]))
         ctx.close()
     b.close()
 

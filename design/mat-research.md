@@ -31,6 +31,14 @@ Why: Walldrobe decides which pieces get a mat and tells you what to buy. This ch
 
 A 2:3 print (8x12, 12x18, 20x30) is too long for a 4:5 window. Mats for 2:3 exist in 12x16, 18x24 and 24x36 frames.
 
+## Gaps filled (second pass, Oct 4)
+
+- Square frames hold smaller prints than the table guessed: Americanflat's 16x16 is matted for 5x7 and its 20x20 for 8x10 or 10x10 (wide mats). For a 12x12 print: Upsimples 16x16, Americanflat Hudson 16x16 ($20.99) or Streamline 15x15.
+- Michaels precut mats (Studio Decor): 8x10 for 5x7 $4.99, 11x14 for 8x10 $6.49, 16x20 for 11x14 $9.79, 18x24 for 12x18 $16.49; double mats cost more.
+- Wide (oversized) mats come ready-made at Americanflat (16x20 for 6x8, 20x20 for 8x10, 24x24 for 11x14...), mostly in sets ($108 for a pair of 16x20s). Cheaper: a plain frame and a custom precut mat.
+- Frame colors: white usually costs the same as black; light wood and gold are often a different, dearer line (IKEA RODALM wood +$5; Target's gold is its Thin Metal line, $40 at 16x20). Prices per color are in web/framers.js.
+- Wide moulding (about 1.5 in) is cheap only at IKEA (EDSBRUK: 8x10 $16.99, 12x16 $22.99, 16x20 $29.99, 20x28 $39.99); Framebridge's wide styles start at $110.
+
 ## What Walldrobe does with this
 
 - Each size's mat pairing (web/main.js PRINT_IN) uses the most common one; a seller whose mat is for another print shows "mat 12 x 16" in the table, and the cheap fix is a precut mat.

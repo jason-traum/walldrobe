@@ -358,7 +358,7 @@ svg.is-dragging .measure { opacity: 0.25; }
   animation: rise 220ms var(--ease);
 }
 @keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } .btn, .pick, .more summary::before { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } .known-fill { transition: none; } .btn, .pick, .more summary::before { transition: none; } }
 @media (min-width: 640px) { .sheet { left: 50%; right: auto; bottom: auto; top: 50%; transform: translate(-50%, -50%); width: min(480px, calc(100% - 32px)); border-radius: var(--r-sheet); max-height: 84svh; animation: none; } }
 .sheet-x { position: absolute; top: 8px; right: 8px; }
 .sheet h2 { font-size: 18px; line-height: 24px; padding-right: 44px; }
@@ -628,3 +628,49 @@ svg.is-dragging .measure { opacity: 0.25; }
 .tn.new.framed { padding: 0; background: var(--mat); box-shadow: 0 0 0 2px var(--frame-new, var(--frame)), 0 1px 3px rgba(91, 82, 69, 0.3); }
 .tn.new.framed.matted { padding: 5px; }
 .frame-row .row-ticks { grid-column: auto; margin-top: 6px; }
+
+/* How well we know your taste: a thin bar that fills toward 100 */
+.known { position: relative; height: 6px; border-radius: 3px; background: var(--hairline); overflow: hidden; margin: 4px 0 8px; }
+.known-fill { position: absolute; inset: 0 auto 0 0; background: var(--tape); border-radius: 3px; transition: width .3s ease; }
+.taste-link.is-text { grid-template-columns: minmax(0, 1fr); }
+.taste-text .known { margin: 6px 0 4px; }
+.quiz .known { margin: -8px 0 16px; }
+.taste-words { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 20px 0; }
+.taste-words dt { color: var(--pencil); font-weight: 500; }
+.taste-words dd { margin: 0; }
+@media (max-width: 359px) { .taste-words { grid-template-columns: minmax(0, 1fr); gap: 2px; } .taste-words dd { margin-bottom: 8px; } }
+.sheet-help { margin: -4px 0 12px; }
+
+/* One wall or a whole home */
+.paths { list-style: none; padding: 0; margin: 24px 0; display: grid; gap: 12px; }
+.path { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--hairline); border-radius: 12px; color: var(--ink); text-decoration: none; min-height: 44px; }
+.path:hover, .path:focus-visible { border-color: var(--tape); }
+.path-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.path-name { font-size: 20px; font-weight: 600; }
+.path-tag { font-size: 13px; color: var(--pencil); border: 1px solid var(--hairline); border-radius: 999px; padding: 1px 8px; }
+@media (min-width: 720px) { .paths { grid-template-columns: 1fr 1fr; } }
+
+/* Your stuff and your home */
+.stuff-row .seg, .home-row .row-side { margin: 4px 0; }
+.small-seg button { min-height: 36px; padding: 0 10px; font-size: 14px; }
+.frame-chip { display: block; width: 40px; height: 50px; border: 5px solid var(--fc); background: var(--paper, #fff); box-sizing: border-box; }
+.home-row { grid-template-columns: 72px minmax(0, 1fr); }
+.home-wall { display: block; width: 72px; overflow: hidden; border-radius: var(--r-thumb); }
+.home-wall svg, .home-wall .drawing { width: 100%; height: auto; display: block; }
+.home-row .row-side { grid-column: 2; display: flex; gap: 16px; align-items: center; justify-items: start; }
+.home-go { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.size-pick select { min-height: 36px; font: inherit; font-size: 14px; padding: 0 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); max-width: 100%; }
+
+.read-line { color: var(--pencil); font-size: 14px; line-height: 20px; margin: 0 0 12px; }
+.read-line a { white-space: nowrap; }
+.budget-seg { margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; border: 0; background: none; overflow: visible; }
+.budget-seg button, .budget-seg button:first-child { min-height: 44px; padding: 0 8px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); }
+/* On a narrow phone, a row of choices in a sheet shares the width instead of running off it. */
+@media (max-width: 380px) {
+  .sheet .seg { display: flex; width: 100%; }
+  .sheet .seg button { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 14px; }
+}
+.budget-form { display: flex; align-items: flex-end; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap; }
+.budget-form label { display: grid; gap: 4px; font-size: 14px; color: var(--pencil); }
+.budget-form .num-in { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+.budget-form input { width: 96px; min-height: 40px; font: inherit; padding: 0 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); }

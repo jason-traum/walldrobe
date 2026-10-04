@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FRAMERS, frameOptions, framePicks, framesTable, frameKey } from '../web/framers.js';
+import { FRAMERS, frameOptions, framePicks, framesTable, frameKey, sizesIn } from '../web/framers.js';
 import { aiQuestion } from '../web/printers.js';
 
 test('frame sizes are written short side first', () => {
@@ -35,4 +35,15 @@ test('the question for your AI covers prints and frames', () => {
   assert.match(q, /\| Seller \| 11x14 frame, mat for 8x10/);
   assert.match(q, /printing and framing/);
   assert.ok(!q.includes(String.fromCharCode(0x2014)));
+});
+
+test('a frame color has its own prices and sizes, and keeps the mat it comes with', () => {
+  const af = FRAMERS.find((f) => f.id === 'americanflat');
+  assert.deepEqual(sizesIn(af, 'white')['11x14'], [15.99, '8x10']);
+  assert.deepEqual(sizesIn(af, 'oak')['16x20'], [31.99]);
+  assert.equal(sizesIn(af, 'brass')['12x12'], undefined);
+  const black = frameOptions([{ key: '16x20', mat: null, count: 1 }]);
+  const oak = frameOptions([{ key: '16x20', mat: null, count: 1 }], 'oak');
+  assert.ok(oak.length < black.length, 'fewer sellers have oak');
+  for (const f of FRAMERS) for (const c of Object.values(f.colors || {})) for (const k of Object.keys(c)) { const [a, b] = k.split('x').map(Number); assert.ok(a <= b, `${f.id} ${k}`); }
 });

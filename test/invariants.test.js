@@ -171,3 +171,13 @@ test('a shop print can hang matted in the next standard frame up', () => {
   assert.equal(Math.min(m.matted.w, m.matted.h), 12);
   assert.equal(m.w > m.h, m.matted.w > m.matted.h, 'the frame turns the same way as the print');
 });
+
+test('a size with a wider frame hangs bigger outside, and its piece says so', () => {
+  const wide = catalog.map((c) => ({ ...c, sizes: c.sizes.map((z) => (z.framed ? z : { ...z, border: 1.5 })) }));
+  const r = layout({ ...livingRoom, catalog: wide, taste });
+  assert.ok(r.layouts.length > 0);
+  for (const L of r.layouts) for (const p of L.pieces.filter((x) => x.ref.source === 'catalog' && x.frame && x.frame.border)) {
+    assert.equal(p.frame.border, 1.5);
+    assert.equal(p.w, p.frame.w + 3);
+  }
+});
