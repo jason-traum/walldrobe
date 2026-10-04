@@ -8,6 +8,8 @@
 // no clock. Same input, same output. Spec: ENGINE.md.
 
 import { RULES, WEIGHTS, SEARCH, FAMILIES, STANDARD, STYLES } from './constants.js';
+import { assignMats, matScore, MAT_LEVELS } from './mats.js';
+export { assignMats, matScore, MAT_LEVELS, isStructured } from './mats.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
 import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS, FURNITURE } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
@@ -34,7 +36,8 @@ const LOOK_PICK = 0.25;      // how hard the fast pick steers away from look-ali
 const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans the pick toward stronger photos
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
 const PREFER_PICK = 0.3;     // art the person picked on another wall goes in first where its size fits
-const PREFER_WALL = 0.03;    // and a wall with it scores a little higher, so the improvement pass keeps it
+const PREFER_WALL = 0.03;
+const MAT_WEIGHT = 0.04;     // a wall whose mats break the principles (a grid half matted) scores a little lower    // and a wall with it scores a little higher, so the improvement pass keeps it
 const ROOM = '\u0000room';
 const sizeKey = (w, h) => `${w}x${h}`;
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -114,6 +117,8 @@ function readPrefs(raw = {}) {
     scale: num(raw.scale) && raw.scale !== 0 ? Math.max(-1, Math.min(1, raw.scale)) : null,
     // 'none': no shop print hangs matted in a bigger frame.
     mats: raw.mats === 'none' ? 'none' : null,
+    // How many new pieces get a mat, a preference: none, few, some, most, all (engine/mats.js).
+    matLevel: MAT_LEVELS.includes(raw.matLevel) ? raw.matLevel : 'some',
   };
 }
 
@@ -363,7 +368,15 @@ const borderOf = (z) => (z && z.framed ? 0 : RULES.frameBorder);
 const outerOf = (z) => { const b = borderOf(z); return { w: z.w + 2 * b, h: z.h + 2 * b }; };
 // The catalog size behind an outside size on the wall.
 const soldAs = (c, w, h) => (c.sizes || []).find((z) => { const o = outerOf(z); return Math.abs(o.w - w) < 1e-6 && Math.abs(o.h - h) < 1e-6; }) || null;
-const frameOf = (z) => (z ? { w: z.w, h: z.h, border: borderOf(z), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}) } : null);
+// What a size can be bought as, when the catalog says: matted (the print inside) and/or plain.
+const canOfSize = (z) => (z.matPrint || z.matted || z.plainOk != null
+  ? { mat: z.matPrint ? { w: z.matPrint.w, h: z.matPrint.h } : z.matted ? { w: z.matted.w, h: z.matted.h } : null, plain: z.plainOk != null ? !!z.plainOk : !z.matted }
+  : null);
+const frameOf = (z) => {
+  if (!z) return null;
+  const can = canOfSize(z);
+  return { w: z.w, h: z.h, border: borderOf(z), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}), ...(can ? { can } : {}) };
+};
 const priceOf = (c, w, h) => {
   const s = soldAs(c, w, h);
   return s && num(s.price) ? s.price : null;
@@ -503,7 +516,11 @@ function judge(L, ctx) {
   // composition are dropped before ranking).
   const comp = COMP_FIT * fit + (1 - COMP_FIT) * d.score;
   const picked = ctx.prefer && ctx.prefer.size ? L.pieces.filter((p) => ctx.prefer.has(p.ref.id)).length : 0;
-  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists;
+  // Mats: a structured wall all the same; a loose one mixed with care (engine/mats.js).
+  const mopts = { family: L.family, variant: L.variant, level: ctx.prefs.matLevel };
+  const mats = matScore(L.pieces, assignMats(L.pieces, mopts), mopts);
+  parts.mats = mats;
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - MAT_WEIGHT * (1 - mats);
   return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 
@@ -1214,6 +1231,7 @@ function finish(L, rank, ctx) {
     const top = Object.entries(sh).filter(([k, v]) => !NEUTRALS.has(k) && v >= 0.1).sort((a, b) => b[1] - a[1] || cmpStr(a[0], b[0]))[0];
     return top ? top[0] : null;
   };
+  const matMap = assignMats(L.pieces, { family: L.family, variant: L.variant, level: ctx.prefs.matLevel });
   const pieces = L.pieces.map((p, i) => {
     const drop = goodDrop(p) ? p.drop : RULES.defaultDrop;
     const sh = profiles.get(p.ref.id).shares;
@@ -1234,6 +1252,7 @@ function finish(L, rank, ctx) {
     const gi = L.st && L.st.slots[i] && L.st.slots[i].g;
     if (gi) out.group = gi;
     if (p.ref.source === 'catalog') Object.assign(out, { artist: p.artist, year: p.year, collection: p.collection, url: p.url, image: p.image }, p.frame ? { frame: p.frame } : {});
+    if (matMap.has(p.ref.id)) { out.mat = matMap.get(p.ref.id); if (out.mat && p.frame && p.frame.can && p.frame.can.mat) out.print = p.frame.can.mat; }
     if (p.ref.source === 'owned' && p.keep) out.keep = p.keep;
     if (p.kept) out.kept = true;
     return out;
