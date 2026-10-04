@@ -149,15 +149,26 @@ Preferences (one sheet, from your wall and from Suggestions): "Any change here b
 
 Undo stays until the next change. Versions stay with the wall, on this device.
 
-## 9b. Frames (the Frames step)
+## 9b. Frame it (v4, Oct 3)
+
+From the open wall's Frame it. One look for every new frame, a mat or not, and the sizes.
 
 | State | What they see | Action |
 |---|---|---|
-| Default | The wall drawn with its frames. Six looks (Classic, Gallery, Warm wood, Clean, Gold, Color pop), the one in use pressed; color chips under Color pop. "Details: matched or each its own, finish, weight, mat" folded. "Each piece": every new piece with its frame in words ("Black frame, a slim mat") | Tap a look, open Details, tap a piece, Hang it next |
-| Mostly black and white | "Mostly black and white: one color frame across the set, a color pop, can tie it together." | |
-| A piece's sheet | The image, "20 x 28 in. Black frame, a mat now.", Finish and Mat dropdowns, why the set's choice was made | Change either, Back to the set's frame |
-| Set by you | The row reads "Blue frame, a wide mat, set by you." | |
-| Nothing new | Skips straight to Hang | |
+| Default | "Frame it", one line on what it does, the wall drawn with its frames, Frame: Black, White, Oak, Brass (Black pressed), "Sizes": each new piece with its print, mat and frame in words ("Print 8 x 10 in with a mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside"), Get it docked | Pick a look, Get it |
+| Free photos on the wall | "Mat on the free photos": With a mat, No mat, and a line on what a mat is | Pick |
+| No mat | The free photos print at their frame's size: "Print 11 x 14 in, no mat, in a 11 x 14 in frame" | |
+| Shop sells it framed | "Comes framed, 14.5 x 18.5 in." | |
+| Nothing new | The wall's Hang it goes straight to Hang it | |
+
+## 10a. Get it (v4, Oct 3)
+
+| State | What they see | Action |
+|---|---|---|
+| Default | "Get it", the three steps with what each takes, "Ordered so far: 0 of 5 pieces, 0 of 5 frames. Tick each one as you go.", each piece with its words, its source link and ticks (Ordered or Printed, and Frame ordered), then Print the free photos, Get the frames, Copy for your AI, and "When it all arrives" with Hang it and Save | Buy, tick, Hang it, Save |
+| Some ticked | The count follows; a ticked box is green | Untick |
+| All ordered | "Everything is ordered."; Hang it becomes the main button | Hang it |
+| Coming back | The open wall says "Ordered 3 of 10. Continue" under the pager | Continue |
 
 ## 10. Hang it (the hanging guide)
 
@@ -173,6 +184,9 @@ Undo stays until the next change. Versions stay with the wall, on this device.
 | Nothing new | "Hang it", no buy list | |
 | Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |
 | A piece of yours moves | "Take it down and rehang it here." under its name | |
+| Hang it page | "Hang it": 1. What each frame hangs on (open: each frame's hanger and measurements), 2. Where the nails go (drawing, table, steps), 3. Done? with It's up | Set a hanger, It's up |
+| It's up | "It's up", "Nice. When you want a change, open this wall and swap a piece; the frames and nails stay.", Add a photo of it, Save, Not up yet; the open wall says "This wall is up. See it" | Add a photo, Save, Not up yet |
+| A photo of it | The photo of the hung wall, whole, above the line | New photo of it |
 | Hangers, assumed | Under "Where the nails go": "Nail spots assume the hanger each frame usually comes with. When your frames arrive, check them at the bottom of this page." Each row: "Sawtooth hanger, assumed", "Wire, assumed" or "Two D-rings, assumed"; D-ring frames list two nails ("21½ in, and 39 in") | |
 | Checking the hangers | Last on the page, closed: "When your frames arrive: check the hangers". Open: each frame with its hanger (Sawtooth hanger, Wire, Two D-rings), how far below the top, and for D-rings how far in from each side. A change moves its nails at once; the section stays open | Pick, type |
 | Size from the photo | "These spots are estimates. The wall's size was worked out from [the TV] in your photo, not measured, so a spot can be off by several inches. Measure the wall's width once and every spot firms up." | Measure |

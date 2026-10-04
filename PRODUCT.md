@@ -170,7 +170,9 @@ Visible controls per main screen. Content (wall cards, drawn pieces, piece rows,
 | Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, Your walls once one is saved (the spare, spent) | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
 | Piece sheet | 5 | 6 plus the choices | Choices (favorites first), See all that fit, Keep in every wall, Remove this frame, heart, sizes; for yours: Stays where it hangs, Leave it out | The full list for that spot |
 | Your walls | none | 4 plus wall cards | Back, Compare, New wall, one spare | Rename, delete |
-| Get it | 7 | 8 | As a63c921, with each frame in words; with free photos, the print service links and Copy for your AI (Oct 3) | none |
+| Frame it | none | 4 | Back, frame look, mat (free photos only), Get it | none |
+| Get it | 7 | 8 | Back, Print, each row's source link and ticks (one kind each), the price links, Copy for your AI, Hang it, Save | none |
+| Hang it | none | 5 plus a hanger per frame | Back, Print, each frame's hanger and measurements, It's up; after: Add a photo, Save, Not up yet | none |
 
 A spare is held, not given to anything until Jason says.
 

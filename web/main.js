@@ -1514,7 +1514,8 @@ function wallScreen() {
       <div class="drawing" id="drawing">${drawWall(L, pxNow(), { selected: S.selected, measure: S.measure || S.edit, label: `Wall ${i + 1} of ${v.list.length}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
     </div>
     <div class="pager"><button type="button" class="icon-btn" data-goto="${prev ? esc(prev.key) : ''}" aria-label="Wall before"${prev ? '' : ' disabled'}>‹</button><span class="count">${i + 1} of ${v.list.length}</span><button type="button" class="icon-btn" data-goto="${next ? esc(next.key) : ''}" aria-label="Next wall"${next ? '' : ' disabled'}>›</button>
-      <span class="wall-acts"><button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button><button type="button" class="btn" data-act="get">${total.priced || total.free ? 'Get it' : 'Hang it'}</button></span></div>
+      <span class="wall-acts"><button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button><button type="button" class="btn" data-act="get">${total.priced || total.free ? 'Frame it' : 'Hang it'}</button></span></div>
+    ${progressLine(L)}
     ${S.edit ? editBar(L) : ''}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
@@ -1666,10 +1667,24 @@ const soldW = (p) => (p.frame ? p.frame.w : p.w), soldH = (p) => (p.frame ? p.fr
 // A free photo is printed smaller and matted in its frame; a shop print fills its frame.
 function printOf(p) {
   const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
-  if (!item || (item.offers && item.offers.length)) return null;
+  if (!item || (item.offers && item.offers.length) || noMat()) return null;
   return printSize(soldW(p), soldH(p));
 }
 setPrintFor(printOf);
+// The frames step: one look for every new frame, and a mat or not on the free photos.
+const FRAME_LOOKS = {
+  black: { name: 'Black', hex: '#1E1E1E' },
+  white: { name: 'White', hex: '#F3F2EE', edge: '#B9B6AE' },
+  oak: { name: 'Oak', hex: '#B07D4F' },
+  brass: { name: 'Brass', hex: '#B8955A' },
+};
+const lookOf = () => (S.draft && FRAME_LOOKS[S.draft.look] ? S.draft.look : 'black');
+const noMat = () => !!(S.draft && S.draft.mat === 'none');
+function applyLook() {
+  const lk = FRAME_LOOKS[lookOf()], st = document.documentElement.style;
+  st.setProperty('--frame-new', lk.hex);
+  if (lk.edge) st.setProperty('--frame-new-edge', lk.edge); else st.removeProperty('--frame-new-edge');
+}
 // A mat's window is a little smaller than the print, so it holds the print's edges: 1/4 in each side.
 const MAT_LIP = 0.25;
 // "an 11 x 14", "an 8 x 10", "a 16 x 20"
@@ -1751,7 +1766,7 @@ function printNeeds(L) {
   for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
     const item = byId.get(p.ref.id);
     if (!item || (item.offers && item.offers.length)) continue;
-    const ps = printSize(soldW(p), soldH(p)) || [soldW(p), soldH(p)];
+    const ps = (!noMat() && printSize(soldW(p), soldH(p))) || [soldW(p), soldH(p)];
     const k = sizeKey(ps[0], ps[1]);
     m.set(k, (m.get(k) || 0) + 1);
   }
@@ -1767,7 +1782,7 @@ function frameNeeds(L) {
     if (!item) continue;
     const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)).main : null;
     if (shop && shop.framed) continue;
-    const ps = shop ? null : printSize(soldW(p), soldH(p));
+    const ps = shop || noMat() ? null : printSize(soldW(p), soldH(p));
     const key = frameKey(soldW(p), soldH(p)), mat = ps ? frameKey(ps[0], ps[1]) : null;
     const k = `${key}|${mat || ''}`;
     const o = m.get(k) || { key, mat, count: 0 };
@@ -1813,8 +1828,8 @@ function whereToFrame(L) {
     pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
     pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? (printNeeds(L).length ? ', printed, matted and framed' : ', framed for you; you mail in your prints') : ', real glass'}</li>`].filter(Boolean).join('');
   const anyMat = needed.some((n) => n.mat);
-  return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">2. Get the frames</h2>
-    <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Plain black, regular prices before any sale.</p>
+  return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">Get the frames</h2>
+    <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for plain black; ${lookOf() === 'black' ? 'regular prices before any sale' : `look for ${FRAME_LOOKS[lookOf()].name.toLowerCase()} on each seller's page, usually about the same price`}.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
     ${anyMat ? '<p class="pencil small">Where the mat doesn\'t fit your print, buy the frame alone and a mat cut to the window above, or ask your AI where to get one.</p>' : ''}
@@ -1852,7 +1867,7 @@ function wallSummary(L) {
     <ol class="next-steps">
       <li><strong>Get the art.</strong> ${esc(art[0].toUpperCase() + art.slice(1))}.</li>
       ${frames ? `<li><strong>Get the frames.</strong> ${esc(frames[0].toUpperCase() + frames.slice(1))}. The table below has every seller.</li>` : ''}
-      <li><strong>Hang it.</strong> When everything arrives, the nail spots are at the bottom.</li>
+      <li><strong>Hang it.</strong> When everything arrives, Hang it at the bottom has the nail spots.</li>
     </ol>
     ${cost != null ? `<p class="pencil small">Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.</p>` : ''}</div>`;
 }
@@ -1873,7 +1888,7 @@ function hangerOf(p) {
   return { type: 'rings', drop: 3, inset: RULES.ringInset };
 }
 // The last section: once the frames are here, say what each hangs on and where.
-function hangerCheck(pieces) {
+function hangerCheck(pieces, open = false) {
   if (!pieces.length) return '';
   const rows = pieces.map((p) => {
     const hg = p.hanger || hangerOf(p);
@@ -1883,21 +1898,156 @@ function hangerCheck(pieces) {
       <label class="num"><span>${hg.type === 'rings' ? 'Rings below the top' : hg.type === 'wire' ? 'Wire, pulled up, below the top' : 'Below the top'}</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-drop="${id}" value="${hg.drop}"> in</span></label>
       ${hg.type === 'rings' ? `<label class="num"><span>In from each side</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-in="${id}" value="${hg.inset ?? RULES.ringInset}"> in</span></label>` : ''}</span></li>`;
   }).join('');
-  return `<details class="hangers"${S.ui.hangOpen ? ' open' : ''}><summary>When your frames arrive: check the hangers</summary>
-    <p class="pencil small">Turn each frame over and see what's on the back. Measure from the hanger (a wire pulled up tight, as it will hang) to the top of the frame. Every nail spot above follows.</p>
+  return `<details class="hangers"${open || S.ui.hangOpen ? ' open' : ''}><summary>${open ? 'Check each frame' : 'When your frames arrive: check the hangers'}</summary>
+    <p class="pencil small">Turn each frame over and see what's on the back. Measure from the hanger (a wire pulled up tight, as it will hang) to the top of the frame. Every nail spot below follows.</p>
     <ul class="hang-list">${rows}</ul></details>`;
 }
 
+// The wall being got and hung, its new pieces, and a thumbnail at each piece's own shape.
+function chosenWall() {
+  if (need()) { go(need()); return null; }
+  const L = shown();
+  if (!L) { go('#/layouts'); return null; }
+  return L;
+}
+function thumbFor(p, box) {
+  const d = S.draft, kept = keptSet();
+  const own = p.ref.source !== 'catalog';
+  const o = own ? d.owned.find((x) => x.id === p.ref.id) : null;
+  const item = own ? null : byId.get(p.ref.id);
+  const ar = p.w / p.h, h = ar < 1 ? box : box / ar, w = h * ar;
+  const img = own ? (o && o.thumb) : item && item.imageData;
+  const cls = own ? 'tn own' : `tn new${kept.has(p.ref.id) ? ' kept' : ''}`;
+  return `<span class="${cls}" style="width:${w.toFixed(0)}px;height:${h.toFixed(0)}px">${img ? `<img src="${img}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`;
+}
+const sz = (w, h) => `${w} x ${h} in`;
+// Does a piece need a frame bought (a shop that sells it framed means no)?
+function needsFrame(p) {
+  const item = byId.get(p.ref.id);
+  const o = item && item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)).main : null;
+  return !(o && o.framed);
+}
+// What's been ordered so far: art (or printed) and frames, by piece.
+function orderState(L) {
+  const d = S.draft, ord = d.orders || {};
+  const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
+  const framed = fresh.filter(needsFrame);
+  const art = fresh.filter((p) => ord[`art:${p.ref.id}`]).length, fr = framed.filter((p) => ord[`frame:${p.ref.id}`]).length;
+  return { fresh: fresh.length, art, frames: framed.length, fr, done: fresh.length > 0 && art === fresh.length && fr === framed.length };
+}
+// On the open wall, when it's the one you're getting: how far along it is.
+function progressLine(L) {
+  const d = S.draft;
+  if (!d.chosen || !d.chosen.layout || d.chosen.layout.key !== L.key) return '';
+  if (d.hung && d.hung.key === L.key) return '<p class="progress-line">This wall is up. <a href="#/hang">See it</a></p>';
+  const o = orderState(L);
+  if (!o.fresh) return '';
+  if (!o.art && !o.fr) return '';
+  return `<p class="progress-line">${o.done ? 'Everything is ordered.' : `Ordered ${o.art + o.fr} of ${o.fresh + o.frames}.`} <a href="${o.done ? '#/hang' : '#/get'}">${o.done ? 'Hang it' : 'Continue'}</a></p>`;
+}
+
+// ---------- Frame it: one look for the set, a mat or not, the sizes ----------
+
+function framesScreen() {
+  const L = chosenWall();
+  if (!L) return '';
+  const wait = building();
+  if (wait) return wait;
+  const fresh = [...L.pieces.filter((p) => p.ref.source === 'catalog')].sort((a, b) => b.w * b.h - a.w * a.h);
+  const look = lookOf(), mat = noMat() ? 'none' : 'mat';
+  const free = fresh.filter((p) => !(byId.get(p.ref.id).offers || []).length);
+  const rows = fresh.map((p) => {
+    const item = byId.get(p.ref.id);
+    const ps = printOf(p);
+    const fw = soldW(p), fh = soldH(p);
+    const words = !needsFrame(p) ? `Comes framed, ${sz(p.w, p.h)}.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
+    return `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${words}</span></span></li>`;
+  }).join('');
+  return `${bar(back('#/wall', 'This wall'))}
+  <main class="page frames">
+    <h1>Frame it</h1>
+    <p class="lede">One frame for every new piece, so the wall reads as a set. Pick how it looks; the sizes come from the wall.</p>
+    <div class="drawing" id="frames-wall">${drawWall(L, pxNow(), { still: true, label: 'Your wall with the frames you picked' })}</div>
+    <fieldset class="choose"><legend>Frame</legend>
+      <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
+    </fieldset>
+    ${free.length ? `<fieldset class="choose"><legend>Mat on the free photos</legend>
+      <span class="seg" role="group" aria-label="Mat">${[['mat', 'With a mat'], ['none', 'No mat']].map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mat === k}">${v}</button>`).join('')}</span>
+      <span class="help">A mat is the white border between the print and the frame. With one, the photo is printed smaller; without, it fills the frame. Shop prints already fill theirs.</span>
+    </fieldset>` : ''}
+    <h2>Sizes</h2>
+    <ul class="frame-list">${rows}</ul>
+    <div class="dock"><button type="button" class="btn wide" data-act="to-get">Get it</button></div>
+  </main>${credits()}`;
+}
+
+// ---------- Get it: a checklist of what to order, then where ----------
+
 function getScreen() {
-  if (need()) { go(need()); return ''; }
+  const L = chosenWall();
+  if (!L) return '';
+  const wait = building();
+  if (wait) return wait;
+  const d = S.draft, ord = d.orders || {};
+  const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
+  if (!fresh.length) { go('#/hang'); return ''; }
+  const tick = (key, label) => `<button type="button" class="tick" data-order="${esc(key)}" aria-pressed="${!!ord[key]}">${label}</button>`;
+  const buy = [...fresh].sort((a, b) => b.w * b.h - a.w * a.h).map((p) => {
+    const item = byId.get(p.ref.id);
+    const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)) : null;
+    const o = shop && shop.main;
+    let credit, frame, get;
+    if (o) {
+      credit = `Art by ${esc(item.artist)}, sold by ${esc(item.source)}`;
+      // The print said the same way up as the frame it goes in.
+      const fw = soldW(p), fh = soldH(p);
+      const ow = o.w || fw, oh = o.h || fh, land = fw > fh;
+      const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(fw, fh) && Math.max(pw, ph) === Math.max(fw, fh);
+      frame = o.framed ? `Comes framed, ${sz(p.w, p.h)} outside.` : same ? `Print ${sz(pw, ph)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.` : `Print ${sz(pw, ph)}. Mat with a ${sz(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.`;
+      get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
+    } else {
+      const fw = soldW(p), fh = soldH(p), ps = noMat() ? null : printSize(fw, fh);
+      credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
+      frame = ps ? `Print it ${sz(ps[0], ps[1])}. Mat with a ${sz(ps[0] - 2 * MAT_LIP, ps[1] - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.` : `Print it ${sz(fw, fh)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.`;
+      get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
+    }
+    const ticks = `${tick(`art:${p.ref.id}`, o ? 'Ordered' : 'Printed')}${needsFrame(p) ? tick(`frame:${p.ref.id}`, 'Frame ordered') : ''}`;
+    return `<li class="buy-row"><span class="buy-art">${thumbFor(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
+      <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
+      <span class="row-acts">${get}</span><span class="row-ticks">${ticks}</span></li>`;
+  }).join('');
+  const st = orderState(L);
+  return `${bar(back('#/frames', 'Frame it'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
+  <main class="page get">
+    <h1>Get it</h1>
+    ${flashHtml()}
+    <section aria-labelledby="buy-h"><h2 id="buy-h" class="sr-only">What to get</h2>
+      ${wallSummary(L)}
+      <p class="order-state" role="status">${st.done ? 'Everything is ordered.' : `Ordered so far: ${st.art} of ${st.fresh} ${st.fresh === 1 ? 'piece' : 'pieces'}${st.frames ? `, ${st.fr} of ${st.frames} frame${st.frames === 1 ? '' : 's'}` : ''}. Tick each one as you go.`}</p>
+      <ul class="buy-list">${buy}</ul>
+      ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
+    </section>
+    ${whereToPrint(L)}
+    ${whereToFrame(L)}
+    ${copyBlock(L)}
+    <section class="next-up" aria-labelledby="next-h">
+      <h2 id="next-h">When it all arrives</h2>
+      <p>The nail spots for every frame, and a check of what each one hangs on.</p>
+      <div class="acts left"><a class="btn${st.done ? '' : ' quiet'}" href="#/hang">Hang it</a>
+      <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button></div>
+    </section>
+  </main>${credits()}`;
+}
+
+// ---------- Hang it: hangers first, then the nails, then it's up ----------
+
+function hangScreen() {
+  const L = chosenWall();
+  if (!L) return '';
   const wait = building();
   if (wait) return wait;
   const d = S.draft;
-  const L = shown();
-  if (!L) { go('#/layouts'); return ''; }
   const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
-  // Each frame hangs the way frames of its size usually come, so nothing is asked up
-  // front; when the frames arrive, the last section checks them (hangerOf()).
   const q4 = (v) => Math.round(v * 4) / 4;
   const hang = (p) => {
     if (p.role === 'pinned') return p;
@@ -1914,74 +2064,41 @@ function getScreen() {
   const estimate = !sizeMeasured(d);
   const nameOf = (p) => (byId.get(p.ref.id) ? byId.get(p.ref.id).title : `Your ${p.title}`);
   const kept = keptSet();
-  // A thumbnail at the piece's own shape, never stretched: yours framed, new ones taped up.
-  const tn = (p, box) => {
-    const own = p.ref.source !== 'catalog';
-    const o = own ? d.owned.find((x) => x.id === p.ref.id) : null;
-    const item = own ? null : byId.get(p.ref.id);
-    const ar = p.w / p.h, h = ar < 1 ? box : box / ar, w = h * ar;
-    const img = own ? (o && o.thumb) : item && item.imageData;
-    const cls = own ? 'tn own' : `tn new${kept.has(p.ref.id) ? ' kept' : ''}`;
-    return `<span class="${cls}" style="width:${w.toFixed(0)}px;height:${h.toFixed(0)}px">${img ? `<img src="${img}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`;
-  };
-  const size = (w, h) => `${w}\u00a0x\u00a0${h}\u00a0in`;
-  // What to buy for each new piece, the frame said in words.
-  const buy = [...fresh].sort((a, b) => b.w * b.h - a.w * a.h).map((p) => {
-    const item = byId.get(p.ref.id);
-    const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)) : null;
-    const o = shop && shop.main;
-    let credit, frame, get;
-    if (o) {
-      credit = `Art by ${esc(item.artist)}, sold by ${esc(item.source)}`;
-      // The print said the same way up as the frame it goes in.
-      const fw = soldW(p), fh = soldH(p);
-      const ow = o.w || fw, oh = o.h || fh, land = fw > fh;
-      const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(fw, fh) && Math.max(pw, ph) === Math.max(fw, fh);
-      frame = o.framed ? `Comes framed, ${size(p.w, p.h)} outside.` : same ? `Print ${size(pw, ph)}. Frame ${size(fw, fh)}, no mat, ${size(p.w, p.h)} outside.` : `Print ${size(pw, ph)}. Mat with a ${size(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${size(fw, fh)}, ${size(p.w, p.h)} outside.`;
-      get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
-    } else {
-      const fw = soldW(p), fh = soldH(p), ps = printSize(fw, fh);
-      credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
-      frame = ps ? `Print it ${size(ps[0], ps[1])}. Mat with a ${size(ps[0] - 2 * MAT_LIP, ps[1] - 2 * MAT_LIP)} window. Frame ${size(fw, fh)}, ${size(p.w, p.h)} outside.` : `Print it ${size(fw, fh)}. Frame ${size(fw, fh)}, no mat, ${size(p.w, p.h)} outside.`;
-      get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
-    }
-    const findFrame = o && o.framed ? '' : `<a class="btn quiet small" href="${frameLink(soldW(p), soldH(p))}" target="_blank" rel="noopener" aria-label="Find a ${esc(size(Math.min(soldW(p), soldH(p)), Math.max(soldW(p), soldH(p))))} frame">Find a frame</a>`;
-    return `<li class="buy-row"><span class="buy-art">${tn(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
-      <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
-      <span class="row-acts">${get}${findFrame}</span></li>`;
-  }).join('');
-  return `${bar(back('#/wall', 'This wall'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
-  <main class="page get">
-    <h1>${fresh.length ? 'Get it, hang it' : 'Hang it'}</h1>
+  const hung = d.hung && d.hung.key === L.key ? d.hung : null;
+  const fix = d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size';
+  return `${bar(back(fresh.length ? '#/get' : '#/wall', fresh.length ? 'Get it' : 'This wall'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
+  <main class="page get hang">
+    <h1>Hang it</h1>
     ${flashHtml()}
-    ${fresh.length ? `<section aria-labelledby="buy-h"><h2 id="buy-h">1. Get the art</h2>
-      ${wallSummary(L)}
-      <ul class="buy-list">${buy}</ul>
-      ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
-    </section>` : ''}
-    ${whereToPrint(L)}
-    ${whereToFrame(L)}
-    ${copyBlock(L)}
+    <section aria-labelledby="hangers-h"><h2 id="hangers-h">1. What each frame hangs on</h2>
+      ${hangerCheck(hangOrder, true)}
+    </section>
     <section class="guide" id="guide" aria-labelledby="guide-h">
-      <h2 id="guide-h">3. Hang it</h2>
-      ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
-      <p class="pencil small">Nail spots assume the hanger each frame usually comes with. When your frames arrive, check them at the bottom of this page.</p>
+      <h2 id="guide-h">2. Where the nails go</h2>
+      ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${fix}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
       <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
-        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(size(soldW(p), soldH(p)))} frame, ${esc(size(p.w, p.h))} outside` : `${esc(size(p.w, p.h))} frame`}</span>${p.hanger ? `<span class="nail-ref">${esc(HANGER_WORDS[p.hanger.type])}${p.hanger.set ? '' : ', assumed'}</span>` : ''}</span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
+        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${thumbFor(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(sz(soldW(p), soldH(p)))} frame, ${esc(sz(p.w, p.h))} outside` : `${esc(sz(p.w, p.h))} frame`}</span>${p.hanger ? `<span class="nail-ref">${esc(HANGER_WORDS[p.hanger.type])}${p.hanger.set ? '' : ', assumed'}</span>` : ''}</span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
-        ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${d.photo.mode === 'auto' ? '#/check' : '#/size'}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
+        ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${fix}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>
         <li>Mark each nail in pencil, then nail or drill.</li>
         ${hangOrder.some((p) => p.nails) ? '<li>Two nails for a frame on D-rings: put a level across the two marks before you drill, so it hangs straight.</li>' : ''}
         ${anyRef ? `<li>Measuring from the nearest edge, like the TV's, keeps any error small${estimate ? ', which helps while the wall size is an estimate' : ''}.</li>` : ''}
         <li>A photo can't see wires or studs. Near an outlet or switch, check with a stud finder before you drill.</li>
       </ol>
-      ${hangerCheck(hangOrder)}
     </section>
-    <div class="acts left">
-      <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button>
-    </div>
+    <section class="done" aria-labelledby="done-h">
+      <h2 id="done-h">${hung ? "It's up" : '3. Done?'}</h2>
+      ${hung ? `${hung.photo ? `<img class="hung-photo" src="${hung.photo}" alt="Your wall, hung">` : ''}
+        <p>Nice. When you want a change, open this wall and swap a piece; the frames and nails stay.</p>
+        <div class="acts left">
+          <label class="btn quiet file-btn">${hung.photo ? 'New photo of it' : 'Add a photo of it'}<input type="file" accept="image/*" id="hung-photo"></label>
+          <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button>
+          <button type="button" class="link" data-act="unhung">Not up yet</button>
+        </div>`
+    : `<p>When every piece is up, mark it hung.</p><div class="acts left"><button type="button" class="btn" data-act="hung">It's up</button></div>`}
+    </section>
   </main>${credits()}`;
 }
 
@@ -2084,6 +2201,7 @@ function focusSelector(el) {
 
 function render() {
   const [r0, r1] = route();
+  applyLook();
   if (r0 === 'sample') { loadSample(r1); location.replace('#/layouts'); return; }
   if (r0 === 'new') {
     S.draft = { ...blankDraft(), taste: S.draft && S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste : { source: 'none', weights: null, picks: [] } };
@@ -2091,9 +2209,9 @@ function render() {
     resetLayouts(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), get: getScreen, walls, compare, saved: savedScreen };
+  const screens = { '': home, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
   const fn = screens[r0] || home;
-  document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', get: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -2578,6 +2696,10 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   // The photo, caught at the document so a render while the picker is open can't lose it.
   if (t.id === 'photo-input') { onPhoto(t.files && t.files[0]); return; }
+  if (t.id === 'hung-photo' && t.files && t.files[0]) {
+    loadFile(t.files[0], 900).then((img) => { if (S.draft.hung) { S.draft.hung = { ...S.draft.hung, photo: img.url }; persist(); render(); } }).catch(() => { S.flash = "That photo won't open. Use a JPG or PNG."; render(); });
+    return;
+  }
   // A frame's hanger, set when it arrives: its kind, how far below the top, and for D-rings how far in.
   if (t.dataset && (t.dataset.hangType || t.dataset.hangDrop || t.dataset.hangIn)) {
     const id = t.dataset.hangType || t.dataset.hangDrop || t.dataset.hangIn;
@@ -2668,6 +2790,9 @@ document.addEventListener('click', (e) => {
   if (t.dataset.goto !== undefined) { if (t.dataset.goto) { S.openKey = t.dataset.goto; S.selected = null; S.undo = null; S.edit = false; render(); } return; }
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
+  if (t.dataset.look) { S.draft.look = t.dataset.look; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.mat) { S.draft.mat = t.dataset.mat === 'none' ? 'none' : 'mat'; persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.order) { const k = t.dataset.order, o = { ...(S.draft.orders || {}) }; if (o[k]) delete o[k]; else o[k] = true; S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.add) {
     const W = S.draft.width;
     const o = clampOb({ id: `${t.dataset.add}${Date.now().toString(36)}`, kind: t.dataset.add, ...DEFAULTS[t.dataset.add](W) });
@@ -2889,7 +3014,10 @@ document.addEventListener('click', (e) => {
     case 'undo-move': case 'undo-all': { const L = shown(); if (L) undoMove(L, a === 'undo-all'); S.sheet = null; S.flash = null; render(); break; }
     case 'retry': resetLayouts(); S.mem.clean = null; render(); break;
     case 'save': saveThisWall(); render(); break;
-    case 'get': S.draft.chosen = { layout: bareLayout(shown()), inputKey: viewKey() }; persist(); go('#/get'); break;
+    case 'get': { const L = shown(); S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() }; persist(); go(L.pieces.some((p) => p.ref.source === 'catalog') ? '#/frames' : '#/hang'); break; }
+    case 'to-get': go('#/get'); break;
+    case 'hung': { const L = shown(); if (L) { S.draft.hung = { key: L.key, photo: null }; persist(); render(); const h = document.querySelector('#done-h'); if (h) h.scrollIntoView({ block: 'start' }); } break; }
+    case 'unhung': S.draft.hung = null; persist(); render(); break;
     case 'print': window.print(); break;
     case 'copy-ai': {
       const L = shown(); if (!L) break;
