@@ -9,7 +9,7 @@ import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
-import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize } from './draw.js';
+import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, setPrintFor } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
@@ -165,7 +165,8 @@ const ART_MODES = ['prints', 'both', 'photos'];
 const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
-const viewKey = () => JSON.stringify([S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
+// 'frames1': walls built before frames took their outside size on the wall aren't brought back.
+const viewKey = () => JSON.stringify(['frames1', S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
 const notForMe = () => new Set(store.loadMe().disliked);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped, [...notForMe()]]);
 
@@ -485,7 +486,7 @@ function toggleKeep(id) {
   const p = L && L.pieces.find((x) => x.ref.id === id);
   const list = S.draft.kept || [];
   const on = list.some((k) => k.id === id);
-  S.draft.kept = on ? list.filter((k) => k.id !== id) : p ? [...list, { id: p.ref.id, w: p.w, h: p.h }] : list;
+  S.draft.kept = on ? list.filter((k) => k.id !== id) : p ? [...list, { id: p.ref.id, w: soldW(p), h: soldH(p) }] : list;
   // The wall on screen stays, at its place in the list; the others are built again around it.
   const at = L && S.view ? S.view.list.findIndex((x) => x.key === L.key) : -1;
   if (L) S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey(), at: at >= 0 ? at : 0 };
@@ -1610,7 +1611,7 @@ function pieceSheet(id) {
     </button></li>`;
   };
   return `<h2 id="sheet-h">${esc(item.title)}</h2>
-    <p class="meta">${p.w} x ${p.h} in. ${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}</p>
+    <p class="meta">${p.frame && p.frame.border ? `${soldW(p)} x ${soldH(p)} in frame, ${p.w} x ${p.h} in outside` : `${p.w} x ${p.h} in`}. ${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}</p>
     ${kept ? '<p class="pencil small">Kept in every wall. Tap Kept to let it change again.</p>'
       : all.length ? `<ul class="choices${showAll ? ' is-all' : ''}${ar >= 1 ? ' is-wide' : ''}">${list.map(choice).join('')}</ul>
       ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
@@ -1655,6 +1656,17 @@ function printSize(w, h) {
   if (!p) return null;
   return w <= h ? p : [p[1], p[0]];
 }
+// The size a new piece's frame is sold as (an 11 x 14 frame), and its outside on the wall.
+const soldW = (p) => (p.frame ? p.frame.w : p.w), soldH = (p) => (p.frame ? p.frame.h : p.h);
+// A free photo is printed smaller and matted in its frame; a shop print fills its frame.
+function printOf(p) {
+  const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
+  if (!item || (item.offers && item.offers.length)) return null;
+  return printSize(soldW(p), soldH(p));
+}
+setPrintFor(printOf);
+// A mat's window is a little smaller than the print, so it holds the print's edges: 1/4 in each side.
+const MAT_LIP = 0.25;
 // "an 11 x 14", "an 8 x 10", "a 16 x 20"
 const aOrAn = (n) => (/^(8|11|18|8\d)(\D|$)/.test(String(n)) ? 'an' : 'a');
 const money = (n, cur = 'USD') => { try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); } catch { return `${n} ${cur}`; } };
@@ -1673,7 +1685,7 @@ function wallCost(L) {
     const item = byId.get(p.ref.id);
     if (!item) continue;
     if (!(item.offers && item.offers.length)) { out.free++; continue; }
-    const o = offersAt(item, p.w, p.h).main;
+    const o = offersAt(item, soldW(p), soldH(p)).main;
     if (!o || o.price == null) { out.unpriced++; continue; }
     out.total += o.price; out.priced++; out.shops.add(item.source); out.cur = o.currency || 'USD';
     if (o.framed) out.framed++;
@@ -1734,7 +1746,7 @@ function printNeeds(L) {
   for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
     const item = byId.get(p.ref.id);
     if (!item || (item.offers && item.offers.length)) continue;
-    const ps = printSize(p.w, p.h) || [p.w, p.h];
+    const ps = printSize(soldW(p), soldH(p)) || [soldW(p), soldH(p)];
     const k = sizeKey(ps[0], ps[1]);
     m.set(k, (m.get(k) || 0) + 1);
   }
@@ -1796,23 +1808,24 @@ function getScreen() {
   // What to buy for each new piece, the frame said in words.
   const buy = [...fresh].sort((a, b) => b.w * b.h - a.w * a.h).map((p) => {
     const item = byId.get(p.ref.id);
-    const shop = item.offers && item.offers.length ? offersAt(item, p.w, p.h) : null;
+    const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)) : null;
     const o = shop && shop.main;
     let credit, frame, get;
     if (o) {
       credit = `Art by ${esc(item.artist)}, sold by ${esc(item.source)}`;
       // The print said the same way up as the frame it goes in.
-      const ow = o.w || p.w, oh = o.h || p.h, land = p.w > p.h;
-      const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(p.w, p.h) && Math.max(pw, ph) === Math.max(p.w, p.h);
-      frame = o.framed ? `Comes framed, ${size(p.w, p.h)}.` : same ? `Print ${size(pw, ph)}. Frame ${size(p.w, p.h)}, no mat.` : `Print ${size(pw, ph)}. Frame ${size(p.w, p.h)} with a mat.`;
+      const fw = soldW(p), fh = soldH(p);
+      const ow = o.w || fw, oh = o.h || fh, land = fw > fh;
+      const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(fw, fh) && Math.max(pw, ph) === Math.max(fw, fh);
+      frame = o.framed ? `Comes framed, ${size(p.w, p.h)} outside.` : same ? `Print ${size(pw, ph)}. Frame ${size(fw, fh)}, no mat, ${size(p.w, p.h)} outside.` : `Print ${size(pw, ph)}. Mat with a ${size(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${size(fw, fh)}, ${size(p.w, p.h)} outside.`;
       get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
     } else {
-      const ps = printSize(p.w, p.h);
+      const fw = soldW(p), fh = soldH(p), ps = printSize(fw, fh);
       credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
-      frame = ps ? `Print it ${size(ps[0], ps[1])}. Frame ${size(p.w, p.h)} with a mat.` : `Frame ${size(p.w, p.h)}.`;
+      frame = ps ? `Print it ${size(ps[0], ps[1])}. Mat with a ${size(ps[0] - 2 * MAT_LIP, ps[1] - 2 * MAT_LIP)} window. Frame ${size(fw, fh)}, ${size(p.w, p.h)} outside.` : `Print it ${size(fw, fh)}. Frame ${size(fw, fh)}, no mat, ${size(p.w, p.h)} outside.`;
       get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
     }
-    const findFrame = o && o.framed ? '' : `<a class="btn quiet small" href="${frameLink(p.w, p.h)}" target="_blank" rel="noopener" aria-label="Find a ${esc(size(Math.min(p.w, p.h), Math.max(p.w, p.h)))} frame">Find a frame</a>`;
+    const findFrame = o && o.framed ? '' : `<a class="btn quiet small" href="${frameLink(soldW(p), soldH(p))}" target="_blank" rel="noopener" aria-label="Find a ${esc(size(Math.min(soldW(p), soldH(p)), Math.max(soldW(p), soldH(p))))} frame">Find a frame</a>`;
     return `<li class="buy-row"><span class="buy-art">${tn(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
       <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
       <span class="row-acts">${get}${findFrame}</span></li>`;
@@ -1836,7 +1849,7 @@ function getScreen() {
       </form>
       <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
-        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${esc(size(p.w, p.h))} frame</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
+        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(size(soldW(p), soldH(p)))} frame, ${esc(size(p.w, p.h))} outside` : `${esc(size(p.w, p.h))} frame`}</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
         ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${d.photo.mode === 'auto' ? '#/check' : '#/size'}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>

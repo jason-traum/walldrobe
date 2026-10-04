@@ -668,14 +668,18 @@ export function flowStructures({ wall, obstacles, space, pinned = [], fixed, hun
   const allIn = (s) => musts.every((p) => s.some((f) => f.fixed === p));
   if (musts.length >= 3 && snaps.filter((s) => allIn(s.frames)).length < 3) {
     const anchor = obstacles.filter((o) => ANCHORS.has(o.kind) && o.w >= RULES.minAnchorWidth).sort((a, b) => b.w - a.w || cmpStr(a.id, b.id))[0];
-    const packs = packAll({ space, pieces: musts, pinnedRects, seeds, cx: anchor ? anchor.x + anchor.w / 2 : null });
+    // Seeds for packing come from the pieces being packed (the smallest of them), like canPack(),
+    // not from the new art's sizes, so they don't depend on what the catalog sells.
+    const small = [...musts].sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    const packSeeds = seedsFor(obstacles, space, [small.w, small.h], pinnedRects);
+    const packs = packAll({ space, pieces: musts, pinnedRects, seeds: packSeeds.length ? packSeeds : seeds, cx: anchor ? anchor.x + anchor.w / 2 : null });
     const plan = { name: 'pack', neat: false };
     let runP = 0;
     for (const pk of packs) {
       // Pieces happy to move come next, where they fit, then new art.
       const start = pk.map((f) => ({ ...f }));
       keep(start, plan);
-      const r = grow({ seed: seeds[0], plan: PLANS[1], growth: GROWTH[0], rand: rng(3301 + 977 * runP++), cls, avail, space, pinnedRects, own: ownBig, cap: Math.min(cap, start.length + 2 + fixed.length - musts.length), start });
+      const r = grow({ seed: (packSeeds[0] || seeds[0]), plan: PLANS[1], growth: GROWTH[0], rand: rng(3301 + 977 * runP++), cls, avail, space, pinnedRects, own: ownBig, cap: Math.min(cap, start.length + 2 + fixed.length - musts.length), start });
       for (const sn of r.snaps) keep(sn, plan);
     }
   }

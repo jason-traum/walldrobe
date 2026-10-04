@@ -164,7 +164,8 @@ Undo stays until the next change. Versions stay with the wall, on this device.
 | State | What they see | Action |
 |---|---|---|
 | Default | The step bar (5 Hang), "Get it, hang it", the why line, "What to get": each new piece with artist, shop, print size and price, its frame in words with a Change link back to Frames, then the total | Buy at [shop], Find a frame, Change |
-| Free photo | "Photo by [artist] on Unsplash. Print it 8 x 10 in for an 11 x 14 in frame with a mat. Free under the Unsplash License." | Get it on [site], Find a frame |
+| Free photo | "Print it 8 x 10 in. Mat with a 7.5 x 9.5 in window. Frame 11 x 14 in, 12.5 x 15.5 in outside." and the credit, free under the site's license | Get it on [site], Find a frame |
+| Shop print | "Print 20 x 28 in. Frame 20 x 28 in, no mat, 21.5 x 29.5 in outside." or "Comes framed, 14.5 x 18.5 in outside." | Buy at [shop], Find a frame |
 | Where to print | With free photos on the wall: "Your free photos need 2 at 8 x 10 in, 1 at 11 x 14 in." Best price, Same day and Better print with totals, then every service with its price per size and the total ("No" where it doesn't print a size, "Not all" for the total), what it ships for or when pickup is, and its usual codes. "Prices checked [date]." | A service's name opens its site, Copy for your AI |
 | Copied | "Copied. Paste it into your AI." beside the button; focus stays on it. If the browser won't copy: "Could not copy. Select the table and copy it." | |
 | Nothing new | "Hang it", no buy list | |

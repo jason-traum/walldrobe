@@ -131,9 +131,12 @@ function prepare(input) {
   // taste, leaned a little toward stronger photos when a reviewed quality score exists.
   const pickTaste = (c) => (num(c.quality) ? (1 - QUALITY_PICK) * tasteOf(c.id) + QUALITY_PICK * clamp01(c.quality) : tasteOf(c.id));
 
+  // A kept print comes as the size it's sold in; on the wall it takes its frame's outside.
   const kept = (input.keep || []).map((k) => {
     const c = byId.get(k.id);
-    return { id: c.id, w: k.w, h: k.h, keep: 'must', kept: true, title: titleOf(c), cat: c, taste: pickTaste(c) };
+    const z = (c.sizes || []).find((s) => s.w === k.w && s.h === k.h) || soldAs(c, k.w, k.h) || { w: k.w, h: k.h };
+    const o = outerOf(z);
+    return { id: c.id, w: o.w, h: o.h, frame: frameOf(z), keep: 'must', kept: true, title: titleOf(c), cat: c, taste: pickTaste(c) };
   });
   const keptIds = new Set(kept.map((k) => k.id));
 
@@ -162,7 +165,7 @@ function prepare(input) {
 
   const catalogCands = catalog.filter((c) => !exclude.has(c.id) && !keptIds.has(c.id)).map((c) => ({
     id: c.id, source: 'catalog', title: c.title, artist: c.artist || null, item: c,
-    sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0),
+    sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0).map((s) => ({ ...outerOf(s), ...(num(s.price) ? { price: s.price } : {}), frame: frameOf(s) })),
     taste: pickTaste(c), prefer: prefer.has(c.id),
   }));
 
@@ -336,19 +339,28 @@ function costOf(pieces) {
 }
 
 const catalogExtra = (c) => ({ artist: c.artist || null, year: c.year || null, collection: c.source || null, url: c.url || null, image: c.image || null });
+// Frames. A catalog size is what the frame is sold as (an 11 x 14 frame), or, when the
+// shop sells it framed, the framed piece itself. On the wall it takes the frame's
+// outside: the size plus the moulding on each side. All geometry (gaps, clearances,
+// nails) uses the outside; the buy list uses the size it's sold as.
+const borderOf = (z) => (z && z.framed ? 0 : RULES.frameBorder);
+const outerOf = (z) => { const b = borderOf(z); return { w: z.w + 2 * b, h: z.h + 2 * b }; };
+// The catalog size behind an outside size on the wall.
+const soldAs = (c, w, h) => (c.sizes || []).find((z) => { const o = outerOf(z); return Math.abs(o.w - w) < 1e-6 && Math.abs(o.h - h) < 1e-6; }) || null;
+const frameOf = (z) => (z ? { w: z.w, h: z.h, border: borderOf(z) } : null);
 const priceOf = (c, w, h) => {
-  const s = (c.sizes || []).find((z) => z.w === w && z.h === h);
+  const s = soldAs(c, w, h);
   return s && num(s.price) ? s.price : null;
 };
 
 // Every slot gets its piece, centered in the slot, on the quarter inch.
 function buildPieces(st, place, bySlot) {
   return st.slots.map((slot, i) => {
-    let ref, title, w, h, price, extra = {}, keep = null, pickTaste = null, drop = null, kept = false, artist = null;
+    let ref, title, w, h, price, extra = {}, keep = null, pickTaste = null, drop = null, kept = false, artist = null, frame = null;
     if (slot.fixed && slot.fixed.cat) {
       // A catalog piece that stays: kept by the person, or not being changed by refill().
       const p = slot.fixed, c = p.cat;
-      ref = { source: 'catalog', id: c.id }; title = titleOf(c); w = p.w; h = p.h; price = priceOf(c, w, h);
+      ref = { source: 'catalog', id: c.id }; title = titleOf(c); w = p.w; h = p.h; price = priceOf(c, w, h); frame = p.frame || frameOf(soldAs(c, w, h));
       extra = catalogExtra(c); pickTaste = p.taste; kept = !!p.kept; keep = p.kept ? 'must' : null; artist = c.artist || null;
     } else if (slot.fixed) {
       const p = slot.fixed;
@@ -356,14 +368,14 @@ function buildPieces(st, place, bySlot) {
     } else {
       const { cand: c, size } = bySlot.get(i);
       ref = { source: c.source, id: c.id }; title = c.title; w = size.w; h = size.h; pickTaste = c.taste;
-      if (c.source === 'catalog') { price = num(size.price) ? size.price : null; extra = catalogExtra(c.item); artist = c.artist; }
+      if (c.source === 'catalog') { price = num(size.price) ? size.price : null; extra = catalogExtra(c.item); artist = c.artist; frame = size.frame || null; }
       else { price = 0; keep = c.item.keep; drop = c.item.drop; }
     }
     const x = q(place.x + slot.dx + (slot.w - w) / 2);
     const y = q(place.y + slot.dy + (slot.h - h) / 2);
     return {
       id: ref.id, ref, title, w, h, x, y, cx: x + w / 2, cy: y + h / 2, row: slot.row, role: slot.role || 'fill', side: slot.side || null,
-      fixed: !!slot.fixed, keep, kept, price, taste: pickTaste, drop, artistName: artist, ...extra,
+      fixed: !!slot.fixed, keep, kept, price, taste: pickTaste, drop, artistName: artist, ...(frame ? { frame } : {}), ...extra,
       slot: { x: q(place.x + slot.dx), y: q(place.y + slot.dy), w: slot.w, h: slot.h },
     };
   });
@@ -652,7 +664,10 @@ function layoutOnce(input) {
     const index = indexCandidates(cands);
     const avail = new Map();
     for (const [k, list] of index.bySize) avail.set(k, list.length);
-    for (const c of index.owned) for (const [w, h] of STANDARD) {
+    // Your frames are measured outside to outside, like a standard frame with its moulding.
+    const b2 = 2 * RULES.frameBorder;
+    for (const c of index.owned) for (const [w0, h0] of STANDARD) {
+      const w = w0 + b2, h = h0 + b2;
       if (Math.abs(c.sizes[0].w - w) <= 1 && Math.abs(c.sizes[0].h - h) <= 1) avail.set(sizeKey(w, h), (avail.get(sizeKey(w, h)) || 0) + 1);
     }
     const sctx = { fixed, zone: z, avail, maxPieces: prefs.maxPieces, scale: prefs.pieces ? 0 : prefs.scale || 0, pieces: prefs.pieces, sizes: offeredSizes(avail) };
@@ -853,7 +868,7 @@ function arrangement(ctx, placed, variant, rank = 0) {
     const base = { id: pl.id, title: titleOf(own || cat), w, h, x: pl.x, y: pl.y, cx: pl.x + w / 2, cy: pl.y + h / 2, row: null, role: 'fill', side: null, slot: { x: pl.x, y: pl.y, w, h } };
     return own
       ? { ...base, ref: { source: 'owned', id: own.id }, fixed: true, keep: own.keep, kept: false, price: 0, taste: null, drop: own.drop, artistName: null }
-      : { ...base, ref: { source: 'catalog', id: cat.id }, fixed: false, keep: null, kept: false, price: priceOf(cat, w, h), taste: ctx.tasteOf(cat.id), drop: null, artistName: cat.artist || null, ...catalogExtra(cat) };
+      : { ...base, ref: { source: 'catalog', id: cat.id }, fixed: false, keep: null, kept: false, price: priceOf(cat, w, h), taste: ctx.pickTaste(cat), drop: null, artistName: cat.artist || null, ...(soldAs(cat, w, h) ? { frame: frameOf(soldAs(cat, w, h)) } : {}), ...catalogExtra(cat) };
   });
   const x0 = Math.min(...pieces.map((p) => p.x)), y0 = Math.min(...pieces.map((p) => p.y));
   const group = { x: x0, y: y0, w: Math.max(...pieces.map((p) => p.x + p.w)) - x0, h: Math.max(...pieces.map((p) => p.y + p.h)) - y0, shift: 0 };
@@ -877,7 +892,7 @@ function arrangement(ctx, placed, variant, rank = 0) {
     if (p.ref.source !== 'catalog') continue;
     if (ctx.exclude.has(p.ref.id)) fails.push(`${p.ref.id} is excluded`);
     const c = ctx.catalogById.get(p.ref.id);
-    if (!c.sizes.some((z) => (z.w === p.w && z.h === p.h) || (z.w === p.h && z.h === p.w))) fails.push(`${p.ref.id} doesn't come in ${p.w} x ${p.h}`);
+    if (!soldAs(c, p.w, p.h)) fails.push(`${p.ref.id} doesn't come in ${p.w} x ${p.h}`);
   }
   for (const k of ctx.kept) if (!ids.has(k.id)) fails.push(`${k.id} is kept and must be on the wall`);
   if (ctx.prefs.budget !== null && costOf(pieces).forBudget > ctx.prefs.budget + EPS) fails.push('over the budget');
@@ -1053,7 +1068,7 @@ export function refill(input, prev, opts = {}) {
     if (owned(p)) return ctx.ownedById.get(p.ref.id);
     const c = ctx.catalogById.get(p.ref.id);
     if (!c) throw new TypeError(`${p.ref.id} isn't in the catalog.`);
-    return { id: c.id, w: p.w, h: p.h, keep: keepIds.has(c.id) ? 'must' : null, kept: keepIds.has(c.id), title: titleOf(c), cat: c, taste: ctx.pickTaste(c) };
+    return { id: c.id, w: p.w, h: p.h, frame: p.frame || frameOf(soldAs(c, p.w, p.h)), keep: keepIds.has(c.id) ? 'must' : null, kept: keepIds.has(c.id), title: titleOf(c), cat: c, taste: ctx.pickTaste(c) };
   };
   const slots = hung.map((p) => {
     const sl = p.slot || { x: p.x, y: p.y, w: p.w, h: p.h };
@@ -1142,7 +1157,8 @@ function whyNothing(must, zone, catalogCands, loose) {
     return { code: 'MUST_KEEPS_TOO_WIDE', message };
   }
   // Catalog art must come in a standard frame size exactly; owned pieces may be off by an inch.
-  const fitsStandard = (s, tol) => STANDARD.some(([w, h]) => Math.abs(s.w - w) <= tol && Math.abs(s.h - h) <= tol) && s.w <= zone.interval.w && s.h <= zone.maxH;
+  const b2 = 2 * RULES.frameBorder;
+  const fitsStandard = (s, tol) => STANDARD.some(([w, h]) => [[w, h], [w + b2, h + b2]].some(([a, b]) => Math.abs(s.w - a) <= tol && Math.abs(s.h - b) <= tol)) && s.w <= zone.interval.w && s.h <= zone.maxH;
   const usable = [...catalogCands.filter((c) => c.sizes.some((s) => fitsStandard(s, 0.01))), ...loose.filter((p) => p.keep !== 'must' && fitsStandard(p, 1))];
   if (usable.length < 2) return { code: 'TOO_FEW_CANDIDATES', message: 'Not enough art in sizes that fit this wall. Try a looser taste setting.' };
   return {
@@ -1198,7 +1214,7 @@ function finish(L, rank, ctx) {
     // Which group the piece is in, so a refill keeps the groups.
     const gi = L.st && L.st.slots[i] && L.st.slots[i].g;
     if (gi) out.group = gi;
-    if (p.ref.source === 'catalog') Object.assign(out, { artist: p.artist, year: p.year, collection: p.collection, url: p.url, image: p.image });
+    if (p.ref.source === 'catalog') Object.assign(out, { artist: p.artist, year: p.year, collection: p.collection, url: p.url, image: p.image }, p.frame ? { frame: p.frame } : {});
     if (p.ref.source === 'owned' && p.keep) out.keep = p.keep;
     if (p.kept) out.kept = true;
     return out;

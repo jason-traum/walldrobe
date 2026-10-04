@@ -148,7 +148,7 @@ test('art you picked goes in first on other walls where its size fits', () => {
   const plain = layout({ ...livingRoom, catalog, taste });
   const onWall = new Set(plain.layouts.flatMap((L) => L.pieces.map((p) => p.ref.id)));
   // A piece none of these walls used, with sizes that fit them.
-  const used = new Set(plain.layouts.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => `${p.w}x${p.h}`)));
+  const used = new Set(plain.layouts.flatMap((L) => L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => `${p.frame.w}x${p.frame.h}`)));
   const pick = catalog.find((c) => !onWall.has(c.id) && c.sizes.some((z) => used.has(`${z.w}x${z.h}`)));
   const r = layout({ ...livingRoom, catalog, taste, prefer: [pick.id] });
   assert.ok(r.layouts.some((L) => L.pieces.some((p) => p.ref.id === pick.id)), 'the picked piece is on a wall');

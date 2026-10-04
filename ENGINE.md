@@ -346,3 +346,8 @@ layout(), refill(), walls with sections and scoreArrangement() now keep the same
 - **A wire drop outside the frame** (negative, or past the bottom) is treated as not measured: default drop and the "measure yours" note.
 - **refill()** keeps each piece's group (`piece.group`, `meta.groups`), and kept or unchanged prints are judged by the same taste as new picks (quality blended in).
 - **rerank()'s order prior** is capped at ten places, so it never outweighs a save.
+
+## Frames on the wall (2026-10-03)
+
+A catalog size is what the frame is sold as. On the wall it takes the frame's outside: the size plus `RULES.frameBorder` (0.75 in) each side, unless the shop sells it framed (`framed: true` on the size, from its offers), when the size is already the outside. Candidates, kept prints and refills all work in outside sizes; `priceOf` and the checks look up the size sold through `soldAs()`. Each catalog piece in a result has `frame: { w, h, border }`, the size sold and the moulding. `keep` takes the size sold. Your own frames are measured outside to outside and match a standard frame's outside within 1 in.
+

@@ -278,6 +278,8 @@ with sync_playwright() as p:
             sizes = [tuple(map(float, m)) for m in _re.findall(r'(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)', w.replace('\u00a0', ' '))]
             return len(set((a > b) for a, b in sizes if a != b)) <= 1
         check(f'{W} print and frame are said the same way up', all(_up(w) for w in words), str(words[:2]))
+        check(f'{W} every row says the frame\'s outside size', all('outside' in w for w in words), str(words[:2]))
+        check(f'{W} new prints are drawn in their frames', pg.evaluate("[...document.querySelectorAll('#guide g.art.is-new, #guide g.art.is-kept')].every(g => g.classList.contains('is-framed') && g.querySelector('rect.frame'))"))
         check(f'{W} every row has a way to get it', pg.evaluate("[...document.querySelectorAll('.buy-row')].every(r => r.querySelector('a[href^=http]'))"))
         trs = pg.locator('.nails tbody tr').count(); allp = pg.evaluate("document.querySelectorAll('#guide g.art').length")
         check(f'{W} a nail row for every piece', trs == allp, f'{trs} rows, {allp} pieces')

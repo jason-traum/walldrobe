@@ -67,7 +67,9 @@ function widthWindow(zone, pieces = null) {
 export function offeredSizes(avail) {
   let all = [...avail.keys()].map((k) => k.split('x').map(Number)).sort((a, b) => a[0] * a[1] - b[0] * b[1] || a[0] - b[0]);
   // New prints in the core sizes that nest, when the catalog has enough of them.
-  const core = new Set(RULES.coreSizes.flatMap(([w, h]) => [sizeKey(w, h), sizeKey(h, w)]));
+  // Sizes come as the frame's outside: a core size framed counts too.
+  const b2 = 2 * RULES.frameBorder;
+  const core = new Set(RULES.coreSizes.flatMap(([w, h]) => [sizeKey(w, h), sizeKey(h, w), sizeKey(w + b2, h + b2), sizeKey(h + b2, w + b2)]));
   const inCore = all.filter(([w, h]) => core.has(sizeKey(w, h)));
   if (new Set(inCore.map(([w, h]) => sizeKey(Math.min(w, h), Math.max(w, h)))).size >= 3) all = inCore;
   const long = ([w, h]) => Math.max(w, h);
