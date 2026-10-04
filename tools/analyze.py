@@ -11,7 +11,9 @@ For every line in tools/picks.tsv (Unsplash), tools/picks_pexels.tsv and tools/p
     season, vibe words, a 1 to 5 quality score, and hide for near-duplicates,
   - write a small image for the demo.
 
-Usage: python3 tools/analyze.py [cache_dir]
+Usage: python3 tools/analyze.py [cache_dir] [--add shop1,shop2]
+With --add, only those shops' feeds are measured, and their records replace or join the
+ones already in demo/catalog.json; everything else in the catalog stays as it is.
 Writes demo/catalog.json and demo/art/*.jpg. Same images in, same numbers out.
 """
 import io, json, os, re, sys, urllib.request
@@ -20,7 +22,11 @@ from PIL import Image
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 OUT = os.path.join(ROOT, "demo")
-CACHE = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, ".cache", "img")
+_ARGS = [a for a in sys.argv[1:]]
+ADD = None
+if "--add" in _ARGS:
+    i = _ARGS.index("--add"); ADD = set(_ARGS[i + 1].split(",")); del _ARGS[i:i + 2]
+CACHE = _ARGS[0] if _ARGS else os.path.join(ROOT, ".cache", "img")
 
 # ---------- Sizes (matches engine/constants.js) ----------
 
@@ -331,7 +337,7 @@ def fetch(key, url):
 
 # Shops whose affiliate feeds we import (tools/feeds/<shop>.tsv, written by tools/import_feed.mjs).
 SHOP_NAMES = {"minted": "Minted", "saatchiart": "Saatchi Art", "saatchi": "Saatchi Art", "society6": "Society6", "desenio": "Desenio",
-              "juniqe": "JUNIQE", "artfinder": "Artfinder", "turningart": "TurningArt", "houseofspoils": "House of Spoils", "example": "Example Shop"}
+              "juniqe": "JUNIQE", "artfinder": "Artfinder", "turningart": "TurningArt", "houseofspoils": "House of Spoils", "juniper": "Juniper Print Shop", "example": "Example Shop"}
 
 def shop_picks():
     folder = os.path.join(ROOT, "tools", "feeds")
@@ -399,7 +405,11 @@ def main():
     os.makedirs(os.path.join(OUT, "art"), exist_ok=True)
     looked = load_tags()
     records, seen = [], set()
+    kept = []
+    if ADD:
+        old = json.load(open(os.path.join(OUT, "catalog.json")))["items"]
     for p in picks():
+        if ADD and p["provider"] not in ADD: continue
         if p["id"] in seen: continue
         seen.add(p["id"])
         try:
@@ -453,6 +463,9 @@ def main():
             rec["description"] = look["description"]
         records.append(rec)
         print(len(records), p["provider"], p["category"], p["title"], file=sys.stderr)
+    if ADD:
+        new_ids = {r["id"] for r in records}
+        records = [r for r in old if r["id"] not in new_ids and r["source"]["provider"] not in ADD] + records
     with open(os.path.join(OUT, "catalog.json"), "w") as f:
         json.dump({"schema": "walldrobe.catalog/1", "source": "Unsplash, Pexels and Pixabay (each under its own license)", "items": records}, f, indent=1)
 

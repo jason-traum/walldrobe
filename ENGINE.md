@@ -388,3 +388,7 @@ A catalog size is what the frame is sold as. On the wall it takes the frame's ou
 ## Frame width (2026-10-04)
 
 A catalog size may carry `border`, the moulding's width; `borderOf` uses it (a size sold framed is still 0). The app sets it for every size when the wall's frame width is Slim (0.5) or Wide (1.5), so outside sizes, slots and the hanging guide all follow.
+
+## A stylist's rules (2026-10-04, engine/styling.js)
+
+`stylingScore(P)` over every piece on the wall (pinned ones too), each part 0 to 1: busy (share of neighbor pairs, frames within 6 in, not both busier than 0.3), balance (the visual weight's center left to right, weight = area x (0.4 + 0.4 x darkness + 0.2 x saturation)), thread (the best non-neutral color family at 12% or more of at least two color pieces, as a share of the color pieces, full at half), bw (0.5 + 0.5 x how far from half black and white). Weighted 0.3, 0.25, 0.25, 0.2. `judge()` subtracts 0.04 x (1 minus it); `parts.styling` reports it.

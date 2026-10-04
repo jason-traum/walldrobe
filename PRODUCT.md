@@ -170,7 +170,7 @@ Visible controls per main screen. Content (wall cards, drawn pieces, piece rows,
 | Screen | a63c921 | v4 budget | On the screen | One level down |
 |---|---|---|---|---|
 | Feed | 3 | 4 | Wordmark (Your home on a home wall), one door, Your walls once one is saved, the spare spent on "Something off? Fix it" after a read photo (Oct 4) | Layout preferences (with color and an all-in budget), taste test, your pieces, fix what's marked, favorites, new wall |
-| Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, Your walls once one is saved (the spare, spent) | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
+| Open wall | 7 | 8 | Back, one door, previous and next wall, Save icon, Get icon, Undo after a change, Your walls once one is saved (the spare, spent), and past the budget at Jason's ask: "New art in these frames" under the drawing (Oct 4) | Piece sheet; the door: new art in the open frames, layout preferences, move by hand, measurements, put it back |
 | Piece sheet | 5 | 6 plus the choices | Choices (favorites first), See all that fit, Keep in every wall, Remove this frame, heart, sizes; for yours: Stays where it hangs, Leave it out | The full list for that spot |
 | Your walls | none | 4 plus wall cards | Back, Compare, New wall, one spare | Rename, delete |
 | Frame it | none | 6 plus a size and a Mat tick per piece | Back, frame look, frame width, mat (free photos only), mat width (when a free photo has a mat), Get it | none |

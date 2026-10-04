@@ -6,7 +6,7 @@
 
 import { layout, refill, rerank, spotChoices, scoreArrangement, RULES, assignMats, assignHome } from '../engine/index.js';
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
-import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor, tasteKnown, describeTaste, axesOf } from '../engine/taste.js';
+import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor, tasteKnown, describeTaste, axesOf, looksGood } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, setPrintFor } from './draw.js';
@@ -126,9 +126,11 @@ function bar(left, right = '') {
 const wordmark = () => '<a class="wordmark" href="#/" aria-label="Walldrobe"><span class="tab" aria-hidden="true"></span>walldrobe</a>';
 const yourWalls = () => { const n = store.listWalls().length; return n ? `<a class="walls-link" href="#/walls">Your walls ${n}</a>` : ''; };
 const back = (href, label) => `<a class="back" href="${href}"><span aria-hidden="true">‹</span> ${esc(label)}</a>`;
+// The front page's small print: where things live and where the art comes from.
 function credits() {
   return `<footer class="credits">
-    <p>Photos from Unsplash, Pexels and Pixabay, credited on each piece and shown under each site's license. Prints from Desenio and House of Spoils link to the shop's own page; Walldrobe doesn't sell anything and isn't paid for the links. Your wall photos stay on this device.</p>
+    <p>Everything you add or pick stays on your device. Nothing goes to a server.</p>
+    <p>For now the art comes from other sites, and we link you there to buy it. Use Walldrobe to lay out your wall and try ideas. Coming soon: all of it in one place.</p>
   </footer>`;
 }
 const flashHtml = () => (S.flash ? `<p class="flash">${esc(S.flash)}</p>` : '');
@@ -165,7 +167,8 @@ function engineInput() {
 }
 const keepList = () => (S.draft.justMine ? [] : S.draft.kept || []);
 const ART_MODES = ['prints', 'both', 'photos'];
-const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'prints');
+// Shop prints and free photos together by default: buy a few, print the rest yourself.
+const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art : 'both');
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
 // 'frames1': walls built before frames took their outside size on the wall aren't brought back.
@@ -218,13 +221,29 @@ function build(key) {
     for (const o of stuck) delete o.loosen;
     if (r.layouts.length) problems.unshift({ code: 'LOOSENED', message: stuck.length === 1 ? `Your ${stuck[0].title} doesn't fit with new art here, so some walls leave it out.` : "Your pieces don't all fit with new art here, so some walls leave one out." });
   }
+  // Nothing under the budget as asked: keep looking before giving up. Fewer pieces first,
+  // then a calmer wall, then no mats, then both kinds of art; the first that works is
+  // shown, and the note says what changed.
+  if (!r.layouts.length && S.draft.budget && r.problems.some((p) => p.code === 'BUDGET_TOO_LOW')) {
+    const base = engineInput();
+    const tries = [
+      ...(base.prefs.pieces ? [['with fewer pieces', { pieces: undefined }]] : []),
+      ...(base.prefs.fullness !== 'calm' ? [['calmer, with fewer pieces', { pieces: undefined, fullness: 'calm' }]] : []),
+      ['calmer and without mats', { pieces: undefined, fullness: 'calm', mats: 'none', matLevel: 'none' }],
+    ];
+    for (const [words, change] of tries) {
+      const again = layout({ ...base, prefs: { ...base.prefs, ...change }, keep: keepList() });
+      if (again.layouts.length) { r = again; problems.unshift({ code: 'LOOSENED', message: `Nothing fit $${S.draft.budget.toLocaleString('en-US')} as you set it, so these walls are ${words}.` }); break; }
+    }
+  }
   let all = r.layouts;
   // A tight wall makes few walls at one fullness: add the ones the other two
   // make, after these, so there's always a real list to choose from.
   if (all.length && rerank(all, { distinct: true }).length < 8) {
     const mine = S.draft.fullness || 'balanced';
     for (const f of ['full', 'calm', 'balanced'].filter((x) => x !== mine)) {
-      const more = layout({ ...engineInput(), prefs: { fullness: f }, keep: keepList() }).layouts;
+      const base = engineInput();
+      const more = layout({ ...base, prefs: { ...base.prefs, fullness: f }, keep: keepList() }).layouts;
       const have = new Set(all.map((L) => L.key));
       all = all.concat(more.filter((L) => !have.has(L.key)).map((L) => ({ ...L, score: (L.score || 0) - 0.05, other: f })));
     }
@@ -589,12 +608,12 @@ function home() {
     <div class="drawing hero">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, still: true, pxWide: 900, label: 'A sample living room wall, with new pieces taped up where they would hang' })}<span class="chip">Sample wall</span></div>
     <div class="home-copy">
       <h1>A wardrobe for your walls</h1>
-      <p class="lede">Take one photo of a wall. Walldrobe lays out new art around what you already own, at real size, and shows you where each nail goes.</p>
+      <p class="lede">Photo a wall. Get art laid out around what you own, with every nail marked.</p>
       <div class="acts">
         <a class="btn" href="#/begin">${resume ? 'Start something new' : 'Start'}</a>
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
-      <p class="how">One photo, then check what we found. Pick a wall from the list. Get the art and hang it.</p>
+      <p class="how">Take a photo. Pick a wall. Frame it, hang it.</p>
     </div>
   </main>
   ${credits()}`;
@@ -609,8 +628,8 @@ function start() {
   return `${bar(inHome ? back('#/home', 'Your home') : back('#/begin', 'Back'))}
   <main class="page">
     <h1>${inHome ? `A photo of ${esc(S.draft.name || 'this wall')}` : 'Start with a photo of one wall'}</h1>
-    <p class="lede">Stand back and get the whole wall, floor to ceiling if you can. People in the photo aren't needed.</p>
-    <p class="pencil small">The farther back you stand, the truer furniture sizes come out. Use the 1x lens if the wall fits; 0.5x bends the edges.</p>
+    <p class="lede">Stand back. Get the whole wall, floor to ceiling.</p>
+    <p class="pencil small">Use 1x, not 0.5x. It bends the edges.</p>
     ${flashHtml()}
     <label class="upload">
       <input type="file" accept="image/*" id="photo-input">
@@ -762,15 +781,19 @@ async function readPhoto() {
 // Once the photo is read, straight on: to the walls (or back to your home), with what we
 // read said in one line on the feed and the fixing one tap away. Fixing boxes is the
 // step most people won't do, so it's never in the way.
+// Your own art on this wall, and the way to add more: always one tap from the walls.
 const afterRead = () => (S.draft && S.draft.home ? '#/home' : '#/layouts');
+// One short line: what we read, and the two fixes people want (the reading, their own art).
 function readLine(d) {
+  if (!d || d.sample) return '';
   const p = d.photo;
-  if (!p || p.mode !== 'auto' || !d.width) return '';
+  const mine = (d.owned || []).filter((o) => o.keep !== 'skip').length;
+  const add = `<a href="#/stuff">${mine ? 'Add more of yours' : 'Add art you own'}</a>`;
+  if (!p || p.mode !== 'auto' || !d.width) return `<p class="read-line">${mine ? `${mine} of yours here. ` : ''}${add}</p>`;
   const things = (d.obstacles || []).filter((o) => o.kind !== 'edge' && o.kind !== 'outlet' && o.kind !== 'switch').map((o) => obName(o).toLowerCase());
-  const mine = (d.owned || []).filter((o) => o.autoId && o.keep !== 'skip').length;
   const list = [...new Set(things)].slice(0, 3);
-  const bits = [`${feet(d.width)} wide (from ${sizeSource(d)})`, ...(list.length ? [list.join(', ')] : []), ...(mine ? [`${mine} piece${mine === 1 ? '' : 's'} of yours`] : [])];
-  return `<p class="read-line">We read your wall: ${esc(bits.join('; '))}. <a href="#/check">Something off? Fix it</a></p>`;
+  const bits = [`${feet(d.width)} wide`, ...list, ...(mine ? [`${mine} of yours`] : [])];
+  return `<p class="read-line">We see ${esc(bits.join(', '))}. <a href="#/check">Fix</a> · ${add}</p>`;
 }
 // The width sets the scale. The height is what the photo shows, or at least
 // 8 ft when the ceiling wasn't in it.
@@ -1012,10 +1035,14 @@ function check() {
   return `${bar(back('#/corners', 'Corners'))}
   <main class="page">
     <h1>Here's your wall</h1>
-    <p class="lede">${esc(foundSentence(d))} Fix anything that's off, and say which of your pieces to keep.</p>
+    <p class="lede">${esc(foundSentence(d))} Fix anything that's off.</p>
     ${S.ui.quality ? `<p class="note">${esc(S.ui.quality)}</p>` : ''}
+    <div class="two-up">
+    <div class="two-up-main">
     <div class="drawing photo-check${picked && boxOf(picked) ? ' has-pick' : ''}" id="check-wall">${wallSvg({ wall: { width: d.width, height: H }, photo: p.flat, obstacles: [], extra: boxes, pxWide: editPx(), still: true, label: 'Your wall photo, flattened, with what we found marked' })}</div>
     <p class="small pencil">Tap a box to pick it. Drag a corner to resize it, or the middle to move it.</p>
+    </div>
+    <div class="two-up-side">
     ${auto ? `<form id="dims-form" class="fields dims" novalidate>
       <fieldset><legend>Wall width</legend>
         <span class="pair"><label><input type="number" inputmode="numeric" min="2" max="50" name="wft" value="${ft(d.width)}"> ft</label><label><input type="number" inputmode="numeric" min="0" max="11" name="win" value="${inch(d.width)}"> in</label></span>
@@ -1031,9 +1058,10 @@ function check() {
     <div class="acts left"><button type="button" class="btn quiet small" data-act="add-not-up">Add art that isn't up yet</button><a class="btn quiet small" href="#/pieces">Mark art we missed</a></div>
     <h2>In the way</h2>
     ${furnNote ? `<p class="pencil small">${esc(furnNote)}</p>` : ''}
-    ${d.obstacles.length ? `<ul class="rows">${obRows}</ul>` : '<p class="pencil">We didn\'t find anything in the way. If something is there, mark it so the art clears it.</p>'}
+    ${d.obstacles.length ? `<ul class="rows">${obRows}</ul>` : '<p class="pencil">Nothing in the way. Mark anything we missed.</p>'}
     <div class="acts left"><a class="btn quiet small" href="#/things">Mark something we missed</a></div>
     <div class="dock">${d.home ? '<a class="btn wide" href="#/home">Done, back to your home</a>' : '<a class="btn wide" href="#/layouts">Show me my wall</a>'}</div>
+    </div></div>
   </main>`;
 }
 
@@ -1145,7 +1173,7 @@ function corners() {
   return `${bar(back('#/start', 'Photo'))}
   <main class="page">
     <h1>Check the corners</h1>
-    <p class="lede">Drag any dot that's off: the top ones where the wall meets the ceiling, the bottom ones where it meets the floor. Behind furniture, guess.</p>
+    <p class="lede">Drag the dots to the wall's corners. Behind furniture, guess.</p>
     <div class="photo-wrap">
       <svg id="corner-svg" viewBox="0 0 ${p.w} ${p.h}" data-w="${p.w}" data-h="${p.h}" class="photo-svg${err ? ' has-error' : ''}" role="group" aria-label="Wall photo with four corner handles">
         <image href="${p.src}" x="0" y="0" width="${p.w}" height="${p.h}"/>
@@ -1237,7 +1265,7 @@ function sizeScreen() {
     </form>
     ${opts.length ? `<section class="samples">
       <h2>No tape measure?</h2>
-      <p class="pencil">Pick something standard in the photo. It's a guess, and you can fix it on the next screen.</p>
+      <p class="pencil">Pick something standard in the photo. You can fix it next.</p>
       <div class="acts left">${opts.map(([k]) => `<button type="button" class="btn quiet small" data-notape="${k}">${esc(NO_TAPE[k].label)}</button>`).join('')}</div>
     </section>` : ''}
   </main>`;
@@ -1269,7 +1297,7 @@ function clampOb(o) {
   return o;
 }
 
-const editPx = () => Math.min((window.innerWidth || 700) - 50, 760);
+const editPx = () => { const W = window.innerWidth || 700; return W >= 1000 ? Math.min(Math.round((W - (W >= 1180 ? 240 : 0)) * 0.58), 900) : Math.min(W - 50, 760); };
 // A see-through touch area at least 44 px square around a small box (an outlet is
 // about 9 px wide on a phone), so it can be picked up and dragged. x, y: svg top left.
 function hitPad(x, y, w, h) {
@@ -1293,24 +1321,34 @@ function things() {
   if (need()) { go(need()); return ''; }
   const d = S.draft;
   const photo = d.photo && d.photo.flat;
-  const kinds = ['couch', 'headboard', 'dresser', 'console', 'tv', 'lamp', 'plant', 'window', 'door', 'edge', 'outlet', 'switch'];
+  // What you can mark, by what it does to the art: furniture the art hangs over, things
+  // set into the wall, things standing in front of it, and where the wall itself changes.
+  const groups = [
+    ['Furniture the art hangs over', ['couch', 'headboard', 'dresser', 'console', 'tv']],
+    ['Set into the wall', ['window', 'door', 'outlet', 'switch']],
+    ['Standing in front', ['lamp', 'plant']],
+    ['Where the wall changes', ['edge'], 'A corner, or where paint or panels change.'],
+  ];
   const num = (o, k, label) => `<label class="num"><span>${label}</span><span class="num-in"><input type="number" step="0.5" min="0" data-obk="${k}" data-obid="${esc(o.id)}" value="${o[k]}"> in</span></label>`;
   return `${bar(back(d.photo ? '#/check' : '#/start', d.photo ? 'Your wall' : 'Size'))}
   <main class="page">
     <h1>What's in the way?</h1>
-    <p class="lede">Mark anything the art should clear. Drag a box to move it, its corner dot to size it.</p>
-    <div class="chips" role="group" aria-label="Add">${kinds.map((k) => `<button type="button" class="chip" data-add="${k}">${KIND_NAME[k]}</button>`).join('')}</div>
+    <p class="lede">Mark what the art should clear. Drag to move, corner dot to size.</p>
+    <div class="two-up">
     <div class="drawing wall-edit" id="edit-wall">
       ${wallSvg({ wall: { width: d.width, height: d.height }, photo, obstacles: [], extra: obstacleLayer(), pxWide: editPx(), label: d.name })}
     </div>
+    <div class="two-up-side">
+    <div class="add-groups">${groups.map(([label, ks, help]) => `<div class="add-group" role="group" aria-label="${esc(label)}"><span class="add-label">${esc(label)}</span><span class="add-row">${ks.map((k) => `<button type="button" class="btn quiet small" data-add="${k}">${KIND_NAME[k]}</button>`).join('')}</span>${help ? `<span class="help">${esc(help)}</span>` : ''}</div>`).join('')}</div>
     ${d.obstacles.length ? `<ul class="rows">${trueObs(d).map((o) => `<li class="row">
         <span class="row-text"><span class="name">${esc(obName(o))}</span>
         <span class="nums">${num(o, 'w', 'Wide')}${num(o, 'h', 'Tall')}${num(o, 'x', 'From left')}${num(o, 'y', 'From floor')}</span>
         ${['couch', 'headboard'].includes(o.kind) ? `<span class="help">Tall is the floor to the top of the ${o.kind === 'couch' ? 'back' : 'headboard'}.</span>` : ''}</span>
         <button type="button" class="link" data-remove-ob="${esc(o.id)}">Remove</button>
-      </li>`).join('')}</ul>` : '<p class="pencil">Nothing marked yet. If the wall is bare, skip this.</p>'}
+      </li>`).join('')}</ul>` : '<p class="pencil">Bare wall? Skip this.</p>'}
     ${flashHtml()}
     <div class="acts end"><a class="btn" href="${d.photo ? '#/check' : '#/pieces'}">${d.photo ? 'Done' : d.obstacles.length ? 'Next' : "Nothing's in the way"}</a></div>
+    </div></div>
   </main>`;
 }
 
@@ -1323,7 +1361,7 @@ function pieces() {
   return `${bar(back(d.photo ? '#/check' : '#/things', d.photo ? 'Your wall' : 'In the way'))}
   <main class="page">
     <h1>Your art</h1>
-    <p class="lede">${photo ? 'Drag a box around each piece hanging in the photo. We read its size from the wall and its colors from the picture.' : "Add each piece you have for this wall, with its size in the frame. Art that isn't up yet counts too."}</p>
+    <p class="lede">${photo ? 'Drag a box around each piece in the photo.' : "Add each piece for this wall, with its framed size."}</p>
     ${photo ? `<div class="drawing wall-edit draw-mode" id="draw-wall">${wallSvg({ wall: { width: d.width, height: d.height }, photo, obstacles: [], extra: `${marks}<rect id="draw-rect" class="draw-rect" x="0" y="0" width="0" height="0"/>`, pxWide: editPx(), label: 'Your wall photo' })}</div>` : ''}
     ${d.owned.length ? `<ul class="rows">${d.owned.map((o) => `<li class="row">
       <span class="thumb">${o.thumb ? `<img src="${o.thumb}" alt="">` : `<span class="swatch" style="background:${esc(o.color || '#8A8F94')}"></span>`}</span>
@@ -1379,8 +1417,8 @@ function begin() {
   <main class="page begin">
     <h1>What are you doing?</h1>
     <ul class="paths">
-      <li><a class="path" href="#/new"><span class="path-head"><span class="path-name">One wall</span><span class="path-tag">Basic</span></span><span class="pencil">One photo of the wall, a few minutes. Art you have on it counts.</span></a></li>
-      <li><a class="path" href="${h.walls.length ? '#/home' : '#/stuff/home'}"><span class="path-head"><span class="path-name">A whole home</span><span class="path-tag">Advanced</span></span><span class="pencil">What you already own first, then a photo of each wall. Your pieces get spread across the walls, and new art fills the gaps.</span></a></li>
+      <li><a class="path" href="#/new"><span class="path-head"><span class="path-name">One wall</span><span class="path-tag">Basic</span></span><span class="pencil">One photo, a few minutes.</span></a></li>
+      <li><a class="path" href="${h.walls.length ? '#/home' : '#/stuff/home'}"><span class="path-head"><span class="path-name">A whole home</span><span class="path-tag">Advanced</span></span><span class="pencil">Your art first, then each wall. New art fills the gaps.</span></a></li>
     </ul>
   </main>`;
 }
@@ -1437,14 +1475,14 @@ function stuffScreen() {
         <span class="name">Empty frame</span>
         <span class="nums">${num(x, 'w', 'Wide')}${num(x, 'h', 'Tall')}</span>
         <span class="seg small-seg" role="group" aria-label="Frame color">${FRAME_COLORS.map(([k, v]) => `<button type="button" data-stuff-color="${k}" data-sid="${esc(x.id)}" aria-pressed="${x.color === k}">${v}</button>`).join('')}</span>
-        <span class="pencil small">The size it's sold as, like 11 x 14. Walls that need this size use it, and it costs nothing.</span>
+        <span class="pencil small">The size it's sold as, like 11 x 14. Walls use it for free.</span>
       </span>
       <span class="row-side"><button type="button" class="link" data-stuff-remove="${esc(x.id)}">Remove</button></span>
     </li>`;
   return `${bar(back(homeFlow ? '#/begin' : (S.draft && S.draft.width ? '#/layouts' : '#/'), homeFlow ? 'Back' : 'Your walls'))}
   <main class="page stuff">
     <h1>What you already have</h1>
-    <p class="lede">Art you own, up now or in a closet, and empty frames. ${oneWall ? 'Tick On this wall to hang a piece here. Empty frames make their size free under a budget.' : 'Every wall uses these first.'} A rough size is fine; you can fix it later.</p>
+    <p class="lede">Art and empty frames you own. ${oneWall ? 'Tick On this wall to hang it here.' : 'Every wall uses these first.'} A rough size is fine.</p>
     ${flashHtml()}
     <h2>Art <span class="pencil">${art.length || ''}</span></h2>
     ${art.length ? `<ul class="rows">${art.map(artRow).join('')}</ul>` : '<p class="pencil">Nothing yet.</p>'}
@@ -1490,7 +1528,7 @@ function homeScreen() {
   return `${bar(back('#/begin', 'Back'), `<a class="btn quiet small" href="#/stuff/home">Your stuff</a>`)}
   <main class="page home-plan">
     <h1>Your home</h1>
-    <p class="lede">A photo of each wall you want to do, the main one first. ${art.length ? `Your ${art.length === 1 ? 'piece goes' : `${art.length} pieces go`} up first, spread across the walls, then new art fills the gaps.` : 'Add what you already own in Your stuff and it goes up first.'}</p>
+    <p class="lede">A photo of each wall, main one first. ${art.length ? `Your ${art.length === 1 ? 'piece goes' : `${art.length} pieces go`} up first.` : 'Your own art goes up first.'}</p>
     ${flashHtml()}
     ${walls.length ? `<ol class="rows home-walls">${rows}</ol>` : '<p class="pencil">No walls yet.</p>'}
     <div class="acts left"><a class="btn${walls.length ? ' quiet' : ''}" href="#/home-add">Add a wall</a></div>
@@ -1510,6 +1548,18 @@ function ownedFromStuff(x) {
     palette: x.palette && x.palette.length ? x.palette : x.color ? [{ hex: x.color, weight: 1 }] : [], thumb: x.thumb || null, color: x.color || null, fromPhoto: false, art: !!x.thumb,
     ...(x.framed ? {} : { needsFrame: hs.frame ? { w: hs.frame.w, h: hs.frame.h, print: { w: x.w, h: x.h } } : { w: x.w, h: x.h, print: null, custom: true } }) };
 }
+// From one wall, art you add to your stuff goes on that wall; a change to a piece you have
+// (its size, framed or not) follows it onto the wall it's on.
+const fromOneWall = () => route()[0] === 'stuff' && route()[1] !== 'home' && S.draft && !S.draft.sample && !S.draft.home && S.draft.width;
+function syncStuff(x, add = false) {
+  const d = S.draft;
+  if (!d || !x || x.kind !== 'art') return;
+  const i = d.owned.findIndex((o) => o.stuff === x.id);
+  if (i >= 0) { const o = d.owned[i]; d.owned[i] = { ...ownedFromStuff(x), keep: o.keep, pinned: o.pinned, at: o.at }; }
+  else if (add) d.owned.push(ownedFromStuff(x));
+  else return;
+  resetLayouts(); persist();
+}
 function planHome() {
   const walls = homeWalls();
   const art = myStuff().filter((x) => x.kind === 'art');
@@ -1522,6 +1572,132 @@ function planHome() {
   }
   const h = myHome(); h.planned = { unplaced: r.unplaced }; saveHome(h);
   if (S.draft && S.draft.home) { const w = store.getWall(S.draft.id); if (w) { S.draft = upgradeDraft(clone(w)); resetLayouts(); persist(); } }
+}
+
+// ---------- Browse: every piece, with filters, like a shop ----------
+// Every active piece in a grid, filtered like a normal shop. The heart saves it (your walls
+// try it first where it fits, and it counts toward your taste); Not for me keeps it and art
+// like it off your walls. "For you" sorts by your taste once you have one.
+const BROWSE_PAGE = 60;
+const THEME_WORDS = { summer: 'Summer and the sea', sport: 'Sport', city: 'Cities', nature: 'Nature', 'still life': 'Still life', art: 'Art and abstract', animals: 'Animals', mono: 'Black and white' };
+function browseItems(f) {
+  const no = notForMe();
+  const fromPrice = (c) => { const ps = c.sizes.map((z) => z.price).filter((v) => typeof v === 'number'); return ps.length ? Math.min(...ps) : null; };
+  let list = CATALOG.filter((c) => !no.has(c.id));
+  const r = (c) => c.record;
+  if (f.theme) list = list.filter((c) => r(c).tags.theme === f.theme);
+  if (f.color === 'bw') list = list.filter((c) => r(c).color.bw); else if (f.color === 'color') list = list.filter((c) => !r(c).color.bw);
+  if (f.mood) list = list.filter((c) => (r(c).tags.mood || []).includes(f.mood));
+  if (f.shape) list = list.filter((c) => r(c).image.orientation === f.shape);
+  if (f.kind === 'shop') list = list.filter((c) => c.offers && c.offers.length); else if (f.kind === 'free') list = list.filter((c) => !(c.offers && c.offers.length));
+  if (f.price) { const [lo, hi] = f.price.split('-').map(Number); list = list.filter((c) => { const p = fromPrice(c); return p != null && p >= lo && (!hi || p < hi); }); }
+  const d = S.draft;
+  const tw = d && d.taste && d.taste.source === 'yours' ? d.taste.weights : null;
+  const taste = tw ? scoreTaste(tw, list) : null;
+  const saved = new Set(store.loadMe().saved);
+  if (f.sort === 'low') list.sort((a, b) => (fromPrice(a) ?? 1e9) - (fromPrice(b) ?? 1e9) || (a.id < b.id ? -1 : 1));
+  else if (f.sort === 'high') list.sort((a, b) => (fromPrice(b) ?? -1) - (fromPrice(a) ?? -1) || (a.id < b.id ? -1 : 1));
+  else list.sort((a, b) => (taste ? taste[b.id] - taste[a.id] : 0) || looksGood(b) - looksGood(a) || (a.id < b.id ? -1 : 1));
+  return { list, fromPrice, saved };
+}
+function browse() {
+  const f = S.ui.browse || (S.ui.browse = { theme: '', color: '', mood: '', shape: '', kind: '', price: '', sort: 'you', n: BROWSE_PAGE });
+  const { list, fromPrice, saved } = browseItems(f);
+  const sel = (key, label, opts) => `<label class="filter"><span>${label}</span><select data-browse="${key}">${opts.map(([v, l]) => `<option value="${esc(v)}"${f[key] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  const d = S.draft, tasteOn = d && d.taste && d.taste.source === 'yours';
+  const card = (c) => {
+    const p = fromPrice(c), shop = c.offers && c.offers.length;
+    return `<li class="art-card"><span class="art-card-img"><img src="${c.imageData}" alt="${esc(c.title)}" loading="lazy" style="aspect-ratio:${c.aspect || 0.8}"></span>
+      <span class="art-card-text"><span class="name">${esc(c.title)}</span><span class="pencil small">${esc(c.artist || '')}${shop ? `, ${esc(c.source)}` : ', free photo'}${p != null ? ` · from $${Math.round(p)}` : ''}</span></span>
+      <span class="art-card-acts"><button type="button" class="heart" data-browse-save="${esc(c.id)}" aria-pressed="${saved.has(c.id)}" aria-label="${saved.has(c.id) ? 'Saved' : 'Save'} ${esc(c.title)}">${heart(saved.has(c.id))}</button><button type="button" class="link small" data-browse-no="${esc(c.id)}">Not for me</button></span></li>`;
+  };
+  const shown = list.slice(0, f.n);
+  return `${bar(back(d && d.width ? '#/layouts' : '#/', d && d.width ? 'Your walls' : 'Walldrobe'), '<a class="btn quiet small" href="#/saved">Favorites</a>')}
+  <main class="page browse">
+    <h1>All the art</h1>
+    <p class="lede">${list.length.toLocaleString('en-US')} pieces. Heart what you like; your walls try it first. ${tasteOn ? '' : '<a href="#/taste">Teach it your taste</a> to sort for you.'}</p>
+    ${S.undo && /^(Saved|Not for me)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
+    <details class="filter-box"${S.ui.filtersOpen ? ' open' : ''}><summary>Filter and sort${(() => { const n = ['theme', 'color', 'mood', 'shape', 'kind', 'price'].filter((k) => f[k]).length; return n ? ` <span class="pencil">${n} on</span>` : ''; })()}</summary>
+    <div class="filters">
+      ${sel('theme', 'Subject', [['', 'Any'], ...Object.entries(THEME_WORDS)])}
+      ${sel('color', 'Color', [['', 'Any'], ['color', 'Color'], ['bw', 'Black and white']])}
+      ${sel('mood', 'Mood', [['', 'Any'], ['calm', 'Calm'], ['sunny', 'Sunny'], ['moody', 'Moody'], ['bold', 'Bold'], ['playful', 'Playful'], ['elegant', 'Elegant']])}
+      ${sel('shape', 'Shape', [['', 'Any'], ['portrait', 'Tall'], ['landscape', 'Wide'], ['square', 'Square']])}
+      ${sel('kind', 'From', [['', 'Shops and free'], ['shop', 'Shop prints'], ['free', 'Free photos']])}
+      ${sel('price', 'Price', [['', 'Any'], ['0-30', 'Under $30'], ['30-60', '$30 to $60'], ['60-100', '$60 to $100'], ['100-0', '$100 and up']])}
+      ${sel('sort', 'Sort', [['you', tasteOn ? 'For you' : 'Best first'], ['low', 'Price, low to high'], ['high', 'Price, high to low']])}
+    </div>
+    ${['theme', 'color', 'mood', 'shape', 'kind', 'price'].some((k) => f[k]) ? '<button type="button" class="link" data-act="browse-clear">Clear filters</button>' : ''}
+    </details>
+    ${list.length ? `<ul class="art-grid">${shown.map(card).join('')}</ul>` : '<p class="pencil">Nothing matches. Try fewer filters.</p>'}
+    ${list.length > shown.length ? `<div class="feed-end"><button type="button" class="btn quiet" data-act="browse-more">Show more</button><span class="pencil small">${shown.length} of ${list.length.toLocaleString('en-US')}</span></div>` : ''}
+  </main>`;
+}
+function browseSave(id) {
+  const me = store.loadMe(), on = me.saved.includes(id);
+  me.saved = on ? me.saved.filter((x) => x !== id) : [...me.saved, id];
+  if (!on) me.disliked = me.disliked.filter((x) => x !== id);
+  store.saveMe(me);
+  const d = S.draft;
+  if (d && !d.sample) { d.saved = on ? d.saved.filter((x) => x !== id) : [...new Set([...d.saved, id])]; if (!on) d.skipped = d.skipped.filter((x) => x !== id); persist(); if (S.view) S.view.rankKey = null; }
+  return !on;
+}
+function browseNo(id) {
+  const me = store.loadMe(), wasSaved = me.saved.includes(id);
+  me.disliked = [...me.disliked.filter((x) => x !== id), id];
+  me.saved = me.saved.filter((x) => x !== id);
+  store.saveMe(me);
+  const d = S.draft;
+  if (d) { d.saved = d.saved.filter((x) => x !== id); persist(); if (S.view) S.view.rankKey = null; }
+  S.undo = { label: 'Not for me.', run: () => { const m = store.loadMe(); m.disliked = m.disliked.filter((x) => x !== id); if (wasSaved) m.saved = [...m.saved, id]; store.saveMe(m); if (d && wasSaved) { d.saved = [...d.saved, id]; persist(); } if (S.view) S.view.rankKey = null; } };
+}
+
+// ---------- Where you are: a quiet list of the steps, on a computer ----------
+// On a wide screen, a column at the left lists the steps with what each one holds now
+// ("34% known", "15 walls fit", "3 of 5 ordered"): where you are, what's done, what's
+// next. Plain text, no numbers in boxes, no colored bars; it never decides anything, every
+// line is a link back to that step. Phones don't get it: each screen's own button is the next step.
+const RAIL_ROUTES = new Set(['check', 'things', 'pieces', 'taste', 'layouts', 'wall', 'frames', 'get', 'hang', 'stuff', 'home', 'browse']);
+function railHtml(r0) {
+  const d = S.draft;
+  if (!d || !d.width || !RAIL_ROUTES.has(r0)) return '';
+  const v = S.view && S.view.key === viewKey() ? S.view : null;
+  const L = v ? v.list.find((x) => x.key === S.openKey) || null : null;
+  const chosen = d.chosen && d.chosen.layout;
+  const fresh = (chosen || L) ? (chosen || L).pieces.filter((p) => p.ref.source === 'catalog') : [];
+  const tasteOn = d.taste && d.taste.source === 'yours';
+  const st = chosen ? orderState(chosen) : null;
+  const steps = [
+    { id: 'wall', name: 'Your wall', href: d.photo ? '#/check' : '#/things', at: ['check', 'things', 'pieces'], done: true,
+      note: `${feet(d.width)} wide${(() => { const n = (d.owned || []).filter((o) => o.keep !== 'skip').length; return n ? `, ${n} of yours` : ''; })()}` },
+    { id: 'taste', name: 'Your taste', href: '#/taste', at: ['taste'], done: tasteOn,
+      note: tasteOn ? `${knownPct([...yourPicks(), ...feedPairs()])}% known` : 'Not yet: about a minute' },
+    { id: 'pick', name: 'Pick a wall', href: '#/layouts', at: ['layouts', 'browse'], done: !!chosen,
+      note: v ? `${v.list.length} walls fit` : 'Every wall that fits' },
+    { id: 'mine', name: 'Make it yours', href: '#/wall', at: ['wall', 'stuff'], done: !!chosen,
+      note: L ? `${(keptSet().size ? `${keptSet().size} kept, ` : '')}${L.pieces.length} pieces` : 'Keep, swap, save' },
+    { id: 'frame', name: 'Frame it', href: chosen ? '#/frames' : '', at: ['frames'], done: !!(st && (st.art || st.fr)),
+      note: chosen ? `${FRAME_LOOKS[lookOf()].name}${widthKey() === 'standard' ? '' : `, ${FRAME_WIDTHS[widthKey()].name.toLowerCase()}`}` : 'Frames and mats' },
+    { id: 'get', name: 'Get it', href: chosen ? '#/get' : '', at: ['get'], done: !!(st && st.done),
+      note: st && st.fresh ? `${st.art} of ${st.fresh} ordered` : 'Prints and frames, cheapest first' },
+    { id: 'hang', name: 'Hang it', href: chosen ? '#/hang' : '', at: ['hang'], done: !!(d.hung && chosen && d.hung.key === chosen.key),
+      note: d.hung ? "It's up" : 'Nails and hangers' },
+  ];
+  const now = steps.findIndex((x) => x.at.includes(r0));
+  // Picking a wall is done once you've opened one; each later step counts the ones before it.
+  steps.forEach((x, i) => { if (now >= 0 && i < now && x.id !== 'taste') x.done = true; });
+  const check = '<svg class="rail-check" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const li = (x, i) => {
+    const cls = i === now ? 'is-now' : x.done ? 'is-done' : '';
+    const inner = `<span class="rail-name">${x.done && i !== now ? check : ''}${esc(x.name)}</span><span class="rail-note">${esc(x.note)}</span>`;
+    return `<li class="${cls}">${x.href ? `<a href="${x.href}"${i === now ? ' aria-current="step"' : ''}>${inner}</a>` : `<span class="rail-off">${inner}</span>`}</li>`;
+  };
+  return `<nav class="rail" aria-label="Steps">
+    <a class="wordmark" href="#/" aria-label="Walldrobe"><span class="tab" aria-hidden="true"></span>walldrobe</a>
+    <p class="rail-wall">${esc(d.name || 'Your wall')}${d.home ? ' <a href="#/home">Your home</a>' : ''}</p>
+    <ol class="rail-steps">${steps.map(li).join('')}</ol>
+    <p class="rail-more"><a href="#/browse">Browse the art</a><a href="#/stuff">Your stuff</a><a href="#/walls">Your walls</a></p>
+  </nav>`;
 }
 
 // ---------- Make it mine: the taste test ----------
@@ -1581,7 +1757,7 @@ function quizCheck(q) {
       ${less.length ? `<dt>Less into</dt><dd>${esc(less.join(', '))}</dd>` : ''}
       <dt>Still learning</dt><dd>${esc(k.unsure.join(', '))}</dd>
     </dl>
-    <p class="pencil small">Every pick sharpens it, and so does every piece you save or swap on your walls. It gets closer to 100 and never quite there: taste moves.</p>
+    <p class="pencil small">Picks, saves and swaps all teach it.</p>
     <div class="acts left">
       <button type="button" class="btn" data-act="quiz-done">Show my walls</button>
       <button type="button" class="btn quiet" data-act="quiz-more">Keep going</button>
@@ -1690,22 +1866,25 @@ function feed() {
   // The taste test, in the list where it's seen: after the second wall, until you've done it.
   const tasteCard = d.taste && d.taste.source === 'yours' ? (() => {
     const pct = knownPct([...yourPicks(), ...feedPairs()]);
-    return `<li class="taste-card"><a href="#/taste" class="taste-link is-text"><span class="taste-text"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">A few more pairs and your walls get closer to you.</span></span></a></li>`;
+    return `<li class="taste-card"><a href="#/taste" class="taste-link is-text"><span class="taste-text"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">More picks, closer walls.</span></span></a></li>`;
   })() : (() => {
     const pair = nextPair(CATALOG, [], new Set()) || [];
     const tn = (it) => (it ? `<span class="tn new" style="width:${Math.round(56 * Math.min(1, it.aspect || 0.8))}px;height:${Math.round(56 / Math.max(1, it.aspect || 0.8))}px"><img src="${it.imageData}" alt="" loading="lazy"></span>` : '');
-    return `<li class="taste-card"><a href="#/taste" class="taste-link"><span class="taste-pair">${tn(pair[0])}<span class="taste-or">or</span>${tn(pair[1])}</span><span class="taste-text"><span class="name">Which do you like more?</span><span class="pencil small">Pick between a few pairs and every wall ranks for your taste.</span></span></a></li>`;
+    return `<li class="taste-card"><a href="#/taste" class="taste-link"><span class="taste-pair">${tn(pair[0])}<span class="taste-or">or</span>${tn(pair[1])}</span><span class="taste-text"><span class="name">Which do you like more?</span><span class="pencil small">A minute of picks, and every wall ranks for you.</span></span></a></li>`;
   })();
   // A budget, asked in the list after the fourth wall until you set one or say no limit.
-  const budgetCard = d.budget || d.budgetAsked ? '' : `<li class="taste-card budget-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="budget-q">What's your budget for this wall, all in?</span><span class="pencil small">${BUDGET_WORDS} <a href="#/stuff">Add frames and art you have</a></span>
+  const budgetCard = d.budget || d.budgetAsked ? '' : `<li class="taste-card budget-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="budget-q">Budget for this wall?</span><span class="pencil small">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span>
     <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}">$${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" data-budget-ask="0">No limit</button></span>${budgetForm('feed')}</span></div></li>`;
-  const items = v.list.map((L, i) => `<li class="entry">
+  const tasteTaken = d.taste && d.taste.source === 'yours';
+  const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Save what you like. Your walls try it first.</span></span></a></li>`;
+  const items = (tasteTaken ? '' : tasteCard) + v.list.map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
     </a>
-  </li>${i === 1 ? tasteCard : ''}${i === 3 ? budgetCard : ''}`).join('');
+  </li>${i === 1 && tasteTaken ? tasteCard : ''}${i === 3 ? budgetCard : ''}${i === 6 ? browseCard : ''}`).join('');
   return `${bar(d.home ? back('#/home', 'Your home') : wordmark(), `${d.home ? '' : yourWalls()}<button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="feed-page">
+    <p class="feed-intro">${d.home && d.name ? `${esc(d.name)}: best` : 'Best'} fit first. Tap one to make it yours.</p>
     ${readLine(d)}
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
@@ -1781,6 +1960,8 @@ function wallScreen() {
     <h1 class="sr-only">${esc(whyText(L))}</h1>
     </div>
     <section class="wall-side" aria-label="In this wall">
+    <p class="wall-hint">Tap a piece to swap, keep or save it.</p>
+    ${L.pieces.some((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)) ? `<p class="layout-not-art">Love the layout, not the art? <button type="button" class="link" data-act="new-art"${S.busy ? ' disabled' : ''}>New art in these frames</button></p>` : ''}
     ${mine.length ? `<div class="yours"><span class="yours-l">Yours</span>${yours}</div>` : ''}
     ${L.left && L.left.length ? `<p class="pencil small">Left off: ${L.left.map((l) => `your ${esc(l.title)}`).join(', ')}.</p>` : ''}
     ${fresh.length ? `<ul class="pieces">${grid}</ul>` : ''}
@@ -1817,7 +1998,7 @@ function sheetHtml() {
 }
 const BUDGETS = [null, 150, 300, 600, 1000];
 // What the budget counts, said the same way everywhere.
-const BUDGET_WORDS = 'All in: the art (or printing a free photo), a frame for each new piece, and any mat. Not shipping, tax or nails. Frames you already have cost nothing.';
+const BUDGET_WORDS = 'Art, frames and mats, all in. Frames you own are free.';
 const budgetForm = (where) => `<form class="budget-form" data-budget-form="${where}" novalidate><label><span>Or type it</span><span class="num-in">$<input type="number" inputmode="numeric" min="20" max="20000" step="10" name="budget" value="${S.draft.budget && !BUDGETS.includes(S.draft.budget) ? S.draft.budget : ''}" placeholder="250"></span></label><button type="submit" class="btn quiet small">Set</button></form>`;
 function changeSheet() {
   const d = S.draft;
@@ -1827,36 +2008,42 @@ function changeSheet() {
   const L = onWall ? (stale ? (S.mem.under && S.mem.under.L) || null : shown()) : null;
   const dis = S.busy ? ' disabled' : '';
   const asIs = S.view && S.view.list.find((x) => x.variant === 'asis');
-  const seg = (id, label, pairs, cur, attr) => `<div class="sheet-row"><span class="label" id="${id}">${label}</span><span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span></div>`;
+  // Each row says what the choice it has means, in a few words, so nothing needs a guess.
+  const seg = (id, label, pairs, cur, attr, help = null) => `<div class="sheet-row"><span class="label" id="${id}">${label}</span><span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span>${help && help[cur == null ? '' : cur] ? `<span class="row-help">${esc(help[cur == null ? '' : cur])}</span>` : ''}</div>`;
   const counts = (S.view && S.view.counts) || [];
   const n = d.pieces || (L ? L.pieces.length : null);
   const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
   const arts = [['prints', 'Shop prints'], ['photos', 'Free art'], ['both', 'Both'], ...(keptOwned().length ? [['mine', 'Just mine']] : [])];
+  const tastePct = d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0;
+  const status = stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : '';
   return `<h2 id="sheet-h">Preferences</h2>
-    <p class="sheet-status" role="status">${stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : ''}</p>
-    ${seg('kind-l', 'Kind', [[null, 'Any'], ['structured', 'Structured'], ['gallery', 'Loose']], d.style || null, 'style')}
+    ${status ? `<p class="sheet-status" role="status">${status}</p>` : '<p class="sheet-status is-empty" role="status"></p>'}
+    <a class="taste-promo" href="#/taste"><span class="taste-promo-text"><span class="name">${tastePct ? `We know your taste ${tastePct}%` : 'Teach it your taste'}</span><span class="pencil small">${tastePct ? 'More picks, closer walls.' : 'A minute of picks, and every wall ranks for you.'}</span></span>${knownBar(tastePct)}<span class="taste-promo-go">${tastePct ? 'Keep going' : 'Start'}</span></a>
+    ${seg('kind-l', 'Kind', [[null, 'Any'], ['structured', 'Structured'], ['gallery', 'Loose']], d.style || null, 'style', { '': 'Every kind.', structured: 'Grids, rows, one big piece.', gallery: 'Mixed sizes, relaxed.' })}
     <div class="sheet-row"><span class="label" id="count-l">How many</span>
       <span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
-      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</div>
-    ${seg('full-l', 'How full', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness')}
-    ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
-    ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
+      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}
+      <span class="row-help">${d.pieces ? 'Yours count too.' : 'As many as look right.'}</span></div>
+    ${seg('full-l', 'How full', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness', { calm: 'A few pieces, lots of wall.', balanced: 'Some art, room to breathe.', full: 'Gallery wall, close together.' })}
+    ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art', { prints: 'Buy from a shop.', photos: 'Free, you print them.', both: 'Shop and free.', mine: 'Only what you own.' })}
+    ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone', { '': 'Any colors.', warm: 'Reds, golds, wood.', cool: 'Blues, greens, grays.' })}
     ${seg('budget-l', 'Budget', BUDGETS.map((v) => [v, v ? `$${v.toLocaleString('en-US')}` : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}
     ${budgetForm('sheet')}
-    <p class="help sheet-help">${BUDGET_WORDS} <a href="#/stuff">Add frames and art you have</a></p>
+    <p class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></p>
     <ul class="sheet-list">
       ${onWall && L && L.pieces.some((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)) ? '<li><button type="button" class="sheet-item" data-act="new-art">New art in the open frames</button></li>' : ''}
       ${onWall && L && L.pieces.some(movable) ? `<li><button type="button" class="sheet-item" data-act="edit">${S.edit ? 'Stop moving pieces' : 'Move pieces by hand'}</button></li>` : ''}
       ${onWall && L && S.view.orig && S.view.orig[L.key] ? '<li><button type="button" class="sheet-item" data-act="put-back">Put this wall back the way it was</button></li>' : onWall && L && L.history && L.history.length ? '<li><button type="button" class="sheet-item" data-act="undo-all">Put the pieces back the way they were</button></li>' : ''}
       ${asIs && (!onWall || asIs.key !== (L && L.key)) ? `<li><a class="sheet-item" href="#/wall" data-wall="${esc(asIs.key)}">Show it as it hangs now</a></li>` : ''}
       ${onWall ? `<li><button type="button" class="sheet-item" data-act="measure">${S.measure ? 'Hide measurements' : 'Show measurements and nails'}</button></li>` : ''}
-      <li><a class="sheet-item" href="#/taste">Make it mine: pick between pairs of art</a></li>
-      <li><a class="sheet-item" href="#/stuff">Your stuff: art and frames you already have</a></li>
+      <li><a class="sheet-item" href="#/browse">Browse all the art</a></li>
+      <li><a class="sheet-item" href="#/stuff">Your art and frames</a></li>
       <li><a class="sheet-item" href="${d.photo ? '#/check' : '#/things'}">Check what's marked on the wall</a></li>
       <li><a class="sheet-item" href="#/new">Start a new wall</a></li>
       <li><a class="sheet-item" href="#/saved">Favorites${S.draft.saved.length ? ` <span class="pencil">${S.draft.saved.length}</span>` : ''}</a></li>
       <li><a class="sheet-item" href="#/walls">Your walls</a></li>
-    </ul>`;
+    </ul>
+    <div class="acts left"><button type="button" class="link" data-act="reset-prefs"${dis}>Reset preferences</button></div>`;
 }
 function pieceSheet(id) {
   const d = S.draft;
@@ -1953,18 +2140,43 @@ const MAT_SHARE = { none: 0, few: 0.25, some: 0.5, most: 0.75, all: 1 };
 // The level you picked last carries to new walls.
 let ME_MAT = null;
 const matLevel = () => { const v = S.draft && S.draft.mat; if (MAT_SHARE[v] != null) return v; if (ME_MAT === null) ME_MAT = store.loadMe().matLevel || ''; return MAT_SHARE[ME_MAT] != null ? ME_MAT : 'some'; };
-const cheapestPrint = (k) => Math.min(...PRINTERS.map((x) => x.sizes[k]).filter((v) => v != null));
+const cheapestListed = (k) => Math.min(...PRINTERS.map((x) => x.sizes[k]).filter((v) => v != null));
+// A size no lab lists is printed at the smallest listed size that holds it, then trimmed.
+const PRINT_KEYS = [...new Set(PRINTERS.flatMap((x) => Object.keys(x.sizes)))].map((k) => [k, ...k.split('x').map(Number)]).sort((a, b) => a[1] * a[2] - b[1] * b[2]);
+const cheapestPrint = (k) => {
+  const v = cheapestListed(k);
+  if (Number.isFinite(v)) return v;
+  const [a, b] = k.split('x').map(Number);
+  const up = PRINT_KEYS.find(([key, x, y]) => x >= a && y >= b && Number.isFinite(cheapestListed(key)));
+  return up ? cheapestListed(up[0]) : Infinity;
+};
 const cheapestFrame = (k, mat, look = 'black') => Math.min(...FRAMERS.map((f) => sizesIn(f, look)[k]).filter(Boolean).filter(([, m]) => mat === undefined || m === mat).map(([pr]) => pr));
-// Mark each size with the ways it's easy to buy, once.
+// Mark each size with the ways it's easy to buy, once. A shop print comes only in the sizes
+// the shop sells. A free photo keeps its own shape: a size is offered when the print fills
+// the frame at the photo's ratio, or when the print that sits in that frame's mat does,
+// so nothing is cut to fit (a precut mat is always easy to add). A photo no standard size
+// fits keeps its nearest sizes, cropped, as before.
+const RATIO_OK = 0.04;
+const nearRatio = (w, h, a) => Math.abs((w / h) / a - 1) <= RATIO_OK;
 for (const c of CATALOG) {
   const shop = c.offers && c.offers.length;
+  if (shop) { for (const z of c.sizes) if (!z.matted) z.plainOk = true; continue; }
+  const a = c.aspect || (c.record && c.record.image.aspect) || 0.8;
+  const fit = (z) => { const ps = printSize(z.w, z.h); return { plain: nearRatio(z.w, z.h, a), mat: !!ps && nearRatio(ps[0], ps[1], a), ps }; };
+  const kept = c.sizes.filter((z) => { const f = fit(z); return f.plain || f.mat; });
+  const exact = kept.length > 0;
+  if (exact) c.sizes = kept;
   for (const z of c.sizes) {
-    if (shop) { if (!z.matted) z.plainOk = true; continue; }
-    const F = frameKey(z.w, z.h), ps = printSize(z.w, z.h), P = ps ? frameKey(ps[0], ps[1]) : null;
-    const matEasy = !!P && Number.isFinite(cheapestPrint(P)) && Number.isFinite(cheapestFrame(F, P));
-    const plainEasy = Number.isFinite(cheapestPrint(F)) && Number.isFinite(cheapestFrame(F));
-    if (matEasy) z.matPrint = { w: ps[0], h: ps[1] };
-    z.plainOk = plainEasy || !matEasy;
+    const F = frameKey(z.w, z.h), f = fit(z), ps = f.ps, P = ps ? frameKey(ps[0], ps[1]) : null;
+    const matEasy = !!P && Number.isFinite(cheapestListed(P)) && Number.isFinite(cheapestFrame(F, P));
+    const plainEasy = Number.isFinite(cheapestListed(F)) && Number.isFinite(cheapestFrame(F));
+    if (exact) {
+      if (f.mat) z.matPrint = { w: ps[0], h: ps[1] };
+      z.plainOk = f.plain && (plainEasy || !f.mat || !matEasy);
+    } else {
+      if (matEasy) z.matPrint = { w: ps[0], h: ps[1] };
+      z.plainOk = plainEasy || !matEasy;
+    }
   }
 }
 // ---------- All in: what a piece costs with its frame ----------
@@ -1977,7 +2189,8 @@ const matOnly = (F, P) => MAT_ONLY[`${F}|${P}`] ?? 10;
 const haveFrameKeys = () => [...new Set(myStuff().filter((x) => x.kind === 'frame').map((f) => frameKey(f.w, f.h)))].sort();
 function frameCost(F, P, have) {
   if (have.has(F)) return P ? matOnly(F, P) : 0; // your frame, and a precut mat when it's matted
-  const look = lookOf(), plain = cheapestFrame(F, undefined, look);
+  const lookIn = lookOf(), look = Number.isFinite(cheapestFrame(F, undefined, lookIn)) ? lookIn : 'black';
+  const plain = cheapestFrame(F, undefined, look);
   if (!P) return Number.isFinite(plain) ? plain : null;
   const ways = [cheapestFrame(F, P, look), Number.isFinite(plain) ? plain + matOnly(F, P) : Infinity].filter(Number.isFinite);
   return ways.length ? Math.min(...ways) : null;
@@ -2002,12 +2215,14 @@ function allInOf(c, z, have) {
 // moulding sets the outside size), and with a budget, its all-in price.
 let SHAPED = { key: null, list: null };
 function shapeCatalog(catalog) {
-  const d = S.draft, b = widthOf().border, wide = b !== RULES.frameBorder;
-  if (!d.budget && !wide) return catalog;
-  const key = `${d.budget ? `${matLevel()}|${lookOf()}|${haveFrameKeys().join()}` : ''}|${b}|${catalog.length}|${catalog[0] && catalog[0].id}|${catalog.length && catalog[catalog.length - 1].id}`;
+  const d = S.draft, b = widthOf().border, wide = b !== RULES.frameBorder, noMats = matLevel() === 'none';
+  if (!d.budget && !wide && !noMats) return catalog;
+  const key = `${d.budget ? `${matLevel()}|${lookOf()}|${haveFrameKeys().join()}` : ''}|${b}|${noMats}|${catalog.length}|${catalog[0] && catalog[0].id}|${catalog.length && catalog[catalog.length - 1].id}`;
   if (SHAPED.key !== key) {
     const have = new Set(haveFrameKeys());
-    SHAPED = { key, list: catalog.map((c) => ({ ...c, sizes: c.sizes.map((z0) => {
+    // With no mats, a free photo only comes in the sizes it fills without being cut.
+    const sizesOf = (c) => (noMats && !(c.offers && c.offers.length) && c.sizes.some((z) => z.plainOk !== false) ? c.sizes.filter((z) => z.plainOk !== false) : c.sizes);
+    SHAPED = { key, list: catalog.map((c) => ({ ...c, sizes: sizesOf(c).map((z0) => {
       const z = wide && !z0.framed ? { ...z0, border: b } : z0;
       if (!d.budget) return z;
       const v = allInOf(c, z, have); const { price, ...rest } = z; return v == null ? rest : { ...rest, price: v };
@@ -2246,7 +2461,7 @@ function whereToFrame(L) {
     <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for ${widthKey() === 'standard' ? '' : `${FRAME_WIDTHS[widthKey()].name.toLowerCase()} `}${FRAME_LOOKS[lookOf()].name.toLowerCase()} frames, regular prices before any sale${lookOf() === 'black' ? '' : '; not every seller has every size in this color'}.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
-    ${anyMat ? '<p class="pencil small">Mats come already in the frame: look for one sold "matted to" your print size (an 11 x 14 frame matted to 8 x 10). Ready-made mats are white. The window is a half inch smaller than the print, so a quarter inch hides on each side; keep a signature or text off the very edge. Where a seller\'s mat is for another size, buy the frame and a precut mat on its own, the frame\'s size outside with your print\'s window: about $3 at Hobby Lobby, about $10 acid-free with a backing board.</p>' : ''}
+    ${anyMat ? '<p class="pencil small">Buy frames sold "matted to" your print size (11 x 14 matted to 8 x 10). The mat hides a quarter inch on each edge. No matching mat? A precut one is $3 to $10.</p>' : ''}
     <p class="pencil small">Prices checked ${FRAMES_CHECKED}.</p>
   </section>`;
 }
@@ -2259,7 +2474,7 @@ function wallQuestion(L) {
 function copyBlock(L) {
   if (!printNeeds(L).length && !frameNeeds(L).length) return '';
   return `<section class="where ask" aria-label="Find today's codes">
-    <p class="pencil small">Most of these run codes and sales every week, often 40 to 75% off. Copy both tables into ChatGPT, Gemini or Claude and it will look for today's codes and the cheapest way to get it all.</p>
+    <p class="pencil small">These shops run 40 to 75% off sales most weeks. Paste both tables into an AI chat to find today's codes.</p>
     <div class="acts left copy-row"><button type="button" class="btn quiet" data-act="copy-ai">Copy for your AI</button><span class="copy-status" role="status">${S.ui.copied === 'ok' ? 'Copied. Paste it into your AI.' : S.ui.copied === 'no' ? 'Could not copy. Select the table and copy it.' : ''}</span></div>
   </section>`;
 }
@@ -2313,7 +2528,7 @@ function hangerCheck(pieces, open = false) {
       ${hg.type === 'rings' ? `<label class="num"><span>In from each side</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-in="${id}" value="${hg.inset ?? RULES.ringInset}"> in</span></label>` : ''}</span></li>`;
   }).join('');
   return `<details class="hangers"${open || S.ui.hangOpen ? ' open' : ''}><summary>${open ? 'Check each frame' : 'When your frames arrive: check the hangers'}</summary>
-    <p class="pencil small">Turn each frame over and see what's on the back. Measure from the hanger (a wire pulled up tight, as it will hang) to the top of the frame. Every nail spot below follows.</p>
+    <p class="pencil small">Measure from each frame's hanger (wire pulled tight) to its top. The nail spots follow.</p>
     <ul class="hang-list">${rows}</ul></details>`;
 }
 
@@ -2374,7 +2589,8 @@ function framesScreen() {
     const item = byId.get(p.ref.id);
     const ps = printOf(p);
     const fw = soldW(p), fh = soldH(p);
-    const words = !needsFrame(p) ? `Comes framed, ${sz(p.w, p.h)}.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
+    const whole = p.frame && p.frame.can && p.frame.can.mat && !p.frame.can.plain && !(item.offers && item.offers.length);
+    const words = !needsFrame(p) ? `Comes framed, ${sz(p.w, p.h)}.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat${whole ? ', so the photo keeps its shape' : ''}, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
     const flip = canMat(p) ? `<button type="button" class="tick" data-mat-one="${esc(p.ref.id)}" aria-pressed="${matFor(p)}">Mat</button>` : '';
     const opts = sizesFor(p);
     const cur = p.frame ? `${p.frame.w}x${p.frame.h}${p.frame.print && item.offers && item.offers.length ? 'm' : ''}` : '';
@@ -2387,7 +2603,7 @@ function framesScreen() {
   return `${bar(back('#/wall', 'This wall'))}
   <main class="page frames">
     <h1>Frame it</h1>
-    <p class="lede">One frame for every new piece, so the wall reads as a set. Pick how it looks; the sizes come from the wall.</p>
+    <p class="lede">One frame style for every new piece, so it reads as a set.</p>
     <div class="drawing" id="frames-wall">${drawWall(L, pxNow(), { still: true, label: 'Your wall with the frames you picked' })}</div>
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
@@ -2398,18 +2614,18 @@ function framesScreen() {
     </fieldset>
     ${free.length ? `<fieldset class="choose"><legend>How many mats</legend>
       <span class="seg" role="group" aria-label="Mats">${MAT_LEVELS.map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
-      <span class="help">A mat is the white card between the print and the frame; with one, the photo is printed smaller. It comes in the frame and lifts out. Pick how many; one big piece goes without unless you pick All. A grid or a row keeps every mat the same; a looser wall mixes them, smallest frames first, same sizes matching. Only ways you can easily buy are used. Tap Mat on a piece to change just that one.</span>
+      <span class="help">The white card around the print. It comes in the frame. Tap Mat on a piece to change one.</span>
     </fieldset>` : ''}
     ${fresh.some((p) => matFor(p) && !(byId.get(p.ref.id).offers || []).length) ? `<fieldset class="choose"><legend>Mat width</legend>
       <span class="seg" role="group" aria-label="Mat width">${[['standard', 'Standard'], ['wide', 'Wide']].map(([k, v]) => `<button type="button" class="seg-btn" data-mwidth="${k}" aria-pressed="${(matWide() ? 'wide' : 'standard') === k}">${v}</button>`).join('')}</span>
-      <span class="help">${matWide() ? 'The photo prints two sizes down for more white around it. Buy the frame and a precut mat with that window, about $10 to $15.' : 'The mat that comes in the frame, about 2 in of white.'}</span>
+      <span class="help">${matWide() ? 'More white. Needs a precut mat, about $10 to $15.' : 'The one in the frame, about 2 in.'}</span>
     </fieldset>` : ''}
     <h2>Sizes</h2>
     ${S.undo ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
     <ul class="frame-list">${rows}${ownRows}</ul>
     <div class="dock"><button type="button" class="btn wide" data-act="to-get">Get it</button></div>
-  </main>${credits()}`;
+  </main>`;
 }
 
 // ---------- Get it: a checklist of what to order, then where ----------
@@ -2467,7 +2683,7 @@ function getScreen() {
       <div class="acts left"><a class="btn${st.done ? '' : ' quiet'}" href="#/hang">Hang it</a>
       <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button></div>
     </section>
-  </main>${credits()}`;
+  </main>`;
 }
 
 // ---------- Hang it: hangers first, then the nails, then it's up ----------
@@ -2531,7 +2747,7 @@ function hangScreen() {
         </div>`
     : `<p>When every piece is up, mark it hung.</p><div class="acts left"><button type="button" class="btn" data-act="hung">It's up</button></div>`}
     </section>
-  </main>${credits()}`;
+  </main>`;
 }
 
 // ---------- Your walls ----------
@@ -2555,7 +2771,7 @@ function walls() {
     <h1>Your walls</h1>
     ${picking ? `<p class="pencil">${picking.length ? 'Pick one more.' : 'Pick two to compare.'}</p>` : ''}
     ${flashHtml()}
-    ${all.length ? `<ul class="wall-grid">${all.map(card).join('')}</ul>` : '<p class="pencil">Save a wall and it lands here. Save two to compare them.</p>'}
+    ${all.length ? `<ul class="wall-grid">${all.map(card).join('')}</ul>` : '<p class="pencil">Saved walls land here.</p>'}
   </main>${sheetHtml()}`;
 }
 // Favorites: every print you hearted, from any wall. See it on my wall keeps it in every wall.
@@ -2583,6 +2799,7 @@ function savedScreen() {
     ${flashHtml()}
     ${S.undo ? `<p class="undo">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${ids.length ? `<ul class="pieces">${ids.map(tile).join('')}</ul>` : '<p class="pencil">Tap the heart on any print and it lands here.</p>'}
+    <p><a href="#/browse">Browse all the art</a></p>
     ${no.length ? `<details class="not-for-me"><summary>Not for me, ${no.length}</summary>
       <ul class="no-list">${no.map((id) => { const it = byId.get(id); const ar = it.aspect || 0.8, h = ar < 1 ? 56 : 56 / ar; return `<li><span class="tn new" style="width:${(h * ar).toFixed(0)}px;height:${h.toFixed(0)}px"><img src="${it.imageData}" alt=""></span><span class="no-name">${esc(it.title)}</span><button type="button" class="link" data-act="show-again" data-id="${esc(id)}">Show it again</button></li>`; }).join('')}</ul>
     </details>` : ''}
@@ -2648,9 +2865,9 @@ function render() {
     resetLayouts(); persist(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, begin, stuff: stuffScreen, home: homeScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
+  const screens = { '': home, begin, browse, stuff: stuffScreen, home: homeScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
   const fn = screens[r0] || home;
-  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -2660,7 +2877,9 @@ function render() {
     S.view = null; S.busy = null;
     html = brokeScreen();
   }
-  if (html) app().innerHTML = html;
+  const railNav = html ? railHtml(r0) : '';
+  if (html) app().innerHTML = html + railNav;
+  document.body.classList.toggle('has-rail', !!railNav);
   // A sheet that just closed leaves a short calm, so the second tap of a double tap
   // doesn't land on whatever was under the sheet. The time is the tap's own, so a tap
   // that waited behind a slow build still counts as part of the double tap.
@@ -3139,7 +3358,7 @@ document.addEventListener('submit', (e) => {
   }
 });
 
-document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; }, true);
+document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('filter-box')) S.ui.filtersOpen = e.target.open; }, true);
 
 document.addEventListener('change', (e) => {
   const t = e.target;
@@ -3158,9 +3377,16 @@ document.addEventListener('change', (e) => {
         [x.w, x.h] = a >= 1 ? [long, Math.round((long / a) * 2) / 2] : [Math.round(long * a * 2) / 2, long];
         S.flash = 'Added. Put in its real size, and say whether it is framed.';
       }
-      saveStuff(list); render();
+      saveStuff(list); syncStuff(x, !into && fromOneWall()); render();
     }).catch((err) => { S.flash = err.message || "That photo won't open. Use a JPG or PNG."; render(); });
     t.value = '';
+    return;
+  }
+  if (t.dataset && t.dataset.browse) {
+    const f = S.ui.browse; if (!f) return;
+    S.ui.filtersOpen = true;
+    f[t.dataset.browse] = t.value; f.n = BROWSE_PAGE; S.undo = null;
+    render(); const el = document.querySelector(`[data-browse="${CSS.escape(t.dataset.browse)}"]`); if (el) el.focus({ preventScroll: true });
     return;
   }
   if (t.dataset && t.dataset.resize) {
@@ -3176,7 +3402,7 @@ document.addEventListener('change', (e) => {
     if (!x) return;
     if (t.dataset.sk === 'title') x.title = t.value.trim() || 'piece';
     else x[t.dataset.sk] = Math.max(2, Math.min(120, Number(t.value) || 2));
-    saveStuff(list); setTimeout(render, 0);
+    saveStuff(list); syncStuff(x); setTimeout(render, 0);
     return;
   }
   if (t.id === 'hung-photo' && t.files && t.files[0]) {
@@ -3276,7 +3502,11 @@ document.addEventListener('click', (e) => {
   if (t.dataset.fwidth) { S.flash = null; S.undo = null; setFrameWidth(t.dataset.fwidth); render(); const b = document.querySelector(`[data-fwidth="${CSS.escape(t.dataset.fwidth)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.mwidth) { S.draft.matWidth = t.dataset.mwidth === 'wide' ? 'wide' : 'standard'; persist(); render(); const b = document.querySelector(`[data-mwidth="${CSS.escape(t.dataset.mwidth)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.look) { S.draft.look = t.dataset.look; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
-  if (t.dataset.mat) { S.draft.mat = MAT_SHARE[t.dataset.mat] != null ? t.dataset.mat : 'some'; S.draft.matFor = {}; { const me = store.loadMe(); me.matLevel = S.draft.mat; store.saveMe(me); ME_MAT = S.draft.mat; } persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.mat) {
+    // The wall you're framing stays the wall you're framing, whatever the walls behind it do.
+    const L0 = route()[0] === 'frames' ? shown() : null;
+    S.draft.mat = MAT_SHARE[t.dataset.mat] != null ? t.dataset.mat : 'some'; S.draft.matFor = {};
+    if (L0) { S.draft.chosen = { layout: bareLayout(L0), inputKey: viewKey(), at: 0 }; S.openKey = L0.key; } { const me = store.loadMe(); me.matLevel = S.draft.mat; store.saveMe(me); ME_MAT = S.draft.mat; } persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.matOne) { const L = shown(), p = L && L.pieces.find((x) => x.ref.id === t.dataset.matOne); if (p) { S.draft.matFor = { ...(S.draft.matFor || {}), [p.ref.id]: !matFor(p) }; persist(); render(); const b = document.querySelector(`[data-mat-one="${CSS.escape(p.ref.id)}"]`); if (b) b.focus({ preventScroll: true }); } return; }
   if (t.dataset.order) { const k = t.dataset.order, o = { ...(S.draft.orders || {}) }; if (o[k]) delete o[k]; else o[k] = true; S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.add) {
@@ -3403,6 +3633,14 @@ document.addEventListener('click', (e) => {
     render(); return;
   }
   if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; S.selected = t.dataset.piece; S.ui.allFor = null; S.ui.sheetStay = false; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.browseSave) {
+    const id = t.dataset.browseSave, on = browseSave(id), it = byId.get(id);
+    S.undo = on ? { label: `Saved ${it ? it.title : ''}.`.replace(' .', '.'), run: () => { browseSave(id); } } : null;
+    S.focusAfter = `[data-browse-save="${CSS.escape(id)}"]`; render();
+    const f = document.querySelector(S.focusAfter); S.focusAfter = null; if (f) f.focus({ preventScroll: true });
+    return;
+  }
+  if (t.dataset.browseNo) { browseNo(t.dataset.browseNo); render(); return; }
   if (t.dataset.budgetAsk !== undefined) {
     const d = S.draft, was = { budget: d.budget, budgetAsked: d.budgetAsked };
     d.budget = Number(t.dataset.budgetAsk) || null; d.budgetAsked = true;
@@ -3412,10 +3650,13 @@ document.addEventListener('click', (e) => {
   if (t.dataset.stuffSet || t.dataset.stuffColor || t.dataset.stuffRemove) {
     const list = myStuff(), id = t.dataset.sid || t.dataset.stuffRemove, x = list.find((y) => y.id === id);
     if (!x) return;
-    if (t.dataset.stuffRemove) list.splice(list.indexOf(x), 1);
+    if (t.dataset.stuffRemove) {
+      list.splice(list.indexOf(x), 1);
+      if (S.draft && S.draft.owned.some((o) => o.stuff === id)) { S.draft.owned = S.draft.owned.filter((o) => o.stuff !== id); resetLayouts(); persist(); }
+    }
     else if (t.dataset.stuffColor) x.color = t.dataset.stuffColor;
     else x[t.dataset.stuffSet] = t.dataset.v === '1';
-    saveStuff(list); S.focusAfter = t.dataset.stuffRemove ? null : focusSelector(t); render();
+    saveStuff(list); if (!t.dataset.stuffRemove) syncStuff(x); S.focusAfter = t.dataset.stuffRemove ? null : focusSelector(t); render();
     if (S.focusAfter) { const f = document.querySelector(S.focusAfter); S.focusAfter = null; if (f) f.focus({ preventScroll: true }); }
     return;
   }
@@ -3493,8 +3734,20 @@ document.addEventListener('click', (e) => {
     }
     case 'quiz-skip': advanceQuiz(false); break;
     case 'quiz-done': finishQuiz(); break;
-    case 'stuff-add-art': { const list = myStuff(); list.push({ id: stuffId(), kind: 'art', title: `piece ${list.filter((y) => y.kind === 'art').length + 1}`, w: 16, h: 20, framed: true, color: '#8A8F94' }); saveStuff(list); render(); break; }
+    case 'stuff-add-art': { const list = myStuff(), x = { id: stuffId(), kind: 'art', title: `piece ${list.filter((y) => y.kind === 'art').length + 1}`, w: 16, h: 20, framed: true, color: '#8A8F94' }; list.push(x); saveStuff(list); syncStuff(x, fromOneWall()); render(); break; }
     case 'stuff-add-frame': { const list = myStuff(); list.push({ id: stuffId(), kind: 'frame', w: 11, h: 14, color: 'black' }); saveStuff(list); render(); break; }
+    case 'browse-clear': { const f = S.ui.browse; if (f) { Object.assign(f, { theme: '', color: '', mood: '', shape: '', kind: '', price: '', n: BROWSE_PAGE }); render(); } break; }
+    case 'browse-more': { const f = S.ui.browse; if (f) { f.n += BROWSE_PAGE; render(); } break; }
+    case 'reset-prefs': {
+      const d = S.draft, keys = ['style', 'pieces', 'fullness', 'art', 'justMine', 'tone', 'budget'];
+      const was = Object.fromEntries(keys.map((k) => [k, d[k]]));
+      Object.assign(d, { style: null, pieces: null, fullness: 'balanced', art: 'both', justMine: false, tone: null, budget: null });
+      if (keys.every((k) => was[k] === d[k] || (was[k] == null && d[k] == null))) break;
+      S.openKey = null; S.stepBase = null; S.flash = null; S.selected = null;
+      S.undo = { label: 'Preferences reset.', shape: true, run: () => { Object.assign(d, was); persist(); } };
+      S.sheet = 'change'; S.ui.sheetStay = true; S.focusAfter = '[data-act="reset-prefs"]'; persist(); render();
+      break;
+    }
     case 'plan-home': planHome(); S.flash = 'Spread across your walls.'; render(); break;
     case 'quiz-more': if (S.quiz) { S.quiz.check = false; saveQuiz(); render(); window.scrollTo({ top: 0 }); } break;
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;

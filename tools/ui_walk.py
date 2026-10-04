@@ -38,7 +38,7 @@ with sync_playwright() as p:
         pg.screenshot(path=f'{OUT}/feed-{W}.png')
         check(f'{W} feed has walls', pg.locator('.entry-link').count() > 2)
         check(f'{W} feed no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
-        check(f'{W} the taste test sits in the list after the second wall', pg.evaluate("(() => { const c = document.querySelector('.taste-card'); return !!c && c.previousElementSibling && [...document.querySelectorAll('.feed > li.entry')].indexOf(c.previousElementSibling) === 1; })()"))
+        check(f'{W} the taste test leads the list until it is taken', pg.evaluate("(() => { const c = document.querySelector('.feed > li'); return !!c && c.classList.contains('taste-card') && !c.classList.contains('budget-card'); })()"))
         nw = pg.locator('.entry-link').count()
         vis(pg, '[data-act=more-walls]').click(); pg.wait_for_timeout(5000)
         check(f'{W} Show more walls adds walls at the end', pg.locator('.entry-link').count() > nw, f"{nw} then {pg.locator('.entry-link').count()}")
@@ -339,7 +339,9 @@ with sync_playwright() as p:
         pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(3500)
         pg.locator('.entry-link').nth(0).click(); pg.wait_for_timeout(2000)
         r = pg.evaluate("(() => { const b = document.querySelector('#drawing').getBoundingClientRect(); const g = document.querySelector('[data-act=get]').getBoundingClientRect(); return [b.width, b.height, g.bottom] })()")
-        check(f'{W} the open wall fills the window, wide or tall', r[0] >= W * 0.6 or r[1] >= (H - 200), f'{r[0]:.0f} x {r[1]:.0f}')
+        # The steps column takes 240 px at the left from 1180 px up.
+        avail = W - (240 if W >= 1180 else 0)
+        check(f'{W} the open wall fills the window, wide or tall', r[0] >= avail * 0.6 or r[1] >= (H - 200), f'{r[0]:.0f} x {r[1]:.0f}')
         check(f'{W} Get it is in view without scrolling', r[2] <= H, f'{r[2]:.0f} > {H}')
         pg.screenshot(path=f'{OUT}/wall-desk-{W}.png')
         pg.goto(BASE + '#/taste'); pg.wait_for_timeout(1500)
@@ -370,7 +372,7 @@ with sync_playwright() as p:
         mw = lambda: pg.evaluate("[...document.querySelectorAll('.frame-row .frame-words')].map(e => e.textContent)")
         big = [w for w in mw() if 'with a mat' in w]
         vis(pg, '[data-mat=none]').click(); pg.wait_for_timeout(500)
-        check(f'{W} no mats: every print fills its frame', all('no mat' in t or 'framed' in t for t in mw()))
+        check(f'{W} no mats: every print fills its frame, unless only a mat keeps the photo whole', all('no mat' in t or 'framed' in t or 'keeps its shape' in t for t in mw()), str(mw()))
         vis(pg, '[data-mat=all]').click(); pg.wait_for_timeout(500)
         flips = pg.locator('[data-mat-one]')
         check(f'{W} all mats: every free photo that can take one has one', flips.count() > 0 and all(flips.nth(k).get_attribute('aria-pressed') == 'true' for k in range(flips.count())))
@@ -478,7 +480,7 @@ with sync_playwright() as p:
         if '#/layouts' in pg.url:
             check(f'{W} a read photo goes straight to the walls, saying what we read', pg.locator('.read-line a[href="#/check"]').count() == 1, pg.evaluate("(document.querySelector('.read-line')||{}).innerText"))
             pg.screenshot(path=f'{OUT}/read-line-{W}.png')
-            pg.locator('.read-line a').click(); pg.wait_for_timeout(2500)
+            pg.locator('.read-line a[href="#/check"]').click(); pg.wait_for_timeout(2500)
         rows = pg.evaluate("[...document.querySelectorAll('.rows .row .row-text .meta')].map(e => e.innerText)")
         import re as _re2
         fixed = [r for r in rows if 'in the photo' in r]
@@ -520,8 +522,8 @@ with sync_playwright() as p:
             pg.fill('input[name=ft]', '10'); pg.fill('input[name=in]', '0')
             pg.get_by_role('button', name='Show me my wall').click(); pg.wait_for_timeout(5000)
         check(f'{W} after the corners, straight to the walls', '#/layouts' in pg.url, pg.url)
-        if '#/layouts' in pg.url and pg.locator('.read-line a').count():
-            pg.locator('.read-line a').click(); pg.wait_for_timeout(2500)
+        if '#/layouts' in pg.url and pg.locator('.read-line a[href="#/check"]').count():
+            pg.locator('.read-line a[href="#/check"]').click(); pg.wait_for_timeout(2500)
         check(f'{W} the confirm screen opens', '#/check' in pg.url, pg.url)
         own = pg.locator('#check-wall g.box[data-kind=own]')
         if own.count():
@@ -689,6 +691,24 @@ with sync_playwright() as p:
         vis(pg, '[data-act=quiz-skip]').click(); pg.wait_for_timeout(500)
         pg.goto(BASE + '#/taste'); pg.wait_for_timeout(800)
         vis(pg, '.pick').click(); pg.wait_for_timeout(500)
+        # Browse: every piece, filters, save and not for me.
+        pg.goto(BASE + '#/browse'); pg.wait_for_timeout(2500)
+        check(f'{W} Browse shows the art', pg.locator('.art-card').count() >= 30)
+        n0 = pg.locator('.art-card').count()
+        pg.locator('.filter-box summary').click(); pg.wait_for_timeout(300)
+        pg.select_option('select[data-browse=color]', 'bw'); pg.wait_for_timeout(800)
+        check(f'{W} a Browse filter narrows the list', 'Clear filters' in pg.evaluate('document.body.innerText'))
+        pg.locator('[data-browse-save]').first.click(); pg.wait_for_timeout(500)
+        check(f'{W} the heart in Browse saves, with Undo', pg.locator('[data-browse-save][aria-pressed=true]').count() >= 1 and 'Saved' in pg.evaluate('document.body.innerText'))
+        check(f'{W} Browse has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/browse-{W}.png')
+        # Love the layout, not the art.
+        pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(3500)
+        pg.locator('.entry-link').first.click(); pg.wait_for_timeout(1500)
+        ln = vis(pg, '.layout-not-art button')
+        if ln:
+            ln.click(); pg.wait_for_timeout(2500)
+            check(f'{W} new art in these frames says so, with Undo', 'New art in' in pg.evaluate('document.body.innerText') and pg.locator('[data-act=undo]').count() >= 1)
         check(f'{W} no errors on the home path', not errs, '; '.join(errs[:2]))
         ctx.close()
     b.close()
