@@ -15,6 +15,10 @@ export const EPS = 1e-6;
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export const clamp01 = (v) => clamp(v, 0, 1);
 export const cmpStr = (a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0); // locale-independent
+// Two pieces that score the same: a fixed order that doesn't follow the id's spelling, so
+// no shop wins every tie because of its prefix ("des-" before "s6-"). Same ids, same order.
+const tieHash = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; };
+export const cmpTie = (a, b) => tieHash(a) - tieHash(b) || cmpStr(a, b);
 export const q = (v) => Math.round(v * 4) / 4;   // quarter inch, how people measure
 const qUp = (v) => Math.ceil(v * 4 - 1e-9) / 4;
 

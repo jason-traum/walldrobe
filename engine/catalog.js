@@ -154,14 +154,14 @@ export const MATTED_UP = Object.freeze({ '8x12': [12, 16], '12x16': [16, 20], '1
 function candidateSizes(r) {
   const live = liveSizes(r);
   const isShop = (r.offers || []).length > 0;
-  const out = live.map(({ w, h, price }) => {
+  const out = live.map(({ w, h, price, margin }) => {
     const framed = (r.offers || []).some((o) => !o.gone && o.framed && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
-    return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}) };
+    return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}), ...(margin > 0 ? { margin } : {}) };
   });
   if (!isShop) return out;
   const has = new Set(out.map((z) => `${z.w}x${z.h}`));
   for (const z of out.slice()) {
-    if (z.framed) continue;
+    if (z.framed || z.margin) continue; // a printed border is its mat already
     const up = MATTED_UP[`${Math.min(z.w, z.h)}x${Math.max(z.w, z.h)}`];
     if (!up) continue;
     const [fw, fh] = z.w <= z.h ? up : [up[1], up[0]];

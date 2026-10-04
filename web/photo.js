@@ -227,6 +227,68 @@ export function palette(img, k = 5) {
   return cs.map((c, i) => ({ hex: hex(c), weight: counts[i] / px.length })).filter((c) => c.weight >= 0.03).sort((a, b) => b.weight - a.weight);
 }
 
+// Where the piece is in a photo of it: the box that differs from the background (the
+// wall or table at the photo's edges), as { x, y, w, h } in pixels. When nothing stands
+// out clearly, the whole photo, a little in from the edges. Pure.
+export function findArtBox(img, { tol = 34, share = 0.06 } = {}) {
+  const { data, width: W, height: H } = img;
+  const whole = { x: Math.round(W * 0.03), y: Math.round(H * 0.03), w: Math.round(W * 0.94), h: Math.round(H * 0.94) };
+  if (W < 20 || H < 20) return { x: 0, y: 0, w: W, h: H };
+  const edge = [];
+  const band = Math.max(2, Math.round(Math.min(W, H) * 0.02));
+  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+    if (x >= band && x < W - band && y >= band && y < H - band) continue;
+    const o = (y * W + x) * 4; edge.push([data[o], data[o + 1], data[o + 2]]);
+  }
+  const med = [0, 1, 2].map((k) => { const v = edge.map((c) => c[k]).sort((a, b) => a - b); return v[v.length >> 1]; });
+  const rows = new Float32Array(H), cols = new Float32Array(W);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = (y * W + x) * 4;
+    if (Math.abs(data[o] - med[0]) + Math.abs(data[o + 1] - med[1]) + Math.abs(data[o + 2] - med[2]) > tol) { rows[y]++; cols[x]++; }
+  }
+  const first = (a, n, lim) => { for (let i = 0; i < a.length; i++) if (a[i] / n > lim) return i; return -1; };
+  const last = (a, n, lim) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] / n > lim) return i; return -1; };
+  const y0 = first(rows, W, share), y1 = last(rows, W, share), x0 = first(cols, H, share), x1 = last(cols, H, share);
+  if (y0 < 0 || x0 < 0) return whole;
+  const box = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  const area = (box.w * box.h) / (W * H);
+  // A box that's tiny is noise; one that's the whole photo found nothing.
+  if (area < 0.08 || (box.w > W * 0.985 && box.h > H * 0.985)) return whole;
+  return box;
+}
+
+// How to show a wall photo so it reads like it was taken with a flash: a white balance
+// from the wall (assumed close to white, so a warm or blue cast comes out), a small lift
+// in brightness and a touch of contrast. Gentle on purpose: only part of the cast is taken
+// out, and less on a wall that's clearly a color, so a sage wall stays sage. Returns the
+// gains for display (an SVG color matrix); the photo itself is never changed. Pure.
+export function wallTone(img) {
+  const { data, width: W, height: H } = img;
+  const lum = [], px = [];
+  const step = Math.max(1, Math.floor((W * H) / 20000));
+  for (let i = 0; i < W * H; i += step) {
+    const o = i * 4, r = data[o], g = data[o + 1], b = data[o + 2];
+    px.push([r, g, b]); lum.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  }
+  if (!px.length) return null;
+  const sorted = [...lum].sort((a, b) => a - b);
+  const lo = sorted[Math.floor(sorted.length * 0.5)], hi = sorted[Math.floor(sorted.length * 0.97)];
+  // The wall: the brighter half of the photo, past the highlights.
+  const m = [0, 0, 0]; let n = 0, L = 0;
+  for (let i = 0; i < px.length; i++) if (lum[i] >= lo && lum[i] <= hi) { m[0] += px[i][0]; m[1] += px[i][1]; m[2] += px[i][2]; L += lum[i]; n++; }
+  if (!n) return null;
+  for (let k = 0; k < 3; k++) m[k] /= n;
+  L /= n;
+  const avg = (m[0] + m[1] + m[2]) / 3;
+  const chroma = (Math.max(...m) - Math.min(...m)) / Math.max(1, Math.max(...m));
+  const strength = chroma > 0.25 ? 0.3 : 0.6;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const gain = m.map((c) => 1 + strength * (clamp(avg / Math.max(1, c), 0.8, 1.25) - 1));
+  const lift = clamp(Math.min(238, L * 1.12) / Math.max(1, L), 1, 1.2);
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  return { r: r3(gain[0]), g: r3(gain[1]), b: r3(gain[2]), lift: r3(lift), contrast: 1.06 };
+}
+
 export function crop(img, r) {
   const x0 = Math.max(0, Math.round(r.x)), y0 = Math.max(0, Math.round(r.y));
   const w = Math.max(1, Math.min(img.width - x0, Math.round(r.w))), h = Math.max(1, Math.min(img.height - y0, Math.round(r.h)));

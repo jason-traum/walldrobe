@@ -16,7 +16,7 @@ export { assignMats, matScore, MAT_LEVELS, isStructured } from './mats.js';
 export { assignHome, HOME } from './home.js';
 export { stylingScore, STYLE_PARTS } from './styling.js';
 import { hexToRgb, normalizePalette, paletteSimilarity } from './color.js';
-import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, q, EPS, FURNITURE } from './geometry.js';
+import { blockedRegions, findZones, placeGroup, checkPieces, clamp01, cmpStr, cmpTie, q, EPS, FURNITURE } from './geometry.js';
 import { salonStructures, lineStructures, gridStructures, statementStructures, columnStructures, columnZone, offeredSizes } from './structures.js';
 import { flowStructures, openSpace, shapeScore, canPack } from './flow.js';
 import { pieceReason, leftReason, summary, shortTitle, layoutNotes, whyLine } from './reasons.js';
@@ -142,8 +142,14 @@ function prepare(input) {
   const byId = new Map(catalog.map((c) => [c.id, c]));
   const tasteOf = (id) => (num(taste[id]) ? clamp01(taste[id]) : 0.5);
   // The taste a catalog piece is picked and judged by, the same on every path: your
-  // taste, leaned a little toward stronger photos when a reviewed quality score exists.
-  const pickTaste = (c) => (num(c.quality) ? (1 - QUALITY_PICK) * tasteOf(c.id) + QUALITY_PICK * clamp01(c.quality) : tasteOf(c.id));
+  // taste, leaned a little toward stronger pieces: the reviewed quality score, averaged with
+  // how good the image scored when looked at (record.vision.looks) when it has both, so one
+  // reviewer's strictness with one shop doesn't keep that shop off every wall.
+  const qualityOf = (c) => {
+    const v = c.record && c.record.vision && num(c.record.vision.looks) ? c.record.vision.looks : null;
+    return num(c.quality) ? (v == null ? c.quality : (c.quality + v) / 2) : v;
+  };
+  const pickTaste = (c) => { const qv = qualityOf(c); return num(qv) ? (1 - QUALITY_PICK) * tasteOf(c.id) + QUALITY_PICK * clamp01(qv) : tasteOf(c.id); };
 
   // A kept print comes as the size it's sold in; on the wall it takes its frame's outside.
   const kept = (input.keep || []).map((k) => {
@@ -257,7 +263,7 @@ function indexCandidates(cands) {
   }
   for (const [k, list] of bySize) {
     // Picked art first, so the cap never cuts it.
-    list.sort((a, b) => (!!b.cand.prefer - !!a.cand.prefer) || b.cand.taste - a.cand.taste || cmpStr(a.cand.id, b.cand.id));
+    list.sort((a, b) => (!!b.cand.prefer - !!a.cand.prefer) || b.cand.taste - a.cand.taste || cmpTie(a.cand.id, b.cand.id));
     bySize.set(k, list.slice(0, SEARCH.perSize));
   }
   const owned = cands.filter((c) => c.source === 'owned');
@@ -382,7 +388,8 @@ const canOfSize = (z) => (z.matPrint || z.matted || z.plainOk != null
 const frameOf = (z) => {
   if (!z) return null;
   const can = canOfSize(z);
-  return { w: z.w, h: z.h, border: borderOf(z), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}), ...(can ? { can } : {}) };
+  // `margin`: a white border printed on the paper, in inches (Society6 prints its own). The size is the paper.
+  return { w: z.w, h: z.h, border: borderOf(z), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}), ...(can ? { can } : {}), ...(num(z.margin) && z.margin > 0 ? { margin: z.margin } : {}) };
 };
 const priceOf = (c, w, h) => {
   const s = soldAs(c, w, h);
@@ -553,7 +560,7 @@ function improve(R, ctx, banned) {
       const alts = optionsFor(R.index, s)
         .filter((o) => !onWall.has(o.cand.id) && !(banned && banned.has(o.cand.id)))
         .map((o) => ({ o, v: pickValue(o.cand, others, ctx.pairSim, ctx.look) }))
-        .sort((a, b) => b.v - a.v || cmpStr(a.o.cand.id, b.o.cand.id))
+        .sort((a, b) => b.v - a.v || cmpTie(a.o.cand.id, b.o.cand.id))
         .slice(0, big ? SEARCH.alternatives / 2 : SEARCH.alternatives);
       for (const { o } of alts) {
         const bySlot = new Map(best.bySlot); bySlot.set(i, o);
@@ -1187,7 +1194,7 @@ export function spotChoices(input, prev, id, opts = {}) {
     if (onWall.has(c.id) || !c.sizes.some((sz) => sizeKey(sz.w, sz.h) === key)) continue;
     out.push({ id: c.id, favorite: fav.has(c.id), value: r3(pickValue(c, around, ctx.pairSim, ctx.look)) });
   }
-  out.sort((a, b) => (b.favorite - a.favorite) || b.value - a.value || cmpStr(a.id, b.id));
+  out.sort((a, b) => (b.favorite - a.favorite) || b.value - a.value || cmpTie(a.id, b.id));
   return out;
 }
 

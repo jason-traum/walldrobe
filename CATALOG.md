@@ -111,6 +111,7 @@ Each record keeps `provenance`, a map from field group to who set it, so a later
 | `tags.season` | summer, winter, spring, fall or any | model | filters |
 | `tags.vibe` | A few free words: mid century, film, italian summer, brutalist | model | search |
 | `sizes` | Standard outer frame sizes this image fits with a mat (shape within 14%). If none fits, the nearest size with `crop: true` | rule | layout |
+| `sizes[].margin` | A white border printed on the paper, in inches, when the shop prints one (Society6: 1 in on X-Small and Small, 2 in on Medium and up). The size is the paper; the art sits inside the border at its own shape. Such a size never hangs matted a frame up, and counts as matted when mats are judged | source | layout, drawing, Frame it, Get it |
 | `offers` | Places to buy a print: vendor, link, size, price. Empty until a partner feed allows it. An offer the shop no longer lists carries `gone: true` and `since` (set by the health check, below) and is never shown | source, then the health check | buy flow |
 | `health` | Absent while the piece is fine. `{ gone: true, since, why }` once every offer is gone or the image is gone (`why` is `offer`, `image` or `both`); such a piece is not active | the health check | catalog |
 | `quality.score` | 0 to 1, how good it looks framed (a 1 to 5 review, scaled). Leans the pick 15% toward stronger photos | model | ranking |
@@ -146,7 +147,7 @@ For the beta, `tools/feeds/desenio.tsv` was read from Desenio's product pages (e
 
 Oct 4, 2026, more shops for the beta, read from their public product lists (Shopify's /products.json), link out only:
 
-- Society6 (`tools/fetch_society6.py`): the first pages of about 55 art print collections (abstract, botanical, landscape, beach, city, food, dogs, western...), Art Prints only. Its images are white mockups; the row's image link asks Shopify's CDN for the print alone (`crop=region`, the print sits in the same place on every 8x10 mockup).
+- Society6 (`tools/fetch_society6.py`): the first pages of about 55 art print collections (abstract, botanical, landscape, beach, city, food, dogs, western...), Art Prints only. Its images are white mockups; the row's image link asks Shopify's CDN for the art alone (`crop=region`): `tools/society6_boxes.py` finds the paper on the 8x10 mockup, then `tools/society6_art.py` finds the art inside the paper's white border (or falls back to the 1 in border when the art fades into the paper) and writes each offer's `margin`. Society6's own words: "Sizes listed reflect overall paper dimensions, including a white border: 1\" for X-Small and Small, 2\" for Medium and larger sizes." Colors and image scores are measured on the art, not the paper.
 - Juniper Print Shop (`tools/fetch_juniper.py`): every print, without the shop's vintage reproductions.
 - Both leave out old masters resold as prints. Next when they stop limiting requests: Desenio (more), Posterstore. Minted and Saatchi Art block automated reading; Etsy needs a developer key.
 - Order for a new shop: fetch the feed, `python3 tools/vision.py <cache> --feed tools/feeds/<shop>.tsv` to score every candidate, keep the strong ones, look at and tag those (tools/tags.json), hide the rest, then `analyze.py`, `vision.py` and `apply_vision.py`.

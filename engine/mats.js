@@ -15,6 +15,9 @@
 //    print inside) and whether it can go without (`can.plain`). A piece with one way has
 //    that way.
 //  - How many is a preference (`level`): none, few, some, most, all.
+//  - A print with a white border printed on the paper (Society6) counts as matted: it
+//    looks matted on the wall, so a grid of matted pieces stays even with it, and it's
+//    never given a second mat.
 
 export const MAT_LEVELS = Object.freeze(['none', 'few', 'some', 'most', 'all']);
 const SHARE = { none: 0, few: 0.25, some: 0.5, most: 0.75, all: 1 };
@@ -50,6 +53,8 @@ export function assignMats(pieces, { family = 'flow', variant = null, level = 's
   const out = new Map();
   const flex = [];
   for (const p of pieces) {
+    // A print with its own white border (Society6) already reads as matted, and never gets a second mat.
+    if (p.frame && p.frame.margin > 0) { out.set(idOf(p), true); continue; }
     const can = canOf(p);
     if (!can) continue;
     if (can.mat && can.plain) flex.push(p);

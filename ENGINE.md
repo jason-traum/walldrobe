@@ -392,3 +392,11 @@ A catalog size may carry `border`, the moulding's width; `borderOf` uses it (a s
 ## A stylist's rules (2026-10-04, engine/styling.js)
 
 `stylingScore(P)` over every piece on the wall (pinned ones too), each part 0 to 1: busy (share of neighbor pairs, frames within 6 in, not both busier than 0.3), balance (the visual weight's center left to right, weight = area x (0.4 + 0.4 x darkness + 0.2 x saturation)), thread (the best non-neutral color family at 12% or more of at least two color pieces, as a share of the color pieces, full at half), bw (0.5 + 0.5 x how far from half black and white). Weighted 0.3, 0.25, 0.25, 0.2. `judge()` subtracts 0.04 x (1 minus it); `parts.styling` reports it.
+
+## Printed borders, core sizes and fair ties (2026-10-04)
+
+- A size can carry `margin`, a white border printed on the paper in inches (Society6: 1 in on X-Small and Small, 2 in on Medium and up). The size is the paper, so the frame is that size. `frameOf()` passes it to the piece's frame; such a size never hangs matted a frame up (`candidateSizes`), and `assignMats()` counts it as matted with no choice, so a grid of matted pieces stays even with it and it never gets a second mat.
+- `RULES.coreSizes` adds the standard US sizes (8 x 10, 11 x 14, 16 x 20, 18 x 24, 24 x 36) and the 12 and 20 squares. With three or more core sizes in the catalog only core sizes are used, so before this every Society6 and Juniper size and every square was left out. Every square size made the search about twice as slow, so only the two most sold are in.
+- Ties: pieces that score the same are ordered by a fixed hash of the id (`cmpTie` in geometry.js), not its spelling, so no shop prefix wins every tie. Same ids, same order, every time.
+- Picking leans on quality as before (`QUALITY_PICK`), now the mean of the reviewed quality score and the image score (`record.vision.looks`) when a piece has both.
+- Taste words: a model-read idea (`concept:*`) counts at 0.6 of a tagged fact when choosing the words, so "black and white" beats "gritty" at the same weight.
