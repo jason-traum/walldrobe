@@ -290,15 +290,20 @@ with sync_playwright() as p:
         check(f'{W} Get it targets 44 px', small == 0, str(small))
         ctl = pg.evaluate(CTL)
         check(f'{W} Get it within its 8 controls', ctl <= 8, str(ctl))
-        # Two D-rings: two nails a frame, the table says both.
+        # Nothing asked up front: each frame's hanger is assumed, and checked at the end.
+        check(f'{W} no hanger question before the nails', pg.locator('#drop').count() == 0 and pg.locator('#hanger').count() == 0)
+        check(f'{W} each frame says the hanger it is assumed to have', pg.evaluate("[...document.querySelectorAll('.nails tbody tr')].every(r => /Sawtooth|Wire|D-rings/.test(r.innerText))"))
         n1 = pg.locator('#guide circle.nail').count()
-        pg.select_option('#hanger', 'rings'); pg.wait_for_timeout(600)
+        pg.locator('details.hangers summary').click(); pg.wait_for_timeout(300)
+        first = pg.locator('[data-hang-type]').first
+        fid = first.get_attribute('data-hang-type')
+        first.select_option('rings'); pg.wait_for_timeout(700)
         n2 = pg.locator('#guide circle.nail').count()
-        check(f'{W} two D-rings put two nails on each frame', n2 > n1 and pg.locator('#ring-in').count() == 1 and 'and ' in pg.locator('.nails tbody tr').first.inner_text(), f'{n1} then {n2}')
-        check(f'{W} the hanger choice keeps focus', pg.evaluate("document.activeElement && document.activeElement.id") == 'hanger')
+        check(f'{W} setting two D-rings on a frame when it arrives adds its second nail', n2 == n1 + 1 and pg.locator(f'[data-hang-in="{fid}"]').count() == 1, f'{n1} then {n2}')
+        check(f'{W} the hanger check stays open and keeps focus', pg.evaluate("document.querySelector('details.hangers').open") and pg.evaluate("document.activeElement && document.activeElement.dataset.hangType") == fid)
         pg.screenshot(path=f'{OUT}/get-rings-{W}.png', full_page=True)
-        pg.select_option('#hanger', 'wire'); pg.wait_for_timeout(600)
-        check(f'{W} back to a wire, one nail each', pg.locator('#guide circle.nail').count() == n1)
+        pg.locator(f'[data-hang-type="{fid}"]').select_option('sawtooth'); pg.wait_for_timeout(600)
+        check(f'{W} back to one nail', pg.locator('#guide circle.nail').count() == n1)
         sv = vis(pg, '.get [data-act=save]')
         if sv.is_enabled():
             sv.click(); pg.wait_for_timeout(1200)
