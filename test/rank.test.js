@@ -22,7 +22,7 @@ test('layout() can return a long list, each wall with a why line', () => {
   for (const L of r.layouts) {
     assertLayoutValid(base(), L);
     assert.ok(L.why && typeof L.why.text === 'string' && L.why.text.length > 10);
-    assert.ok(!L.why.text.includes('—'), 'no em dashes');
+    assert.ok(!L.why.text.includes('\u2014'), 'no em dashes');
     assert.match(L.why.text, /\d+(¼|½|¾)? in across\.$/);
   }
 });
