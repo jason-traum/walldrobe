@@ -31,7 +31,8 @@ test('favorites that fit the spot come first, ones that do not fit are not liste
   const p = newPiece(L);
   const all = spotChoices(input(), L, p.ref.id);
   const fav = all[all.length - 1].id; // the weakest fit, made a favorite
-  const misfit = cat.find((x) => !(x.sizes || []).some((s) => s.w === p.w && s.h === p.h));
+  // A piece that doesn't come in this spot's frame size (as sold, not its outside).
+  const misfit = cat.find((x) => !(x.sizes || []).some((s) => s.w === p.frame.w && s.h === p.frame.h));
   const list = spotChoices(input(), L, p.ref.id, { favorites: [fav, misfit.id] });
   assert.equal(list[0].id, fav);
   assert.equal(list[0].favorite, true);

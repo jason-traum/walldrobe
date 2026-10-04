@@ -43,8 +43,10 @@ export const RULES = Object.freeze({
   // How full the wall should be: art area as a share of the open wall (after buffers).
   fullness: Object.freeze({ calm: 0.15, balanced: 0.28, full: 0.45 }),
   // New prints come in these frame sizes when the catalog offers them: shop sizes that
-  // nest (two 14.5 in frames and a 2.5 in gap make 31.5 in). Either way up.
-  coreSizes: Object.freeze([[12, 16], [14.5, 18.5], [19.5, 26], [20, 28], [24.5, 33.5], [31.5, 44], [39.5, 56]]),     // an open wall narrower than this may take a stack of pieces
+  // nest (two 14.5 in frames and a 2.5 in gap make 31.5 in), and the standard US frame
+  // sizes most shops sell in (two 8 x 10 frames and a 2.5 in gap make a 16 x 20's 21.5 in
+  // height, framed), and the two squares most shops sell (12 and 20; more squares made the search twice as slow). Either way up.
+  coreSizes: Object.freeze([[8, 10], [11, 14], [12, 16], [14.5, 18.5], [16, 20], [18, 24], [19.5, 26], [20, 28], [24, 36], [24.5, 33.5], [31.5, 44], [39.5, 56], [12, 12], [20, 20]]),     // an open wall narrower than this may take a stack of pieces
 });
 
 // The two styles a person picks between.

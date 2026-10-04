@@ -174,6 +174,14 @@ function waitTitle(title, cx, cy, iw, ppi) {
   const lh = fs * 1.2, y0 = cy - ((shown.length - 1) * lh) / 2;
   return `<text x="${cx}" y="${y0}" font-size="${fs}" class="art-wait">${shown.map((t, i) => `<tspan x="${cx}" dy="${i ? lh : 0}">${esc(t)}</tspan>`).join('')}</text>`;
 }
+// The print in its opening. A print with its own white border printed on the paper
+// (Society6) shows the paper, then the art inside the border at its own shape, never
+// stretched; any other print fills the opening, cropped.
+function printImg(img, x, y, w, h, margin) {
+  if (!margin) return `<image href="${img}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice"/>`;
+  const m = Math.min(margin, w / 4, h / 4);
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="print-paper"/><image href="${img}" x="${x + m}" y="${y + m}" width="${w - 2 * m}" height="${h - 2 * m}" preserveAspectRatio="xMidYMid meet"/>`;
+}
 function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, printFor }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
@@ -216,7 +224,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame frame-new" filter="url(#wd-shadow)"/>
     <rect x="${p.x + b}" y="${y + b}" width="${ow}" height="${oh}" class="mat"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, pw, ppi)}
-    ${img ? `<image href="${img}" x="${ix}" y="${iy}" width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+    ${img ? printImg(img, ix, iy, pw, ph, p.frame.margin) : ''}
     ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi)}
     ${sel}
   </g>`;
@@ -273,6 +281,7 @@ export function labelSize(W, pxWide) {
  */
 // The print inside a new piece's frame, [w, h] in inches, or null when it fills the
 // frame. Set once by the app, which knows each piece's print.
+const r4 = (v) => Math.round(v * 10000) / 10000;
 let PRINT_FOR = null;
 export function setPrintFor(fn) { PRINT_FOR = fn; }
 
@@ -280,8 +289,15 @@ export function wallSvg(o) {
   const W = o.wall.width, H = o.wall.height;
   const s = labelSize(W, o.pxWide);
   const pad = s * 0.6;
+  // The wall photo, shown as if taken with a flash (photo.js wallTone): white balanced from
+  // the wall, a little brighter, a touch more contrast. Display only.
+  const t = o.photo && o.tone;
+  const toneId = t ? `wd-tone-${[t.r, t.g, t.b, t.lift].map((v) => Math.round(v * 1000)).join('-')}` : '';
+  // Each color row: its gain times the lift, stretched about the middle for contrast.
+  const c = t ? t.contrast || 1 : 1, off = r4((1 - c) * 0.5);
+  const tm = t ? [[t.r, 0, 0], [0, t.g, 0], [0, 0, t.b]].map((row) => [...row.map((v) => r4(v * t.lift * c)), 0, off]).flat().concat([0, 0, 0, 1, 0]).join(' ') : '';
   const bg = o.photo
-    ? `<image href="${o.photo}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>`
+    ? `${t ? `<defs><filter id="${toneId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${tm}"/></filter></defs>` : ''}<image href="${o.photo}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"${t ? ` filter="url(#${toneId})"` : ''}/>`
     : `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#wd-light)"/><rect x="0" y="${H - 3}" width="${W}" height="3" class="baseboard"/>`;
   const defs = `<defs><linearGradient id="wd-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="wall-hi"/><stop offset="1" class="wall-lo"/></linearGradient><filter id="wd-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="0.5" stdDeviation="0.5" flood-color="#5B5245" flood-opacity="0.26"/></filter><filter id="wd-shadow-soft" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="0.25" stdDeviation="0.3" flood-color="#5B5245" flood-opacity="0.18"/></filter></defs>`;
   const ppi = Math.max(240, o.pxWide || 600) / (W + pad * 2);

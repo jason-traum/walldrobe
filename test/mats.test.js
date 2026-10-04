@@ -71,3 +71,23 @@ test('a big frame goes without a mat on a structured wall unless you pick All', 
   assert.ok([...assignMats(two, { family: 'line', level: 'most' }).values()].every((v) => !v));
   assert.ok([...assignMats(two, { family: 'line', level: 'all' }).values()].every(Boolean));
 });
+
+test('a print with its own white border counts as matted and never gets a second mat', async () => {
+  const { assignMats } = await import('../engine/mats.js');
+  const ps = [
+    { id: 'a', x: 0, y: 0, w: 9.5, h: 11.5, frame: { w: 8, h: 10, margin: 1 } },
+    { id: 'b', x: 12, y: 0, w: 9.5, h: 11.5, frame: { w: 8, h: 10, can: { mat: { w: 5, h: 7 }, plain: true } } },
+  ];
+  const m = assignMats(ps, { family: 'grid', level: 'all' });
+  assert.equal(m.get('a'), true);
+  assert.equal(m.get('b'), true);
+});
+
+test('a shop size with a printed border is the paper, and never hangs matted a frame up', async () => {
+  const { toCandidate } = await import('../engine/catalog.js');
+  const { readFileSync } = await import('node:fs');
+  const real = JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url))).items.find((x) => x.id.startsWith('s6-'));
+  const r = { ...real, sizes: [{ w: 12, h: 18, price: 50, margin: 1 }], offers: [{ ...real.offers[0], w: 12, h: 18, price: 50, margin: 1 }] };
+  const c = toCandidate(r);
+  assert.deepEqual(c.sizes, [{ w: 12, h: 18, price: 50, margin: 1 }]);
+});

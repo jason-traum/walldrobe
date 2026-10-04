@@ -197,7 +197,9 @@ with sync_playwright() as p:
         vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         box0 = box(); a0 = arts(pg)
         vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
-        na = vis(pg, '#sheet [data-act=new-art]'); check(f'{W} New art in the open frames is there', na is not None)
+        check(f'{W} Preferences holds only preferences', pg.locator('#sheet .sheet-list, #sheet a[href="#/walls"]').count() == 0)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
+        na = vis(pg, '.layout-not-art [data-act=new-art]'); check(f'{W} New art in the open frames is there', na is not None)
         if na:
             na.click(); pg.wait_for_timeout(2500)
             spots = lambda b: sorted(x.split('@')[1] for x in b)
@@ -210,21 +212,24 @@ with sync_playwright() as p:
         # Free art only.
         vis(pg, '#sheet [data-art=photos]').click(); pg.wait_for_timeout(3000)
         ids = [i for i in arts(pg) if i not in ('blue', 'pink')]
-        check(f'{W} Free art shows only free photos', ids and all(not i.startswith(('des-', 'hos-')) for i in ids), ','.join(ids[:3]))
+        check(f'{W} Free art shows only free photos', ids and all(not i.startswith(('des-', 'hos-', 's6-', 'jp-')) for i in ids), ','.join(ids[:3]))
         vis(pg, '#sheet [data-art=prints]').click(); pg.wait_for_timeout(2500)
         vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
         # Save adds a copy; Your walls shows it; editing after doesn't change it; saving again adds another.
         pg.evaluate("localStorage.removeItem('walldrobe.walls.v1')"); pg.evaluate('window.scrollTo(0, 0)')
         vis(pg, '[data-act=save]').click(); pg.wait_for_timeout(800)
         check(f'{W} Save says Saved', vis(pg, '.wall-acts [data-act=save]').inner_text().strip() == 'Saved')
-        check(f'{W} Your walls 1 in the bar', (vis(pg, '.walls-link') or pg.locator('body')).inner_text().strip() == 'Your walls 1')
+        vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
+        check(f'{W} Your walls 1 in the menu', ' '.join((vis(pg, '#sheet a[href="#/walls"]') or pg.locator('body')).inner_text().split()) == 'Your walls 1')
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
         saved1 = sorted(arts(pg))
         opens = pg.locator('button.piece-open'); opens.nth(0).click(); pg.wait_for_timeout(900)
         vis(pg, '#sheet [data-choice]').click(); pg.wait_for_timeout(1500); vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
         check(f'{W} after a change Save is back', vis(pg, '.wall-acts [data-act=save]').inner_text().strip() == 'Save')
         vis(pg, '[data-act=save]').click(); pg.wait_for_timeout(800)
         saved2 = sorted(arts(pg))
-        vis(pg, '.walls-link').click(); pg.wait_for_timeout(1500)
+        vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
+        vis(pg, '#sheet a[href="#/walls"]').click(); pg.wait_for_timeout(1500)
         check(f'{W} Your walls lists both', pg.locator('.wall-card').count() == 2)
         pg.screenshot(path=f'{OUT}/walls-{W}.png', full_page=True)
         check(f'{W} Your walls no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
@@ -249,7 +254,7 @@ with sync_playwright() as p:
         hp = pg.locator('.piece .heart').first; fav = hp.get_attribute('data-save')
         check(f'{W} the heart says Favorite, not Save', (hp.get_attribute('aria-label') or '').startswith('Favorite '), hp.get_attribute('aria-label'))
         if hp.get_attribute('aria-pressed') != 'true': hp.click(); pg.wait_for_timeout(600)
-        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(600)
+        vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(600)
         vis(pg, '#sheet a[href="#/saved"]').click(); pg.wait_for_timeout(1200)
         check(f'{W} Favorites lists the heart', pg.locator(f'.saved-page [data-save="{fav}"]').count() == 1)
         pg.locator(f'.saved-page [data-save="{fav}"]').click(); pg.wait_for_timeout(600)
@@ -480,6 +485,7 @@ with sync_playwright() as p:
         if '#/layouts' in pg.url:
             check(f'{W} a read photo goes straight to the walls, saying what we read', pg.locator('.read-line a[href="#/check"]').count() == 1, pg.evaluate("(document.querySelector('.read-line')||{}).innerText"))
             pg.screenshot(path=f'{OUT}/read-line-{W}.png')
+            check(f'{W} the wall photo shows with the flash look', pg.locator('.feed feColorMatrix').count() >= 1)
             pg.locator('.read-line a[href="#/check"]').click(); pg.wait_for_timeout(2500)
         rows = pg.evaluate("[...document.querySelectorAll('.rows .row .row-text .meta')].map(e => e.innerText)")
         import re as _re2
@@ -627,7 +633,15 @@ with sync_playwright() as p:
         check(f'{W} a whole home starts with your stuff', '#/stuff/home' in pg.url and pg.locator('#stuff-photo').count() == 1)
         pg.screenshot(path=f'{OUT}/stuff-empty-{W}.png')
         pg.set_input_files('#stuff-photo', IMG); pg.wait_for_timeout(1500)
+        check(f'{W} a photo of your art opens the crop first', pg.locator('#crop-svg .crop-h').count() == 4)
+        check(f'{W} the crop has no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
+        pg.screenshot(path=f'{OUT}/crop-{W}.png')
+        vis(pg, '[data-act=crop-use]').click(); pg.wait_for_timeout(800)
         check(f'{W} art from a photo joins your stuff with its picture', pg.locator('.stuff-row .thumb img').count() == 1)
+        check(f'{W} a piece with a photo keeps its shape by default', pg.locator('.stuff-row [data-lock][aria-pressed=true]').count() == 1)
+        w0 = pg.locator('input[data-sk=w]').first; h_before = pg.locator('input[data-sk=h]').first.input_value()
+        w0.fill('30'); w0.dispatch_event('change'); pg.wait_for_timeout(400)
+        check(f'{W} typing one side moves the other', pg.locator('input[data-sk=h]').first.input_value() != h_before, h_before)
         vis(pg, '[data-act=stuff-add-art]').click(); pg.wait_for_timeout(400)
         pg.locator('[data-stuff-set=framed][data-v="0"]').nth(1).click(); pg.wait_for_timeout(400)
         for k, v in (('w', '12'), ('h', '16')):
@@ -711,6 +725,92 @@ with sync_playwright() as p:
             check(f'{W} new art in these frames says so, with Undo', 'New art in' in pg.evaluate('document.body.innerText') and pg.locator('[data-act=undo]').count() >= 1)
         check(f'{W} no errors on the home path', not errs, '; '.join(errs[:2]))
         ctx.close()
+
+    # Oct 4, evening: your pieces framed or not, prices, the Menu, every shop on the walls,
+    # the camera button, Browse on a big screen and the flash look.
+    for W in (390, 320):
+        ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+        pg = ctx.new_page()
+        errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        txt = lambda: pg.evaluate('document.body.innerText').replace('\xa0', ' ')
+        pg.goto(BASE + '#/start'); pg.wait_for_timeout(1500)
+        check(f'{W} on a phone the photo button takes a photo', 'Take a photo' in vis(pg, '.upload .btn').inner_text() and pg.locator('#photo-input[capture]').count() == 1)
+        pg.locator('details.more summary').click()
+        for k, v in (('wft', '10'), ('win', '0'), ('hft', '8'), ('hin', '6')): pg.locator(f'#size-form [name={k}]').fill(v)
+        pg.locator('#size-form button[type=submit]').click(); pg.wait_for_timeout(1200)
+        pg.goto(BASE + '#/pieces'); pg.wait_for_timeout(800)
+        vis(pg, '[data-act=add-piece]').click(); pg.wait_for_timeout(500)
+        check(f'{W} a piece of yours says framed or not', pg.locator('[data-own-framed]').count() == 2)
+        for k, v in (('w', '12'), ('h', '16')):
+            el = pg.locator(f'input[data-ok={k}]').first; el.fill(v); el.dispatch_event('change'); pg.wait_for_timeout(300)
+        vis(pg, '[data-own-framed="0"]').click(); pg.wait_for_timeout(500)
+        check(f'{W} not framed: the size is the art, and it says its frame', pg.locator('input[data-ok=w]').first.input_value() == '12' and '12 x 16 in frame' in txt())
+        vis(pg, '[data-to-stuff]').click(); pg.wait_for_timeout(500)
+        check(f'{W} a wall piece saves to your stuff', 'In your stuff' in txt())
+        pg.screenshot(path=f'{OUT}/pieces-{W}.png', full_page=True)
+        pg.goto(BASE + '#/stuff'); pg.wait_for_timeout(800)
+        check(f'{W} your stuff on this wall says Keep, Maybe or Skip', pg.locator('[data-stuff-keep]').count() == 3)
+        vis(pg, '[data-stuff-keep=skip]').click(); pg.wait_for_timeout(500)
+        check(f'{W} Skip saves it for later, off this wall', pg.locator('[data-stuff-keep=skip][aria-pressed=true]').count() == 1)
+        vis(pg, '[data-stuff-keep=must]').click(); pg.wait_for_timeout(500)
+        pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(5000)
+        tags = pg.locator('.feed .price-tag').all_inner_texts()
+        check(f'{W} every wall in the list says its price', tags and all(t.startswith('$') for t in tags), str(tags[:3]))
+        for _ in range(2):
+            m = pg.locator('[data-act=more-walls]')
+            if m.count() and m.is_enabled(): m.click(); pg.wait_for_timeout(3000)
+        ids = pg.evaluate("[...document.querySelectorAll('.feed .art')].map(g => g.dataset.id)")
+        check(f'{W} Society6 and Juniper art reach the walls', any(i.startswith(('s6-', 'jp-')) for i in ids), f'{len(ids)} pieces')
+        pg.locator('.entry-link').first.click(); pg.wait_for_timeout(2500)
+        line = (vis(pg, '.price-line') or pg.locator('body')).inner_text()
+        import re as _re3
+        check(f'{W} the open wall says art and frames', bool(_re3.match(r'^\$[\d,]+( \(\+\$[\d,]+ to frame\)|, framed)?\+?$', line.strip())), line)
+        check(f'{W} the wall tools sit under the wall', pg.locator('.wall-tools [data-act=measure]').count() == 1)
+        vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
+        check(f'{W} the Menu has where to go', pg.locator('#sheet a[href="#/browse"], #sheet a[href="#/stuff"], #sheet a[href="#/saved"]').count() == 3)
+        pg.screenshot(path=f'{OUT}/menu-{W}.png')
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(300)
+        vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
+        check(f'{W} your unframed piece gets its frame on Frame it', 'Your print' in txt() and '12 x 16 in frame' in txt())
+        s6 = [x for x in ids if x.startswith('s6-')]
+        check(f'{W} no errors on the evening path', not errs, '; '.join(errs[:2]))
+        ctx.close()
+    # A Society6 print shows its printed border, and Frame it says no mat.
+    ctx = b.new_context(viewport={'width': 1280, 'height': 900}, color_scheme='light')
+    pg = ctx.new_page()
+    pg.goto(BASE + '#/start'); pg.wait_for_timeout(1200)
+    pg.locator('details.more summary').click()
+    for k, v in (('wft', '9'), ('win', '0'), ('hft', '8'), ('hin', '6')): pg.locator(f'#size-form [name={k}]').fill(v)
+    pg.locator('#size-form button[type=submit]').click(); pg.wait_for_timeout(1200)
+    pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(4000)
+    vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(500)
+    vis(pg, '#sheet [data-art=prints]').click(); pg.wait_for_timeout(3000)
+    vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
+    seen = False
+    for k in range(8):
+        if pg.locator('.entry-link').count() <= k: break
+        pg.locator('.entry-link').nth(k).click(); pg.wait_for_timeout(2000)
+        if pg.evaluate("[...document.querySelectorAll('#drawing .art')].some(g => g.dataset.id.startsWith('s6-'))"):
+            seen = True; break
+        pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(1500)
+    if seen:
+        check('1280 a Society6 print shows its printed border, the art never stretched', pg.evaluate("[...document.querySelectorAll('#drawing .art')].filter(g => g.dataset.id.startsWith('s6-')).every(g => g.querySelector('.print-paper') && g.querySelector('image').getAttribute('preserveAspectRatio') === 'xMidYMid meet')"))
+        pg.locator('#drawing').screenshot(path=f'{OUT}/society6-1280.png')
+        vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
+        check('1280 Frame it says the border is printed on, so no mat', 'white border printed on, so no mat' in pg.evaluate('document.body.innerText').replace('\xa0', ' '))
+    else:
+        check('1280 a Society6 print reaches a wall of shop prints', False, 'none in 8 walls')
+    ctx.close()
+    # Browse grows on a big screen.
+    ctx = b.new_context(viewport={'width': 2000, 'height': 1100}, color_scheme='light')
+    pg = ctx.new_page()
+    pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(3500)
+    pg.goto(BASE + '#/browse'); pg.wait_for_timeout(2500)
+    cw = pg.evaluate("(() => { const i = document.querySelector('.art-grid li'); return i ? Math.round(i.getBoundingClientRect().width) : 0; })()")
+    check('2000 Browse pictures grow with the window', cw >= 380 and pg.evaluate('document.documentElement.scrollWidth') <= 2000, f'{cw} px')
+    pg.screenshot(path=f'{OUT}/browse-2000.png')
+    ctx.close()
     b.close()
 
 for name, ok, detail in results:

@@ -234,7 +234,10 @@ export function describeTaste(weights, n = 3, sign = 1) {
   if (!weights) return [];
   const used = new Set();
   const out = [];
-  for (const { f } of FEATURE_NAMES.map((f, i) => ({ f, w: sign * weights[i] })).filter((x) => x.w > 0.05).sort((a, b) => b.w - a.w || cmp(a.f, b.f))) {
+  // An idea read off the image by a model (concept:*) is a softer read than a fact the piece
+  // is tagged with (black and white, a painting), so in words it needs a clearer lead to win.
+  const soft = (f) => (f.startsWith('concept:') ? 0.6 : 1);
+  for (const { f } of FEATURE_NAMES.map((f, i) => ({ f, w: sign * weights[i] * soft(f) })).filter((x) => x.w > 0.05).sort((a, b) => b.w - a.w || cmp(a.f, b.f))) {
     const g = GROUP[f] || f;
     const word = WORDS[f];
     if (!word || used.has(g) || out.includes(word)) continue;

@@ -353,17 +353,20 @@ def shop_picks():
 
 def shop_sizes(offers, aspect):
     """The sizes the shop actually sells, cheapest price for each, flagged when the shape is off."""
-    best = {}
+    best, margin = {}, {}
     for o in offers:
         if not o.get("w"): continue
         w, h = o["w"], o["h"]
         if (w > h) != (aspect > 1) and abs(aspect - 1) > 0.1: w, h = h, w
         k = (w, h)
         if k not in best or (o.get("price") is not None and (best[k] is None or o["price"] < best[k])): best[k] = o.get("price")
+        if o.get("margin"): margin[k] = o["margin"]
     out = []
     for (w, h), price in sorted(best.items(), key=lambda x: x[0][0] * x[0][1]):
         s = {"w": w, "h": h}
         if price is not None: s["price"] = price
+        # A white border printed on the paper (Society6): the size is the paper, the art sits inside.
+        if margin.get((w, h)): s["margin"] = margin[(w, h)]
         if abs((w / h) / aspect - 1) > 0.14: s["crop"] = True
         out.append(s)
     return out or sizes_for(aspect)

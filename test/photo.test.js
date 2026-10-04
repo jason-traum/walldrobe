@@ -72,3 +72,26 @@ test('painting out a piece leaves the wall color, and palettes find the main col
   const o = (15 * w + 15) * 4;
   assert.ok(Math.abs(data[o] - 220) < 8 && Math.abs(data[o + 2] - 200) < 8);
 });
+
+test('findArtBox finds a piece on a plain wall, and the whole photo when nothing stands out', async () => {
+  const { findArtBox } = await import('../web/photo.js');
+  const W = 120, H = 100;
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < W * H; i++) { data[i * 4] = 230; data[i * 4 + 1] = 228; data[i * 4 + 2] = 220; data[i * 4 + 3] = 255; }
+  for (let y = 20; y < 80; y++) for (let x = 30; x < 78; x++) { const o = (y * W + x) * 4; data[o] = 40; data[o + 1] = 60; data[o + 2] = 90; }
+  const b = findArtBox({ data, width: W, height: H });
+  assert.deepEqual(b, { x: 30, y: 20, w: 48, h: 60 });
+  const plain = new Uint8ClampedArray(W * H * 4).fill(200);
+  const p = findArtBox({ data: plain, width: W, height: H });
+  assert.ok(p.w > W * 0.9 && p.h > H * 0.9);
+});
+
+test('wallTone takes part of a warm cast out of a white wall, and less out of a colored one', async () => {
+  const { wallTone } = await import('../web/photo.js');
+  const make = (r, g, b) => { const W = 40, H = 30, data = new Uint8ClampedArray(W * H * 4); for (let i = 0; i < W * H; i++) { data[i * 4] = r; data[i * 4 + 1] = g; data[i * 4 + 2] = b; data[i * 4 + 3] = 255; } return { data, width: W, height: H }; };
+  const warm = wallTone(make(220, 200, 165));
+  assert.ok(warm.r < 1 && warm.b > 1, JSON.stringify(warm));
+  assert.ok(warm.lift >= 1 && warm.lift <= 1.2);
+  const sage = wallTone(make(120, 160, 110));
+  assert.ok(Math.abs(sage.g - 1) < Math.abs(1 - (120 + 160 + 110) / 3 / 160) * 0.5, JSON.stringify(sage));
+});

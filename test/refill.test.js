@@ -81,7 +81,7 @@ test('try a new layout skips the arrangements already shown, then starts over', 
 });
 
 test('refresh the rest: same frames in the same places, new art except what you kept', () => {
-  const input = inputFor(livingRoom);
+  const input = inputFor(livingRoom, real, { count: 12 });
   const L = layout(input).layouts.find((x) => x.pieces.length >= 3);
   const keep = L.pieces[0].ref.id;
   const r = refill(input, L, { keep: [keep] });

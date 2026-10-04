@@ -181,3 +181,11 @@ test('a size with a wider frame hangs bigger outside, and its piece says so', ()
     assert.equal(p.w, p.frame.w + 3);
   }
 });
+
+test('ties between equal pieces do not follow the id spelling', async () => {
+  const { cmpTie } = await import('../engine/geometry.js');
+  const ids = ['des-a', 'des-b', 'hos-a', 'jp-a', 's6-a', 's6-b', 'u-a', 'u-b'];
+  const sorted = [...ids].sort(cmpTie);
+  assert.notDeepEqual(sorted, [...ids].sort());
+  assert.deepEqual([...ids].reverse().sort(cmpTie), sorted, 'the same order every time');
+});

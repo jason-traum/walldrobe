@@ -112,7 +112,9 @@ From Start. "What are you doing?" Two cards: One wall (Basic): "One photo of the
 | An empty frame | A swatch in its color, Wide and Tall, Black, White, Oak, Brass, "Walls that need this size use it, and it costs nothing." | Edit, Remove |
 | On a wall after spreading | "On Living room." after the size line | |
 | In the home path | "Next: your walls" docked ("Nothing yet, go to your walls" when empty) | |
-| From one wall (Preferences, or the budget's link) | Each piece has On this wall; back goes to Your walls | Tick it: the piece is on this wall as yours |
+| From one wall (the Menu, or the budget's link) | Each piece says Keep, Maybe or Skip for this wall; back goes to Your walls | Keep: in every wall. Maybe: when it earns its place. Skip: saved for later, not on this wall |
+| A photo of a piece | Crop to the piece: the photo, the found box, four corner dots, Use this and Whole photo | The piece takes the crop's shape; Keep shape is on |
+| Keep shape | A tick beside Wide and Tall, on by default with a photo | Typing one side sets the other |
 
 ## 1d. Your home (Oct 4)
 
@@ -176,7 +178,7 @@ Preferences (one sheet, from your wall and from Suggestions): "Any change here b
 | Last piece | "That is the last piece. Pick another wall from Suggestions instead." | |
 | Your piece sheet | Thumbnail, size, move note, reason, nail spot | Pin it where it hangs (or Let it move), Leave it out |
 | One more or fewer | In Preferences, minus and plus from this wall; frames already up stay where they are | |
-| As it hangs now | From Preferences. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: ..." | |
+| As it hangs now | From the tools row under the wall. When a spot breaks a rule: "This is how it hangs now. 2 spots are closer than we'd hang art: ..." | |
 | Tape colors | No legend (v4). The row of a kept piece says "Kept in every wall"; a pinned piece of yours says "Stays where it hangs"; keeping one says so once in the Undo line | |
 | A piece of yours, moved | Row meta: "Moves 4 in right and 2 in higher: take it down and rehang it." | |
 | New art in the open frames | From Preferences: the same frames, new picks; kept and yours stay. "New art in all 6 frames. Undo" | Undo |
@@ -308,3 +310,15 @@ From Preferences ("Browse all the art"), the feed (after the seventh wall) and F
 |---|---|---|
 | Default | Email, "Delete all my photos", "Delete my account", sign out | |
 | Deleting everything | Confirmation that names what goes | Confirm, cancel |
+
+### Oct 4: where things live on the walls
+
+| State | Shows | Notes |
+|---|---|---|
+| Bar on the walls and an open wall | Back or the wordmark, then Menu and Preferences | |
+| Preferences | Taste, Kind, How many, How full, Art, Color, Budget, Reset preferences. Nothing else | Only choices that change the walls |
+| Menu | Your walls (count), Favorites (count), Browse all the art, Your art and frames, Check the wall (not on a sample), Start a new wall | |
+| Open wall tools | One row under the pager: Move pieces (Done moving while on), Measurements, Put it back (after a change), As it hangs now (when it differs) | |
+| Your art (a wall's pieces) | Each piece: name, Framed or Not framed, Wide and Tall with Keep shape, the frame it goes in when not framed, Keep, Maybe, Skip, Save to your stuff (or In your stuff), Remove | |
+| A Society6 print on a wall | The frame, the paper with its printed white border (1 in small, 2 in medium and up), the art inside at its own shape | Never a second mat |
+| Start, the wall photo | Phone: Take a photo (camera), Or choose one you have. Computer: Choose a photo | |

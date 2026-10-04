@@ -118,10 +118,11 @@ test('a budget drops layouts over it and names the cheapest', () => {
 });
 
 test('taste moves the picks', () => {
-  const likesWarm = Object.fromEntries(catalog.map((c) => [c.id, c.theme === 'warm' ? 0.95 : 0.2]));
-  const L = layout({ ...livingRoom, catalog, taste: likesWarm }).layouts[0];
-  const warm = L.pieces.filter((p) => catalog.find((c) => c.id === p.ref.id)?.theme === 'warm').length;
-  assert.ok(warm >= L.pieces.length / 2, `${warm} of ${L.pieces.length} warm`);
+  // Earth tones: the test catalog's earth pieces are all upright, a shape every wall uses.
+  const likesEarth = Object.fromEntries(catalog.map((c) => [c.id, c.theme === 'earth' ? 0.95 : 0.2]));
+  const L = layout({ ...livingRoom, catalog, taste: likesEarth }).layouts[0];
+  const earth = L.pieces.filter((p) => catalog.find((c) => c.id === p.ref.id)?.theme === 'earth').length;
+  assert.ok(earth >= L.pieces.length / 2, `${earth} of ${L.pieces.length} earth`);
 });
 
 test('happy-to-move pieces can be used as fill when their size fits', () => {
@@ -359,4 +360,14 @@ test('a TV with no room above it falls back to the open wall beside it', () => {
   const obstacles = [{ id: 'tv', kind: 'tv', x: 46, y: 30, w: 48, h: 40 }];
   const r = layout({ wall, obstacles, catalog, taste });
   for (const L of r.layouts) { assert.notEqual(L.anchor.id, 'tv'); assertLayoutValid({ wall, obstacles }, L); }
+});
+
+test('every shop in the real catalog can reach a wall', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { activeRecords, toCandidate } = await import('../engine/catalog.js');
+  const { WALLS } = await import('../demo/samples.js');
+  const real = activeRecords(JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url))).items).map(toCandidate);
+  const seen = new Set();
+  for (const w of WALLS) for (const L of layout({ ...w, catalog: real, count: 8 }).layouts) for (const p of L.pieces) seen.add(p.ref.id.split('-')[0]);
+  for (const shop of ['s6', 'jp', 'hos', 'des']) assert.ok(seen.has(shop), `${shop} never reaches a wall: ${[...seen].join(', ')}`);
 });
