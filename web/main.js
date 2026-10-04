@@ -1843,6 +1843,37 @@ function wallSummary(L) {
   return `<p class="wall-sum">${fresh.length} new piece${fresh.length === 1 ? '' : 's'}: ${parts.join(', ')}.${cost != null ? ` Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.` : ''}</p>`;
 }
 
+// How a frame hangs. Frames usually come with: a sawtooth hanger at the top on small
+// ones, a wire on mid sizes, two D-rings on big ones. A piece of yours already up hangs
+// on whatever it has; a wire is assumed. What you set when the frames arrive wins.
+const HANGER_WORDS = { sawtooth: 'Sawtooth hanger', wire: 'Wire', rings: 'Two D-rings' };
+function hangerOf(p) {
+  const d = S.draft;
+  const set = (d.hangers || {})[p.ref.id];
+  if (set) return { ...set, set: true };
+  if (p.ref.source !== 'catalog' && typeof p.drop === 'number' && !p.nailNote) return { type: 'wire', drop: p.drop, measured: true, set: true };
+  const long = Math.max(p.w, p.h);
+  if (p.ref.source !== 'catalog') return { type: 'wire', drop: RULES.defaultDrop };
+  if (long <= 16) return { type: 'sawtooth', drop: 0.5 };
+  if (long <= 32) return { type: 'wire', drop: RULES.defaultDrop };
+  return { type: 'rings', drop: 3, inset: RULES.ringInset };
+}
+// The last section: once the frames are here, say what each hangs on and where.
+function hangerCheck(pieces) {
+  if (!pieces.length) return '';
+  const rows = pieces.map((p) => {
+    const hg = p.hanger || hangerOf(p);
+    const id = esc(p.ref.id), nm = esc(byId.get(p.ref.id) ? byId.get(p.ref.id).title : `Your ${p.title}`);
+    return `<li class="hang-row"><span class="nail-name">${nm}</span>
+      <span class="hang-fields"><label class="inline"><span class="sr-only">${nm} hangs on</span><select data-hang-type="${id}">${Object.entries(HANGER_WORDS).map(([k, v]) => `<option value="${k}"${hg.type === k ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="num"><span>${hg.type === 'rings' ? 'Rings below the top' : hg.type === 'wire' ? 'Wire, pulled up, below the top' : 'Below the top'}</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-drop="${id}" value="${hg.drop}"> in</span></label>
+      ${hg.type === 'rings' ? `<label class="num"><span>In from each side</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-in="${id}" value="${hg.inset ?? RULES.ringInset}"> in</span></label>` : ''}</span></li>`;
+  }).join('');
+  return `<details class="hangers"${S.ui.hangOpen ? ' open' : ''}><summary>When your frames arrive: check the hangers</summary>
+    <p class="pencil small">Turn each frame over and see what's on the back. Measure from the hanger (a wire pulled up tight, as it will hang) to the top of the frame. Every nail spot above follows.</p>
+    <ul class="hang-list">${rows}</ul></details>`;
+}
+
 function getScreen() {
   if (need()) { go(need()); return ''; }
   const wait = building();
@@ -1851,17 +1882,16 @@ function getScreen() {
   const L = shown();
   if (!L) { go('#/layouts'); return ''; }
   const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
-  const drop = typeof d.drop === 'number' && d.drop >= 0 ? d.drop : RULES.defaultDrop;
-  // Hung on a wire: one nail in the middle, the drop below the top. On two D-rings: two
-  // nails, each the rings' inset in from its side, at the rings' height.
-  const rings = d.hanger === 'rings';
-  const inset = typeof d.ringIn === 'number' && d.ringIn >= 0 ? d.ringIn : RULES.ringInset;
+  // Each frame hangs the way frames of its size usually come, so nothing is asked up
+  // front; when the frames arrive, the last section checks them (hangerOf()).
   const q4 = (v) => Math.round(v * 4) / 4;
   const hang = (p) => {
     if (p.role === 'pinned') return p;
-    const y = q4(p.y + p.h - drop);
-    if (rings && p.w > 2 * inset + 2) return { ...p, nail: { x: p.nail.x, y }, nails: [{ x: q4(p.x + inset), y }, { x: q4(p.x + p.w - inset), y }] };
-    return p.nailNote || rings ? { ...p, nail: { x: p.nail.x, y } } : p;
+    const hg = hangerOf(p);
+    if (hg.measured) return p; // a drop you measured on your own piece: the engine's nail
+    const y = q4(p.y + p.h - hg.drop);
+    if (hg.type === 'rings' && p.w > 2 * hg.inset + 2) return { ...p, hanger: hg, nail: { x: p.nail.x, y }, nails: [{ x: q4(p.x + hg.inset), y }, { x: q4(p.x + p.w - hg.inset), y }] };
+    return { ...p, hanger: hg, nail: { x: p.nail.x, y } };
   };
   const LG = { ...L, pieces: L.pieces.map(hang) };
   const hangOrder = [...LG.pieces].filter((p) => p.role !== 'pinned').sort((a, b) => b.w * b.h - a.w * a.h);
@@ -1921,26 +1951,19 @@ function getScreen() {
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <h2 id="guide-h">Where the nails go</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
-      <form class="fields drop-form" id="drop-form" novalidate>
-        <label for="hanger">Each frame hangs on</label>
-        <select id="hanger" name="hanger"><option value="wire"${rings ? '' : ' selected'}>a wire or one hook</option><option value="rings"${rings ? ' selected' : ''}>two D-rings</option></select>
-        <label for="drop">${rings ? 'The rings sit' : 'Wire or hanger sits'}</label>
-        <span class="pair"><input type="number" id="drop" name="drop" inputmode="decimal" min="0" max="12" step="0.25" value="${drop}"> in below the top of the frame</span>
-        ${rings ? `<label for="ring-in">Each ring is</label>
-        <span class="pair"><input type="number" id="ring-in" name="ring-in" inputmode="decimal" min="0" max="12" step="0.25" value="${inset}"> in from the side of the frame</span>
-        <span class="help">Measure from the top of a ring to the top of the frame, and from the ring to the nearest side.</span>` : '<span class="help">Pull the wire up tight, as it will hang, and measure from it to the top.</span>'}
-      </form>
+      <p class="pencil small">Nail spots assume the hanger each frame usually comes with. When your frames arrive, check them at the bottom of this page.</p>
       <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
-        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(size(soldW(p), soldH(p)))} frame, ${esc(size(p.w, p.h))} outside` : `${esc(size(p.w, p.h))} frame`}</span></span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
+        <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${tn(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(size(soldW(p), soldH(p)))} frame, ${esc(size(p.w, p.h))} outside` : `${esc(size(p.w, p.h))} frame`}</span>${p.hanger ? `<span class="nail-ref">${esc(HANGER_WORDS[p.hanger.type])}${p.hanger.set ? '' : ', assumed'}</span>` : ''}</span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
         ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${d.photo.mode === 'auto' ? '#/check' : '#/size'}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>
         <li>Mark each nail in pencil, then nail or drill.</li>
-        ${rings ? '<li>Two nails a frame: put a level across the two marks before you drill, so the frame hangs straight.</li>' : ''}
+        ${hangOrder.some((p) => p.nails) ? '<li>Two nails for a frame on D-rings: put a level across the two marks before you drill, so it hangs straight.</li>' : ''}
         ${anyRef ? `<li>Measuring from the nearest edge, like the TV's, keeps any error small${estimate ? ', which helps while the wall size is an estimate' : ''}.</li>` : ''}
         <li>A photo can't see wires or studs. Near an outlet or switch, check with a stud finder before you drill.</li>
       </ol>
+      ${hangerCheck(hangOrder)}
     </section>
     <div class="acts left">
       <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button>
@@ -2491,7 +2514,7 @@ function wireDraw() {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
-  if (f.id === 'drop-form') { for (const id of ['#drop', '#ring-in']) { const i = $(id); if (i) i.dispatchEvent(new Event('change', { bubbles: true })); } return; }
+  if (f.id === 'drop-form') return;
   if (f.id === 'dims-form') { changeDims(f); return; }
   if (f.id === 'size-form') {
     const v = (n) => Number(f.elements[n].value || 0);
@@ -2537,17 +2560,26 @@ document.addEventListener('submit', (e) => {
   }
 });
 
+document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; }, true);
+
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.id === 'hanger') { S.draft.hanger = t.value === 'rings' ? 'rings' : 'wire'; persist(); render(); const again = $('#hanger'); if (again) again.focus({ preventScroll: true }); return; }
-  if (t.id === 'ring-in') {
-    const v = Number(t.value);
-    if (Number.isFinite(v) && v >= 0 && v <= 12) { S.draft.ringIn = Math.round(v * 4) / 4; persist(); render(); const again = $('#ring-in'); if (again) again.focus({ preventScroll: true }); }
-    return;
-  }
-  if (t.id === 'drop') {
-    const v = Number(t.value);
-    if (Number.isFinite(v) && v >= 0 && v <= 12) { S.draft.drop = Math.round(v * 4) / 4; persist(); render(); const again = $('#drop'); if (again) again.focus({ preventScroll: true }); }
+  // A frame's hanger, set when it arrives: its kind, how far below the top, and for D-rings how far in.
+  if (t.dataset && (t.dataset.hangType || t.dataset.hangDrop || t.dataset.hangIn)) {
+    const id = t.dataset.hangType || t.dataset.hangDrop || t.dataset.hangIn;
+    const L = shown(); const p = L && L.pieces.find((x) => x.ref.id === id);
+    if (!p) return;
+    const d = S.draft, cur = { ...hangerOf(p) };
+    delete cur.set; delete cur.measured;
+    const v = Number(t.value), ok = Number.isFinite(v) && v >= 0 && v <= 12;
+    if (t.dataset.hangType) { const def = { sawtooth: 0.5, wire: RULES.defaultDrop, rings: 3 }; cur.type = t.value; if (!(d.hangers || {})[id]) cur.drop = def[t.value]; if (t.value === 'rings' && cur.inset == null) cur.inset = RULES.ringInset; }
+    else if (t.dataset.hangDrop && ok) cur.drop = Math.round(v * 4) / 4;
+    else if (t.dataset.hangIn && ok) cur.inset = Math.round(v * 4) / 4;
+    else return;
+    d.hangers = { ...(d.hangers || {}), [id]: cur };
+    S.ui.hangOpen = true; persist(); render();
+    const sel = t.dataset.hangType ? `[data-hang-type="${CSS.escape(id)}"]` : t.dataset.hangDrop ? `[data-hang-drop="${CSS.escape(id)}"]` : `[data-hang-in="${CSS.escape(id)}"]`;
+    const again = document.querySelector(sel); if (again) again.focus({ preventScroll: true });
     return;
   }
   if (t.dataset && t.dataset.artPhoto && t.files && t.files[0]) {
