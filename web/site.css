@@ -773,6 +773,7 @@ svg.is-dragging .measure { opacity: 0.25; }
    (about 410 px a column, three across), instead of staying at the reading width. */
 @media (min-width: 1100px) {
   body.on-browse #app { max-width: 1320px; }
+  body.on-browse .bar, body.on-browse .demo-note { max-width: 1320px; padding-left: 24px; padding-right: 24px; }
   .page.browse { max-width: 1320px; padding-left: 24px; padding-right: 24px; }
   .page.browse .art-grid { columns: 3 300px; column-gap: 20px; }
 }
