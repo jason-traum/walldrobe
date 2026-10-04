@@ -129,8 +129,8 @@ const back = (href, label) => `<a class="back" href="${href}"><span aria-hidden=
 // The front page's small print: where things live and where the art comes from.
 function credits() {
   return `<footer class="credits">
-    <p>Everything you add or pick stays on your device. Nothing goes to a server.</p>
-    <p>For now the art comes from other sites, and we link you there to buy it. Use Walldrobe to lay out your wall and try ideas. Coming soon: all of it in one place.</p>
+    <p>Plan the wall here. Each piece links to the shop that sells it, or to the free photo. Soon you'll get it all in one order.</p>
+    <p>Your photos and picks never leave this device.</p>
   </footer>`;
 }
 const flashHtml = () => (S.flash ? `<p class="flash">${esc(S.flash)}</p>` : '');
