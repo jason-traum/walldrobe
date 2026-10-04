@@ -266,7 +266,7 @@ export function loadFile(file, max = 1600) {
       URL.revokeObjectURL(url);
       resolve({ ...cx.getImageData(0, 0, w, h), width: w, height: h, url: cv.toDataURL('image/jpeg', 0.8) });
     };
-    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file won\'t open. Use a JPG, PNG or HEIC under 20 MB.')); };
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file won\'t open. Use a JPG or PNG under 20 MB.')); };
     im.src = url;
   });
 }

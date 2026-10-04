@@ -620,7 +620,7 @@ function photoLabels() {
 async function onPhoto(file) {
   S.ui.photoErr = null;
   if (!file) return;
-  if (file.size > 20 * 1024 * 1024) { S.ui.photoErr = "That file won't open. Use a JPG, PNG or HEIC under 20 MB."; render(); return; }
+  if (file.size > 20 * 1024 * 1024) { S.ui.photoErr = "That file is too big. Use a photo under 20 MB."; render(); return; }
   try {
     S.busy = 'photo'; render();
     const img = await loadFile(file, 1400);
@@ -628,10 +628,12 @@ async function onPhoto(file) {
     S.draft = { ...blankDraft(), taste: S.draft && S.draft.taste && S.draft.taste.source === 'yours' ? S.draft.taste : { source: 'none', weights: null } };
     // Label the photo with the image model (wall, ceiling, floor, art, TV...).
     // If it can't load, the photo is read without it.
+    // A download that stalls never holds the photo up: past the time limit it's read without the model.
     let seg = null;
+    const within = (pr, ms) => Promise.race([pr, new Promise((_, no) => setTimeout(() => no(new Error('timed out')), ms))]);
     try {
-      if (!(await modelCached())) { S.ui.modelPct = 0; showBusyLabel(); }
-      seg = await segment(img, (f) => { S.ui.modelPct = Math.round(f * 100); showBusyLabel(); });
+      if (!(await within(modelCached(), 4000).catch(() => false))) { S.ui.modelPct = 0; showBusyLabel(); }
+      seg = await within(segment(img, (f) => { S.ui.modelPct = Math.round(f * 100); showBusyLabel(); }), 90000);
     } catch (err) { console.warn('photo reader', err); seg = null; }
     S.ui.modelPct = null; showBusyLabel();
     // Find the wall in the photo: its four corners, for the person to check.
@@ -651,7 +653,9 @@ async function onPhoto(file) {
     go('#/corners');
   } catch (e) {
     S.busy = null;
-    S.ui.photoErr = e.message || "That file won't open. Use a JPG, PNG or HEIC under 20 MB.";
+    const heic = /hei[cf]$/i.test(file.name || '') || /hei[cf]/i.test(file.type || '');
+    S.ui.photoErr = heic ? "This browser can't open HEIC photos. Open Walldrobe in Safari on your iPhone, or save the photo as a JPG first." : (e.message || "That file won't open. Use a JPG or PNG under 20 MB.");
+    console.error('photo', e);
     render();
   }
 }
@@ -1790,7 +1794,7 @@ function whereToPrint(L) {
   const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all</li>`,
     pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
     pk.better && `<li><span class="pr-tag">Better print</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}, a pro lab</li>`].filter(Boolean).join('');
-  return `<section class="where" aria-labelledby="where-h"><h2 id="where-h">Where to print</h2>
+  return `<section class="where" aria-labelledby="where-h"><h2 id="where-h">Print the free photos</h2>
     <p>Your free photos need ${lead}. Plain photo or poster paper. Regular prices, before any code.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Print prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.count > 1 ? `<span class="pr-count">${n.count} prints</span>` : ''}`, cell: (x) => usd(x) })}
@@ -1807,9 +1811,9 @@ function whereToFrame(L) {
   const lead = needed.map((n) => `${n.count} at ${sizeWords(n.key)}\u00a0in${n.mat ? ` with a mat for ${sizeWords(n.mat)}` : ''}`).join(', ');
   const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all${pk.cheapest.mats ? '' : ', some mats to buy separately'}</li>`,
     pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
-    pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? ', printed, matted and framed' : ', real glass'}</li>`].filter(Boolean).join('');
+    pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? (printNeeds(L).length ? ', printed, matted and framed' : ', framed for you; you mail in your prints') : ', real glass'}</li>`].filter(Boolean).join('');
   const anyMat = needed.some((n) => n.mat);
-  return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">Where to frame</h2>
+  return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">2. Get the frames</h2>
     <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Plain black, regular prices before any sale.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
@@ -1840,7 +1844,17 @@ function wallSummary(L) {
   const parts = [shop && `${shop} from ${shop === 1 ? 'a shop' : 'shops'}`, nPrint && `${nPrint} to print`, nFrame && `${nFrame} frame${nFrame === 1 ? '' : 's'}`, nMat && `${nMat} with a mat`].filter(Boolean);
   const pc = pn.length ? printPicks(printOptions(pn)).cheapest : null, fc = fn.length ? framePicks(frameOptions(fn)).cheapest : null;
   const cost = (pc || !pn.length) && (fc || !fn.length) && (pn.length || fn.length) ? (pc ? pc.total : 0) + (fc ? fc.total : 0) : null;
-  return `<p class="wall-sum">${fresh.length} new piece${fresh.length === 1 ? '' : 's'}: ${parts.join(', ')}.${cost != null ? ` Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.` : ''}</p>`;
+  // The next steps, in order, so the page reads as a plan: the art, the frames, the nails.
+  const shops = [...new Set(fresh.filter((p) => (byId.get(p.ref.id).offers || []).length).map((p) => byId.get(p.ref.id).source))];
+  const art = [shop && `order ${shop === 1 ? 'the print' : `${shop} prints`} from ${shops.join(' and ')}`, nPrint && `print ${nPrint === 1 ? 'the free photo' : `${nPrint} free photos`}${pc ? `, about ${usd(pc.total)} at ${pc.p.name}` : ''}`].filter(Boolean).join(', and ');
+  const frames = nFrame ? `${nFrame} frame${nFrame === 1 ? '' : 's'}${nMat ? `, ${nMat === nFrame ? 'each' : nMat} with a mat` : ''}${fc ? `, about ${usd(fc.total)} at ${fc.p.name}` : ''}` : '';
+  return `<div class="wall-sum"><p>${fresh.length} new piece${fresh.length === 1 ? '' : 's'}: ${parts.join(', ')}. Three steps:</p>
+    <ol class="next-steps">
+      <li><strong>Get the art.</strong> ${esc(art[0].toUpperCase() + art.slice(1))}.</li>
+      ${frames ? `<li><strong>Get the frames.</strong> ${esc(frames[0].toUpperCase() + frames.slice(1))}. The table below has every seller.</li>` : ''}
+      <li><strong>Hang it.</strong> When everything arrives, the nail spots are at the bottom.</li>
+    </ol>
+    ${cost != null ? `<p class="pencil small">Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.</p>` : ''}</div>`;
 }
 
 // How a frame hangs. Frames usually come with: a sawtooth hanger at the top on small
@@ -1940,7 +1954,7 @@ function getScreen() {
   <main class="page get">
     <h1>${fresh.length ? 'Get it, hang it' : 'Hang it'}</h1>
     ${flashHtml()}
-    ${fresh.length ? `<section aria-labelledby="buy-h"><h2 id="buy-h">What to get</h2>
+    ${fresh.length ? `<section aria-labelledby="buy-h"><h2 id="buy-h">1. Get the art</h2>
       ${wallSummary(L)}
       <ul class="buy-list">${buy}</ul>
       ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
@@ -1949,7 +1963,7 @@ function getScreen() {
     ${whereToFrame(L)}
     ${copyBlock(L)}
     <section class="guide" id="guide" aria-labelledby="guide-h">
-      <h2 id="guide-h">Where the nails go</h2>
+      <h2 id="guide-h">3. Hang it</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
       <p class="pencil small">Nail spots assume the hanger each frame usually comes with. When your frames arrive, check them at the bottom of this page.</p>
       <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
@@ -2144,8 +2158,6 @@ function wire(r) {
   if (r === 'corners') wireCorners();
   if (r === 'things') wireThings();
   if (r === 'pieces' && S.draft && S.draft.photo) wireDraw();
-  const pi = $('#photo-input');
-  if (pi) pi.addEventListener('change', (e) => onPhoto(e.target.files[0]));
   if (r === 'wall') { if (S.edit) wireEdit(); else wireSwipe(); }
 }
 
@@ -2564,6 +2576,8 @@ document.addEventListener('toggle', (e) => { if (e.target && e.target.classList 
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  // The photo, caught at the document so a render while the picker is open can't lose it.
+  if (t.id === 'photo-input') { onPhoto(t.files && t.files[0]); return; }
   // A frame's hanger, set when it arrives: its kind, how far below the top, and for D-rings how far in.
   if (t.dataset && (t.dataset.hangType || t.dataset.hangDrop || t.dataset.hangIn)) {
     const id = t.dataset.hangType || t.dataset.hangDrop || t.dataset.hangIn;
