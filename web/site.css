@@ -589,3 +589,7 @@ svg.is-dragging .measure { opacity: 0.25; }
   .prices th, .prices td { padding: 10px 5px; }
   .prices th:first-child, .prices td:first-child { padding-left: 4px; min-width: 118px; }
 }
+.pr-mat { display: block; font-size: 12px; font-weight: 400; color: var(--keep-ink); }
+.pr-mat.is-off { color: var(--pencil); }
+.wall-sum { font-size: 15px; }
+.where.ask { margin-top: 8px; }

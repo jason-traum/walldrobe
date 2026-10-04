@@ -14,6 +14,7 @@ import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, pho
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
 import { PRICES_CHECKED, printOptions, picks as printPicks, aiQuestion, sizeKey } from './printers.js';
+import { FRAMES_CHECKED, frameOptions, framePicks, framesTable, frameKey } from './framers.js';
 import { segment, modelCached } from './segment.js';
 import { packLabels, unpackLabels } from './segcore.js';
 import { cameraPose, standOut, DEPTH } from './camera.js';
@@ -1753,29 +1754,93 @@ function printNeeds(L) {
   const area = (k) => k.split('x').reduce((a, b) => a * b, 1);
   return [...m].map(([key, count]) => ({ key, count })).sort((a, b) => area(b.key) - area(a.key));
 }
-// Where to print them: every service with its regular price for each size, the best
-// three marked, and a question to paste into your own AI for today's codes.
+// The frames this wall needs, by the size sold and the print its mat holds:
+// [{ key: '11x14', mat: '8x10' | null, count }]. A print a shop sells framed needs none.
+function frameNeeds(L) {
+  const m = new Map();
+  for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
+    const item = byId.get(p.ref.id);
+    if (!item) continue;
+    const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)).main : null;
+    if (shop && shop.framed) continue;
+    const ps = shop ? null : printSize(soldW(p), soldH(p));
+    const key = frameKey(soldW(p), soldH(p)), mat = ps ? frameKey(ps[0], ps[1]) : null;
+    const k = `${key}|${mat || ''}`;
+    const o = m.get(k) || { key, mat, count: 0 };
+    o.count++; m.set(k, o);
+  }
+  const area = (k) => k.split('x').reduce((a, b) => a * b, 1);
+  return [...m.values()].sort((a, b) => area(b.key) - area(a.key));
+}
+const usd = (n) => `$${Math.abs(n - Math.round(n)) < 0.005 ? Math.round(n) : n.toFixed(2)}`;
+// A price table, one row per seller, a column per size and the total; the best ones marked.
+function priceTable({ label, needed, rows, tag, col, cell }) {
+  return `<div class="table-scroll" tabindex="0" role="region" aria-label="${esc(label)}"><table class="prices"><thead><tr><th scope="col">${label === 'Frame prices' ? 'Seller' : 'Service'}</th>${needed.map((n) => `<th scope="col">${col(n)}</th>`).join('')}<th scope="col">Total</th></tr></thead>
+      <tbody>${rows.map((r) => { const t = tag(r); return `<tr${t.length ? ' class="is-pick"' : ''}><td><a href="${esc(r.p.url)}" target="_blank" rel="noopener">${esc(r.p.name)}</a>${t.map((x) => `<span class="pr-tag">${x}</span>`).join('')}<span class="pr-note">${esc(r.p.kind === 'Store' ? r.p.pickup : `Ships ${r.p.ships[0].toLowerCase()}${r.p.ships.slice(1)}`)}. ${esc(r.p.note)}.</span></td>${r.each.map((x, i) => `<td>${x == null ? '<span class="pr-none">No</span>' : cell(x, needed[i])}</td>`).join('')}<td>${r.all ? usd(r.total) : '<span class="pr-none">Not all</span>'}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+const sizeWords = (k) => k.replace('x', '\u00a0x\u00a0');
+// Where to print the free photos: every service with its regular price for each size, the best three marked.
 function whereToPrint(L) {
   const needed = printNeeds(L);
   if (!needed.length) return '';
   const rows = printOptions(needed);
   const pk = printPicks(rows);
   const tag = (r) => [r === pk.cheapest && 'Best price', r === pk.today && 'Same day', r === pk.better && 'Better print'].filter(Boolean);
-  const usd = (n) => `$${n.toFixed(2)}`;
-  const sz = (n) => `${n.key.replace('x', '\u00a0x\u00a0')}${n.count > 1 ? `<span class="pr-count">${n.count} prints</span>` : ''}`;
-  const lead = needed.map((n) => `${n.count} at ${n.key.replace('x', '\u00a0x\u00a0')}\u00a0in`).join(', ');
+  const lead = needed.map((n) => `${n.count} at ${sizeWords(n.key)}\u00a0in`).join(', ');
   const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all</li>`,
     pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
     pk.better && `<li><span class="pr-tag">Better print</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}, a pro lab</li>`].filter(Boolean).join('');
   return `<section class="where" aria-labelledby="where-h"><h2 id="where-h">Where to print</h2>
     <p>Your free photos need ${lead}. Plain photo or poster paper. Regular prices, before any code.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
-    <div class="table-scroll" tabindex="0" role="region" aria-label="Print prices"><table class="prices"><thead><tr><th scope="col">Service</th>${needed.map((n) => `<th scope="col">${sz(n)}</th>`).join('')}<th scope="col">Total</th></tr></thead>
-      <tbody>${rows.map((r) => { const t = tag(r); return `<tr${t.length ? ' class="is-pick"' : ''}><td><a href="${esc(r.p.url)}" target="_blank" rel="noopener">${esc(r.p.name)}</a>${t.map((x) => `<span class="pr-tag">${x}</span>`).join('')}<span class="pr-note">${esc(r.p.kind === 'Store' ? r.p.pickup : `Ships ${r.p.ships[0].toLowerCase()}${r.p.ships.slice(1)}`)}. ${esc(r.p.note)}.</span></td>${r.each.map((x) => `<td>${x == null ? '<span class="pr-none">No</span>' : usd(x)}</td>`).join('')}<td>${r.all ? usd(r.total) : '<span class="pr-none">Not all</span>'}</td></tr>`; }).join('')}</tbody></table></div>
-    <p class="pencil small">Prices checked ${PRICES_CHECKED}. Most of these run codes every week, often 40 to 75% off. Copy this table into ChatGPT, Gemini or Claude and it will look for today's codes and the cheapest way.</p>
-    <div class="acts left copy-row"><button type="button" class="btn quiet" data-act="copy-ai">Copy for your AI</button><span class="copy-status" role="status">${S.ui.copied === 'ok' ? 'Copied. Paste it into your AI.' : S.ui.copied === 'no' ? 'Could not copy. Select the table and copy it.' : ''}</span></div>
-    <p class="pencil small">Walldrobe takes nothing on these prints. The photos are free for your own wall, not to sell.</p>
+    ${priceTable({ label: 'Print prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.count > 1 ? `<span class="pr-count">${n.count} prints</span>` : ''}`, cell: (x) => usd(x) })}
+    <p class="pencil small">Prices checked ${PRICES_CHECKED}. Walldrobe takes nothing on these prints. The photos are free for your own wall, not to sell.</p>
   </section>`;
+}
+// Where to frame: every seller with a plain black frame in each size, whether its mat fits, the best three marked.
+function whereToFrame(L) {
+  const needed = frameNeeds(L);
+  if (!needed.length) return '';
+  const rows = frameOptions(needed);
+  const pk = framePicks(rows);
+  const tag = (r) => [r === pk.cheapest && 'Best price', r === pk.today && 'Same day', r === pk.better && (r.p.id === 'framebridge' ? 'Done for you' : 'Better frame')].filter(Boolean);
+  const lead = needed.map((n) => `${n.count} at ${sizeWords(n.key)}\u00a0in${n.mat ? ` with a mat for ${sizeWords(n.mat)}` : ''}`).join(', ');
+  const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all${pk.cheapest.mats ? '' : ', some mats to buy separately'}</li>`,
+    pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
+    pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? ', printed, matted and framed' : ', real glass'}</li>`].filter(Boolean).join('');
+  const anyMat = needed.some((n) => n.mat);
+  return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">Where to frame</h2>
+    <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Plain black, regular prices before any sale.</p>
+    ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
+    ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
+    ${anyMat ? '<p class="pencil small">Where the mat doesn\'t fit your print, buy the frame alone and a mat cut to the window above, or ask your AI where to get one.</p>' : ''}
+    <p class="pencil small">Prices checked ${FRAMES_CHECKED}.</p>
+  </section>`;
+}
+// One question for your own AI with every print and frame on this wall, for today's codes.
+function wallQuestion(L) {
+  const pn = printNeeds(L), fn = frameNeeds(L);
+  const fr = frameOptions(fn);
+  return aiQuestion(pn, printOptions(pn), fn.length ? { needed: fn, table: framesTable(fn, fr), checked: FRAMES_CHECKED } : null);
+}
+function copyBlock(L) {
+  if (!printNeeds(L).length && !frameNeeds(L).length) return '';
+  return `<section class="where ask" aria-label="Find today's codes">
+    <p class="pencil small">Most of these run codes and sales every week, often 40 to 75% off. Copy both tables into ChatGPT, Gemini or Claude and it will look for today's codes and the cheapest way to get it all.</p>
+    <div class="acts left copy-row"><button type="button" class="btn quiet" data-act="copy-ai">Copy for your AI</button><span class="copy-status" role="status">${S.ui.copied === 'ok' ? 'Copied. Paste it into your AI.' : S.ui.copied === 'no' ? 'Could not copy. Select the table and copy it.' : ''}</span></div>
+  </section>`;
+}
+// The whole wall in two lines: what to get, and what printing and frames cost at the cheapest.
+function wallSummary(L) {
+  const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
+  if (!fresh.length) return '';
+  const pn = printNeeds(L), fn = frameNeeds(L);
+  const nPrint = pn.reduce((t, n) => t + n.count, 0), nFrame = fn.reduce((t, n) => t + n.count, 0), nMat = fn.filter((n) => n.mat).reduce((t, n) => t + n.count, 0);
+  const shop = fresh.filter((p) => (byId.get(p.ref.id).offers || []).length).length;
+  const parts = [shop && `${shop} from ${shop === 1 ? 'a shop' : 'shops'}`, nPrint && `${nPrint} to print`, nFrame && `${nFrame} frame${nFrame === 1 ? '' : 's'}`, nMat && `${nMat} with a mat`].filter(Boolean);
+  const pc = pn.length ? printPicks(printOptions(pn)).cheapest : null, fc = fn.length ? framePicks(frameOptions(fn)).cheapest : null;
+  const cost = (pc || !pn.length) && (fc || !fn.length) && (pn.length || fn.length) ? (pc ? pc.total : 0) + (fc ? fc.total : 0) : null;
+  return `<p class="wall-sum">${fresh.length} new piece${fresh.length === 1 ? '' : 's'}: ${parts.join(', ')}.${cost != null ? ` Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.` : ''}</p>`;
 }
 
 function getScreen() {
@@ -1835,10 +1900,13 @@ function getScreen() {
     <h1>${fresh.length ? 'Get it, hang it' : 'Hang it'}</h1>
     ${flashHtml()}
     ${fresh.length ? `<section aria-labelledby="buy-h"><h2 id="buy-h">What to get</h2>
+      ${wallSummary(L)}
       <ul class="buy-list">${buy}</ul>
       ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
     </section>` : ''}
     ${whereToPrint(L)}
+    ${whereToFrame(L)}
+    ${copyBlock(L)}
     <section class="guide" id="guide" aria-labelledby="guide-h">
       <h2 id="guide-h">Where the nails go</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${d.photo && d.photo.mode === 'auto' ? '#/check' : '#/size'}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
@@ -2757,8 +2825,7 @@ document.addEventListener('click', (e) => {
     case 'print': window.print(); break;
     case 'copy-ai': {
       const L = shown(); if (!L) break;
-      const needed = printNeeds(L);
-      const text = aiQuestion(needed, printOptions(needed));
+      const text = wallQuestion(L);
       const done = (ok) => { S.ui.copied = ok ? 'ok' : 'no'; render(); const b = document.querySelector('[data-act="copy-ai"]'); if (b) b.focus({ preventScroll: true }); };
       const old = () => { try { const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch { return false; } };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(old()));

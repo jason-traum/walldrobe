@@ -99,12 +99,12 @@ export function picks(rows) {
 
 // The question to paste into ChatGPT, Gemini or Claude: what to print, the regular
 // prices we found, and a request to find today's codes and the cheapest way.
-export function aiQuestion(needed, rows) {
+export function aiQuestion(needed, rows, frames = null) {
   const sizes = needed.map((n) => `${n.count} print${n.count > 1 ? 's' : ''} at ${n.key.replace('x', ' x ')} in`).join(', ');
   const head = `| Service | ${needed.map((n) => `${n.key}${n.count > 1 ? ` (x${n.count})` : ''}`).join(' | ')} | Total | Pickup | Shipping |`;
   const line = `|---|${needed.map(() => '---').join('|')}|---|---|---|`;
   const body = rows.map((r) => `| ${r.p.name} | ${r.each.map((x) => (x == null ? 'not offered' : `$${x.toFixed(2)}`)).join(' | ')} | ${r.all ? `$${r.total.toFixed(2)}` : 'not every size'} | ${r.p.pickup} | ${r.p.ships} |`).join('\n');
-  return `I'm printing photos for my wall in the US: ${sizes}. Plain photo or poster paper, not canvas, not framed.
+  const printing = needed.length ? `I'm printing photos for my wall in the US: ${sizes}. Plain photo or poster paper, not canvas, not framed.
 
 Here are the regular prices (before any codes) I found on ${PRICES_CHECKED}:
 
@@ -112,5 +112,14 @@ ${head}
 ${line}
 ${body}
 
-Please search for discount codes and sales live today for each of these services (and any I missed), work out what each one would cost me today with codes and shipping or pickup, and tell me the cheapest good option. If a service doesn't print one of my sizes, tell me the nearest size it does. Link your sources.`;
+` : '';
+  const framing = frames && frames.needed.length ? `${needed.length ? 'I also need' : "I'm framing prints for my wall in the US and need"} plain black frames: ${frames.needed.map((n) => `${n.count} x ${n.key.replace('x', ' x ')} in${n.mat ? ` with a mat for a ${n.mat.replace('x', ' x ')} in print` : ''}`).join(', ')}.
+
+Regular frame prices (before any sale) I found on ${frames.checked}:
+
+${frames.table}
+
+` : '';
+  const ask = needed.length && frames && frames.needed.length ? 'printing and framing' : needed.length ? 'printing' : 'framing';
+  return `${printing}${framing}Please search for discount codes and sales live today for each of these (and any I missed), work out what the ${ask} would cost me today with codes and shipping or pickup, and tell me the cheapest good way to get all of it. If a seller doesn't have one of my sizes, tell me the nearest size it does, or where to get a mat cut to fit. Link your sources.`;
 }

@@ -109,3 +109,14 @@ Retail: photo.walgreens.com/store/prints, /store/posters, developer.walgreens.co
 Pro labs: mpix.com/photo-prints, /about/shipping, /sales, /rewards-program; nationsphotolab.com product JSON, shipping and sales help articles; printique.com/site/PriceList.aspx, /company/shipping-processing; bayphoto.com/prints/photographic-prints, /shipping-policies, /specials; richardphotolab.com; saal-digital.com; parabo.press; socialprintstudio.com/products.json; printkit.dev; petapixel.com best online photo printing (Jan 2026); mattpaynephotography.com print lab roundup (2025); improvephotography.com print test (2013).
 Print on demand: api.printful.com/products/1 and /2, printful.com/shipping; lumaprints.com/pricing, api-docs.lumaprints.com; artelo.com/pricing; finerworks.com; gelato.com; prodigi.com; printify.com/pricing; gooten.com.
 Licenses: pexels.com/license; unsplash.com/license; pixabay.com/service/license-summary.
+
+## Frames (researched Oct 3, 2026)
+
+One plain black frame per size, at each seller's own site; Amazon blocks reading, so Americanflat and Upsimples are priced from their own stores. The full table and URLs are in web/framers.js. Takeaways:
+
+- Walmart Mainstays is the cheapest by far ($1.98 for 8x10, $5.72 for 16x20, $11.92 for 24x36), mostly with a plastic front and no mat (the 11x14 gallery frame has a mat for 8x10).
+- IKEA fits the metric sizes shop prints come in: A4 (8x12), 50 x 70 cm (20x28), 70 x 100 cm (28x39). RÖDALM replaced RIBBA in the US and comes with a mat a size down.
+- Americanflat (the top frame brand on Amazon) has real glass and mats sized for the standard print in every size we use, so it's the "better frame".
+- Michaels lists high and runs 50% off frames often; its 11x14 mat is for 5x7, not 8x10.
+- Framebridge prints, mats and frames an uploaded photo, priced by the print: about $115 up to 9x12, $150 up to 12x18, $200 up to 18x24, $265 up to 24x34, $365 up to 32x40.
+- Not verified: Amazon prices, Walmart Better Homes & Gardens, Hobby Lobby per-size prices, Target shipping terms, Burnes and Nielsen Bainbridge, Frame It Easy per-size prices (code FREEMAT for a free mat).
