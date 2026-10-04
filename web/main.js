@@ -13,8 +13,8 @@ import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, se
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply } from './photo.js';
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
-import { PRICES_CHECKED, printOptions, picks as printPicks, aiQuestion, sizeKey } from './printers.js';
-import { FRAMES_CHECKED, frameOptions, framePicks, framesTable, frameKey } from './framers.js';
+import { PRICES_CHECKED, PRINTERS, printOptions, picks as printPicks, aiQuestion, sizeKey } from './printers.js';
+import { FRAMES_CHECKED, FRAMERS, frameOptions, framePicks, framesTable, frameKey } from './framers.js';
 import { segment, modelCached } from './segment.js';
 import { packLabels, unpackLabels } from './segcore.js';
 import { cameraPose, standOut, DEPTH } from './camera.js';
@@ -159,7 +159,7 @@ function engineInput() {
   const prefer = (d.picked || []).filter((x) => ids.has(x) && !keptIds.has(x));
   return { wall: { width: d.width, height: d.height }, obstacles: trueObs(d), owned, catalog, taste, room, count: WALLS_ASKED, base: S.stepBase || undefined, prefer,
     // The piece count is everything on the wall, pieces that stay put included.
-    prefs: { fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
+    prefs: { mats: matLevel() === 'none' ? 'none' : undefined, fullness: d.fullness || 'balanced', style: d.style || undefined, pieces: d.pieces ? Math.max(1, d.pieces - stayCount()) : undefined } };
 }
 const keepList = () => (S.draft.justMine ? [] : S.draft.kept || []);
 const ART_MODES = ['prints', 'both', 'photos'];
@@ -167,7 +167,7 @@ const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art 
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
 // 'frames1': walls built before frames took their outside size on the wall aren't brought back.
-const viewKey = () => JSON.stringify(['frames1', S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
+const viewKey = () => JSON.stringify(['frames1', matLevel() === 'none', S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
 const notForMe = () => new Set(store.loadMe().disliked);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped, [...notForMe()]]);
 
@@ -1604,7 +1604,7 @@ function pieceSheet(id) {
       ${o && o.at && o.keep !== 'happy' ? `<div class="acts left"><button type="button" class="btn quiet" data-pin="${esc(id)}">${p.role === 'pinned' ? 'Let it move' : 'Pin it where it hangs'}</button></div>` : ''}`;
   }
   const item = byId.get(id);
-  const c = item.offers && item.offers.length ? offersAt(item, p.w, p.h).main : null;
+  const c = item.offers && item.offers.length ? offersAt(item, ...shopPrint(p)).main : null;
   const saved = d.saved.includes(id), kept = keptSet().has(id);
   const all = kept ? [] : choicesFor(L, id);
   const showAll = S.ui.allFor === id;
@@ -1666,22 +1666,75 @@ function printSize(w, h) {
 const soldW = (p) => (p.frame ? p.frame.w : p.w), soldH = (p) => (p.frame ? p.frame.h : p.h);
 // A free photo is printed smaller and matted in its frame; a shop print fills its frame.
 function printOf(p) {
-  return matFor(p) ? printSize(soldW(p), soldH(p)) : null;
+  if (!matFor(p)) return null;
+  return p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : printSize(soldW(p), soldH(p));
 }
-// Mat or not, piece by piece. Only a free photo can take one: it's printed smaller and the
-// mat fills the frame around it (a shop print is sold to fill its frame). Our pick: a mat
-// on photos in frames up to 24 in on the long side, where it gives a small print room;
-// none on bigger frames, where the print itself does the work. "All" and "None" set every
-// free photo; a piece you flip wins over both.
-const MAT_UP_TO = 24;
+// The size a shop print is sold at: the frame's size, or the print inside it when the wall hangs it matted a frame up.
+const shopPrint = (p) => (p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : [soldW(p), soldH(p)]);
+// Mat or not, piece by piece, the way anyone framing a print decides: either is fine.
+// A free photo can go either way in the same frame: printed smaller with a mat, or at the
+// frame's size without one. A shop print fills its frame, unless the wall hangs it a frame
+// up, matted. How many get one is a preference on a scale (MAT_LEVELS), not a rule:
+//  - Only what's easy to get counts: a mat needs the smaller print to be printable and a
+//    frame sold "matted to" it; no mat needs the full-size print and a plain frame. When
+//    only one way is easy, that's the way.
+//  - The rest go by the scale, whole frame sizes at a time so same-size pieces match,
+//    smallest frames first (a mat gives a small print room; a big one does the work).
+//  - A piece you flip wins.
+const MAT_LEVELS = [['none', 'None'], ['few', 'A few'], ['some', 'Some'], ['most', 'Most'], ['all', 'All']];
+const MAT_SHARE = { none: 0, few: 0.25, some: 0.5, most: 0.75, all: 1 };
+// The level you picked last carries to new walls.
+let ME_MAT = null;
+const matLevel = () => { const v = S.draft && S.draft.mat; if (MAT_SHARE[v] != null) return v; if (ME_MAT === null) ME_MAT = store.loadMe().matLevel || ''; return MAT_SHARE[ME_MAT] != null ? ME_MAT : 'some'; };
+const cheapestPrint = (k) => Math.min(...PRINTERS.map((x) => x.sizes[k]).filter((v) => v != null));
+const cheapestFrame = (k, mat) => Math.min(...FRAMERS.map((f) => f.sizes[k]).filter(Boolean).filter(([, m]) => mat === undefined || m === mat).map(([pr]) => pr));
+function matWays(p) {
+  const F = frameKey(soldW(p), soldH(p)), ps = printSize(soldW(p), soldH(p));
+  const P = ps ? frameKey(ps[0], ps[1]) : null;
+  return {
+    mat: !!P && Number.isFinite(cheapestPrint(P)) && Number.isFinite(cheapestFrame(F, P)),
+    plain: Number.isFinite(cheapestPrint(F)) && Number.isFinite(cheapestFrame(F)),
+  };
+}
+let MAT_PLAN = { key: null, plan: new Map() };
+function matPlan(L) {
+  const lv = matLevel();
+  const key = `${L.key}|${lv}|${L.pieces.map((p) => `${p.ref.id}:${soldW(p)}x${soldH(p)}`).join(',')}`;
+  if (MAT_PLAN.key === key) return MAT_PLAN.plan;
+  const plan = new Map();
+  const free = L.pieces.filter((p) => { const it = p.ref.source === 'catalog' && byId.get(p.ref.id); return it && !(it.offers && it.offers.length) && printSize(soldW(p), soldH(p)); });
+  const open = [];
+  for (const p of free) {
+    const w = matWays(p);
+    if (w.mat && !w.plain) plan.set(p.ref.id, true);
+    else if (!w.mat) plan.set(p.ref.id, false);
+    else open.push(p);
+  }
+  // Whole frame sizes at a time, smallest first, until the share asked for is reached.
+  const groups = new Map();
+  for (const p of open) { const k = frameKey(soldW(p), soldH(p)); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
+  const order = [...groups].sort((a, b) => a[0].split('x').reduce((x, y) => x * y, 1) - b[0].split('x').reduce((x, y) => x * y, 1));
+  // A size is matted when that brings the count closer to the share asked for.
+  const want = MAT_SHARE[lv] * open.length;
+  let n = 0;
+  for (const [, ps] of order) {
+    const take = lv === 'all' || (lv !== 'none' && Math.abs(n + ps.length - want) < Math.abs(n - want));
+    for (const p of ps) plan.set(p.ref.id, take);
+    if (take) n += ps.length;
+  }
+  MAT_PLAN = { key, plan };
+  return plan;
+}
 function matFor(p) {
   const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
-  if (!item || (item.offers && item.offers.length) || !printSize(soldW(p), soldH(p))) return false;
+  if (!item) return false;
+  if (item.offers && item.offers.length) return !!(p.frame && p.frame.print);
+  if (!printSize(soldW(p), soldH(p))) return false;
   const d = S.draft || {}, one = (d.matFor || {})[p.ref.id];
   if (typeof one === 'boolean') return one;
-  if (d.mat === 'none') return false;
-  if (d.mat === 'all') return true;
-  return Math.max(soldW(p), soldH(p)) <= MAT_UP_TO;
+  const L = S.view ? shown() : null;
+  if (L && L.pieces.some((x) => x.ref.id === p.ref.id)) { const v = matPlan(L).get(p.ref.id); if (typeof v === 'boolean') return v; }
+  return MAT_SHARE[matLevel()] >= 0.5 && matWays(p).mat;
 }
 const canMat = (p) => { const item = byId.get(p.ref.id); return !!item && !(item.offers && item.offers.length) && !!printSize(soldW(p), soldH(p)); };
 setPrintFor(printOf);
@@ -1718,7 +1771,7 @@ function wallCost(L) {
     const item = byId.get(p.ref.id);
     if (!item) continue;
     if (!(item.offers && item.offers.length)) { out.free++; continue; }
-    const o = offersAt(item, soldW(p), soldH(p)).main;
+    const o = offersAt(item, ...shopPrint(p)).main;
     if (!o || o.price == null) { out.unpriced++; continue; }
     out.total += o.price; out.priced++; out.shops.add(item.source); out.cur = o.currency || 'USD';
     if (o.framed) out.framed++;
@@ -1793,9 +1846,9 @@ function frameNeeds(L) {
   for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
     const item = byId.get(p.ref.id);
     if (!item) continue;
-    const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)).main : null;
+    const shop = item.offers && item.offers.length ? offersAt(item, ...shopPrint(p)).main : null;
     if (shop && shop.framed) continue;
-    const ps = shop || !matFor(p) ? null : printSize(soldW(p), soldH(p));
+    const ps = matFor(p) ? printOf(p) : null;
     const key = frameKey(soldW(p), soldH(p)), mat = ps ? frameKey(ps[0], ps[1]) : null;
     const k = `${key}|${mat || ''}`;
     const o = m.get(k) || { key, mat, count: 0 };
@@ -1937,7 +1990,7 @@ const sz = (w, h) => `${w} x ${h} in`;
 // Does a piece need a frame bought (a shop that sells it framed means no)?
 function needsFrame(p) {
   const item = byId.get(p.ref.id);
-  const o = item && item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)).main : null;
+  const o = item && item.offers && item.offers.length ? offersAt(item, ...shopPrint(p)).main : null;
   return !(o && o.framed);
 }
 // What's been ordered so far: art (or printed) and frames, by piece.
@@ -1967,7 +2020,7 @@ function framesScreen() {
   const wait = building();
   if (wait) return wait;
   const fresh = [...L.pieces.filter((p) => p.ref.source === 'catalog')].sort((a, b) => b.w * b.h - a.w * a.h);
-  const look = lookOf(), mode = ['all', 'none'].includes(S.draft.mat) && !Object.keys(S.draft.matFor || {}).length ? S.draft.mat : Object.keys(S.draft.matFor || {}).length ? 'mixed' : 'auto';
+  const look = lookOf(), mode = Object.keys(S.draft.matFor || {}).length ? 'mixed' : matLevel();
   const free = fresh.filter(canMat);
   const rows = fresh.map((p) => {
     const item = byId.get(p.ref.id);
@@ -1985,9 +2038,9 @@ function framesScreen() {
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
     </fieldset>
-    ${free.length ? `<fieldset class="choose"><legend>Mats</legend>
-      <span class="seg" role="group" aria-label="Mats">${[['auto', 'Our pick'], ['all', 'All'], ['none', 'None']].map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
-      <span class="help">A mat is the white card between the print and the frame; the photo is printed smaller to sit in its window. Our pick puts one on photos in frames up to ${MAT_UP_TO} in and none on bigger ones, where the print does the work. Shop prints fill their frames. Tap Mat on a piece to change just that one.</span>
+    ${free.length ? `<fieldset class="choose"><legend>How many mats</legend>
+      <span class="seg" role="group" aria-label="Mats">${MAT_LEVELS.map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
+      <span class="help">A mat is the white card between the print and the frame; with one, the photo is printed smaller. Pick how many: the smallest frames get them first, pieces the same size match, and only ways you can easily buy are used. Tap Mat on any piece to change just that one.</span>
     </fieldset>` : ''}
     <h2>Sizes</h2>
     <ul class="frame-list">${rows}</ul>
@@ -2008,7 +2061,7 @@ function getScreen() {
   const tick = (key, label) => `<button type="button" class="tick" data-order="${esc(key)}" aria-pressed="${!!ord[key]}">${label}</button>`;
   const buy = [...fresh].sort((a, b) => b.w * b.h - a.w * a.h).map((p) => {
     const item = byId.get(p.ref.id);
-    const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)) : null;
+    const shop = item.offers && item.offers.length ? offersAt(item, ...shopPrint(p)) : null;
     const o = shop && shop.main;
     let credit, frame, get;
     if (o) {
@@ -2805,7 +2858,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
   if (t.dataset.look) { S.draft.look = t.dataset.look; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
-  if (t.dataset.mat) { S.draft.mat = ['all', 'none'].includes(t.dataset.mat) ? t.dataset.mat : 'auto'; S.draft.matFor = {}; persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.mat) { S.draft.mat = MAT_SHARE[t.dataset.mat] != null ? t.dataset.mat : 'some'; S.draft.matFor = {}; { const me = store.loadMe(); me.matLevel = S.draft.mat; store.saveMe(me); ME_MAT = S.draft.mat; } persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.matOne) { const L = shown(), p = L && L.pieces.find((x) => x.ref.id === t.dataset.matOne); if (p) { S.draft.matFor = { ...(S.draft.matFor || {}), [p.ref.id]: !matFor(p) }; persist(); render(); const b = document.querySelector(`[data-mat-one="${CSS.escape(p.ref.id)}"]`); if (b) b.focus({ preventScroll: true }); } return; }
   if (t.dataset.order) { const k = t.dataset.order, o = { ...(S.draft.orders || {}) }; if (o[k]) delete o[k]; else o[k] = true; S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.add) {

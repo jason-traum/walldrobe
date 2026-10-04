@@ -112,6 +112,8 @@ function readPrefs(raw = {}) {
     fullness: RULES.fullness[raw.fullness] ? raw.fullness : 'balanced',
     // The size lever: -1 fewer, bigger pieces; 1 more, smaller ones; null leaves it to the other scores.
     scale: num(raw.scale) && raw.scale !== 0 ? Math.max(-1, Math.min(1, raw.scale)) : null,
+    // 'none': no shop print hangs matted in a bigger frame.
+    mats: raw.mats === 'none' ? 'none' : null,
   };
 }
 
@@ -167,7 +169,7 @@ function prepare(input) {
 
   const catalogCands = catalog.filter((c) => !exclude.has(c.id) && !keptIds.has(c.id)).map((c) => ({
     id: c.id, source: 'catalog', title: c.title, artist: c.artist || null, item: c,
-    sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0).map((s) => ({ ...outerOf(s), ...(num(s.price) ? { price: s.price } : {}), frame: frameOf(s) })),
+    sizes: c.sizes.filter((s) => s && num(s.w) && num(s.h) && s.w > 0 && s.h > 0 && !(s.matted && input.prefs && input.prefs.mats === 'none')).map((s) => ({ ...outerOf(s), ...(num(s.price) ? { price: s.price } : {}), frame: frameOf(s) })),
     taste: pickTaste(c), prefer: prefer.has(c.id),
   }));
 
@@ -361,7 +363,7 @@ const borderOf = (z) => (z && z.framed ? 0 : RULES.frameBorder);
 const outerOf = (z) => { const b = borderOf(z); return { w: z.w + 2 * b, h: z.h + 2 * b }; };
 // The catalog size behind an outside size on the wall.
 const soldAs = (c, w, h) => (c.sizes || []).find((z) => { const o = outerOf(z); return Math.abs(o.w - w) < 1e-6 && Math.abs(o.h - h) < 1e-6; }) || null;
-const frameOf = (z) => (z ? { w: z.w, h: z.h, border: borderOf(z) } : null);
+const frameOf = (z) => (z ? { w: z.w, h: z.h, border: borderOf(z), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}) } : null);
 const priceOf = (c, w, h) => {
   const s = soldAs(c, w, h);
   return s && num(s.price) ? s.price : null;
