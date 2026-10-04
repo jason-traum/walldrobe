@@ -146,6 +146,8 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .page { padding: 8px 16px 48px; max-width: 760px; margin: 0 auto; display: grid; gap: 16px; align-content: start; }
 .page > h2 { margin-top: 16px; }
 .credits { padding: 24px 16px 40px; max-width: 760px; margin: 0 auto; color: var(--pencil); font-size: 13px; line-height: 19px; }
+.credits p + p { margin-top: 8px; }
+.home-copy .credits { padding: 0; margin: 24px 0 0; max-width: 46ch; }
 
 /* ---------- Drawings ---------- */
 .drawing { position: relative; display: block; }

@@ -614,9 +614,9 @@ function home() {
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
       <p class="how">Take a photo. Pick a wall. Frame it, hang it.</p>
+      ${credits()}
     </div>
-  </main>
-  ${credits()}`;
+  </main>`;
 }
 
 // ---------- Start: photo or size ----------
