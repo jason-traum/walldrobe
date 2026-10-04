@@ -20,7 +20,8 @@ test('spotChoices() lists every piece in that frame size, none already on the wa
   for (const c of list) {
     assert.ok(!onWall.has(c.id), `${c.id} is already on the wall`);
     const item = cat.find((x) => x.id === c.id);
-    assert.ok((item.sizes || []).some((s) => s.w === p.w && s.h === p.h), `${c.id} doesn't come in ${p.w} x ${p.h}`);
+    // The wall holds the frame's outside; the piece comes in the size the frame is sold as.
+    assert.ok((item.sizes || []).some((s) => s.w === p.frame.w && s.h === p.frame.h), `${c.id} doesn't come in ${p.frame.w} x ${p.frame.h}`);
   }
   for (let i = 1; i < list.length; i++) assert.ok(list[i - 1].value >= list[i].value, 'best first');
 });

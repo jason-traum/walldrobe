@@ -153,7 +153,11 @@ export function toCandidate(r) {
     url: r.source.page,
     image: r.image.src,
     palette: r.color.palette.map(({ hex, weight }) => ({ hex, weight })),
-    sizes: liveSizes(r).map(({ w, h, price }) => (price == null ? { w, h } : { w, h, price })),
+    // A size the shop sells framed is already the frame's outside; anything else gets framed.
+    sizes: liveSizes(r).map(({ w, h, price }) => {
+      const framed = (r.offers || []).some((o) => !o.gone && o.framed && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
+      return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}) };
+    }),
     bw: r.color.bw,
     quality: r.quality && typeof r.quality.score === 'number' ? r.quality.score : null,
     weight: r.composition.weight,

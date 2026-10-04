@@ -174,7 +174,7 @@ function waitTitle(title, cx, cy, iw, ppi) {
   const lh = fs * 1.2, y0 = cy - ((shown.length - 1) * lh) / 2;
   return `<text x="${cx}" y="${y0}" font-size="${fs}" class="art-wait">${shown.map((t, i) => `<tspan x="${cx}" dy="${i ? lh : 0}">${esc(t)}</tspan>`).join('')}</text>`;
 }
-function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }) {
+function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, printFor }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
   const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
@@ -199,6 +199,24 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi }
     <rect x="${p.x + f}" y="${y + f}" width="${p.w - 2 * f}" height="${p.h - 2 * f}" class="mat"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, p.w - 2 * (f + m), ppi)}
     ${img ? `<image href="${img}" x="${p.x + f + m}" y="${y + f + m}" width="${p.w - 2 * (f + m)}" height="${p.h - 2 * (f + m)}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+    ${sel}
+  </g>`;
+  }
+  // A new print in its frame, at true size: the frame's moulding, a mat when the print is
+  // smaller than the frame, the print, and the tape that says it's new (green when kept).
+  if (p.frame && (kind === 'new' || kind === 'kept')) {
+    // A piece sold framed is already its outside; draw a standard moulding inside it.
+    const b = p.frame.border || Math.min(0.75, Math.min(p.w, p.h) / 10);
+    const ow = p.w - 2 * b, oh = p.h - 2 * b;
+    const pr = printFor ? printFor(p) : null;
+    const pw = pr ? Math.min(pr[0], ow) : ow, ph = pr ? Math.min(pr[1], oh) : oh;
+    const ix = p.x + b + (ow - pw) / 2, iy = y + b + (oh - ph) / 2;
+    return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame" filter="url(#wd-shadow)"/>
+    <rect x="${p.x + b}" y="${y + b}" width="${ow}" height="${oh}" class="mat"/>
+    ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, pw, ppi)}
+    ${img ? `<image href="${img}" x="${ix}" y="${iy}" width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi)}
     ${sel}
   </g>`;
   }
@@ -252,6 +270,11 @@ export function labelSize(W, pxWide) {
  *   selected, measure, pxWide, extra (SVG to add on top), obstacleClass, label
  * }
  */
+// The print inside a new piece's frame, [w, h] in inches, or null when it fills the
+// frame. Set once by the app, which knows each piece's print.
+let PRINT_FOR = null;
+export function setPrintFor(fn) { PRINT_FOR = fn; }
+
 export function wallSvg(o) {
   const W = o.wall.width, H = o.wall.height;
   const s = labelSize(W, o.pxWide);
@@ -273,7 +296,7 @@ export function wallSvg(o) {
     const kind = owned ? (p.role === 'pinned' ? 'pin' : 'own') : (o.keptIds && o.keptIds.has(p.ref.id) ? 'kept' : 'new');
     // A pinned piece is still on the wall in the photo: only its strip of tape is drawn.
     if (kind === 'pin' && o.photo) return `<g class="art is-pin" data-id="${esc(p.ref.id)}"${o.still ? '' : ` tabindex="0" role="button" aria-label="${esc(p.title)}, stays where it hangs"`}><rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="hit"/>${pinStrip(p.x, H - p.y - p.h, p.ref.id)}</g>`;
-    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi });
+    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi, printFor: o.printFor || PRINT_FOR });
   }).join('') : '';
   // A wall you can tap pieces on is a group, so screen readers reach each piece.
   const role = L && !o.still ? 'group' : 'img';

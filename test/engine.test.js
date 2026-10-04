@@ -18,7 +18,8 @@ for (const w of SAMPLE_WALLS) {
     assert.equal(r.layouts.length, 3);
     assert.ok(new Set(r.layouts.map((L) => L.family)).size >= 2);
     r.layouts.forEach((L) => assertLayoutValid(input, L));
-    const scores = r.layouts.map((L) => L.score);
+    // The best free-form wall leads (DECISIONS, Oct 1); after it, best first.
+    const scores = r.layouts.slice(r.layouts[0].family === 'flow' ? 1 : 0).map((L) => L.score);
     assert.deepEqual(scores, [...scores].sort((a, b) => b - a), 'ranked best first');
   });
 }
@@ -230,8 +231,8 @@ test('a must-keep taller than the wall allows is named as too tall', () => {
 });
 
 test('a catalog with no usable sizes says so, not "fewer must-keeps"', () => {
-  // Frames are built in the sizes the art comes in, from 8 in on the long side, so 5 x 7 is too small for any.
-  const odd = catalog.slice(0, 10).map((c) => ({ ...c, sizes: [{ w: 5, h: 7, price: 20 }] }));
+  // Frames are built in the sizes the art comes in, from 8 in on the long side outside, so a 4 x 6 frame (5.5 x 7.5 outside) is too small for any.
+  const odd = catalog.slice(0, 10).map((c) => ({ ...c, sizes: [{ w: 4, h: 6, price: 20 }] }));
   const r = layout({ ...livingRoom, catalog: odd });
   assert.equal(r.problems[0].code, 'TOO_FEW_CANDIDATES');
 });
