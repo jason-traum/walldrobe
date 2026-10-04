@@ -156,8 +156,9 @@ From the open wall's Frame it. One look for every new frame, a mat or not, and t
 | State | What they see | Action |
 |---|---|---|
 | Default | "Frame it", one line on what it does, the wall drawn with its frames, Frame: Black, White, Oak, Brass (Black pressed), "Sizes": each new piece with its print, mat and frame in words ("Print 8 x 10 in with a mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside"), Get it docked | Pick a look, Get it |
-| Free photos on the wall | "Mat on the free photos": With a mat, No mat, and a line on what a mat is | Pick |
-| No mat | The free photos print at their frame's size: "Print 11 x 14 in, no mat, in a 11 x 14 in frame" | |
+| Free photos on the wall | "Mats": Our pick (pressed), All, None, and a line on what a mat is and what our pick does. Each free photo that can take a mat has a Mat tick | Pick, flip one |
+| A piece without a mat | "Print 11 x 14 in, no mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside" | Tick Mat |
+| Flipped by hand | None of the three is pressed; that piece keeps its own | Pick one of the three to reset all |
 | Shop sells it framed | "Comes framed, 14.5 x 18.5 in." | |
 | Nothing new | The wall's Hang it goes straight to Hang it | |
 

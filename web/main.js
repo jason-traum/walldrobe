@@ -1666,10 +1666,24 @@ function printSize(w, h) {
 const soldW = (p) => (p.frame ? p.frame.w : p.w), soldH = (p) => (p.frame ? p.frame.h : p.h);
 // A free photo is printed smaller and matted in its frame; a shop print fills its frame.
 function printOf(p) {
-  const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
-  if (!item || (item.offers && item.offers.length) || noMat()) return null;
-  return printSize(soldW(p), soldH(p));
+  return matFor(p) ? printSize(soldW(p), soldH(p)) : null;
 }
+// Mat or not, piece by piece. Only a free photo can take one: it's printed smaller and the
+// mat fills the frame around it (a shop print is sold to fill its frame). Our pick: a mat
+// on photos in frames up to 24 in on the long side, where it gives a small print room;
+// none on bigger frames, where the print itself does the work. "All" and "None" set every
+// free photo; a piece you flip wins over both.
+const MAT_UP_TO = 24;
+function matFor(p) {
+  const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
+  if (!item || (item.offers && item.offers.length) || !printSize(soldW(p), soldH(p))) return false;
+  const d = S.draft || {}, one = (d.matFor || {})[p.ref.id];
+  if (typeof one === 'boolean') return one;
+  if (d.mat === 'none') return false;
+  if (d.mat === 'all') return true;
+  return Math.max(soldW(p), soldH(p)) <= MAT_UP_TO;
+}
+const canMat = (p) => { const item = byId.get(p.ref.id); return !!item && !(item.offers && item.offers.length) && !!printSize(soldW(p), soldH(p)); };
 setPrintFor(printOf);
 // The frames step: one look for every new frame, and a mat or not on the free photos.
 const FRAME_LOOKS = {
@@ -1679,7 +1693,6 @@ const FRAME_LOOKS = {
   brass: { name: 'Brass', hex: '#B8955A' },
 };
 const lookOf = () => (S.draft && FRAME_LOOKS[S.draft.look] ? S.draft.look : 'black');
-const noMat = () => !!(S.draft && S.draft.mat === 'none');
 function applyLook() {
   const lk = FRAME_LOOKS[lookOf()], st = document.documentElement.style;
   st.setProperty('--frame-new', lk.hex);
@@ -1766,7 +1779,7 @@ function printNeeds(L) {
   for (const p of L.pieces.filter((x) => x.ref.source === 'catalog')) {
     const item = byId.get(p.ref.id);
     if (!item || (item.offers && item.offers.length)) continue;
-    const ps = (!noMat() && printSize(soldW(p), soldH(p))) || [soldW(p), soldH(p)];
+    const ps = (matFor(p) && printSize(soldW(p), soldH(p))) || [soldW(p), soldH(p)];
     const k = sizeKey(ps[0], ps[1]);
     m.set(k, (m.get(k) || 0) + 1);
   }
@@ -1782,7 +1795,7 @@ function frameNeeds(L) {
     if (!item) continue;
     const shop = item.offers && item.offers.length ? offersAt(item, soldW(p), soldH(p)).main : null;
     if (shop && shop.framed) continue;
-    const ps = shop || noMat() ? null : printSize(soldW(p), soldH(p));
+    const ps = shop || !matFor(p) ? null : printSize(soldW(p), soldH(p));
     const key = frameKey(soldW(p), soldH(p)), mat = ps ? frameKey(ps[0], ps[1]) : null;
     const k = `${key}|${mat || ''}`;
     const o = m.get(k) || { key, mat, count: 0 };
@@ -1832,7 +1845,7 @@ function whereToFrame(L) {
     <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for plain black; ${lookOf() === 'black' ? 'regular prices before any sale' : `look for ${FRAME_LOOKS[lookOf()].name.toLowerCase()} on each seller's page, usually about the same price`}.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
-    ${anyMat ? '<p class="pencil small">Where the mat doesn\'t fit your print, buy the frame alone and a mat cut to the window above, or ask your AI where to get one.</p>' : ''}
+    ${anyMat ? '<p class="pencil small">Mats come in the frame: look for one sold "matted to" your print size (an 11 x 14 frame matted to 8 x 10). Where a seller\'s mat is for another size, buy the frame alone and a precut mat for that frame with your print\'s window.</p>' : ''}
     <p class="pencil small">Prices checked ${FRAMES_CHECKED}.</p>
   </section>`;
 }
@@ -1917,7 +1930,7 @@ function thumbFor(p, box) {
   const item = own ? null : byId.get(p.ref.id);
   const ar = p.w / p.h, h = ar < 1 ? box : box / ar, w = h * ar;
   const img = own ? (o && o.thumb) : item && item.imageData;
-  const cls = own ? 'tn own' : `tn new${kept.has(p.ref.id) ? ' kept' : ''}`;
+  const cls = own ? 'tn own' : `tn new framed${matFor(p) ? ' matted' : ''}${kept.has(p.ref.id) ? ' kept' : ''}`;
   return `<span class="${cls}" style="width:${w.toFixed(0)}px;height:${h.toFixed(0)}px">${img ? `<img src="${img}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`;
 }
 const sz = (w, h) => `${w} x ${h} in`;
@@ -1954,14 +1967,15 @@ function framesScreen() {
   const wait = building();
   if (wait) return wait;
   const fresh = [...L.pieces.filter((p) => p.ref.source === 'catalog')].sort((a, b) => b.w * b.h - a.w * a.h);
-  const look = lookOf(), mat = noMat() ? 'none' : 'mat';
-  const free = fresh.filter((p) => !(byId.get(p.ref.id).offers || []).length);
+  const look = lookOf(), mode = ['all', 'none'].includes(S.draft.mat) && !Object.keys(S.draft.matFor || {}).length ? S.draft.mat : Object.keys(S.draft.matFor || {}).length ? 'mixed' : 'auto';
+  const free = fresh.filter(canMat);
   const rows = fresh.map((p) => {
     const item = byId.get(p.ref.id);
     const ps = printOf(p);
     const fw = soldW(p), fh = soldH(p);
     const words = !needsFrame(p) ? `Comes framed, ${sz(p.w, p.h)}.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
-    return `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${words}</span></span></li>`;
+    const flip = canMat(p) ? `<button type="button" class="tick" data-mat-one="${esc(p.ref.id)}" aria-pressed="${matFor(p)}">Mat</button>` : '';
+    return `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${words}</span>${flip ? `<span class="row-ticks">${flip}</span>` : ''}</span></li>`;
   }).join('');
   return `${bar(back('#/wall', 'This wall'))}
   <main class="page frames">
@@ -1971,9 +1985,9 @@ function framesScreen() {
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
     </fieldset>
-    ${free.length ? `<fieldset class="choose"><legend>Mat on the free photos</legend>
-      <span class="seg" role="group" aria-label="Mat">${[['mat', 'With a mat'], ['none', 'No mat']].map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mat === k}">${v}</button>`).join('')}</span>
-      <span class="help">A mat is the white border between the print and the frame. With one, the photo is printed smaller; without, it fills the frame. Shop prints already fill theirs.</span>
+    ${free.length ? `<fieldset class="choose"><legend>Mats</legend>
+      <span class="seg" role="group" aria-label="Mats">${[['auto', 'Our pick'], ['all', 'All'], ['none', 'None']].map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
+      <span class="help">A mat is the white card between the print and the frame; the photo is printed smaller to sit in its window. Our pick puts one on photos in frames up to ${MAT_UP_TO} in and none on bigger ones, where the print does the work. Shop prints fill their frames. Tap Mat on a piece to change just that one.</span>
     </fieldset>` : ''}
     <h2>Sizes</h2>
     <ul class="frame-list">${rows}</ul>
@@ -2006,7 +2020,7 @@ function getScreen() {
       frame = o.framed ? `Comes framed, ${sz(p.w, p.h)} outside.` : same ? `Print ${sz(pw, ph)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.` : `Print ${sz(pw, ph)}. Mat with a ${sz(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.`;
       get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
     } else {
-      const fw = soldW(p), fh = soldH(p), ps = noMat() ? null : printSize(fw, fh);
+      const fw = soldW(p), fh = soldH(p), ps = matFor(p) ? printSize(fw, fh) : null;
       credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
       frame = ps ? `Print it ${sz(ps[0], ps[1])}. Mat with a ${sz(ps[0] - 2 * MAT_LIP, ps[1] - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.` : `Print it ${sz(fw, fh)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.`;
       get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
@@ -2791,7 +2805,8 @@ document.addEventListener('click', (e) => {
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
   if (t.dataset.look) { S.draft.look = t.dataset.look; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
-  if (t.dataset.mat) { S.draft.mat = t.dataset.mat === 'none' ? 'none' : 'mat'; persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.mat) { S.draft.mat = ['all', 'none'].includes(t.dataset.mat) ? t.dataset.mat : 'auto'; S.draft.matFor = {}; persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.matOne) { const L = shown(), p = L && L.pieces.find((x) => x.ref.id === t.dataset.matOne); if (p) { S.draft.matFor = { ...(S.draft.matFor || {}), [p.ref.id]: !matFor(p) }; persist(); render(); const b = document.querySelector(`[data-mat-one="${CSS.escape(p.ref.id)}"]`); if (b) b.focus({ preventScroll: true }); } return; }
   if (t.dataset.order) { const k = t.dataset.order, o = { ...(S.draft.orders || {}) }; if (o[k]) delete o[k]; else o[k] = true; S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.add) {
     const W = S.draft.width;
