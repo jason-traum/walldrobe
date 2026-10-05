@@ -369,7 +369,7 @@ A catalog size is what the frame is sold as. On the wall it takes the frame's ou
 - Loose: sizes grouped, smallest area first; a size is matted when that brings the count closer to level x pieces with a choice. No single odd one out among four or more, unless it's the unique biggest piece.
 - Bare pieces: on a structured wall, the statement piece (the unique biggest in a statement wall) and any frame `BIG_FRAME` (30 in) or more on its long side go without a mat unless the level is All. The rest stay uniform among themselves.
 - Score: structured, (0.75 x uniformity + 0.25 x level fit, both over the pieces that are not bare) x (0.8 + 0.2 x share of bare pieces left plain); loose, 0.6 x (0.35 no lone one, 0.35 same sizes match, 0.3 matted pieces centered) + 0.4 x level fit. `judge()` subtracts 0.04 x (1 minus it); `parts.mats` reports it; `finish()` sets each piece's `mat` and `print`.
-- `prefs.matLevel`: none, few, some (default), most, all.
+- `prefs.matLevel`: none, few, some, most (default since Oct 5), all.
 
 
 ## Image scores and the taste meter (2026-10-04, engine/taste.js)
@@ -400,3 +400,9 @@ A catalog size may carry `border`, the moulding's width; `borderOf` uses it (a s
 - Ties: pieces that score the same are ordered by a fixed hash of the id (`cmpTie` in geometry.js), not its spelling, so no shop prefix wins every tie. Same ids, same order, every time.
 - Picking leans on quality as before (`QUALITY_PICK`), now the mean of the reviewed quality score and the image score (`record.vision.looks`) when a piece has both.
 - Taste words: a model-read idea (`concept:*`) counts at 0.6 of a tagged fact when choosing the words, so "black and white" beats "gritty" at the same weight.
+
+## Mats asked for, and prints sold with a white border (2026-10-05)
+
+- The default mat level is Most (`prefs.matLevel`, was Some). With Most or All, a wall whose share of matted new pieces is short of the level ranks lower: `MAT_LEAN` (0.05) times the shortfall, so a wall with no mats under Most loses about 0.04. Under Some or less there's no lean; `matScore` still judges how the mats are spread.
+- A catalog size can carry `mount` (the art inside a white border, inches) when the shop sells it framed that way (House of Spoils "Border": a Small is an 8 x 12 in image in a 14.5 x 18.5 in frame). `toCandidate` turns it into `{ framed: true, matted: mount }`: the size is the frame's outside, it hangs matted, it can't be flipped, and with `prefs.mats: 'none'` it's left out like any matted size. The same print's full bleed size is another, smaller framed size with no mount. `validateRecord` checks a mount sits inside its frame and checks the 14% shape rule against the mount, not the frame.
+- `frameOf` marks a size the shop frames with `shopFramed: true`, so the app prices it as sold (frame included) and finds its offer by the outside size.

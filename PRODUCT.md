@@ -151,13 +151,13 @@ Jason, 2026-10-03: "after framing the next steps we should do are like helping c
 
 | To do | What it means | FEEDBACK |
 |---|---|---|
-| Cheapest way to get each print | For the same art at the frame's size: every shop that sells it, a digital download where the artist offers one, and printing a free photo at an online or local print lab; price with shipping, cheapest first. Links only, never their images re-hosted | 93 |
+| Cheapest way to get each print (open) | For the same art at the frame's size: every shop that sells it, a digital download where the artist offers one, and printing a free photo at an online or local print lab; price with shipping, cheapest first. Links only, never their images re-hosted | 93 |
 | Done Oct 3: printing free photos | Where to print on Get it: every print service with prices for your sizes, the best three marked, Copy for your AI to find today's codes | 101 |
-| Cheapest frame that fits | A frame in that exact size (and the mat opening for the print), from a few frame sellers, cheapest first, with the mat said in words | 93 |
-| One list for the whole wall | Every print and frame with its cheapest source and the total; prices come back here once they are real (hidden for now, row 72) | 72, 93 |
-| Way more art (Oct 4) | Today 1,406 active pieces: 658 free photos (Unsplash, Pexels, Pixabay) and Desenio and House of Spoils prints. Next, in order: more free photos through the same pipeline (cheapest, already works); the affiliate feeds decided Sept 30 (Minted, Saatchi Art, Society6, JUNIQE, Artfinder, through Impact, CJ, Awin, Sovrn) once a shop approves; local Philadelphia artists (Open Studio Tours Oct 17 to 18, First Friday Old City, Crane Arts, InLiquid, Cherry Street Pier). Every new piece: tags in tools/tags.json, then `python3 tools/vision.py` and `python3 tools/apply_vision.py` | 127 |
-| Ask more (Oct 4) | Jason: "data is powerful and we should ask a ton". Questions asked in the feed, one at a time, never blocking: budget first (built); room colors, who else lives with the wall, what's already framed | 127 |
-| Wall reading | Dressers, couch and shelf read as one, corner photos, soffits. Matters more now that the check is skipped by default | 124 |
+| Done Oct 3: cheapest frame that fits | Get the frames on Get it: six sellers and Framebridge with prices per size, whether the mat fits, the best three marked; Oct 5: each frame in its own color | 93, 166 |
+| Done Oct 4 and 5: one list | Get it is the checklist for a wall, with prices back ("$1,000 (+$200 to frame)"); a home has Get it all: each wall, the total, a home budget, and the frames and prints for every wall in one table each | 72, 93, 152, 171 |
+| Way more art (Oct 4, more Oct 5) | 2,110 active pieces on Oct 5: 641 free photos and 1,469 shop prints (Society6 604, House of Spoils 519, Desenio 246, Juniper 100). Next: more free photos (needs a way to find them from here: the stock sites' search needs keys), Desenio and Posterstore when they stop limiting requests, the affiliate feeds once a shop approves, Etsy with a key | 127, 172 |
+| Ask more (Oct 4, Oct 5) | Built: budget, then what the room is like, real or abstract, busy or quiet, one card at a time in the list, each leaning every wall, all in Preferences. Still to ask: who else lives with the wall, what's already framed | 127 |
+| Wall reading | Oct 5: furniture side by side is split where its top steps (19 of 25 pieces boxed on their own on an 18 photo bench, from 15). Still open: a piece partly behind another, very dim photos, picking the other wall in a corner photo (the reader takes the wall in the middle; corners can be dragged) | 124, 170 |
 
 ### Engine only (no interface)
 

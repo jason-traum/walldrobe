@@ -138,6 +138,38 @@ function credits() {
 }
 const flashHtml = () => (S.flash ? `<p class="flash">${esc(S.flash)}</p>` : '');
 
+// ---------- Quick questions ----------
+// Asked in the list of walls, one at a time, never in the way: what the room is like,
+// real scenes or abstract, busy or quiet. Each answer leans the art (an axis of taste,
+// 0 to 1 on every piece) for every wall; Skip asks nothing more of it. Kept for you, not per wall.
+const ASK = [
+  { id: 'room', q: 'What is the room like?', opts: [
+    ['light', 'Calm and light', { busy: -1, light: 1 }], ['wood', 'Warm, with wood', { warm: 1 }],
+    ['bold', 'Bold and colorful', { vivid: 1 }], ['moody', 'Dark and moody', { light: -1 }]] },
+  { id: 'real', q: 'Real scenes or abstract?', opts: [['real', 'Real scenes', { abstract: -1 }], ['abstract', 'Abstract', { abstract: 1 }], ['both', 'Both', {}]] },
+  { id: 'busy', q: 'Busy art or quiet art?', opts: [['quiet', 'Quiet', { busy: -1 }], ['busy', 'Busy', { busy: 1 }], ['both', 'A mix', {}]] },
+];
+const asked = () => store.loadMe().asked || {};
+function askLeans() {
+  const a = asked(), out = {};
+  for (const q of ASK) { const o = q.opts.find((x) => x[0] === a[q.id]); if (o) for (const [k, v] of Object.entries(o[2])) out[k] = (out[k] || 0) + v; }
+  return out;
+}
+// A piece's taste times how well it sits with the answers: up to 1.3 when it does, 0.7 when it doesn't.
+function askFactor(c, leans) {
+  let f = 1;
+  const ax = axesOf(c);
+  for (const [k, v] of Object.entries(leans)) { if (!v || ax[k] == null) continue; const t = v > 0 ? ax[k] : 1 - ax[k]; f *= 0.7 + 0.6 * t; }
+  return f;
+}
+function askCard() {
+  const a = asked(), q = ASK.find((x) => !(x.id in a));
+  if (!q) return '';
+  return `<li class="taste-card ask-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="ask-${q.id}">${esc(q.q)}</span>
+    <span class="seg budget-seg" role="group" aria-labelledby="ask-${q.id}">${q.opts.map(([k, label]) => `<button type="button" data-ask="${q.id}" data-v="${k}">${esc(label)}</button>`).join('')}<button type="button" data-ask="${q.id}" data-v="">Skip</button></span>
+    <span class="pencil small">${ASK.indexOf(q) + 1} of ${ASK.length}. Every wall leans that way.</span></span></div></li>`;
+}
+
 // ---------- Engine ----------
 
 // Keep or skip: a piece you keep is in every wall and may move; pinned, it stays where it hangs.
@@ -163,6 +195,9 @@ function engineInput() {
   if (mode === 'both') for (const c of catalog) if (isShop(c) && framesItself(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   // This wall's color lean: warm in one room, cool in the next. Black and white sits in the middle.
   if (d.tone === 'warm' || d.tone === 'cool') for (const c of catalog) { const w = axesOf(c).warm, t = d.tone === 'warm' ? w : 1 - w; if (taste[c.id] != null) taste[c.id] = Math.min(1, Math.max(0, taste[c.id] * (0.55 + 0.9 * t))); }
+  // What you said about the room and the art.
+  const leans = askLeans();
+  if (Object.keys(leans).length) for (const c of catalog) if (taste[c.id] != null) taste[c.id] = Math.min(1, Math.max(0, taste[c.id] * askFactor(c, leans)));
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
   // Art you picked for a spot goes in first on other walls too, where its size fits.
   const ids = new Set(catalog.map((c) => c.id));
@@ -178,7 +213,7 @@ const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art 
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
 // 'frames1': walls built before frames took their outside size on the wall aren't brought back.
-const viewKey = () => JSON.stringify(['frames1', matLevel() === 'none', widthKey(), S.draft.budget || null, S.draft.budget ? [matLevel(), lookOf(), S.draft.colorFor || null, haveFrameKeys().join()] : null, S.draft.tone || null, S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
+const viewKey = () => JSON.stringify(['frames1', asked(), matLevel() === 'none', widthKey(), S.draft.budget || null, S.draft.budget ? [matLevel(), lookOf(), S.draft.colorFor || null, haveFrameKeys().join()] : null, S.draft.tone || null, S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
 const notForMe = () => new Set(store.loadMe().disliked);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped, [...notForMe()]]);
 
@@ -199,7 +234,8 @@ function rankTaste() {
   const st = subjectStats({ picks: quiz, saved: d.saved, skipped: d.skipped, disliked: no }, byId);
   // Art like a piece that's not for you comes up less, by how alike they are.
   const noItems = no.map((id) => byId.get(id)).filter(Boolean);
-  for (const c of pool) if (t[c.id] != null) t[c.id] = Math.min(1, t[c.id] * subjectFactor(st, null, subjectOf(c)) * dislikeFactor(c, noItems));
+  const leans = askLeans();
+  for (const c of pool) if (t[c.id] != null) t[c.id] = Math.min(1, t[c.id] * subjectFactor(st, null, subjectOf(c)) * dislikeFactor(c, noItems) * askFactor(c, leans));
   return t;
 }
 
@@ -2139,8 +2175,10 @@ function feed() {
   const px = pxNow();
   const note = v.problems.find((x) => x.code === 'LOOSENED');
   // The taste test, in the list where it's seen: after the second wall, until you've done it.
-  const tasteCard = d.taste && d.taste.source === 'yours' ? (() => {
-    const pct = knownPct([...yourPicks(), ...feedPairs()]);
+  // Taken means it knows something: a taste at 0% (picks undone, a fresh start) asks again.
+  const pct0 = d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0;
+  const tasteCard = pct0 > 0 ? (() => {
+    const pct = pct0;
     return `<li class="taste-card"><a href="#/taste" class="taste-link is-text"><span class="taste-text"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">${enoughWords(pct)}</span></span></a></li>`;
   })() : (() => {
     const pair = nextPair(CATALOG, [], new Set()) || [];
@@ -2150,14 +2188,14 @@ function feed() {
   // A budget, asked in the list after the fourth wall until you set one or say no limit.
   const budgetCard = d.budget || d.budgetAsked ? '' : `<li class="taste-card budget-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="budget-q">Budget for this wall?</span><span class="pencil small">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span>
     <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}">$${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" data-budget-ask="0">No limit</button></span>${budgetForm('feed')}</span></div></li>`;
-  const tasteTaken = d.taste && d.taste.source === 'yours';
+  const tasteTaken = pct0 > 0;
   const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Save what you like. Your walls try it first.</span></span></a></li>`;
   const items = (tasteTaken ? '' : tasteCard) + v.list.map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
       ${priceTag(L)}
     </a>
-  </li>${i === 1 && tasteTaken ? tasteCard : ''}${i === 3 ? budgetCard : ''}${i === 6 ? browseCard : ''}`).join('');
+  </li>${i === 1 && tasteTaken ? tasteCard : ''}${i === 3 ? budgetCard : ''}${i === (budgetCard ? 5 : 3) ? askCard() : ''}${i === 6 ? browseCard : ''}`).join('');
   return `${bar(d.home ? back('#/home', 'Your home') : wordmark(), `<button type="button" class="btn quiet small" data-act="menu" aria-haspopup="dialog">Menu</button><button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="feed-page">
     <p class="feed-intro">${d.home && d.name ? `${esc(d.name)}: best` : 'Best'} fit first. Tap one to make it yours.</p>
@@ -2339,6 +2377,8 @@ function changeSheet() {
       ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</span></div>
     ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
     ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
+    ${(() => { const a = asked(); const row = (q, label, short) => seg(`ask-${q.id}-l`, label, [[`${q.id}:`, 'Any'], ...q.opts.filter((o) => Object.keys(o[2]).length).map(([k, l]) => [`${q.id}:${k}`, short[k] || l])], `${q.id}:${a[q.id] && q.opts.some((o) => o[0] === a[q.id] && Object.keys(o[2]).length) ? a[q.id] : ''}`, 'askset');
+      return row(ASK[0], 'Room', { light: 'Light', wood: 'Wood', bold: 'Bold', moody: 'Dark' }) + row(ASK[1], 'Scenes', { real: 'Real', abstract: 'Abstract' }) + row(ASK[2], 'Busy', { quiet: 'Quiet', busy: 'Busy' }); })()}
     ${seg('frame-l', 'Frames', Object.entries(FRAME_LOOKS).map(([k, v]) => [k, v.name]), lookOf(), 'look')}
     ${seg('mats-l', 'Mats', MAT_LEVELS, matLevel(), 'mat')}
     <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
@@ -4047,6 +4087,25 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.browseNo) { browseNo(t.dataset.browseNo); render(); return; }
+  if (t.dataset.askset !== undefined) {
+    const [id, v] = t.dataset.askset.split(':'), me = store.loadMe(), was = { ...(me.asked || {}) };
+    if (!ASK.some((q) => q.id === id)) return;
+    me.asked = { ...was, [id]: v || null }; store.saveMe(me);
+    S.undo = { label: 'Changed.', run: () => { const m = store.loadMe(); m.asked = was; store.saveMe(m); } };
+    S.sheet = 'change'; S.ui.sheetStay = true; persist(); render();
+    const b = document.querySelector(`[data-askset="${CSS.escape(t.dataset.askset)}"]`); if (b) b.focus({ preventScroll: true });
+    return;
+  }
+  if (t.dataset.ask) {
+    const me = store.loadMe(), was = { ...(me.asked || {}) }, q = ASK.find((x) => x.id === t.dataset.ask);
+    if (!q) return;
+    me.asked = { ...was, [q.id]: t.dataset.v || null }; store.saveMe(me);
+    // A warm room with wood: oak frames, unless you picked a color.
+    if (q.id === 'room' && t.dataset.v === 'wood' && S.draft && !S.draft.look) S.draft.look = 'oak';
+    const o = q.opts.find((x) => x[0] === t.dataset.v);
+    S.undo = { label: o ? `${o[1]}. Every wall leans that way.` : 'Skipped.', run: () => { const m = store.loadMe(); m.asked = was; store.saveMe(m); } };
+    persist(); render(); return;
+  }
   if (t.dataset.budgetAsk !== undefined) {
     const d = S.draft, was = { budget: d.budget, budgetAsked: d.budgetAsked };
     d.budget = Number(t.dataset.budgetAsk) || null; d.budgetAsked = true;

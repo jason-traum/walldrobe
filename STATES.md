@@ -127,6 +127,11 @@ From Start. "What are you doing?" Two cards: One wall (Basic): "One photo of the
 | A piece too big for every wall | "Too big for these walls: ..." | |
 | Adding a wall | The photo screen says "A photo of Wall 2", back goes to Your home; after the photo (or the size and pieces), "Done, back to your home" | |
 | An open home wall | The feed's back link is "Your home" | |
+| A piece already up in a photo (Oct 5) | Spreading leaves a piece from your stuff where it hangs when a wall's photo has it (same size within 2 in, same colors): "Already up in a photo, so left where it hangs: ..."; that wall lists it under "Yours here" | |
+| Get it all, nothing picked (Oct 5) | "Get it all", "Pick a wall on each to see what it all costs.", each wall with Pick a wall | Pick a wall (opens it) |
+| Get it all, walls picked (Oct 5) | The total ("$1,427 (+$84 to frame)", "for 1 of 2 walls" when some aren't picked), each wall's price, each wall drawn as picked | Everything to order |
+| A home budget (Oct 5) | "Budget for the home, all in" with a box and Set; then "Over by $611." or "$120 to spare." with Split it across the walls | Set, Split: "Each wall has its share of the budget, by how wide it is." |
+| Everything to order (Oct 5, `#/home-get`) | "Get it all", the total, each wall's price with Its list, a line that shop prints are ordered from each wall's list, then Print the free photos and Get the frames for every wall in one table each ("Your home needs 6 frames: ...") | Its list (that wall's Get it), Back to Your home |
 
 ## 7. Taste quiz ("Make it mine")
 
@@ -158,6 +163,8 @@ Reached from "Suggestions" at the top of your wall. The five-step bar shows Pick
 | End of the list | "That's every wall that fits." and a link to Preferences | |
 | No room for art | The bare wall, "There isn't room for art on this wall." and the reason | Check what's marked, Try another wall |
 | Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again |
+
+Oct 5, quick questions: after the budget card (or after the fourth wall once a budget is set), one card at a time: "What is the room like?" (Calm and light, Warm with wood, Bold and colorful, Dark and moody), then "Real scenes or abstract?" (Real scenes, Abstract, Both), then "Busy art or quiet art?" (Quiet, Busy, A mix), each with Skip and "1 of 3. Every wall leans that way." An answer leans every wall's art (each piece up to 1.3 times when it fits, 0.7 when it doesn't) and builds the walls again; Warm with wood also makes the frames oak unless you picked a color. When all three are answered or skipped, the card is gone. A taste at 0% (picks undone) shows the taste test card again, never "We know your taste 0%".
 
 Preferences (one sheet, from your wall and from Suggestions): "Any change here builds the walls again. The one you have now stays as a version." How many pieces (minus, the count, plus; "Any number" when a count is set); dropdowns for How full (Calm, Balanced, Full), Kind of wall (Any, Structured, Loose), Which art (Shop prints, Free photos, Both, Just my pieces), People in the art (Fine, Leave them out), Price per print, Color (Any, Color only, Black and white only), From (when Both). This wall: New art in the open frames, Move pieces by hand, Show measurements, Put it back, See it as it hangs now. Links: Fix what's marked, Taste test, What we learned, New wall.
 
@@ -196,12 +203,14 @@ From the open wall's Frame it. One look for every new frame, a mat or not, and t
 
 | State | What they see | Action |
 |---|---|---|
-| Default | "Frame it", one line on what it does, the wall drawn with its frames, Frame: Black, White, Oak, Brass (Black pressed), "Sizes": each new piece with its print, mat and frame in words ("Print 8 x 10 in with a mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside"), Get it docked | Pick a look, Get it |
-| Free photos on the wall | "How many mats": None, A few, Some, Most, All (Some pressed, or the level you picked last), and a line on what a mat is and how they're chosen. Each free photo that can take a mat has a Mat tick | Pick a level, flip one |
+| Default | "Frame it", "One color for the set. Tap a dot on a piece to change just that one.", the wall drawn with its frames, Frame: Black, White, Oak, Brass (Black pressed), "Sizes": each new piece with its print, mat and frame in words ("Print 8 x 10 in with a mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside"), Get it docked | Pick a look, Get it |
+| A frame color per piece (Oct 5) | Each piece that takes a frame has four dots (Black, White, Oak, Brass, 44 px to tap), its color ringed; a House of Spoils print has the three it comes in | Tap a dot: that frame changes on the drawing and its thumbnail, the price and Get the frames follow; Get it adds "Oak frame." to that piece. Picking one color for the set puts every frame on it: "Every frame white." with Undo |
+| Free photos on the wall | "How many mats": None, Few, Some, Most, All (Most pressed since Oct 5, or the level you picked last), and a line on what a mat is and how they're chosen. Each free photo that can take a mat has a Mat tick | Pick a level, flip one |
 | A shop print hung a frame up | "Print 12 x 16 in with a mat, in a 16 x 20 in frame, 17.5 x 21.5 in outside"; no tick (the wall is sized for it) | |
 | A piece without a mat | "Print 11 x 14 in, no mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside" | Tick Mat |
 | Flipped by hand | None of the three is pressed; that piece keeps its own | Pick one of the three to reset all |
 | Shop sells it framed | "Comes framed, 14.5 x 18.5 in." | |
+| Shop sells it framed with a white border (House of Spoils, Oct 5) | Drawn as the frame, a wide white border and the art inside at its size. "Comes framed with a white border, art 8 x 12 in, 14.5 x 18.5 in outside." The size list has its full bleed size too ("9.5 x 13.5") | Color dots; the buy link opens that size and frame color |
 | Nothing new | The wall's Hang it goes straight to Hang it | |
 | Frame width (Oct 4) | Slim, Standard (pressed), Wide; a line on the moulding; with Wide, "easy in 8 x 10, 12 x 16, 16 x 20 and 20 x 28 (IKEA EDSBRUK); other sizes are made to order" | Pick one: the frames grow or shrink about their centers, "Slim frames." with Undo |
 | A width that doesn't fit | "Wide frames don't fit this wall as it's laid out." and the rule it breaks; nothing changes | |
@@ -316,7 +325,7 @@ From Preferences ("Browse all the art"), the feed (after the seventh wall) and F
 | State | Shows | Notes |
 |---|---|---|
 | Bar on the walls and an open wall | Back or the wordmark, then Menu and Preferences | |
-| Preferences | Taste, Kind, How many, How full, Art, Color, Budget, Reset preferences. Nothing else | Only choices that change the walls |
+| Preferences | Taste, Look (kind and how full), How many, Art, Color, Room (Any, Light, Wood, Bold, Dark), Scenes (Any, Real, Abstract), Busy (Any, Quiet, Busy), Frames, Mats (Most by default), Budget, Reset preferences. Nothing else | Only choices that change the walls. Room, Scenes and Busy are the quick questions' answers, kept for you across walls; a change says "Changed." with Undo |
 | Menu | Your walls (count), Favorites (count), Browse all the art, Your art and frames, Check the wall (not on a sample), Start a new wall | |
 | Open wall tools | One row under the pager: Move pieces (Done moving while on), Measurements, Put it back (after a change), As it hangs now (when it differs) | |
 | Your art (a wall's pieces) | Each piece: name, Framed or Not framed, Wide and Tall with Keep shape, the frame it goes in when not framed, Keep, Maybe, Skip, Save to your stuff (or In your stuff), Remove | |

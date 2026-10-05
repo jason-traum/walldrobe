@@ -381,7 +381,7 @@ with sync_playwright() as p:
             nx.click(); pg.wait_for_timeout(1200)
             vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
         # The mat choice shows for free photos, and no mat means the print fills the frame.
-        check(f'{W} Frame it offers how many mats, from none to all, Some first', pg.locator('[data-mat]').count() == 5 and pg.locator('[data-mat=some]').get_attribute('aria-pressed') == 'true')
+        check(f'{W} Frame it offers how many mats, from none to all, Most first', pg.locator('[data-mat]').count() == 5 and pg.locator('[data-mat=most]').get_attribute('aria-pressed') == 'true')
         mw = lambda: pg.evaluate("[...document.querySelectorAll('.frame-row .frame-words')].map(e => e.textContent)")
         big = [w for w in mw() if 'with a mat' in w]
         vis(pg, '[data-mat=none]').click(); pg.wait_for_timeout(500)
@@ -484,7 +484,8 @@ with sync_playwright() as p:
         errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.goto(BASE + '#/start'); pg.wait_for_timeout(2500)
-        pg.set_input_files('#photo-input', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'fixtures', 'living_room.png')); pg.wait_for_timeout(15000)
+        pg.set_input_files('#photo-input', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'fixtures', 'living_room.png')); pg.wait_for_timeout(3000)
+        pg.wait_for_selector('[data-act="corners-ok"]:not([disabled])', timeout=90000)
         vis(pg, '[data-act="corners-ok"]').click(); pg.wait_for_timeout(8000)
         if '#/size' in pg.url:
             pg.fill('input[name=ft]', '11'); pg.fill('input[name=in]', '0')
@@ -832,6 +833,105 @@ with sync_playwright() as p:
     check('2000 Browse pictures grow with the window', cw >= 380 and pg.evaluate('document.documentElement.scrollWidth') <= 2000, f'{cw} px')
     pg.screenshot(path=f'{OUT}/browse-2000.png')
     ctx.close()
+    # Oct 5: a frame color per piece, mats on Most, House of Spoils with its white border
+    # and frame colors, the quick questions in the list, and Get it all for a home.
+    for W, H in ((390, 844), (320, 700), (1280, 860)):
+        ctx = b.new_context(viewport={'width': W, 'height': H}, color_scheme='light')
+        pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        side = lambda: pg.evaluate('document.documentElement.scrollWidth') <= W
+        pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4500)
+        # The quick questions: one at a time, each one leans every wall, all three in Preferences.
+        card = pg.locator('.ask-card')
+        check(f'{W} the list asks what the room is like', card.count() == 1 and 'room' in card.inner_text(), card.inner_text()[:60] if card.count() else '')
+        if card.count():
+            card.locator('[data-v="light"]').click(); pg.wait_for_timeout(3500)
+            check(f'{W} then the next question', pg.locator('.ask-card').count() == 1 and 'abstract' in pg.locator('.ask-card').inner_text())
+            pg.locator('.ask-card [data-v=""]').click(); pg.wait_for_timeout(3000)
+            pg.locator('.ask-card [data-v="quiet"]').click(); pg.wait_for_timeout(3000)
+            check(f'{W} three answers and the card is gone', pg.locator('.ask-card').count() == 0)
+        pg.evaluate('window.scrollTo(0, 0)')
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(700)
+        on = [x.get_attribute('data-askset') for x in pg.locator('#sheet [data-askset][aria-pressed=true]').all()]
+        check(f'{W} Preferences shows the answers: room, scenes, busy', on == ['room:light', 'real:', 'busy:quiet'], str(on))
+        check(f'{W} Preferences mats default to Most', pg.locator('#sheet [data-mat="most"][aria-pressed=true]').count() == 1)
+        check(f'{W} Preferences has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/prefs-oct5-{W}.png', full_page=True)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(500)
+        # A frame color per piece on Frame it.
+        pg.locator('.entry-link').first.click(); pg.wait_for_timeout(2500)
+        vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1800)
+        dots = pg.locator('.frame-row .color-dots')
+        check(f'{W} each piece that takes a frame has color dots', dots.count() >= 1, str(dots.count()))
+        if dots.count():
+            row = dots.first
+            off = [x for x in row.locator('.dot-btn').all() if x.get_attribute('aria-pressed') == 'false']
+            c = off[0].get_attribute('data-c'); off[0].click(); pg.wait_for_timeout(800)
+            check(f'{W} tapping a dot colors that one frame', pg.locator('#frames-wall rect.frame-new[style]').count() == 1 and pg.locator(f'.frame-row .dot-btn[data-c="{c}"][aria-pressed=true]').count() >= 1)
+            check(f'{W} the dots are big enough to tap', pg.evaluate("Math.min(...[...document.querySelectorAll('.dot-btn')].map(b => Math.min(b.getBoundingClientRect().width, b.getBoundingClientRect().height)))") >= 44)
+            pg.screenshot(path=f'{OUT}/frames-color-{W}.png', full_page=True)
+            vis(pg, '[data-act=to-get]').click(); pg.wait_for_timeout(1800)
+            txt = pg.evaluate('document.body.innerText')
+            check(f'{W} Get it says the odd frame\'s color', ' frame.' in txt and 'in their colors' in txt, '')
+            pg.goto(BASE + '#/frames'); pg.wait_for_timeout(1500)
+            pg.locator('[data-look=white]').first.click(); pg.wait_for_timeout(800)
+            check(f'{W} one color for the set puts every frame on it, with Undo', pg.locator('#frames-wall rect.frame-new[style]').count() == 0 and 'Every frame white.' in pg.evaluate('document.body.innerText'))
+        check(f'{W} Frame it has no sideways scroll', side())
+        # House of Spoils: the art in its white border, and the link opens the frame color.
+        seen = False
+        for k in range(10):
+            pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(1500)
+            if pg.locator('.entry-link').count() <= k: break
+            pg.locator('.entry-link').nth(k).click(); pg.wait_for_timeout(2000)
+            if pg.locator('#drawing g.art[data-id^="hos-"]').count(): seen = True; break
+        if seen:
+            ok = pg.evaluate("[...document.querySelectorAll('#drawing g.art[data-id^=\"hos-\"]')].every(g => { const f = g.querySelector('rect.frame-new'), i = g.querySelector('image'); return f && i && +i.getAttribute('width') < +f.getAttribute('width') * 0.8; })")
+            check(f'{W} a House of Spoils print sits inside its white border', ok)
+            vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
+            check(f'{W} Frame it says it comes framed with a white border', 'Comes framed with a white border' in pg.evaluate('document.body.innerText').replace('\xa0', ' '))
+            vis(pg, '[data-act=to-get]').click(); pg.wait_for_timeout(1500)
+            links = pg.evaluate("[...document.querySelectorAll('a')].map(a => a.href).filter(h => h.includes('houseofspoils.com'))")
+            check(f'{W} its link opens the exact size and frame', bool(links) and all('?variant=' in h for h in links), str(links[:1]))
+        else:
+            check(f'{W} a House of Spoils print reaches a wall', False, 'none in 10 walls')
+        check(f'{W} no errors on the Oct 5 path', not errs, '; '.join(errs[:2]))
+        ctx.close()
+    # A whole home: each wall's price, the total, a home budget and one list for everything.
+    for W, H in ((390, 844), (1280, 860)):
+        ctx = b.new_context(viewport={'width': W, 'height': H}, color_scheme='light')
+        pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        side = lambda: pg.evaluate('document.documentElement.scrollWidth') <= W
+        pg.goto(BASE + '#/home'); pg.wait_for_timeout(1200)
+        for ft in (10, 7):
+            vis(pg, 'a[href="#/home-add"]').click(); pg.wait_for_timeout(900)
+            pg.locator('details.more summary').click()
+            pg.fill('input[name=wft]', str(ft)); pg.fill('input[name=hft]', '8')
+            pg.locator('#size-form button[type=submit]').click(); pg.wait_for_timeout(900)
+            vis(pg, 'a.btn[href="#/pieces"]').click(); pg.wait_for_timeout(600)
+            vis(pg, 'a.btn[href="#/home"]').click(); pg.wait_for_timeout(900)
+        check(f'{W} before a wall is picked, the home says to pick one', pg.locator('.home-cost [data-open-home]').count() == 2)
+        for i in range(2):
+            pg.locator('.home-row [data-open-home]').nth(i).click(); pg.wait_for_timeout(6000)
+            pg.locator('.entry-link').first.click(); pg.wait_for_timeout(2500)
+            vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
+            pg.goto(BASE + '#/home'); pg.wait_for_timeout(1500)
+        costs = pg.locator('.home-cost').all_inner_texts()
+        check(f'{W} each wall shows its price, and the home its total', len(costs) == 2 and all('$' in c for c in costs) and '$' in pg.locator('.home-go .price-line').inner_text(), str(costs))
+        check(f'{W} each home wall is drawn as picked', pg.locator('.home-row svg g.art').count() >= 2)
+        pg.locator('[data-home-budget] input').fill('300'); pg.locator('[data-home-budget] button').click(); pg.wait_for_timeout(1200)
+        check(f'{W} a home budget says how far over or under', pg.locator('.home-go').inner_text().count('Over by') == 1 or 'to spare' in pg.locator('.home-go').inner_text())
+        vis(pg, '[data-act=home-split]').click(); pg.wait_for_timeout(1200)
+        check(f'{W} splitting the budget says so', 'share of the budget' in pg.evaluate('document.body.innerText'))
+        check(f'{W} your home has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/home-costs-{W}.png', full_page=True)
+        vis(pg, 'a[href="#/home-get"]').click(); pg.wait_for_timeout(2500)
+        t = pg.evaluate('document.body.innerText')
+        check(f'{W} Get it all lists every wall, and frames and prints for the whole home', pg.locator('.home-cost').count() == 2 and ('Your home needs' in t or 'Print the free photos' in t or 'framed' in t))
+        check(f'{W} Get it all has no sideways scroll', side())
+        pg.screenshot(path=f'{OUT}/home-get-{W}.png', full_page=True)
+        vis(pg, '[data-open-home-get]').click(); pg.wait_for_timeout(5000)
+        check(f'{W} a wall\'s list opens its Get it', '#/get' in pg.url, pg.url)
+        check(f'{W} no errors on the home list', not errs, '; '.join(errs[:2]))
+        ctx.close()
     b.close()
 
 for name, ok, detail in results:

@@ -205,4 +205,6 @@ Status: Live (on the real link), v3 (on branch v3, not live), To do, Reversed (a
 | 170 | (Claude, from the open list: "dressers, couch and shelf merged into one") | The reader splits side by side furniture where the top steps; a bench of 18 real photos to measure it. | Claude | Art can go over the low piece. | Live |
 | 171 | (Claude, from the open list: "one combined Get it list and budget; stop duplicates") | Get it all for a home: each wall's price, the total, a home budget split by width, one frames table and one prints table for every wall. A piece in your stuff that's already up in a photo isn't placed twice. | Claude | A whole home is one order. | Live |
 | 172 | "we need to have WAYYYYY more art" (row 127, from the open list) | 238 more Society6 prints, looked at and tagged. | Claude | More choice per spot. | Live |
+| 173 | (from the open list) "ask more in the taste test: room style, real or abstract, busy or quiet" | Three quick questions in the list of walls, one at a time, each leaning every wall; Room, Scenes and Busy in Preferences. | Jason | Better walls with a few taps, never in the way. | Live |
+| 174 | (Claude, from the open list) the one-off "We know your taste 0%" card | A taste at 0% shows the test card instead. | Claude | Never a card that says it knows nothing. | Live |
 
