@@ -2,6 +2,13 @@
 
 Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the next working session (a new chat, Claude Code, or a person). Read this first, then CLAUDE.md, PRODUCT.md, ENGINE.md, STATES.md, DESIGN.md and DECISIONS.md, in that order. When this file and DECISIONS.md disagree, DECISIONS.md wins for product calls; this file wins for "what's in flight".
 
+## 0. Status, 2026-10-05 (read this before the older sections below)
+
+- Branch `v4` is live: `main` is moved up to it after every batch, and GitHub Pages serves `docs/` from `main`. A frozen beta for testers lives at `/walldrobe/beta/` and is updated only when Jason says.
+- Since Oct 2: the v4 interface (ranked walls, the open wall, Frame it, Get it, Hang it), budgets all in, prices on every wall, mats as a preference (Most by default), a frame color per piece, Society6 printed borders and House of Spoils' real options (white border or full bleed, three frame colors), a whole home with Get it all, quick questions in the list, the furniture split in the photo reader, 2,110 looked-at pieces.
+- Checks: `node --test` (284) and `python3 tools/ui_walk.py <out>` against the built site on port 8830 (about 500 checks at 320, 390 and desktop). Run them one at a time; together they ran out of memory once.
+- Open, in Jason's order: see PRODUCT.md "Next: buying it" (the cheapest place for the same print, more free photos, asking who else lives with the wall and what's framed, the photo reader's remaining misses) and the platform later (sign-in, sharing). FEEDBACK.md rows marked To do or Open are the rest.
+
 ## 1. What Walldrobe is
 
 "Rent the Runway, for art." You photograph one wall. The site reads it (corners, size in inches, what's on it), and proposes layouts with real prints in real frame sizes, nail positions included. You keep or swap pieces later. Free beta, built by Jason Traum (Wharton MBA, first year) as an entrepreneurship project that started as "Walls on Rotation".
