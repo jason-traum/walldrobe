@@ -192,6 +192,52 @@ const FURN_KIND = { 23: 'couch', 30: 'couch', 7: 'headboard', 44: 'dresser', 35:
 const FURN_CLASS = { 23: 'couch', 30: 'couch', 7: 'headboard', 57: 'headboard', 44: 'dresser', 35: 'dresser', 24: 'shelf', 62: 'shelf' };
 
 // The model's label at a photo point. seg: { w, h, labels } covering the whole photo.
+// Furniture side by side reads as one patch when the model gives both the same kind of
+// label (two bookcases, a chair and a chest). Where the top line steps up or down and
+// stays there, it's another piece: split there. `tops` is the first row of furniture in
+// each column (-1 for none), `height` the patch's height in rows. Steps narrower than
+// `minW` (a couch's arm, a cushion, a lamp base) stay with their neighbours.
+// Returns [start, end] column ranges, inclusive, left to right.
+export function splitByTops(tops, height, { tol = 0.14, minW = 0.12, minCols = 3 } = {}) {
+  const n = tops.length;
+  if (n < 2 * minCols) return [[0, n - 1]];
+  const step = Math.max(2, tol * height);
+  const med = (a) => { const b = a.filter((v) => v >= 0).sort((x, y) => x - y); return b.length ? b[b.length >> 1] : -1; };
+  // Runs of about the same top, a new run only when the change holds for a few columns.
+  const runs = [];
+  let a = 0;
+  for (let x = 1; x < n; x++) {
+    const cur = med(tops.slice(a, x)), ahead = med(tops.slice(x, Math.min(n, x + minCols)));
+    if (cur < 0 || ahead < 0) continue;
+    if (Math.abs(ahead - cur) >= step && x - a >= 1) { runs.push([a, x - 1]); a = x; }
+  }
+  runs.push([a, n - 1]);
+  // Narrow runs join the neighbour whose top is closest; then neighbours that ended up
+  // at about the same top are one piece again.
+  const wide = Math.max(minCols, Math.round(minW * n));
+  const topOf = (r) => med(tops.slice(r[0], r[1] + 1));
+  let out = runs.slice();
+  for (let changed = true; changed && out.length > 1;) {
+    changed = false;
+    const i = out.findIndex((r) => r[1] - r[0] + 1 < wide);
+    if (i < 0) break;
+    const t = topOf(out[i]);
+    const L = i > 0 ? out[i - 1] : null, R = i < out.length - 1 ? out[i + 1] : null;
+    const into = !R || (L && Math.abs(topOf(L) - t) <= Math.abs(topOf(R) - t)) ? i - 1 : i + 1;
+    const [x, y] = [Math.min(i, into), Math.max(i, into)];
+    out.splice(x, 2, [out[x][0], out[y][1]]);
+    changed = true;
+  }
+  // A dip between two runs at about the same top is one piece (the gap between a
+  // couch's back cushions, a table between two chairs): art above goes by the higher top anyway.
+  for (let i = 1; i < out.length - 1; i++) {
+    const t = topOf(out[i]), l = topOf(out[i - 1]), r = topOf(out[i + 1]);
+    if (t > l && t > r && Math.abs(l - r) < step) { out.splice(i - 1, 3, [out[i - 1][0], out[i + 1][1]]); i = 0; }
+  }
+  for (let i = out.length - 1; i > 0; i--) if (Math.abs(topOf(out[i]) - topOf(out[i - 1])) < step) out.splice(i - 1, 2, [out[i - 1][0], out[i][1]]);
+  return out;
+}
+
 function labelAt(seg, photoW, photoH, x, y) {
   const X = Math.max(0, Math.min(seg.w - 1, Math.floor((x / photoW) * seg.w))), Y = Math.max(0, Math.min(seg.h - 1, Math.floor((y / photoH) * seg.h)));
   return seg.labels[Y * seg.w + X];
@@ -930,12 +976,24 @@ export function readWall(img, opts = {}) {
       const byKind = new Map();
       for (let y = f.y0; y <= f.y1; y++) for (let x = f.x0; x <= f.x1; x++) { const k = FURN_CLASS[raw[y * w + x]]; if (k) byKind.set(k, (byKind.get(k) || 0) + 1); }
       const big = [...byKind].filter(([, n]) => n >= f.n * 0.2);
-      if (big.length < 2) { furn.push(f); continue; }
+      if (big.length < 2) { furn.push(...splitFurn(f)); continue; }
       for (const [k] of big) {
         const m = new Uint8Array(w * h);
         for (let y = f.y0; y <= f.y1; y++) for (let x = f.x0; x <= f.x1; x++) m[y * w + x] = FURN_CLASS[raw[y * w + x]] === k ? 1 : 0;
         for (const c of components(close(m, w, h, 2), w, h).comps) if (c.n >= area * 0.004) furn.push(c);
       }
+    }
+    // One patch, two pieces of the same kind side by side: split where the top steps.
+    function splitFurn(f) {
+      const tops = [];
+      for (let x = f.x0; x <= f.x1; x++) { let t = -1; for (let y = f.y0; y <= f.y1; y++) if (Gs[y * w + x] === G.FURNITURE) { t = y; break; } tops.push(t); }
+      const parts = splitByTops(tops, f.y1 - f.y0 + 1);
+      if (parts.length < 2) return [f];
+      return parts.map(([a, b]) => {
+        let n = 0, y0 = f.y1;
+        for (let x = f.x0 + a; x <= f.x0 + b; x++) { const t = tops[x - f.x0]; if (t >= 0 && t < y0) y0 = t; for (let y = f.y0; y <= f.y1; y++) if (Gs[y * w + x] === G.FURNITURE) n++; }
+        return { ...f, x0: f.x0 + a, x1: f.x0 + b, y0, n };
+      }).filter((c) => c.n >= area * 0.004 && c.x1 - c.x0 + 1 >= w * 0.04);
     }
     const onFurniture = (c) => furn.some((f) => f.x0 <= c.x1 && f.x1 >= c.x0 && f.y0 >= c.y1 - h * 0.02 && f.y0 - c.y1 <= h * 0.06);
     for (const f of furn) {
