@@ -1,0 +1,104 @@
+[
+ {
+  "file": "04.jpg",
+  "unsplash_page": "https://unsplash.com/photos/couch-near-painting-Wp7t4cWN-68",
+  "image_url": "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1200&q=80",
+  "pieces": [
+   {
+    "kind": "nightstand",
+    "x0": 0.05,
+    "x1": 0.178,
+    "top": 0.76
+   },
+   {
+    "kind": "couch",
+    "x0": 0.175,
+    "x1": 0.835,
+    "top": 0.71
+   },
+   {
+    "kind": "nightstand",
+    "x0": 0.835,
+    "x1": 0.955,
+    "top": 0.8
+   }
+  ],
+  "touching": true,
+  "notes": "Straight-on. End table, sofa, end table (kind nightstand used for side/end tables). Table lamps reach about 0.52 to 0.54. Bottom of the sofa is hidden by vases in the foreground."
+ },
+ {
+  "file": "08.jpg",
+  "unsplash_page": "https://unsplash.com/photos/brown-wooden-chairs-table-and-cabinet-oujKSaZlMFY",
+  "image_url": "https://images.unsplash.com/photo-1577176434922-803273eba97a?w=1200&q=80",
+  "pieces": [
+   {
+    "kind": "chair",
+    "x0": 0.1,
+    "x1": 0.345,
+    "top": 0.37
+   },
+   {
+    "kind": "chair",
+    "x0": 0.32,
+    "x1": 0.59,
+    "top": 0.375
+   },
+   {
+    "kind": "shelf",
+    "x0": 0.587,
+    "x1": 0.717,
+    "top": 0.21
+   },
+   {
+    "kind": "dresser",
+    "x0": 0.705,
+    "x1": 0.905,
+    "top": 0.325
+   }
+  ],
+  "touching": true,
+  "notes": "Straight-on. Two armchairs, a tall open plant stand (kind shelf), then a chest of drawers; all touching. Tape deck on the chest reaches about 0.04. Round table in the foreground is not a wall piece."
+ },
+ {
+  "file": "09.jpg",
+  "unsplash_page": "https://unsplash.com/photos/a-wooden-table-with-chairs-and-a-book-shelf-2Jg85UNCP8M",
+  "image_url": "https://images.unsplash.com/photo-1676223303556-bef6fdac9331?w=1200&q=80",
+  "pieces": [
+   {
+    "kind": "shelf",
+    "x0": 0.35,
+    "x1": 0.505,
+    "top": 0.28
+   },
+   {
+    "kind": "shelf",
+    "x0": 0.525,
+    "x1": 0.78,
+    "top": 0.415
+   }
+  ],
+  "touching": true,
+  "notes": "Angled about 30 degrees. Tall black metal shelf next to a lower wooden bookshelf cabinet, small gap. Plants on top reach about 0.2 and 0.14. Meeting table and chairs in the foreground."
+ },
+ {
+  "file": "16.jpg",
+  "unsplash_page": "https://unsplash.com/photos/a-bedroom-with-a-bed-and-a-nightstand-with-a-lamp-on-top-of-it-DjOYehFbg8g",
+  "image_url": "https://images.unsplash.com/photo-1649265825072-f7dd6942baed?w=1200&q=80",
+  "pieces": [
+   {
+    "kind": "nightstand",
+    "x0": 0.069,
+    "x1": 0.483,
+    "top": 0.68
+   },
+   {
+    "kind": "headboard",
+    "x0": 0.455,
+    "x1": 1.0,
+    "top": 0.486
+   }
+  ],
+  "touching": true,
+  "notes": "Straight-on, portrait. Wood three-drawer nightstand (lamp top about 0.39) touching a bed frame and headboard cut by the right edge."
+ }
+]
