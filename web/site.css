@@ -631,6 +631,12 @@ svg.is-dragging .measure { opacity: 0.25; }
 .tn.new.framed { padding: 0; background: var(--mat); box-shadow: 0 0 0 2px var(--frame-new, var(--frame)), 0 1px 3px rgba(91, 82, 69, 0.3); }
 .tn.new.framed.matted { padding: 5px; }
 .frame-row .row-ticks { grid-column: auto; margin-top: 6px; }
+/* A piece's own frame color: a dot per color, 44 px to tap, the picked one ringed. */
+.color-dots { display: inline-flex; align-items: center; gap: 0; margin-left: -6px; }
+.dot-btn { width: 44px; height: 44px; display: inline-grid; place-items: center; border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
+.dot-btn .swatch-dot { width: 22px; height: 22px; border-radius: 50%; }
+.dot-btn[aria-pressed="true"] .swatch-dot { outline: 2px solid var(--ink); outline-offset: 3px; }
+.dot-btn:focus-visible { outline: 2px solid var(--focus, var(--ink)); outline-offset: -2px; }
 
 /* How well we know your taste: a thin bar that fills toward 100 */
 .known { position: relative; height: 6px; border-radius: 3px; background: var(--hairline); overflow: hidden; margin: 4px 0 8px; }

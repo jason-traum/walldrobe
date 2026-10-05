@@ -108,10 +108,12 @@ export function validateRecord(r) {
   if (r.quality && r.quality.score != null && !isNum01(r.quality.score)) at('quality.score must be 0 to 1');
 
   if (!Array.isArray(r.sizes) || !r.sizes.length || !r.sizes.every((z) => z.w > 0 && z.h > 0)) at('sizes needs at least one frame size');
-  else if (im.aspect && !r.sizes.every((z) => z.crop || Math.abs((z.w / z.h) / im.aspect - 1) <= 0.14 + 1e-9)) at('a frame size is more than 14% off the image shape without crop: true');
+  else if (im.aspect && !r.sizes.every((z) => { const s = z.mount || z; return z.crop || Math.abs((s.w / s.h) / im.aspect - 1) <= 0.14 + 1e-9; })) at('a frame size is more than 14% off the image shape without crop: true');
+  if (Array.isArray(r.sizes) && !r.sizes.every((z) => !z.mount || (z.mount.w > 0 && z.mount.h > 0 && z.mount.w < z.w && z.mount.h < z.h))) at('a mount is the art inside a framed size, smaller on both sides');
   if (!Array.isArray(r.offers)) at('offers must be a list');
   else {
     if (!r.offers.every((o) => o && isStr(o.vendor) && /^https:\/\//.test(o.url || '') && (o.price == null || (typeof o.price === 'number' && o.price >= 0)) && (o.w == null || (o.w > 0 && o.h > 0)))) at('each offer needs a vendor, an https link, a price of 0 or more (or none) and a size with both sides');
+    if (!r.offers.every((o) => !o || o.colors == null || (typeof o.colors === 'object' && Object.values(o.colors).every((u) => /^https:\/\//.test(u || ''))))) at('an offer\'s colors map each frame color to an https link');
     if (!r.offers.every((o) => o && (o.gone == null || o.gone === true) && (o.since == null || isIso(o.since)))) at('an offer that is gone carries gone: true and an ISO date in since');
   }
   if (r.health != null) {
@@ -154,9 +156,11 @@ export const MATTED_UP = Object.freeze({ '8x12': [12, 16], '12x16': [16, 20], '1
 function candidateSizes(r) {
   const live = liveSizes(r);
   const isShop = (r.offers || []).length > 0;
-  const out = live.map(({ w, h, price, margin }) => {
+  const out = live.map(({ w, h, price, margin, mount }) => {
     const framed = (r.offers || []).some((o) => !o.gone && o.framed && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
-    return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}), ...(margin > 0 ? { margin } : {}) };
+    // Sold framed with a white mount around the art: it hangs matted, the art inside.
+    const mt = framed && mount && mount.w > 0 && mount.h > 0 ? { matted: { w: mount.w, h: mount.h } } : {};
+    return { w, h, ...(price == null ? {} : { price }), ...(framed ? { framed: true } : {}), ...(margin > 0 ? { margin } : {}), ...mt };
   });
   if (!isShop) return out;
   const has = new Set(out.map((z) => `${z.w}x${z.h}`));

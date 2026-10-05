@@ -130,15 +130,14 @@ export function sizesIn(p, look = 'black') {
 
 /**
  * Every seller with a price for each frame needed.
- * @param {{ key: string, mat: string|null, count: number }[]} needed key: the frame as sold; mat: the print it should hold, or null
+ * @param {{ key: string, mat: string|null, count: number, look?: string }[]} needed key: the frame as sold; mat: the print it should hold, or null; look: this frame's own color
  * @returns {{ p, each: ({ price: number, matOk: boolean }|null)[], total: number, all: boolean }[]} every size first, cheapest first
  */
 export function frameOptions(needed, look = 'black', width = 'standard') {
   const wide = width === 'wide';
   const rows = (wide ? WIDE_FRAMERS : FRAMERS).map((p) => {
-    const sizes = sizesIn(p, look);
     const each = needed.map((n) => {
-      const s = sizes[n.key];
+      const s = sizesIn(p, n.look || look)[n.key];
       if (!s) return null;
       const [price, mat] = s;
       return { price: price * n.count, matOk: !n.mat || mat === n.mat, mat: mat || null };
@@ -169,7 +168,8 @@ export function framePicks(rows) {
 
 // The frames part of the question for your AI: the table, with whether each mat fits.
 export function framesTable(needed, rows) {
-  const head = `| Seller | ${needed.map((n) => `${n.key} frame${n.mat ? `, mat for ${n.mat}` : ''}${n.count > 1 ? ` (x${n.count})` : ''}`).join(' | ')} | Total | Pickup | Shipping |`;
+  const mixed = new Set(needed.map((n) => n.look || 'black')).size > 1;
+  const head = `| Seller | ${needed.map((n) => `${n.key}${mixed ? ` ${n.look || 'black'}` : ''} frame${n.mat ? `, mat for ${n.mat}` : ''}${n.count > 1 ? ` (x${n.count})` : ''}`).join(' | ')} | Total | Pickup | Shipping |`;
   const line = `|---|${needed.map(() => '---').join('|')}|---|---|---|`;
   const cell = (x, n) => (x == null ? 'not offered' : `$${x.price.toFixed(2)}${n.mat ? (x.matOk ? ', mat fits' : x.mat ? `, mat is for ${x.mat}` : ', no mat') : ''}`);
   const body = rows.map((r) => `| ${r.p.name} | ${r.each.map((x, i) => cell(x, needed[i])).join(' | ')} | ${r.all ? `$${r.total.toFixed(2)}` : 'not every size'} | ${r.p.pickup} | ${r.p.ships} |`).join('\n');

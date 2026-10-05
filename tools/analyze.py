@@ -353,21 +353,31 @@ def shop_picks():
 
 def shop_sizes(offers, aspect):
     """The sizes the shop actually sells, cheapest price for each, flagged when the shape is off."""
-    best, margin = {}, {}
+    best, margin, mount = {}, {}, {}
     for o in offers:
         if not o.get("w"): continue
         w, h = o["w"], o["h"]
-        if (w > h) != (aspect > 1) and abs(aspect - 1) > 0.1: w, h = h, w
+        turn = (w > h) != (aspect > 1) and abs(aspect - 1) > 0.1
+        if turn: w, h = h, w
         k = (w, h)
         if k not in best or (o.get("price") is not None and (best[k] is None or o["price"] < best[k])): best[k] = o.get("price")
         if o.get("margin"): margin[k] = o["margin"]
+        # A print sold framed with a white mount around it (House of Spoils "Border"): the
+        # size is the frame's outside, the art inside is smaller.
+        if o.get("mount"):
+            mw, mh = o["mount"]["w"], o["mount"]["h"]
+            mount[k] = {"w": mh, "h": mw} if turn else {"w": mw, "h": mh}
     out = []
     for (w, h), price in sorted(best.items(), key=lambda x: x[0][0] * x[0][1]):
         s = {"w": w, "h": h}
         if price is not None: s["price"] = price
         # A white border printed on the paper (Society6): the size is the paper, the art sits inside.
         if margin.get((w, h)): s["margin"] = margin[(w, h)]
-        if abs((w / h) / aspect - 1) > 0.14: s["crop"] = True
+        m = mount.get((w, h))
+        if m: s["mount"] = m
+        # Cut to fit when the shape the art is shown at (the mount's window, or the frame) is off.
+        sw, sh = (m["w"], m["h"]) if m else (w, h)
+        if abs((sw / sh) / aspect - 1) > 0.14: s["crop"] = True
         out.append(s)
     return out or sizes_for(aspect)
 

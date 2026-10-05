@@ -20,7 +20,13 @@ if (errors.length) { console.error(errors.slice(0, 20).join('\n')); process.exit
 // Only what the site shows: hidden and gone pieces stay out (see CATALOG.md, Catalog health), and fields only the pipeline uses are dropped.
 const items = catalog.items.filter((it) => it.status === 'active' && !(it.health && it.health.gone)).map(({ provenance, quality, ...it }) => ({
   ...it, quality: { score: quality && quality.score },
-  offers: (it.offers || []).filter((o) => !o.gone).map(({ sku, label, vendor, ...o }) => o),
+  // A link that is the piece's page plus a variant keeps just the variant (vid), and so
+  // does each frame color's link; the app puts the page back (web/main.js, CATALOG).
+  offers: (it.offers || []).filter((o) => !o.gone).map(({ sku, label, vendor, ...o }) => {
+    const base = `${it.source.page}?variant=`, short = (u) => (typeof u === 'string' && u.startsWith(base) ? u.slice(base.length) : u);
+    const { url, currency, ...rest } = o;
+    return { ...rest, ...(url && url.startsWith(base) ? { vid: short(url) } : { url }), ...(currency && currency !== 'USD' ? { currency } : {}), ...(o.colors ? { colors: Object.fromEntries(Object.entries(o.colors).map(([k, u]) => [k, short(u)])) } : {}) };
+  }),
   image: { ...it.image, data: it.image.src },
 }));
 const json = JSON.stringify({ ...catalog, items }).replace(/</g, '\\u003c');
