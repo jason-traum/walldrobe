@@ -9,7 +9,7 @@ import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor, tasteKnown, describeTaste, axesOf, looksGood } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
-import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, setPrintFor } from './draw.js';
+import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, setPrintFor, setFrameColorFor } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply, findArtBox, wallTone } from './photo.js';
 import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
@@ -21,6 +21,8 @@ import { cameraPose, standOut, DEPTH } from './camera.js';
 
 const QUIZ_LENGTH = 10;
 const WALLS_ASKED = 24; // walls built once per wall; the list shows the distinct ones
+// The build keeps a shop link that is the page plus a variant as just the variant: put the page back.
+for (const r of window.WALLDROBE_CATALOG.items) for (const o of r.offers || []) { if (!o.url && o.vid) o.url = `${r.source.page}?variant=${o.vid}`; if (!o.currency) o.currency = 'USD'; }
 const CATALOG = activeRecords(window.WALLDROBE_CATALOG.items).map((r) => ({ ...toCandidate(r), imageData: r.image.data, aspect: r.image.aspect }));
 const byId = new Map(CATALOG.map((c) => [c.id, c]));
 const $ = (sel) => document.querySelector(sel);
@@ -175,7 +177,7 @@ const artMode = () => (ART_MODES.includes(S.draft && S.draft.art) ? S.draft.art 
 const stayCount = () => S.draft.owned.filter((o) => o.pinned && o.at && o.keep !== 'skip').length;
 const keptSet = () => new Set(keepList().map((k) => k.id));
 // 'frames1': walls built before frames took their outside size on the wall aren't brought back.
-const viewKey = () => JSON.stringify(['frames1', matLevel() === 'none', widthKey(), S.draft.budget || null, S.draft.budget ? [matLevel(), lookOf(), haveFrameKeys().join()] : null, S.draft.tone || null, S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
+const viewKey = () => JSON.stringify(['frames1', matLevel() === 'none', widthKey(), S.draft.budget || null, S.draft.budget ? [matLevel(), lookOf(), S.draft.colorFor || null, haveFrameKeys().join()] : null, S.draft.tone || null, S.draft.id, S.draft.width, S.draft.height, S.draft.obstacles, S.draft.owned.map((p) => [p.id, p.title, p.w, p.h, p.keep, p.pinned, p.loosen, p.at, p.color, p.palette]), S.draft.taste.weights, keepList().map((k) => k.id), S.draft.fullness, S.draft.justMine, S.draft.style || null, S.draft.pieces || null, artMode()]);
 const notForMe = () => new Set(store.loadMe().disliked);
 const rankKey = () => JSON.stringify([S.draft.saved, S.draft.skipped, [...notForMe()]]);
 
@@ -1527,7 +1529,7 @@ const framedSeg = (o) => `<span class="seg small-seg" role="group" aria-label="F
 const framedWords = (o) => {
   if (isFramed(o)) return 'Measure the outside of the frame.';
   const f = o.needsFrame;
-  return f && !f.custom ? `The art itself. It goes in a ${sz(f.w, f.h)} frame${f.print && (f.print.w !== f.w || f.print.h !== f.h) ? ' with a mat' : ''}.` : 'The art itself. It needs a custom frame.';
+  return f && !f.custom ? `The art itself. It goes in ${aOrAn(f.w)} ${sz(f.w, f.h)} frame${f.print && (f.print.w !== f.w || f.print.h !== f.h) ? ' with a mat' : ''}.` : 'The art itself. It needs a custom frame.';
 };
 
 // ---------- Crop a photo of your art ----------
@@ -1647,7 +1649,7 @@ function stuffScreen() {
         <label class="name-in"><span>What is it?</span><input type="text" maxlength="40" data-sk="title" data-sid="${esc(x.id)}" value="${esc(x.title)}"></label>
         ${seg2('Framed or not', 'framed', x.id, x.framed, 'Framed', 'Not framed')}
         <span class="nums">${num(x, 'w', 'Wide')}${num(x, 'h', 'Tall')}${lockBtn(x, 'sk')}</span>
-        <span class="pencil small">${x.framed ? 'Measure the outside of the frame.' : (() => { const f = frameFor(x.w, x.h); return f ? `The art itself. It goes in a ${sz(f.w, f.h)} frame${f.w !== x.w || f.h !== x.h ? ' with a mat' : ''}.` : 'The art itself. It needs a custom frame.'; })()}${where.has(x.id) ? ` On ${esc(where.get(x.id))}.` : ''}</span>
+        <span class="pencil small">${x.framed ? 'Measure the outside of the frame.' : (() => { const f = frameFor(x.w, x.h); return f ? `The art itself. It goes in ${aOrAn(f.w)} ${sz(f.w, f.h)} frame${f.w !== x.w || f.h !== x.h ? ' with a mat' : ''}.` : 'The art itself. It needs a custom frame.'; })()}${where.has(x.id) ? ` On ${esc(where.get(x.id))}.` : ''}</span>
         ${x.thumb ? '' : `<label class="btn quiet small file-btn">Add a photo of it<input type="file" accept="image/*" data-stuff-photo="${esc(x.id)}"></label>`}
         ${oneWall ? (() => { const o = S.draft.owned.find((y) => y.stuff === x.id), k = o ? o.keep || 'must' : 'skip'; return `<span class="keep-line"><span class="pencil small">On this wall</span><span class="seg small-seg" role="group" aria-label="${esc(x.title)} on this wall">${[['must', 'Keep'], ['happy', 'Maybe'], ['skip', 'Skip']].map(([v, l]) => `<button type="button" data-stuff-keep="${v}" data-sid="${esc(x.id)}" aria-pressed="${k === v}">${l}</button>`).join('')}</span></span>`; })() : ''}
       </span>
@@ -2255,7 +2257,7 @@ function changeSheet() {
     ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
     ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
     ${seg('frame-l', 'Frames', Object.entries(FRAME_LOOKS).map(([k, v]) => [k, v.name]), lookOf(), 'look')}
-    ${seg('mats-l', 'Mats', [['none', 'None'], ['few', 'Few'], ['some', 'Some'], ['most', 'Most'], ['all', 'All']], matLevel(), 'mat')}
+    ${seg('mats-l', 'Mats', MAT_LEVELS, matLevel(), 'mat')}
     <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
       <span class="budget-ctl">${segBtns('budget-l', BUDGETS.map((v) => [v, v ? (v >= 1000 ? `$${v / 1000}k` : `$${v}`) : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}${budgetForm('sheet')}</span>
       <span class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span></div>
@@ -2344,18 +2346,18 @@ function printOf(p) {
   return printSize(soldW(p), soldH(p));
 }
 // The size a shop print is sold at: the frame's size, or the print inside it when the wall hangs it matted a frame up.
-const shopPrint = (p) => (p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : p.frame && p.frame.can && p.frame.can.mat && matFor(p) ? [p.frame.can.mat.w, p.frame.can.mat.h] : [soldW(p), soldH(p)]);
+const shopPrint = (p) => (p.frame && p.frame.shopFramed ? [soldW(p), soldH(p)] : p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : p.frame && p.frame.can && p.frame.can.mat && matFor(p) ? [p.frame.can.mat.w, p.frame.can.mat.h] : [soldW(p), soldH(p)]);
 // Mat or not, piece by piece. The engine decides with the wall (engine/mats.js): a
 // structured wall all the same, a loose one mixed with care, smallest frames first, as
 // many as the level you pick. Here the catalog says which ways each size is easy to buy:
 // a free photo can go matted (the smaller print in a frame sold "matted to" it) or plain
 // (the full-size print in a plain frame); a shop print fills its frame, or hangs a frame
 // up matted when the wall picked that size. A piece you flip wins.
-const MAT_LEVELS = [['none', 'None'], ['few', 'A few'], ['some', 'Some'], ['most', 'Most'], ['all', 'All']];
+const MAT_LEVELS = [['none', 'None'], ['few', 'Few'], ['some', 'Some'], ['most', 'Most'], ['all', 'All']];
 const MAT_SHARE = { none: 0, few: 0.25, some: 0.5, most: 0.75, all: 1 };
 // The level you picked last carries to new walls.
 let ME_MAT = null;
-const matLevel = () => { const v = S.draft && S.draft.mat; if (MAT_SHARE[v] != null) return v; if (ME_MAT === null) ME_MAT = store.loadMe().matLevel || ''; return MAT_SHARE[ME_MAT] != null ? ME_MAT : 'some'; };
+const matLevel = () => { const v = S.draft && S.draft.mat; if (MAT_SHARE[v] != null) return v; if (ME_MAT === null) ME_MAT = store.loadMe().matLevel || ''; return MAT_SHARE[ME_MAT] != null ? ME_MAT : 'most'; };
 const cheapestListed = (k) => Math.min(...PRINTERS.map((x) => x.sizes[k]).filter((v) => v != null));
 // A size no lab lists is printed at the smallest listed size that holds it, then trimmed.
 const PRINT_KEYS = [...new Set(PRINTERS.flatMap((x) => Object.keys(x.sizes)))].map((k) => [k, ...k.split('x').map(Number)]).sort((a, b) => a[1] * a[2] - b[1] * b[2]);
@@ -2413,31 +2415,31 @@ for (const c of CATALOG) {
 const MAT_ONLY = { '8x10|5x7': 4.99, '11x14|8x10': 2.99, '16x20|11x14': 9.79, '18x24|12x18': 16.49 };
 const matOnly = (F, P) => MAT_ONLY[`${F}|${P}`] ?? 10;
 const haveFrameKeys = () => [...new Set(myStuff().filter((x) => x.kind === 'frame').map((f) => frameKey(f.w, f.h)))].sort();
-function frameCost(F, P, have) {
+function frameCost(F, P, have, lookIn = lookOf()) {
   if (have.has(F)) return P ? matOnly(F, P) : 0; // your frame, and a precut mat when it's matted
-  const lookIn = lookOf(), look = Number.isFinite(cheapestFrame(F, undefined, lookIn)) ? lookIn : 'black';
+  const look = Number.isFinite(cheapestFrame(F, undefined, lookIn)) ? lookIn : 'black';
   const plain = cheapestFrame(F, undefined, look);
   if (!P) return Number.isFinite(plain) ? plain : null;
   const ways = [cheapestFrame(F, P, look), Number.isFinite(plain) ? plain + matOnly(F, P) : Infinity].filter(Number.isFinite);
   return ways.length ? Math.min(...ways) : null;
 }
 function allInOf(c, z, have) {
-  const F = frameKey(z.w, z.h);
+  const F = frameKey(z.w, z.h), one = ((S.draft && S.draft.colorFor) || {})[c.id], lk = FRAME_LOOKS[one] ? one : lookOf();
   const add = (a, b) => (a == null || b == null ? null : Math.round((a + b) * 100) / 100);
   if (c.offers && c.offers.length) {
     if (typeof z.price !== 'number') return null;
     if (z.framed) return z.price;
-    const plainAll = add(z.price, frameCost(F, z.matted ? frameKey(z.matted.w, z.matted.h) : null, have));
+    const plainAll = add(z.price, frameCost(F, z.matted ? frameKey(z.matted.w, z.matted.h) : null, have, lk));
     if (!z.matPrint) return plainAll;
     const o = c.offers.find((x) => !x.gone && !x.framed && typeof x.price === 'number' && ((x.w === z.matPrint.w && x.h === z.matPrint.h) || (x.w === z.matPrint.h && x.h === z.matPrint.w)));
-    const mattedAll = o ? add(o.price, frameCost(F, frameKey(z.matPrint.w, z.matPrint.h), have)) : null;
+    const mattedAll = o ? add(o.price, frameCost(F, frameKey(z.matPrint.w, z.matPrint.h), have, lk)) : null;
     const lv = matLevel(), ok = (v) => v != null && Number.isFinite(v);
     const ways = (lv === 'none' ? [plainAll] : lv === 'all' ? [mattedAll ?? plainAll] : [plainAll, mattedAll]).filter(ok);
     return ways.length ? Math.min(...ways) : null;
   }
   const lv = matLevel();
-  const plain = z.plainOk ? add(cheapestPrint(F), frameCost(F, null, have)) : null;
-  const matted = z.matPrint ? add(cheapestPrint(frameKey(z.matPrint.w, z.matPrint.h)), frameCost(F, frameKey(z.matPrint.w, z.matPrint.h), have)) : null;
+  const plain = z.plainOk ? add(cheapestPrint(F), frameCost(F, null, have, lk)) : null;
+  const matted = z.matPrint ? add(cheapestPrint(frameKey(z.matPrint.w, z.matPrint.h)), frameCost(F, frameKey(z.matPrint.w, z.matPrint.h), have, lk)) : null;
   const ok = (v) => v != null && Number.isFinite(v);
   const ways = lv === 'none' ? [plain] : lv === 'all' ? [matted ?? plain] : [plain, matted];
   const fin = ways.filter(ok);
@@ -2449,7 +2451,7 @@ let SHAPED = { key: null, list: null };
 function shapeCatalog(catalog) {
   const d = S.draft, b = widthOf().border, wide = b !== RULES.frameBorder, noMats = matLevel() === 'none';
   if (!d.budget && !wide && !noMats) return catalog;
-  const key = `${d.budget ? `${matLevel()}|${lookOf()}|${haveFrameKeys().join()}` : ''}|${b}|${noMats}|${catalog.length}|${catalog[0] && catalog[0].id}|${catalog.length && catalog[catalog.length - 1].id}`;
+  const key = `${d.budget ? `${matLevel()}|${lookOf()}|${JSON.stringify(d.colorFor || {})}|${haveFrameKeys().join()}` : ''}|${b}|${noMats}|${catalog.length}|${catalog[0] && catalog[0].id}|${catalog.length && catalog[catalog.length - 1].id}`;
   if (SHAPED.key !== key) {
     const have = new Set(haveFrameKeys());
     // With no mats, a free photo only comes in the sizes it fills without being cut.
@@ -2492,6 +2494,21 @@ const FRAME_LOOKS = {
   brass: { name: 'Brass', hex: '#B8955A' },
 };
 const lookOf = () => (S.draft && FRAME_LOOKS[S.draft.look] ? S.draft.look : 'black');
+// The link for a print sold framed in one color: the build keeps just the variant.
+const colorUrl = (o, c) => { const v = o.colors && o.colors[c]; return !v ? o.url : /^https:/.test(v) ? v : `${o.url.split('?')[0]}?variant=${v}`; };
+// The colors a print sold framed comes in (House of Spoils: black, white, natural wood), or null.
+const shopColors = (p) => { const item = p.ref && byId.get(p.ref.id); if (!item || !(item.offers || []).length || needsFrame(p)) return null; const o = offersAt(item, ...shopPrint(p)).main; return o && o.colors ? Object.keys(o.colors).filter((k) => FRAME_LOOKS[k]) : null; };
+// One piece's frame color: its own when you picked one, else the wall's. A print sold
+// framed only comes in the shop's colors, so brass there is the nearest, oak.
+function colorOf(p) {
+  const one = ((S.draft && S.draft.colorFor) || {})[p.ref.id];
+  const c = FRAME_LOOKS[one] ? one : lookOf();
+  const can = shopColors(p);
+  if (!can || !can.length || can.includes(c)) return c;
+  return c === 'brass' && can.includes('oak') ? 'oak' : can[0];
+}
+const ownColor = (p) => { const one = ((S.draft && S.draft.colorFor) || {})[p.ref.id]; return FRAME_LOOKS[one] && one !== lookOf() ? one : null; };
+setFrameColorFor((p) => { const c = colorOf(p); return c === lookOf() ? null : FRAME_LOOKS[c]; });
 // How wide the moulding is. Slim and standard are what most ready-made frames are; wide
 // is easy in a few sizes (IKEA EDSBRUK) and custom past them.
 const FRAME_WIDTHS = {
@@ -2583,7 +2600,7 @@ function wallCost(L) {
 function wallPrices(L) {
   const have = new Set(haveFrameKeys());
   const out = { n: 0, art: 0, frames: 0, unknown: 0, framed: 0 };
-  const addFrame = (F, P) => { const f = frameCost(F, P, have); if (f == null) out.unknown++; else out.frames += f; };
+  const addFrame = (F, P, lk) => { const f = frameCost(F, P, have, lk); if (f == null) out.unknown++; else out.frames += f; };
   for (const p of L.pieces) {
     if (p.ref.source === 'catalog') {
       const item = byId.get(p.ref.id);
@@ -2596,18 +2613,18 @@ function wallPrices(L) {
         out.art += o.price;
         if (o.framed) out.framed++;
         const pr = printOf(p);
-        if (!o.framed) addFrame(F, pr ? frameKey(pr[0], pr[1]) : null);
+        if (!o.framed) addFrame(F, pr ? frameKey(pr[0], pr[1]) : null, colorOf(p));
       } else {
         const ps = printOf(p), P = ps ? frameKey(ps[0], ps[1]) : null;
         const pr = cheapestPrint(P || F);
         if (Number.isFinite(pr)) out.art += pr; else out.unknown++;
-        addFrame(F, P);
+        addFrame(F, P, colorOf(p));
       }
     } else {
       const o = S.draft.owned.find((x) => x.id === p.ref.id), f = o && o.needsFrame;
       if (!f || f.custom) continue;
       const P = f.print && (f.print.w !== f.w || f.print.h !== f.h) ? frameKey(f.print.w, f.print.h) : null;
-      addFrame(frameKey(f.w, f.h), P);
+      addFrame(frameKey(f.w, f.h), P, colorOf(p));
     }
   }
   out.art = Math.round(out.art); out.frames = Math.round(out.frames);
@@ -2687,9 +2704,9 @@ function frameNeeds(L) {
     const shop = item.offers && item.offers.length ? offersAt(item, ...shopPrint(p)).main : null;
     if (shop && shop.framed) continue;
     const ps = matFor(p) ? printOf(p) : null;
-    const key = frameKey(soldW(p), soldH(p)), mat = ps ? frameKey(ps[0], ps[1]) : null;
-    const k = `${key}|${mat || ''}`;
-    const o = m.get(k) || { key, mat, count: 0 };
+    const key = frameKey(soldW(p), soldH(p)), mat = ps ? frameKey(ps[0], ps[1]) : null, look = colorOf(p);
+    const k = `${key}|${mat || ''}|${look}`;
+    const o = m.get(k) || { key, mat, look, count: 0 };
     o.count++; m.set(k, o);
   }
   // Your own art that isn't framed yet gets a frame too.
@@ -2697,9 +2714,9 @@ function frameNeeds(L) {
     const o = S.draft.owned.find((x) => x.id === p.ref.id);
     if (!o || !o.needsFrame || o.needsFrame.custom) continue;
     const key = frameKey(o.needsFrame.w, o.needsFrame.h), pk = o.needsFrame.print ? frameKey(o.needsFrame.print.w, o.needsFrame.print.h) : null;
-    const mat = pk && pk !== key ? pk : null;
-    const k = `${key}|${mat || ''}`;
-    const e = m.get(k) || { key, mat, count: 0 };
+    const mat = pk && pk !== key ? pk : null, look = colorOf(p);
+    const k = `${key}|${mat || ''}|${look}`;
+    const e = m.get(k) || { key, mat, look, count: 0 };
     e.count++; m.set(k, e);
   }
   const area = (k) => k.split('x').reduce((a, b) => a * b, 1);
@@ -2737,15 +2754,16 @@ function whereToFrame(L) {
   const rows = frameOptions(needed, lookOf(), widthKey());
   const pk = framePicks(rows);
   const tag = (r) => [r === pk.cheapest && 'Best price', r === pk.today && 'Same day', r === pk.better && (r.p.id === 'framebridge' ? 'Done for you' : 'Better frame')].filter(Boolean);
-  const lead = needed.map((n) => `${n.count} at ${sizeWords(n.key)}\u00a0in${n.mat ? ` with a mat for ${sizeWords(n.mat)}` : ''}`).join(', ');
+  const looks = [...new Set(needed.map((n) => n.look || 'black'))], mixed = looks.length > 1, lkName = (k) => FRAME_LOOKS[k].name.toLowerCase();
+  const lead = needed.map((n) => `${n.count} at ${sizeWords(n.key)}\u00a0in${mixed ? ` ${lkName(n.look)}` : ''}${n.mat ? ` with a mat for ${sizeWords(n.mat)}` : ''}`).join(', ');
   const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all${pk.cheapest.mats ? '' : ', some mats to buy separately'}</li>`,
     pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
     pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? (printNeeds(L).length ? ', printed, matted and framed' : ', framed for you; you mail in your prints') : ', real glass'}</li>`].filter(Boolean).join('');
   const anyMat = needed.some((n) => n.mat);
   return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">Get the frames</h2>
-    <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for ${widthKey() === 'standard' ? '' : `${FRAME_WIDTHS[widthKey()].name.toLowerCase()} `}${FRAME_LOOKS[lookOf()].name.toLowerCase()} frames, regular prices before any sale${lookOf() === 'black' ? '' : '; not every seller has every size in this color'}.</p>
+    <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for ${widthKey() === 'standard' ? '' : `${FRAME_WIDTHS[widthKey()].name.toLowerCase()} `}${mixed ? 'frames in their colors' : `${lkName(looks[0])} frames`}, regular prices before any sale${looks.every((k) => k === 'black') ? '' : `; not every seller has every size in ${mixed ? 'every' : 'this'} color`}.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
-    ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
+    ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${mixed ? `<span class="pr-count">${lkName(n.look)}</span>` : ''}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
     ${anyMat ? '<p class="pencil small">Buy frames sold "matted to" your print size (11 x 14 matted to 8 x 10). The mat hides a quarter inch on each edge. No matching mat? A precut one is $3 to $10.</p>' : ''}
     <p class="pencil small">Prices checked ${FRAMES_CHECKED}.</p>
   </section>`;
@@ -2832,7 +2850,8 @@ function thumbFor(p, box) {
   const ar = p.w / p.h, h = ar < 1 ? box : box / ar, w = h * ar;
   const img = own ? (o && o.thumb) : item && item.imageData;
   const cls = own ? 'tn own' : `tn new framed${matFor(p) ? ' matted' : ''}${kept.has(p.ref.id) ? ' kept' : ''}`;
-  return `<span class="${cls}" style="width:${w.toFixed(0)}px;height:${h.toFixed(0)}px">${img ? `<img src="${img}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`;
+  const fc = own ? null : colorOf(p), fcs = fc && fc !== lookOf() ? `;--frame-new:${FRAME_LOOKS[fc].hex}` : '';
+  return `<span class="${cls}" style="width:${w.toFixed(0)}px;height:${h.toFixed(0)}px${fcs}">${img ? `<img src="${img}" alt="">` : `<span class="swatch" style="background:${esc((o && o.color) || '#8A8F94')}"></span>`}</span>`;
 }
 const sz = (w, h) => `${w} x ${h} in`;
 // Does a piece need a frame bought (a shop that sells it framed means no)?
@@ -2862,6 +2881,14 @@ function progressLine(L) {
 
 // ---------- Frame it: one look for the set, a mat or not, the sizes ----------
 
+// A piece's own frame color: a dot per color it can come in, the one it has pressed.
+function colorDots(p, title) {
+  const can = needsFrame(p) ? Object.keys(FRAME_LOOKS) : shopColors(p);
+  if (!can || can.length < 2) return '';
+  const cur = colorOf(p);
+  return `<span class="color-dots" role="group" aria-label="Frame color for ${esc(title)}">${can.map((k) => { const v = FRAME_LOOKS[k]; return `<button type="button" class="dot-btn" data-color-one="${esc(p.ref.id)}" data-c="${k}" aria-pressed="${cur === k}" aria-label="${v.name}" title="${v.name}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span></button>`; }).join('')}</span>`;
+}
+
 function framesScreen() {
   const L = chosenWall();
   if (!L) return '';
@@ -2878,20 +2905,21 @@ function framesScreen() {
     const fw = soldW(p), fh = soldH(p);
     const whole = p.frame && p.frame.can && p.frame.can.mat && !p.frame.can.plain && !(item.offers && item.offers.length);
     const mg = p.frame && p.frame.margin;
-    const words = !needsFrame(p) ? `Comes framed, ${sz(p.w, p.h)}.` : mg ? `Print ${sz(fw, fh)} with a ${mg} in white border printed on, so no mat. In a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat${whole ? ', so the photo keeps its shape' : ''}, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in a ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
+    const words = !needsFrame(p) ? (p.frame && p.frame.print ? `Comes framed with a white border, art ${sz(p.frame.print.w, p.frame.print.h)}, ${sz(p.w, p.h)} outside.` : `Comes framed, ${sz(p.w, p.h)}.`) : mg ? `Print ${sz(fw, fh)} with a ${mg} in white border printed on, so no mat. In ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat${whole ? ', so the photo keeps its shape' : ''}, in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
     const flip = canMat(p) ? `<button type="button" class="tick" data-mat-one="${esc(p.ref.id)}" aria-pressed="${matFor(p)}">Mat</button>` : '';
     const opts = sizesFor(p);
     const cur = p.frame ? `${p.frame.w}x${p.frame.h}${p.frame.print && item.offers && item.offers.length ? 'm' : ''}` : '';
     const size = opts.length > 1 ? `<label class="size-pick"><span class="sr-only">Size for ${esc(item.title)}</span><select data-resize="${esc(p.ref.id)}">${opts.map((z) => { const k = `${z.w}x${z.h}${z.matted ? 'm' : ''}`; return `<option value="${k}"${k === cur ? ' selected' : ''}>${z.w} x ${z.h}${z.matted ? `, matted ${z.matted.w} x ${z.matted.h}` : ''}</option>`; }).join('')}</select></label>` : '';
-    return `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${words}</span>${flip || size ? `<span class="row-ticks">${size}${flip}</span>` : ''}</span></li>`;
+    const dots = colorDots(p, item.title);
+    return `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${words}</span>${flip || size || dots ? `<span class="row-ticks">${size}${flip}${dots}</span>` : ''}</span></li>`;
   }).join('');
   // Your own art that isn't framed yet gets a frame on this wall too.
-  const yours = L.pieces.filter((p) => p.ref.source === 'owned').map((p) => S.draft.owned.find((o) => o.id === p.ref.id)).filter((o) => o && o.needsFrame);
-  const ownRows = yours.map((o) => { const f = o.needsFrame; return `<li class="frame-row"><span class="buy-art"><span class="tn own"${o.thumb ? '' : ` style="background:${esc(o.color || '#8A8F94')}"`}>${o.thumb ? `<img src="${o.thumb}" alt="">` : ''}</span></span><span class="buy-text"><span class="name">Your ${esc(o.title)}</span><span class="frame-words">${f.custom ? `Needs a custom frame for ${sz(f.w, f.h)}.` : f.print && (f.print.w !== f.w || f.print.h !== f.h) ? `${sz(f.print.w, f.print.h)}, with a mat, in a ${sz(f.w, f.h)} frame.` : `In a ${sz(f.w, f.h)} frame, no mat.`}</span></span></li>`; }).join('');
+  const yours = L.pieces.filter((p) => p.ref.source === 'owned').map((p) => [p, S.draft.owned.find((o) => o.id === p.ref.id)]).filter(([, o]) => o && o.needsFrame);
+  const ownRows = yours.map(([p, o]) => { const f = o.needsFrame, dots = f.custom ? '' : colorDots(p, o.title); return `<li class="frame-row"><span class="buy-art"><span class="tn own"${o.thumb ? '' : ` style="background:${esc(o.color || '#8A8F94')}"`}>${o.thumb ? `<img src="${o.thumb}" alt="">` : ''}</span></span><span class="buy-text"><span class="name">Your ${esc(o.title)}</span><span class="frame-words">${f.custom ? `Needs a custom frame for ${sz(f.w, f.h)}.` : f.print && (f.print.w !== f.w || f.print.h !== f.h) ? `${sz(f.print.w, f.print.h)}, with a mat, in ${aOrAn(f.w)} ${sz(f.w, f.h)} frame.` : `In ${aOrAn(f.w)} ${sz(f.w, f.h)} frame, no mat.`}</span>${dots ? `<span class="row-ticks">${dots}</span>` : ''}</span></li>`; }).join('');
   return `${bar(back('#/wall', 'This wall'))}
   <main class="page frames">
     <h1>Frame it</h1>
-    <p class="lede">One frame style for every new piece, so it reads as a set.</p>
+    <p class="lede">One color for the set. Tap a dot on a piece to change just that one.</p>
     <div class="drawing" id="frames-wall">${drawWall(L, pxNow(), { still: true, label: 'Your wall with the frames you picked' })}</div>
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
@@ -2927,6 +2955,8 @@ function getScreen() {
   const d = S.draft, ord = d.orders || {};
   const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
   if (!fresh.length) { go('#/hang'); return ''; }
+  // Frames in more than one color: each row says its color.
+  const mixedC = new Set(fresh.filter((p) => needsFrame(p) || shopColors(p)).map(colorOf)).size > 1;
   const tick = (key, label) => `<button type="button" class="tick" data-order="${esc(key)}" aria-pressed="${!!ord[key]}">${label}</button>`;
   const buy = [...fresh].sort((a, b) => b.w * b.h - a.w * a.h).map((p) => {
     const item = byId.get(p.ref.id);
@@ -2940,14 +2970,15 @@ function getScreen() {
       const ow = o.w || fw, oh = o.h || fh, land = fw > fh;
       const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(fw, fh) && Math.max(pw, ph) === Math.max(fw, fh);
       const mg = p.frame && p.frame.margin;
-      frame = o.framed ? `Comes framed, ${sz(p.w, p.h)} outside.` : mg && same ? `Print ${sz(pw, ph)}, with a ${mg} in white border printed on (art up to ${sz(pw - 2 * mg, ph - 2 * mg)}). Frame ${sz(fw, fh)}, no mat needed, ${sz(p.w, p.h)} outside.` : same ? `Print ${sz(pw, ph)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.` : `Print ${sz(pw, ph)}. Mat with a ${sz(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.`;
-      get = `<a class="btn quiet small" href="${esc(o.url)}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
+      frame = o.framed ? (o.mount ? `Comes framed with a white border, art ${sz(o.mount.w, o.mount.h)}, ${sz(p.w, p.h)} outside.` : `Comes framed, ${sz(p.w, p.h)} outside.`) : mg && same ? `Print ${sz(pw, ph)}, with a ${mg} in white border printed on (art up to ${sz(pw - 2 * mg, ph - 2 * mg)}). Frame ${sz(fw, fh)}, no mat needed, ${sz(p.w, p.h)} outside.` : same ? `Print ${sz(pw, ph)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.` : `Print ${sz(pw, ph)}. Mat with a ${sz(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.`;
+      get = `<a class="btn quiet small" href="${esc(colorUrl(o, colorOf(p)))}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
     } else {
       const fw = soldW(p), fh = soldH(p), ps = matFor(p) ? printSize(fw, fh) : null;
       credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
       frame = ps ? `Print it ${sz(ps[0], ps[1])}. Mat with a ${sz(ps[0] - 2 * MAT_LIP, ps[1] - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.` : `Print it ${sz(fw, fh)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.`;
       get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
     }
+    if (mixedC && (needsFrame(p) || shopColors(p))) frame += ` ${FRAME_LOOKS[colorOf(p)].name} frame.`;
     const ticks = `${tick(`art:${p.ref.id}`, o ? 'Ordered' : 'Printed')}${needsFrame(p) ? tick(`frame:${p.ref.id}`, 'Frame ordered') : ''}`;
     return `<li class="buy-row"><span class="buy-art">${thumbFor(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
       <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
@@ -3018,7 +3049,7 @@ function hangScreen() {
         <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${thumbFor(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(sz(soldW(p), soldH(p)))} frame, ${esc(sz(p.w, p.h))} outside` : `${esc(sz(p.w, p.h))} frame`}</span>${p.hanger ? `<span class="nail-ref">${esc(HANGER_WORDS[p.hanger.type])}${p.hanger.set ? '' : ', assumed'}</span>` : ''}</span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
         ${d.photo ? `<li>Before the first hole, check one spot: mark where the biggest frame's nail goes and see that it sits where the drawing shows it next to ${furnitureWord(d)}. If it's off, <a href="${fix}">fix the wall's width</a> and every spot moves with it.</li>` : ''}
-        ${hangOrder.some((p) => p.ref.source === 'catalog' && matFor(p)) ? '<li>Matted frames: tape each print to the back of its mat along the top edge only, so it hangs flat and doesn\'t buckle.</li>' : ''}
+        ${hangOrder.some((p) => p.ref.source === 'catalog' && matFor(p) && needsFrame(p)) ? '<li>Matted frames: tape each print to the back of its mat along the top edge only, so it hangs flat and doesn\'t buckle.</li>' : ''}
         <li>Hang the biggest piece first; the others measure off it.</li>
         <li>Mark each nail in pencil, then nail or drill.</li>
         ${hangOrder.some((p) => p.nails) ? '<li>Two nails for a frame on D-rings: put a level across the two marks before you drill, so it hangs straight.</li>' : ''}
@@ -3776,11 +3807,23 @@ document.addEventListener('click', (e) => {
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
   if (t.dataset.fwidth) { S.flash = null; S.undo = null; setFrameWidth(t.dataset.fwidth); render(); const b = document.querySelector(`[data-fwidth="${CSS.escape(t.dataset.fwidth)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.mwidth) { S.draft.matWidth = t.dataset.mwidth === 'wide' ? 'wide' : 'standard'; persist(); render(); const b = document.querySelector(`[data-mwidth="${CSS.escape(t.dataset.mwidth)}"]`); if (b) b.focus({ preventScroll: true }); return; }
-  if (t.dataset.look) { S.draft.look = t.dataset.look; if (S.sheet === 'change') S.ui.sheetStay = true; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.colorOne) {
+    const id = t.dataset.colorOne, c = t.dataset.c, m = { ...(S.draft.colorFor || {}) };
+    if (!FRAME_LOOKS[c]) return;
+    if (c === lookOf()) delete m[id]; else m[id] = c;
+    S.draft.colorFor = m; S.undo = null; persist(); render();
+    const b = document.querySelector(`[data-color-one="${CSS.escape(id)}"][data-c="${CSS.escape(c)}"]`); if (b) b.focus({ preventScroll: true });
+    return;
+  }
+  if (t.dataset.look) {
+    // One color for the set: the pieces you'd colored one by one follow it, with Undo.
+    const prev = S.draft.colorFor || {}, prevLook = S.draft.look;
+    if (Object.keys(prev).length && t.dataset.look !== prevLook) { S.draft.colorFor = {}; S.undo = { label: `Every frame ${FRAME_LOOKS[t.dataset.look].name.toLowerCase()}.`, run: () => { S.draft.colorFor = prev; S.draft.look = prevLook; persist(); } }; }
+    S.draft.look = t.dataset.look; if (S.sheet === 'change') S.ui.sheetStay = true; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.mat) {
     // The wall you're framing stays the wall you're framing, whatever the walls behind it do.
     const L0 = route()[0] === 'frames' ? shown() : null;
-    S.draft.mat = MAT_SHARE[t.dataset.mat] != null ? t.dataset.mat : 'some'; S.draft.matFor = {};
+    S.draft.mat = MAT_SHARE[t.dataset.mat] != null ? t.dataset.mat : 'most'; S.draft.matFor = {};
     if (S.sheet === 'change') S.ui.sheetStay = true;
     if (L0) { S.draft.chosen = { layout: bareLayout(L0), inputKey: viewKey(), at: 0 }; S.openKey = L0.key; } { const me = store.loadMe(); me.matLevel = S.draft.mat; store.saveMe(me); ME_MAT = S.draft.mat; } persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.matOne) { const L = shown(), p = L && L.pieces.find((x) => x.ref.id === t.dataset.matOne); if (p) { S.draft.matFor = { ...(S.draft.matFor || {}), [p.ref.id]: !matFor(p) }; persist(); render(); const b = document.querySelector(`[data-mat-one="${CSS.escape(p.ref.id)}"]`); if (b) b.focus({ preventScroll: true }); } return; }

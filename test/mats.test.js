@@ -91,3 +91,62 @@ test('a shop size with a printed border is the paper, and never hangs matted a f
   const c = toCandidate(r);
   assert.deepEqual(c.sizes, [{ w: 12, h: 18, price: 50, margin: 1 }]);
 });
+
+// House of Spoils sells each size framed two ways: with a white border around the art
+// (a bigger frame) or the art to the edge (a smaller one). Read from their own options.
+const realHos = async () => {
+  const { readFileSync } = await import('node:fs');
+  const items = JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url))).items;
+  return items.find((x) => x.id === 'hos-kurt-arrigo-marigold');
+};
+
+test('a print sold framed with a white border is the frame outside, matted, with the art inside at its own shape', async () => {
+  const { toCandidate } = await import('../engine/catalog.js');
+  const r = await realHos();
+  const small = toCandidate(r).sizes.find((z) => z.w === 14.5 && z.h === 18.5);
+  assert.deepEqual(small, { w: 14.5, h: 18.5, price: 225, framed: true, matted: { w: 8, h: 12 } });
+  const bleed = toCandidate(r).sizes.find((z) => z.w === 9.5 && z.h === 13.5);
+  assert.equal(bleed.framed, true);
+  assert.equal(bleed.matted, undefined);
+  for (const o of r.offers) assert.deepEqual(Object.keys(o.colors).sort(), ['black', 'oak', 'white']);
+});
+
+test('a mount must sit inside its frame', async () => {
+  const { validateRecord } = await import('../engine/catalog.js');
+  const r = await realHos();
+  assert.deepEqual(validateRecord(r), []);
+  const bad = { ...r, sizes: [{ w: 14.5, h: 18.5, price: 225, mount: { w: 16, h: 12 } }] };
+  assert.ok(validateRecord(bad).some((e) => /mount/.test(e)));
+});
+
+test('with no mats a bordered print never hangs; with mats it hangs matted in the shop frame', async () => {
+  const { toCandidate } = await import('../engine/catalog.js');
+  const { layout } = await import('../engine/index.js');
+  const { readFileSync } = await import('node:fs');
+  const hos = JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url))).items.filter((x) => x.id.startsWith('hos-') && x.status === 'active').slice(0, 16).map(toCandidate);
+  const wall = { wall: { width: 120, height: 96 }, obstacles: [], catalog: hos };
+  for (const L of layout({ ...wall, prefs: { mats: 'none', matLevel: 'none' } }).layouts) for (const p of L.pieces) assert.equal(p.frame.print, undefined, `${p.w} x ${p.h}`);
+  const matted = layout({ ...wall, prefs: { matLevel: 'all' } }).layouts.flatMap((L) => L.pieces).filter((p) => p.frame && p.frame.print);
+  assert.ok(matted.length > 0);
+  for (const p of matted) { assert.equal(p.frame.shopFramed, true); assert.ok(p.frame.print.w < p.w && p.frame.print.h < p.h); }
+});
+
+test('asking for most mats leans the walls toward mats', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { activeRecords, toCandidate } = await import('../engine/catalog.js');
+  const { layout } = await import('../engine/index.js');
+  const { WALLS } = await import('../demo/samples.js');
+  const real = activeRecords(JSON.parse(readFileSync(new URL('../demo/catalog.json', import.meta.url))).items).map(toCandidate);
+  const share = (level) => {
+    let on = 0, n = 0;
+    for (const L of layout({ ...WALLS[0], catalog: real, count: 12, prefs: { matLevel: level } }).layouts.slice(0, 5)) {
+      const fresh = L.pieces.filter((p) => p.ref.source === 'catalog');
+      const m = assignMats(fresh, { family: L.family, variant: L.variant, level });
+      on += fresh.filter((p) => m.get(p.ref.id)).length; n += fresh.length;
+    }
+    return on / Math.max(1, n);
+  };
+  const most = share('most'), some = share('some');
+  assert.ok(most >= some, `most ${most.toFixed(2)} vs some ${some.toFixed(2)}`);
+  assert.ok(most >= 0.4, `with Most, ${Math.round(most * 100)}% of new pieces are matted`);
+});

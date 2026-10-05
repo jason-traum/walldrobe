@@ -42,7 +42,9 @@ const QUALITY_PICK = 0.15;   // how much a reviewed quality score (0 to 1) leans
 const OWNED_PICK_BONUS = { happy: 0.15, dontcare: 0.05 };
 const PREFER_PICK = 0.3;     // art the person picked on another wall goes in first where its size fits
 const PREFER_WALL = 0.03;
+const MAT_LEAN = 0.05;       // with Most or All mats, a wall short of that share of matted new pieces ranks lower
 const MAT_WEIGHT = 0.04;     // a wall whose mats break the principles (a grid half matted) scores a little lower    // and a wall with it scores a little higher, so the improvement pass keeps it
+const MAT_SHARE_OF = { none: 0, few: 0.25, some: 0.5, most: 0.75, all: 1 };
 const ROOM = '\u0000room';
 const sizeKey = (w, h) => `${w}x${h}`;
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -123,7 +125,7 @@ function readPrefs(raw = {}) {
     // 'none': no shop print hangs matted in a bigger frame.
     mats: raw.mats === 'none' ? 'none' : null,
     // How many new pieces get a mat, a preference: none, few, some, most, all (engine/mats.js).
-    matLevel: MAT_LEVELS.includes(raw.matLevel) ? raw.matLevel : 'some',
+    matLevel: MAT_LEVELS.includes(raw.matLevel) ? raw.matLevel : 'most',
   };
 }
 
@@ -389,7 +391,8 @@ const frameOf = (z) => {
   if (!z) return null;
   const can = canOfSize(z);
   // `margin`: a white border printed on the paper, in inches (Society6 prints its own). The size is the paper.
-  return { w: z.w, h: z.h, border: borderOf(z), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}), ...(can ? { can } : {}), ...(num(z.margin) && z.margin > 0 ? { margin: z.margin } : {}) };
+  // `shopFramed`: the shop sells it in its frame, so the frame and any mount come with it.
+  return { w: z.w, h: z.h, border: borderOf(z), ...(z.framed ? { shopFramed: true } : {}), ...(z.matted ? { print: { w: z.matted.w, h: z.matted.h } } : {}), ...(can ? { can } : {}), ...(num(z.margin) && z.margin > 0 ? { margin: z.margin } : {}) };
 };
 const priceOf = (c, w, h) => {
   const s = soldAs(c, w, h);
@@ -532,13 +535,20 @@ function judge(L, ctx) {
   const picked = ctx.prefer && ctx.prefer.size ? L.pieces.filter((p) => ctx.prefer.has(p.ref.id)).length : 0;
   // Mats: a structured wall all the same; a loose one mixed with care (engine/mats.js).
   const mopts = { family: L.family, variant: L.variant, level: ctx.prefs.matLevel };
-  const mats = matScore(L.pieces, assignMats(L.pieces, mopts), mopts);
+  const matMap = assignMats(L.pieces, mopts);
+  const mats = matScore(L.pieces, matMap, mopts);
   parts.mats = mats;
+  // Asked for mats: lean toward walls that can have them (a print a size down in its
+  // frame, a shop print with its mount), so the mats asked for show up.
+  const newOnes = L.pieces.filter((p) => p.ref && p.ref.source === 'catalog');
+  const want = MAT_SHARE_OF[ctx.prefs.matLevel] || 0;
+  const matShare = newOnes.length ? newOnes.filter((p) => matMap.get(p.ref.id)).length / newOnes.length : want;
+  const matShort = want >= 0.75 ? Math.max(0, want - matShare) : 0;
   // How a stylist would hang it (engine/styling.js): busy pieces apart, weight balanced,
   // a color thread, mostly color or mostly black and white. A nudge, not a rule.
   const styling = stylingScore(PC);
   parts.styling = styling.score;
-  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - MAT_WEIGHT * (1 - mats) - STYLE_WEIGHT * (1 - styling.score);
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - MAT_WEIGHT * (1 - mats) - MAT_LEAN * matShort - STYLE_WEIGHT * (1 - styling.score);
   return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 

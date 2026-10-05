@@ -47,3 +47,16 @@ test('a frame color has its own prices and sizes, and keeps the mat it comes wit
   assert.ok(oak.length < black.length, 'fewer sellers have oak');
   for (const f of FRAMERS) for (const c of Object.values(f.colors || {})) for (const k of Object.keys(c)) { const [a, b] = k.split('x').map(Number); assert.ok(a <= b, `${f.id} ${k}`); }
 });
+
+test('each frame can be priced in its own color', () => {
+  const both = frameOptions([{ key: '11x14', mat: null, count: 1, look: 'black' }, { key: '11x14', mat: null, count: 1, look: 'white' }]);
+  const black = frameOptions([{ key: '11x14', mat: null, count: 2 }], 'black');
+  for (const r of both) {
+    const b = black.find((x) => x.p.id === r.p.id);
+    if (!b || !b.each[0] || r.p.id === 'framebridge') continue;
+    assert.equal(r.each[0].price, b.each[0].price / 2, r.p.id);
+    const w = sizesIn(r.p, 'white')['11x14'];
+    assert.equal(r.each[1] ? r.each[1].price : null, w ? w[0] : null, r.p.id);
+  }
+  assert.match(framesTable([{ key: '11x14', mat: null, count: 1, look: 'oak' }, { key: '11x14', mat: null, count: 1, look: 'black' }], both), /11x14 oak frame/);
+});

@@ -221,7 +221,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     const pw = pr ? Math.min(pr[0] - 0.5, ow) : ow, ph = pr ? Math.min(pr[1] - 0.5, oh) : oh;
     const ix = p.x + b + (ow - pw) / 2, iy = y + b + (oh - ph) / 2;
     return `<g class="${cls} is-framed" data-id="${esc(p.ref.id)}" ${label}>
-    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame frame-new" filter="url(#wd-shadow)"/>
+    <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="frame frame-new"${colorStyle(p)} filter="url(#wd-shadow)"/>
     <rect x="${p.x + b}" y="${y + b}" width="${ow}" height="${oh}" class="mat"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, pw, ppi)}
     ${img ? printImg(img, ix, iy, pw, ph, p.frame.margin) : ''}
@@ -284,6 +284,10 @@ export function labelSize(W, pxWide) {
 const r4 = (v) => Math.round(v * 10000) / 10000;
 let PRINT_FOR = null;
 export function setPrintFor(fn) { PRINT_FOR = fn; }
+// A new piece's own frame color, { hex, edge }, or null for the wall's. Set once by the app.
+let COLOR_FOR = null;
+export function setFrameColorFor(fn) { COLOR_FOR = fn; }
+const colorStyle = (p) => { const c = COLOR_FOR ? COLOR_FOR(p) : null; return c ? ` style="fill:${c.hex};stroke:${c.edge || 'none'}"` : ''; };
 
 export function wallSvg(o) {
   const W = o.wall.width, H = o.wall.height;
