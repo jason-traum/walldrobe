@@ -230,7 +230,7 @@ function build(key) {
     }
   }
   // Nothing under the budget as asked: keep looking before giving up. Fewer pieces first,
-  // then a calmer wall, then no mats, then both kinds of art; the first that works is
+  // then a calmer wall, then no mats, then free art, then two free pieces; the first that works is
   // shown, and the note says what changed.
   if (!r.layouts.length && S.draft.budget && r.problems.some((p) => p.code === 'BUDGET_TOO_LOW')) {
     const base = engineInput();
@@ -239,8 +239,18 @@ function build(key) {
       ...(base.prefs.fullness !== 'calm' ? [['calmer, with fewer pieces', { pieces: undefined, fullness: 'calm' }]] : []),
       ['calmer and without mats', { pieces: undefined, fullness: 'calm', mats: 'none', matLevel: 'none' }],
     ];
-    for (const [words, change] of tries) {
-      const again = layout({ ...base, prefs: { ...base.prefs, ...change }, keep: keepList() });
+    // Then free art, the cheapest art there is: as asked, calmer without mats, and at last
+    // just two pieces, so a small budget still gets a wall.
+    const d = S.draft, was = { art: d.art, justMine: d.justMine };
+    let free = null;
+    if (artMode() !== 'photos' && !d.justMine) { d.art = 'photos'; free = engineInput(); Object.assign(d, was); }
+    if (free) tries.push(
+      ['made with free art', {}, free],
+      ['made with free art, calmer and without mats', { pieces: undefined, fullness: 'calm', mats: 'none', matLevel: 'none' }, free],
+    );
+    tries.push(['two pieces of free art, without mats', { pieces: 2, fullness: 'calm', mats: 'none', matLevel: 'none' }, free || base]);
+    for (const [words, change, from = base] of tries) {
+      const again = layout({ ...from, prefs: { ...from.prefs, ...change }, keep: keepList() });
       if (again.layouts.length) { r = again; problems.unshift({ code: 'LOOSENED', message: `Nothing fit $${S.draft.budget.toLocaleString('en-US')} as you set it, so these walls are ${words}.` }); break; }
     }
   }
@@ -2241,6 +2251,8 @@ function changeSheet() {
       ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</span></div>
     ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
     ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
+    ${seg('frame-l', 'Frames', Object.entries(FRAME_LOOKS).map(([k, v]) => [k, v.name]), lookOf(), 'look')}
+    ${seg('mats-l', 'Mats', [['none', 'None'], ['few', 'Few'], ['some', 'Some'], ['most', 'Most'], ['all', 'All']], matLevel(), 'mat')}
     <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
       <span class="budget-ctl">${segBtns('budget-l', BUDGETS.map((v) => [v, v ? (v >= 1000 ? `$${v / 1000}k` : `$${v}`) : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}${budgetForm('sheet')}</span>
       <span class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span></div>
@@ -2486,9 +2498,21 @@ function setFrameWidth(k) {
     const w = p.frame.w + 2 * b, h = p.frame.h + 2 * b;
     return { id: p.ref.id, x: q4(p.x + p.w / 2 - w / 2), y: q4(p.y + p.h / 2 - h / 2), w, h };
   });
-  let r;
-  try { r = scoreArrangement(engineInput(), placed); } catch (e) { console.error(e); r = null; }
-  const hard = r ? (r.breaks || []).filter((x) => x.hard) : [];
+  // Wider frames take more room: when they'd crowd as laid out, the pieces spread from the
+  // group's middle a little at a time until the gaps work again.
+  const cx0 = L.pieces.reduce((t, p) => t + p.x + p.w / 2, 0) / L.pieces.length, cy0 = L.pieces.reduce((t, p) => t + p.y + p.h / 2, 0) / L.pieces.length;
+  const stay = new Set(L.pieces.filter((x) => x.role === 'pinned').map((x) => x.ref.id));
+  const spread = ([fx, fy, dy]) => placed.map((q) => { if (stay.has(q.id)) return q; const cx = q.x + q.w / 2, cy = q.y + q.h / 2; return { ...q, x: q4(cx0 + (cx - cx0) * fx - q.w / 2), y: q4(cy0 + (cy - cy0) * fy - q.h / 2 + dy) }; });
+  let r, hard = [];
+  // Sideways first (the room is usually there), then up and down too, then the group a
+  // little lower, since the frames grow at the top as well.
+  const tries = [];
+  for (const dy of [0, -1.5, -3]) for (const f of [[1, 1], [1.04, 1], [1.08, 1], [1.12, 1], [1.16, 1], [1.06, 1.04], [1.1, 1.06]]) tries.push([...f, dy]);
+  for (const f of tries) {
+    try { r = scoreArrangement(engineInput(), f[0] === 1 && f[1] === 1 && !f[2] ? placed : spread(f)); } catch (e) { console.error(e); r = null; }
+    hard = r ? (r.breaks || []).filter((x) => x.hard) : [];
+    if (r && !hard.length && !r.fails.some((x) => /doesn't come in/.test(x))) break;
+  }
   if (!r || hard.length || r.fails.some((f) => /doesn't come in/.test(f))) { S.draft.frameWidth = was; S.flash = `${FRAME_WIDTHS[k].name} frames don't fit this wall as it's laid out.${hard.length ? ` ${hard[0].message}` : ''}`; return; }
   const pinned = new Set(L.pieces.filter((x) => x.role === 'pinned').map((x) => x.ref.id));
   const prev = L, prevChosen = S.draft.chosen, prevOpen = S.openKey;
@@ -2826,6 +2850,8 @@ function framesScreen() {
   const fresh = [...L.pieces.filter((p) => p.ref.source === 'catalog')].sort((a, b) => b.w * b.h - a.w * a.h);
   const look = lookOf(), mode = Object.keys(S.draft.matFor || {}).length ? 'mixed' : matLevel();
   const free = fresh.filter(canMat);
+  // Pieces that get a frame from you (a print sold framed keeps its own).
+  const framed = fresh.filter(needsFrame);
   const rows = fresh.map((p) => {
     const item = byId.get(p.ref.id);
     const ps = printOf(p);
@@ -2850,13 +2876,14 @@ function framesScreen() {
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
     </fieldset>
-    <fieldset class="choose"><legend>Frame width</legend>
+    ${framed.length ? '' : '<p class="pencil small">Every piece here comes framed, so width and mats are already set.</p>'}
+    ${framed.length ? `<fieldset class="choose"><legend>Frame width</legend>
       <span class="seg" role="group" aria-label="Frame width">${Object.entries(FRAME_WIDTHS).map(([k, v]) => `<button type="button" class="seg-btn" data-fwidth="${k}" aria-pressed="${widthKey() === k}">${v.name}</button>`).join('')}</span>
       <span class="help">The moulding, ${esc(widthOf().words)}. ${widthKey() === 'wide' ? 'Wide frames are easy in 8 x 10, 12 x 16, 16 x 20 and 20 x 28 (IKEA EDSBRUK); other sizes are made to order.' : 'Most ready-made frames are slim or standard.'}</span>
-    </fieldset>
-    ${free.length ? `<fieldset class="choose"><legend>How many mats</legend>
+    </fieldset>` : ''}
+    ${framed.length ? `<fieldset class="choose"><legend>How many mats</legend>
       <span class="seg" role="group" aria-label="Mats">${MAT_LEVELS.map(([k, v]) => `<button type="button" class="seg-btn" data-mat="${k}" aria-pressed="${mode === k}">${v}</button>`).join('')}</span>
-      <span class="help">The white card around the print. It comes in the frame. Tap Mat on a piece to change one.</span>
+      <span class="help">The white card around the print. It comes in the frame. ${free.length ? 'Tap Mat on a piece to change one.' : 'These sizes each come one way, so the mats are set by size.'}</span>
     </fieldset>` : ''}
     ${fresh.some((p) => matFor(p) && !(byId.get(p.ref.id).offers || []).length) ? `<fieldset class="choose"><legend>Mat width</legend>
       <span class="seg" role="group" aria-label="Mat width">${[['standard', 'Standard'], ['wide', 'Wide']].map(([k, v]) => `<button type="button" class="seg-btn" data-mwidth="${k}" aria-pressed="${(matWide() ? 'wide' : 'standard') === k}">${v}</button>`).join('')}</span>
@@ -3729,11 +3756,12 @@ document.addEventListener('click', (e) => {
   if (t.dataset.fix !== undefined) { S.ui.fix = t.dataset.fix || null; render(); return; }
   if (t.dataset.fwidth) { S.flash = null; S.undo = null; setFrameWidth(t.dataset.fwidth); render(); const b = document.querySelector(`[data-fwidth="${CSS.escape(t.dataset.fwidth)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.mwidth) { S.draft.matWidth = t.dataset.mwidth === 'wide' ? 'wide' : 'standard'; persist(); render(); const b = document.querySelector(`[data-mwidth="${CSS.escape(t.dataset.mwidth)}"]`); if (b) b.focus({ preventScroll: true }); return; }
-  if (t.dataset.look) { S.draft.look = t.dataset.look; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.look) { S.draft.look = t.dataset.look; if (S.sheet === 'change') S.ui.sheetStay = true; persist(); render(); const b = document.querySelector(`[data-look="${CSS.escape(t.dataset.look)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.mat) {
     // The wall you're framing stays the wall you're framing, whatever the walls behind it do.
     const L0 = route()[0] === 'frames' ? shown() : null;
     S.draft.mat = MAT_SHARE[t.dataset.mat] != null ? t.dataset.mat : 'some'; S.draft.matFor = {};
+    if (S.sheet === 'change') S.ui.sheetStay = true;
     if (L0) { S.draft.chosen = { layout: bareLayout(L0), inputKey: viewKey(), at: 0 }; S.openKey = L0.key; } { const me = store.loadMe(); me.matLevel = S.draft.mat; store.saveMe(me); ME_MAT = S.draft.mat; } persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.matOne) { const L = shown(), p = L && L.pieces.find((x) => x.ref.id === t.dataset.matOne); if (p) { S.draft.matFor = { ...(S.draft.matFor || {}), [p.ref.id]: !matFor(p) }; persist(); render(); const b = document.querySelector(`[data-mat-one="${CSS.escape(p.ref.id)}"]`); if (b) b.focus({ preventScroll: true }); } return; }
   if (t.dataset.order) { const k = t.dataset.order, o = { ...(S.draft.orders || {}) }; if (o[k]) delete o[k]; else o[k] = true; S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
