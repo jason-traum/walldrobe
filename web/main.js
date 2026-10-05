@@ -154,7 +154,10 @@ function engineInput() {
   const no = notForMe();
   const catalog = d.justMine ? [] : CATALOG.filter((c) => !no.has(c.id) && (keptIds.has(c.id) || mode === 'both' || (mode === 'prints' ? isShop(c) : !isShop(c))));
   const taste = scoreTaste(d.taste.weights, catalog);
-  if (mode === 'both') for (const c of catalog) if (isShop(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
+  // Shop prints lean ahead a little, the ones you frame yourself: a print sold only framed
+  // comes in the shop's frame, so your frame color, width and mats can't touch it.
+  const framesItself = (c) => c.sizes.some((z) => !z.framed);
+  if (mode === 'both') for (const c of catalog) if (isShop(c) && framesItself(c) && taste[c.id] != null) taste[c.id] = Math.min(1, taste[c.id] + 0.08);
   // This wall's color lean: warm in one room, cool in the next. Black and white sits in the middle.
   if (d.tone === 'warm' || d.tone === 'cool') for (const c of catalog) { const w = axesOf(c).warm, t = d.tone === 'warm' ? w : 1 - w; if (taste[c.id] != null) taste[c.id] = Math.min(1, Math.max(0, taste[c.id] * (0.55 + 0.9 * t))); }
   const room = d.room && d.room.length ? { palette: d.room } : undefined;
@@ -2341,7 +2344,7 @@ function printOf(p) {
   return printSize(soldW(p), soldH(p));
 }
 // The size a shop print is sold at: the frame's size, or the print inside it when the wall hangs it matted a frame up.
-const shopPrint = (p) => (p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : [soldW(p), soldH(p)]);
+const shopPrint = (p) => (p.frame && p.frame.print ? [p.frame.print.w, p.frame.print.h] : p.frame && p.frame.can && p.frame.can.mat && matFor(p) ? [p.frame.can.mat.w, p.frame.can.mat.h] : [soldW(p), soldH(p)]);
 // Mat or not, piece by piece. The engine decides with the wall (engine/mats.js): a
 // structured wall all the same, a loose one mixed with care, smallest frames first, as
 // many as the level you pick. Here the catalog says which ways each size is easy to buy:
@@ -2373,7 +2376,17 @@ const RATIO_OK = 0.04;
 const nearRatio = (w, h, a) => Math.abs((w / h) / a - 1) <= RATIO_OK;
 for (const c of CATALOG) {
   const shop = c.offers && c.offers.length;
-  if (shop) { for (const z of c.sizes) if (!z.matted) z.plainOk = true; continue; }
+  if (shop) {
+    const sells = (w, h) => c.offers.some((o) => !o.gone && !o.framed && ((o.w === w && o.h === h) || (o.w === h && o.h === w)));
+    for (const z of c.sizes) {
+      if (z.matted) continue;
+      z.plainOk = true;
+      if (z.framed || z.margin) continue;
+      const ps = printSize(z.w, z.h);
+      if (ps && sells(ps[0], ps[1])) z.matPrint = { w: ps[0], h: ps[1] };
+    }
+    continue;
+  }
   const a = c.aspect || (c.record && c.record.image.aspect) || 0.8;
   const fit = (z) => { const ps = printSize(z.w, z.h); return { plain: nearRatio(z.w, z.h, a), mat: !!ps && nearRatio(ps[0], ps[1], a), ps }; };
   const kept = c.sizes.filter((z) => { const f = fit(z); return f.plain || f.mat; });
@@ -2414,7 +2427,13 @@ function allInOf(c, z, have) {
   if (c.offers && c.offers.length) {
     if (typeof z.price !== 'number') return null;
     if (z.framed) return z.price;
-    return add(z.price, frameCost(F, z.matted ? frameKey(z.matted.w, z.matted.h) : null, have));
+    const plainAll = add(z.price, frameCost(F, z.matted ? frameKey(z.matted.w, z.matted.h) : null, have));
+    if (!z.matPrint) return plainAll;
+    const o = c.offers.find((x) => !x.gone && !x.framed && typeof x.price === 'number' && ((x.w === z.matPrint.w && x.h === z.matPrint.h) || (x.w === z.matPrint.h && x.h === z.matPrint.w)));
+    const mattedAll = o ? add(o.price, frameCost(F, frameKey(z.matPrint.w, z.matPrint.h), have)) : null;
+    const lv = matLevel(), ok = (v) => v != null && Number.isFinite(v);
+    const ways = (lv === 'none' ? [plainAll] : lv === 'all' ? [mattedAll ?? plainAll] : [plainAll, mattedAll]).filter(ok);
+    return ways.length ? Math.min(...ways) : null;
   }
   const lv = matLevel();
   const plain = z.plainOk ? add(cheapestPrint(F), frameCost(F, null, have)) : null;
@@ -2452,7 +2471,7 @@ function matsOf(L) {
 function matFor(p) {
   const item = p.ref && p.ref.source === 'catalog' ? byId.get(p.ref.id) : null;
   if (!item) return false;
-  if (item.offers && item.offers.length) return !!(p.frame && p.frame.print);
+  if (item.offers && item.offers.length && p.frame && p.frame.print) return true;
   const can = p.frame && p.frame.can;
   if (!can || !can.mat) return false;
   const d = S.draft || {}, one = (d.matFor || {})[p.ref.id];
@@ -2463,7 +2482,7 @@ function matFor(p) {
   return typeof p.mat === 'boolean' ? p.mat : MAT_SHARE[matLevel()] >= 0.5;
 }
 // A piece you can flip: it's easy to get either way.
-const canMat = (p) => { const can = p.frame && p.frame.can; return !!(can && can.mat && can.plain) && !(byId.get(p.ref.id).offers || []).length; };
+const canMat = (p) => { const can = p.frame && p.frame.can; return !!(can && can.mat && can.plain); };
 setPrintFor(printOf);
 // The frames step: one look for every new frame, and a mat or not on the free photos.
 const FRAME_LOOKS = {
@@ -2576,7 +2595,8 @@ function wallPrices(L) {
         if (!o || o.price == null) { out.unknown++; continue; }
         out.art += o.price;
         if (o.framed) out.framed++;
-        if (!o.framed) addFrame(F, p.frame && p.frame.print ? frameKey(p.frame.print.w, p.frame.print.h) : null);
+        const pr = printOf(p);
+        if (!o.framed) addFrame(F, pr ? frameKey(pr[0], pr[1]) : null);
       } else {
         const ps = printOf(p), P = ps ? frameKey(ps[0], ps[1]) : null;
         const pr = cheapestPrint(P || F);
