@@ -372,6 +372,14 @@ with sync_playwright() as p:
         vis(pg, '#sheet [data-art=photos]').click(); pg.wait_for_timeout(3000)
         vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
         vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
+        # A wall whose free photos each come one way only has no mat choice: try the next wall.
+        for _ in range(6):
+            if pg.locator('[data-mat]').count(): break
+            pg.go_back(); pg.wait_for_timeout(1200)
+            nx = vis(pg, '.pager [aria-label="Next wall"]')
+            if not nx: break
+            nx.click(); pg.wait_for_timeout(1200)
+            vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
         # The mat choice shows for free photos, and no mat means the print fills the frame.
         check(f'{W} Frame it offers how many mats, from none to all, Some first', pg.locator('[data-mat]').count() == 5 and pg.locator('[data-mat=some]').get_attribute('aria-pressed') == 'true')
         mw = lambda: pg.evaluate("[...document.querySelectorAll('.frame-row .frame-words')].map(e => e.textContent)")

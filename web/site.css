@@ -802,3 +802,10 @@ svg.is-dragging .measure { opacity: 0.25; }
 #sheet .budget-form .num-in input { width: 110px; }
 #sheet { gap: 10px; }
 #sheet .count-ctl .seg button { flex: 0 0 auto; padding: 0 16px; }
+/* Every row of choices in Preferences fills its width, buttons sharing it evenly. */
+#sheet .sheet-row .seg { display: flex; }
+#sheet .sheet-row .seg button { flex: 1 1 0; min-width: 0; padding: 0 4px; }
+#sheet .count-ctl .seg button { flex: 0 0 auto; padding: 0 16px; }
+/* 16 px in every typed box, so a phone never zooms in when you tap one. */
+.budget-form input, #sheet .budget-form .num-in input { font-size: 16px; }
+.budget-err { color: var(--error, #A33); align-self: center; }
