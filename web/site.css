@@ -668,6 +668,12 @@ svg.is-dragging .measure { opacity: 0.25; }
 .home-wall svg, .home-wall .drawing { width: 100%; height: auto; display: block; }
 .home-row .row-side { grid-column: 2; display: flex; gap: 16px; align-items: center; justify-items: start; }
 .home-go { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.home-costs { list-style: none; margin: 8px 0 12px; padding: 0; }
+.home-cost { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-top: 1px solid var(--hairline); font-size: 15px; }
+.home-cost:first-child { border-top: 0; }
+.home-cost > span:last-child { text-align: right; }
+.home-go .num-in > span:first-child { display: block; font-size: 14px; color: var(--ink-2, var(--ink)); margin-bottom: 4px; }
+.home-go .price-line, .get > .price-line { text-align: left; }
 .size-pick select { min-height: 36px; font: inherit; font-size: 14px; padding: 0 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--ink); max-width: 100%; }
 
 .read-line { color: var(--pencil); font-size: 14px; line-height: 20px; margin: 0 0 12px; }

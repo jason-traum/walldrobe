@@ -8,6 +8,7 @@ import { layout, refill, rerank, spotChoices, scoreArrangement, RULES, assignMat
 import { blockedRegions, checkPieces, FURNITURE } from '../engine/geometry.js';
 import { fitTaste, scoreTaste, nextPair, subjectStats, subjectFactor, subjectOf, dislikeFactor, tasteKnown, describeTaste, axesOf, looksGood } from '../engine/taste.js';
 import { toCandidate, activeRecords } from '../engine/catalog.js';
+import { normalizePalette, paletteSimilarity } from '../engine/color.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, setPrintFor, setFrameColorFor } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply, findArtBox, wallTone } from './photo.js';
@@ -1692,6 +1693,66 @@ function saveHomeDraft() {
   if (!h.walls.includes(d.id)) { h.walls.push(d.id); saveHome(h); }
 }
 
+// Each wall of the home as you picked it: its price, the frames and prints it needs.
+// Prices each wall with its own preferences (frame color, width, mats).
+function withWall(w, fn) {
+  const was = { d: S.draft, v: S.view };
+  const L = w.chosen && w.chosen.layout;
+  if (!L) return null;
+  try { S.draft = upgradeDraft(clone(w)); S.view = null; PRICE_L = L; return fn(L); }
+  finally { S.draft = was.d; S.view = was.v; PRICE_L = null; }
+}
+function homeSum() {
+  const walls = homeWalls().map((w) => {
+    const draft = S.draft && S.draft.id === w.id ? { ...w, ...clone(S.draft) } : w;
+    const r = withWall(draft, (L) => ({ c: wallPrices(L), frames: frameNeeds(L), prints: printNeeds(L), area: draft.width }));
+    return { w: draft, ...(r || { c: null, frames: [], prints: [], area: draft.width }) };
+  });
+  const picked = walls.filter((x) => x.c);
+  const total = picked.reduce((t, x) => ({ n: t.n + x.c.n, art: t.art + x.c.art, frames: t.frames + x.c.frames, unknown: t.unknown + x.c.unknown, framed: t.framed + x.c.framed }), { n: 0, art: 0, frames: 0, unknown: 0, framed: 0 });
+  const merge = (lists, keyOf) => { const m = new Map(); for (const n of lists.flat()) { const k = keyOf(n); const e = m.get(k) || { ...n, count: 0 }; e.count += n.count; m.set(k, e); } const area = (k) => k.split('x').reduce((a, b) => a * b, 1); return [...m.values()].sort((a, b) => area(b.key) - area(a.key)); };
+  return { walls, picked: picked.length, total, frames: merge(walls.map((x) => x.frames), (n) => `${n.key}|${n.mat || ''}|${n.look || ''}`), prints: merge(walls.map((x) => x.prints), (n) => n.key) };
+}
+const wallName = (w, i) => w.name || (i === 0 ? 'Main wall' : `Wall ${i + 1}`);
+function homeCosts() {
+  const h = myHome(), sum = homeSum();
+  if (!sum.walls.length) return '';
+  const all = sum.total.art + sum.total.frames, B = h.budget || null;
+  const rows = sum.walls.map((x, i) => `<li class="home-cost"><span>${esc(wallName(x.w, i))}</span><span>${x.c ? esc(priceWords(x.c)) : `<button type="button" class="link" data-open-home="${esc(x.w.id)}">Pick a wall</button>`}</span></li>`).join('');
+  return `<section class="home-go" aria-labelledby="home-get-h"><h2 id="home-get-h">Get it all</h2>
+    ${sum.picked ? `<p class="price-line">${esc(priceWords(sum.total))}${sum.picked < sum.walls.length ? ` for ${sum.picked} of ${sum.walls.length} walls` : ''}</p>` : '<p class="pencil">Pick a wall on each to see what it all costs.</p>'}
+    <ul class="home-costs">${rows}</ul>
+    <form class="budget-form" data-home-budget novalidate><label class="num-in"><span>Budget for the home, all in</span> $<input type="number" inputmode="numeric" min="20" max="100000" step="10" name="budget" value="${B || ''}" placeholder="Type any"></label><button type="submit" class="btn quiet small">Set</button></form>
+    ${B && sum.picked ? `<p class="${all > B ? 'note' : 'pencil small'}">${all > B ? `Over by ${money(Math.round(all - B))}.` : `${money(Math.round(B - all))} to spare.`} <button type="button" class="link" data-act="home-split">Split it across the walls</button></p>` : ''}
+    ${sum.picked ? '<div class="acts left"><a class="btn" href="#/home-get">Everything to order</a></div>' : ''}
+  </section>`;
+}
+// Everything for the home in one place: the frames for every wall in one table, the
+// prints for every wall in one table, and each wall's shop prints with its Get it.
+function homeGetScreen() {
+  const sum = homeSum();
+  const rows = sum.walls.map((x, i) => x.c ? `<li class="home-cost"><span>${esc(wallName(x.w, i))}</span><span>${esc(priceWords(x.c))} <button type="button" class="link" data-open-home-get="${esc(x.w.id)}">Its list</button></span></li>` : '').join('');
+  return `${bar(back('#/home', 'Your home'))}
+  <main class="page get">
+    <h1>Get it all</h1>
+    <p class="price-line">${esc(priceWords(sum.total))}</p>
+    <ul class="home-costs">${rows}</ul>
+    <p class="pencil small">Shop prints are ordered from each wall's list. Frames and printing for every wall are below, so you can order them at once.</p>
+    ${whereToPrint(null, sum.prints)}
+    ${whereToFrame(null, sum.frames, sum.prints.length)}
+  </main>`;
+}
+function splitHomeBudget() {
+  const h = myHome(), B = h.budget, walls = homeWalls();
+  if (!B || !walls.length) return;
+  const tot = walls.reduce((t, w) => t + w.width, 0);
+  for (const w of walls) {
+    const b = Math.max(20, Math.round((B * w.width) / tot / 10) * 10);
+    store.saveWall({ ...w, budget: b, budgetAsked: true });
+    if (S.draft && S.draft.id === w.id) { S.draft.budget = b; S.draft.budgetAsked = true; persist(); }
+  }
+}
+
 function homeScreen() {
   saveHomeDraft();
   const h = myHome(), walls = homeWalls(), st = myStuff();
@@ -1699,10 +1760,10 @@ function homeScreen() {
   const plan = h.planned;
   const title = (id) => { const x = art.find((a) => a.id === id); return x ? x.title : null; };
   const rows = walls.map((w, i) => {
-    const mine = (w.owned || []).filter((o) => o.stuff);
-    const up = (w.owned || []).filter((o) => !o.stuff && o.keep !== 'skip');
+    const mine = (w.owned || []).filter((o) => o.stuff || o.linked);
+    const up = (w.owned || []).filter((o) => !o.stuff && !o.linked && o.keep !== 'skip');
     return `<li class="row home-row">
-      <span class="home-wall">${wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles || [], layout: null, still: true, pxWide: 120, label: w.name || `Wall ${i + 1}` })}</span>
+      <span class="home-wall">${wallSvg({ wall: { width: w.width, height: w.height }, obstacles: w.obstacles || [], layout: (w.chosen && w.chosen.layout) || null, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: (id) => { const o = (w.owned || []).find((x) => x.id === id); return o ? { thumb: o.thumb, color: o.color, art: !!o.art } : null; }, still: true, pxWide: 120, label: w.name || `Wall ${i + 1}` })}</span>
       <span class="row-text">
         <label class="name-in"><span>${i === 0 ? 'Main wall' : `Wall ${i + 1}`}</span><input type="text" maxlength="40" data-rename="${esc(w.id)}" value="${esc(w.name || '')}"></label>
         <span class="pencil small">${esc(feet(w.width))} wide${w.style ? `, ${w.style === 'structured' ? 'structured' : 'loose'}` : ''}${w.tone ? `, ${w.tone}` : ''}${up.length ? `. ${up.length} up already` : ''}${mine.length ? `. Yours here: ${esc(mine.map((o) => o.title).join(', '))}` : ''}</span>
@@ -1711,6 +1772,7 @@ function homeScreen() {
     </li>`;
   }).join('');
   const unplaced = plan && plan.unplaced ? plan.unplaced.map(title).filter(Boolean) : [];
+  const upAlready = plan && plan.up ? Object.keys(plan.up).map(title).filter(Boolean) : [];
   return `${bar(back('#/begin', 'Back'), `<a class="btn quiet small" href="#/stuff/home">Your stuff</a>`)}
   <main class="page home-plan">
     <h1>Your home</h1>
@@ -1721,8 +1783,10 @@ function homeScreen() {
     ${walls.length && art.length ? `<section class="home-go" aria-labelledby="plan-h"><h2 id="plan-h">Spread your pieces</h2>
       <p>${plan ? 'Done. Open a wall to see it with your pieces and new art around them. Changed your walls or your stuff? Spread them again.' : 'Biggest piece on the main wall, then each piece where it fits, sits well with the colors already there, and matches the wall\'s warm or cool.'}</p>
       ${unplaced.length ? `<p class="note">Too big for these walls: ${esc(unplaced.join(', '))}.</p>` : ''}
+      ${upAlready.length ? `<p class="pencil small">Already up in a photo, so left where it hangs: ${esc(upAlready.join(', '))}.</p>` : ''}
       <div class="acts left"><button type="button" class="btn${plan ? ' quiet' : ''}" data-act="plan-home">${plan ? 'Spread them again' : 'Spread my pieces across the walls'}</button></div>
     </section>` : ''}
+    ${homeCosts()}
     <p class="pencil small">${frames.length ? `${frames.length} empty frame${frames.length === 1 ? '' : 's'} in your stuff: any wall that needs that size uses it first. ` : ''}Each wall keeps its own preferences: open it, then Preferences.</p>
   </main>`;
 }
@@ -1747,17 +1811,36 @@ function syncStuff(x, add = false) {
   else return;
   resetLayouts(); persist();
 }
+// A piece in your stuff that's already up in a wall's photo: about the same size (within
+// 2 in each way, either way up) and the same colors. Returns { wallId, ownedId } or null.
+function alreadyUp(x, walls) {
+  const hs = hangSize(x), pal = normalizePalette(x.palette && x.palette.length ? x.palette : x.color ? [{ hex: x.color, weight: 1 }] : []);
+  let best = null;
+  for (const w of walls) for (const o of w.owned || []) {
+    if (o.stuff || o.keep === 'skip') continue;
+    const near = (a, b) => Math.abs(a - b) <= 2;
+    if (!((near(o.w, hs.w) && near(o.h, hs.h)) || (near(o.w, hs.h) && near(o.h, hs.w)))) continue;
+    const q = normalizePalette(o.palette && o.palette.length ? o.palette : o.color ? [{ hex: o.color, weight: 1 }] : []);
+    const sim = pal.length && q.length ? paletteSimilarity(pal, q) : 0;
+    if (sim >= 0.7 && (!best || sim > best.sim)) best = { wallId: w.id, ownedId: o.id, sim };
+  }
+  return best;
+}
 function planHome() {
   const walls = homeWalls();
   const art = myStuff().filter((x) => x.kind === 'art');
+  // Art from your stuff that's already up on a wall stays that piece there, not a second copy elsewhere.
+  const up = new Map(), taken = new Set();
+  for (const x of art) { const u = alreadyUp(x, walls); if (u && !taken.has(u.ownedId)) { up.set(x.id, u); taken.add(u.ownedId); } }
   const r = assignHome(walls.map((w) => ({ id: w.id, width: w.width, height: w.height, obstacles: w.obstacles || [], tone: w.tone || null })),
-    art.map((x) => ({ id: x.id, ...hangSize(x), palette: x.palette })));
+    art.filter((x) => !up.has(x.id)).map((x) => ({ id: x.id, ...hangSize(x), palette: x.palette })));
   for (const w of walls) {
     const mine = (r.byWall[w.id] || []).map((id) => ownedFromStuff(art.find((a) => a.id === id)));
-    const next = { ...w, owned: [...(w.owned || []).filter((o) => !o.stuff), ...mine], chosen: null };
+    const linked = (w.owned || []).filter((o) => !o.stuff).map((o) => { const x = [...up].find(([, u]) => u.ownedId === o.id && u.wallId === w.id); return x ? { ...o, linked: x[0], title: art.find((a) => a.id === x[0]).title || o.title } : o; });
+    const next = { ...w, owned: [...linked, ...mine], chosen: null };
     store.saveWall(next);
   }
-  const h = myHome(); h.planned = { unplaced: r.unplaced }; saveHome(h);
+  const h = myHome(); h.planned = { unplaced: r.unplaced, up: Object.fromEntries([...up].map(([k, u]) => [k, u.wallId])) }; saveHome(h);
   if (S.draft && S.draft.home) { const w = store.getWall(S.draft.id); if (w) { S.draft = upgradeDraft(clone(w)); resetLayouts(); persist(); } }
 }
 
@@ -2465,6 +2548,8 @@ function shapeCatalog(catalog) {
   return SHAPED.list;
 }
 let MAT_MEMO = { key: null, map: null };
+// A wall of the home being priced from the home page, not the wall that's open.
+let PRICE_L = null;
 function matsOf(L) {
   const lv = matLevel(), key = `${L.key}|${lv}|${L.pieces.map((p) => `${p.ref.id}@${p.w}x${p.h}`).join(',')}`;
   if (MAT_MEMO.key !== key) MAT_MEMO = { key, map: assignMats(L.pieces, { family: L.family, variant: L.variant, level: lv }) };
@@ -2479,7 +2564,7 @@ function matFor(p) {
   const d = S.draft || {}, one = (d.matFor || {})[p.ref.id];
   if (typeof one === 'boolean' && can.plain) return one;
   if (!can.plain) return true;
-  const L = S.view ? shown() : null;
+  const L = PRICE_L || (S.view ? shown() : null);
   if (L && L.pieces.some((x) => x.ref.id === p.ref.id)) { const v = matsOf(L).get(p.ref.id); if (typeof v === 'boolean') return v; }
   return typeof p.mat === 'boolean' ? p.mat : MAT_SHARE[matLevel()] >= 0.5;
 }
@@ -2730,8 +2815,7 @@ function priceTable({ label, needed, rows, tag, col, cell }) {
 }
 const sizeWords = (k) => k.replace('x', '\u00a0x\u00a0');
 // Where to print the free photos: every service with its regular price for each size, the best three marked.
-function whereToPrint(L) {
-  const needed = printNeeds(L);
+function whereToPrint(L, needed = printNeeds(L)) {
   if (!needed.length) return '';
   const rows = printOptions(needed);
   const pk = printPicks(rows);
@@ -2748,8 +2832,7 @@ function whereToPrint(L) {
   </section>`;
 }
 // Where to frame: every seller with a plain black frame in each size, whether its mat fits, the best three marked.
-function whereToFrame(L) {
-  const needed = frameNeeds(L);
+function whereToFrame(L, needed = frameNeeds(L), prints = L ? printNeeds(L).length : 0) {
   if (!needed.length) return '';
   const rows = frameOptions(needed, lookOf(), widthKey());
   const pk = framePicks(rows);
@@ -2758,10 +2841,10 @@ function whereToFrame(L) {
   const lead = needed.map((n) => `${n.count} at ${sizeWords(n.key)}\u00a0in${mixed ? ` ${lkName(n.look)}` : ''}${n.mat ? ` with a mat for ${sizeWords(n.mat)}` : ''}`).join(', ');
   const best = [pk.cheapest && `<li><span class="pr-tag">Best price</span> ${esc(pk.cheapest.p.name)}, ${usd(pk.cheapest.total)} for all${pk.cheapest.mats ? '' : ', some mats to buy separately'}</li>`,
     pk.today && `<li><span class="pr-tag">Same day</span> ${esc(pk.today.p.name)}, ${usd(pk.today.total)}, pickup today</li>`,
-    pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? (printNeeds(L).length ? ', printed, matted and framed' : ', framed for you; you mail in your prints') : ', real glass'}</li>`].filter(Boolean).join('');
+    pk.better && `<li><span class="pr-tag">${pk.better.p.id === 'framebridge' ? 'Done for you' : 'Better frame'}</span> ${esc(pk.better.p.name)}, ${usd(pk.better.total)}${pk.better.p.id === 'framebridge' ? (prints ? ', printed, matted and framed' : ', framed for you; you mail in your prints') : ', real glass'}</li>`].filter(Boolean).join('');
   const anyMat = needed.some((n) => n.mat);
   return `<section class="where" aria-labelledby="frame-h"><h2 id="frame-h">Get the frames</h2>
-    <p>This wall needs ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for ${widthKey() === 'standard' ? '' : `${FRAME_WIDTHS[widthKey()].name.toLowerCase()} `}${mixed ? 'frames in their colors' : `${lkName(looks[0])} frames`}, regular prices before any sale${looks.every((k) => k === 'black') ? '' : `; not every seller has every size in ${mixed ? 'every' : 'this'} color`}.</p>
+    <p>${L ? 'This wall needs' : 'Your home needs'} ${needed.reduce((t, n) => t + n.count, 0) === 1 ? 'one frame' : `${needed.reduce((t, n) => t + n.count, 0)} frames`}: ${lead}. Prices are for ${widthKey() === 'standard' ? '' : `${FRAME_WIDTHS[widthKey()].name.toLowerCase()} `}${mixed ? 'frames in their colors' : `${lkName(looks[0])} frames`}, regular prices before any sale${looks.every((k) => k === 'black') ? '' : `; not every seller has every size in ${mixed ? 'every' : 'this'} color`}.</p>
     ${best ? `<ul class="pr-picks">${best}</ul>` : ''}
     ${priceTable({ label: 'Frame prices', needed, rows, tag, col: (n) => `${sizeWords(n.key)}${mixed ? `<span class="pr-count">${lkName(n.look)}</span>` : ''}${n.mat ? `<span class="pr-count">mat ${sizeWords(n.mat)}</span>` : ''}${n.count > 1 ? `<span class="pr-count">${n.count} frames</span>` : ''}`, cell: (x, n) => `${usd(x.price)}${n.mat ? `<span class="pr-mat${x.matOk ? '' : ' is-off'}">${x.matOk ? 'mat fits' : x.mat ? `mat ${sizeWords(x.mat)}` : 'no mat'}</span>` : ''}` })}
     ${anyMat ? '<p class="pencil small">Buy frames sold "matted to" your print size (11 x 14 matted to 8 x 10). The mat hides a quarter inch on each edge. No matching mat? A precut one is $3 to $10.</p>' : ''}
@@ -3186,9 +3269,9 @@ function render() {
     resetLayouts(); persist(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, begin, browse, stuff: stuffScreen, home: homeScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
+  const screens = { '': home, begin, browse, stuff: stuffScreen, home: homeScreen, 'home-get': homeGetScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
   const fn = S.crop ? cropScreen : screens[r0] || home;
-  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', 'home-get': 'Get it all · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -3625,6 +3708,10 @@ document.addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
   if (f.id === 'drop-form') return;
+  if (f.dataset.homeBudget !== undefined) {
+    const v = Math.round(Number(f.elements.budget.value) || 0), h = myHome();
+    h.budget = v >= 20 ? Math.min(100000, v) : null; saveHome(h); render(); return;
+  }
   if (f.dataset.budgetForm) {
     const v = Math.round(Number(f.elements.budget.value) || 0);
     if (!v) return; // an empty box: nothing to set
@@ -4030,10 +4117,10 @@ document.addEventListener('click', (e) => {
     const f = document.querySelector(S.focusAfter); S.focusAfter = null; if (f) f.focus({ preventScroll: true });
     return;
   }
-  if (t.dataset.openHome) {
+  if (t.dataset.openHome || t.dataset.openHomeGet) {
     saveHomeDraft();
-    const w = store.getWall(t.dataset.openHome);
-    if (w) { S.draft = upgradeDraft(clone(w)); S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); persist(); ensurePixels().then(() => { S.mem.clean = null; render(); }); go('#/layouts'); }
+    const w = store.getWall(t.dataset.openHome || t.dataset.openHomeGet);
+    if (w) { S.draft = upgradeDraft(clone(w)); S.mem = { photo: null, flat: null, clean: null, cleanKey: null }; resetLayouts(); if (t.dataset.openHomeGet && w.chosen) S.openKey = w.chosen.layout.key; persist(); ensurePixels().then(() => { S.mem.clean = null; render(); }); go(t.dataset.openHomeGet && w.chosen ? '#/get' : '#/layouts'); }
     return;
   }
   if (t.dataset.homeRemove) {
@@ -4128,6 +4215,7 @@ document.addEventListener('click', (e) => {
       break;
     }
     case 'plan-home': planHome(); S.flash = 'Spread across your walls.'; render(); break;
+    case 'home-split': splitHomeBudget(); S.flash = 'Each wall has its share of the budget, by how wide it is.'; render(); break;
     case 'quiz-more': if (S.quiz) { S.quiz.check = false; saveQuiz(); render(); window.scrollTo({ top: 0 }); } break;
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;
     case 'change': S.sheet = 'change'; render(); break;

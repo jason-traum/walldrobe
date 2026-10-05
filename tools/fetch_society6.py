@@ -8,12 +8,19 @@ format as tools/feeds/desenio.tsv. Images stay on Society6's CDN: the row's imag
 asks Shopify's CDN for the print alone, cut out of the white mockup (the print sits in
 the same place on every 8x10 mockup). Nothing is copied to the site.
 
+Rows already in the feed are kept exactly as they are (their image links and margins
+were set by tools/society6_boxes.py and tools/society6_art.py), and pieces already scored
+(tools/vision_candidates_society6.json) are not read again, though both count toward the
+number read per collection. New pieces are added at the end as candidates; after scoring
+and looking, only the keepers stay in the feed.
+
 Usage: python3 tools/fetch_society6.py [per collection, default 120]
 """
 import json, os, re, sys, time, urllib.request
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 OUT = os.path.join(ROOT, "tools", "feeds", "society6.tsv")
+SCORED = os.path.join(ROOT, "tools", "vision_candidates_society6.json")
 PER = int(sys.argv[1]) if len(sys.argv) > 1 else 120
 
 # Society6 collection -> Walldrobe category.
@@ -32,6 +39,9 @@ COLLECTIONS = {
     "art-prints-dog": "dogs", "art-prints-horse": "horses", "art-prints-western": "western", "art-prints-cowboy": "western",
     "art-prints-moon-art": "moon", "art-prints-night-sky": "moon", "art-prints-cloud": "sky",
     "art-prints-black-and-white": "black and white", "art-prints-photography": "landscape", "art-prints-film-photography": "film", "art-prints-street-photography": "city",
+    # Added Oct 4, 2026, for categories with few pieces.
+    "art-prints-aerial": "aerial", "art-prints-swimming": "pool", "art-prints-beach-photography": "beach", "art-prints-sunset": "sky",
+    "art-prints-wine": "drinks", "art-prints-martini": "drinks", "art-prints-lemon": "food", "art-prints-wabi-sabi": "abstract",
 }
 # Old masters resold as prints are left out (the demo is modern art and photos).
 OLD = re.compile(r"matisse|van gogh|vangogh|monet|klimt|hokusai|mucha|renoir|cezanne|degas|hiroshige|audubon|kandinsky|william morris|"
@@ -79,7 +89,14 @@ def row(p, category):
 
 
 def main():
+    head, kept = None, []
+    if os.path.exists(OUT):
+        for line in open(OUT):
+            if line.startswith("#"): head = line.rstrip("\n"); continue
+            if line.strip(): kept.append(line.rstrip("\n").split("\t"))
+    scored = set(json.load(open(SCORED))) if os.path.exists(SCORED) else set()
     rows, seen = [], set()
+    have = {r[0] for r in kept} | {r[3].lower() for r in kept} | scored
     for handle, category in COLLECTIONS.items():
         got, page = 0, 1
         while got < PER and page <= 4:
@@ -90,15 +107,17 @@ def main():
                 r = row(p, category)
                 if not r or r[0] in seen or r[3].lower() in seen: continue
                 seen.add(r[0]); seen.add(r[3].lower())
-                rows.append(r); got += 1
+                got += 1
+                # In the feed already, or scored before: counts toward this collection, not read again.
+                if r[0] not in have and r[3].lower() not in have: rows.append(r)
                 if got >= PER: break
             page += 1
             time.sleep(1)
         print(handle, got, flush=True)
     with open(OUT, "w") as f:
-        f.write("# Society6 art prints, read from society6.com product lists (beta, link out only): id, artist, page, title, medium, category, image url, offers (JSON)\n")
-        for r in rows: f.write("\t".join(x.replace("\t", " ").replace("\n", " ") for x in r) + "\n")
-    print("wrote", OUT, len(rows))
+        f.write((head or "# Society6 art prints, read from society6.com product lists (beta, link out only): id, artist, page, title, medium, category, image url, offers (JSON)") + "\n")
+        for r in kept + rows: f.write("\t".join(x.replace("\t", " ").replace("\n", " ") for x in r) + "\n")
+    print("wrote", OUT, len(kept), "kept as they were,", len(rows), "new")
 
 
 if __name__ == "__main__":
