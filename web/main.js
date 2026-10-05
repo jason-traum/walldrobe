@@ -272,6 +272,20 @@ function rank() {
   const before = v.list.map((L) => L.key);
   const tasteNow = rankTaste();
   v.list = rerank(v.all.filter((L) => !L.extra), { taste: tasteNow, saved: S.draft.saved, skipped: S.draft.skipped, distinct: true });
+  // Lead with the walls that show what this can do. Unless you asked for a calm wall or a
+  // count, the first three are the best walls with the most new art this wall can take (three
+  // pieces or more when it fits). A wall that only moves
+  // your own pieces never leads. The rest follow in their order.
+  const d0 = S.draft;
+  if (d0.fullness !== 'calm' && !d0.pieces && !d0.justMine) {
+    const fresh = (L) => L.pieces.filter((p) => p.ref.source === 'catalog').length;
+    const most = Math.min(3, Math.max(0, ...v.list.filter((L) => L.variant !== 'asis').map(fresh)));
+    const rich = most ? v.list.filter((L) => L.variant !== 'asis' && fresh(L) >= most).slice(0, 3) : [];
+    const lead = new Set(rich);
+    const rest = v.list.filter((L) => !lead.has(L));
+    v.list = [...rich, ...rest.filter((L) => fresh(L) > 0 || L.variant === 'asis'), ...rest.filter((L) => !fresh(L) && L.variant !== 'asis')];
+    v.list.forEach((L, i) => { L.rank = i + 1; });
+  }
   // Walls made with Show more go at the end, newest batch last, so they show up where you asked for them.
   // They're kept even when they look like one above at a glance: new art in the same frames is the point.
   const extras = v.all.filter((L) => L.extra);
@@ -2191,7 +2205,7 @@ function sheetHtml() {
 const BUDGETS = [null, 300, 600, 1000, 2000];
 // What the budget counts, said the same way everywhere.
 const BUDGET_WORDS = 'All in: art, frames and mats. Frames you own are free.';
-const budgetForm = (where) => `<form class="budget-form" data-budget-form="${where}" novalidate><label class="num-in"><span class="sr-only">Your budget</span>$<input type="number" inputmode="numeric" min="20" max="20000" step="10" name="budget" value="${S.draft.budget && !BUDGETS.includes(S.draft.budget) ? S.draft.budget : ''}" placeholder="Type any"></label><button type="submit" class="btn quiet small">Set</button></form>`;
+const budgetForm = (where) => `<form class="budget-form" data-budget-form="${where}" novalidate><label class="num-in"><span class="sr-only">Your budget</span>$<input type="number" inputmode="numeric" min="20" max="20000" step="10" name="budget" value="${S.draft.budget && !BUDGETS.includes(S.draft.budget) ? S.draft.budget : ''}" placeholder="Type any"></label>${S.ui.budgetErr === where ? '<span class="pencil small budget-err" role="alert">$20 or more</span>' : ''}<button type="submit" class="btn quiet small">Set</button></form>`;
 // The look in one line: lined up or mixed, and how much of the wall.
 function lookWords(style, fullness) {
   const how = { calm: 'a few pieces, lots of bare wall', balanced: 'room to breathe', full: 'a gallery wall, close together' }[fullness] || 'room to breathe';
@@ -3535,7 +3549,9 @@ document.addEventListener('submit', (e) => {
   if (f.id === 'drop-form') return;
   if (f.dataset.budgetForm) {
     const v = Math.round(Number(f.elements.budget.value) || 0);
-    if (v < 20) { S.flash = 'Type a budget of $20 or more.'; render(); return; }
+    if (!v) return; // an empty box: nothing to set
+    if (v < 20) { S.ui.budgetErr = f.dataset.budgetForm; if (f.dataset.budgetForm === 'sheet') { S.sheet = 'change'; S.ui.sheetStay = true; } render(); return; }
+    S.ui.budgetErr = null;
     const d = S.draft, was = { budget: d.budget, budgetAsked: d.budgetAsked };
     d.budget = Math.min(20000, v); d.budgetAsked = true;
     S.undo = { label: `Budget $${d.budget.toLocaleString('en-US')}, all in.`, shape: true, run: () => { Object.assign(d, was); persist(); } };
@@ -3808,7 +3824,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.fullness !== undefined || t.dataset.style !== undefined || t.dataset.art !== undefined || t.dataset.count !== undefined || t.dataset.budget !== undefined || t.dataset.tone !== undefined) {
     const d = S.draft;
     const was = { fullness: d.fullness, style: d.style, art: d.art, justMine: d.justMine, pieces: d.pieces, budget: d.budget, tone: d.tone }, openWas = S.openKey;
-    if (t.dataset.budget !== undefined) d.budget = Number(t.dataset.budget) || null;
+    if (t.dataset.budget !== undefined) d.budget = Number(t.dataset.budget) || null; S.ui.budgetErr = null;
     if (t.dataset.tone !== undefined) d.tone = t.dataset.tone || null;
     if (t.dataset.fullness !== undefined) d.fullness = t.dataset.fullness;
     if (t.dataset.style !== undefined) d.style = t.dataset.style || null;
