@@ -16,6 +16,7 @@
 //   --only <id,id>          only these ids
 //   --base-override <url>   test hook: every url keeps its path but points at this origin
 //   --no-pages              skip the source page of free photos (only offers and images)
+//   --no-shopify            check Shopify offer links one by one instead of one product JSON each
 //
 // Gone means: 404 or 410, a redirect that lands on the shop's home or a category
 // page, or a network failure on every try. Anything else that is not a plain
@@ -133,6 +134,51 @@ export async function checkMany(urls, { concurrency = 6, spacing = 300, onDone, 
   }
   await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
   return results;
+}
+
+// ---------- Shopify shops: one request per product, every variant checked ----------
+// House of Spoils, Society6 and Juniper run on Shopify, where a product page answers 200
+// for any variant id, even one the shop dropped. Their offer links are the product page
+// plus ?variant=<id>, so each product's public JSON (/products/<handle>.json) is read
+// once and every offer is checked against its variants: about 600 requests for House
+// of Spoils' 6,000 offers, and a dropped size or color is caught.
+const SHOPIFY = /^(https?:\/\/[^/]+\/products\/[^/?#]+)\?variant=(\d+)$/;
+export function shopifyKey(url) {
+  const m = SHOPIFY.exec(url || '');
+  return m ? { product: `${m[1]}.json`, variant: m[2] } : null;
+}
+async function getJson(url, timeout) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const res = await fetch(url, { redirect: 'follow', signal: ctl.signal, headers: { 'User-Agent': UA, Accept: 'application/json' } });
+    let body = null;
+    if (res.status === 200) { try { body = await res.json(); } catch { body = null; } } else { try { await res.body?.cancel(); } catch { /* fine */ } }
+    return { status: res.status, body };
+  } finally { clearTimeout(timer); }
+}
+// One product: gone on 404 or 410, its live variant ids when it answers, unknown otherwise.
+export async function checkProduct(url, { timeout = 15000, tries = 3, retryDelay = 800 } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      const r = await getJson(url, timeout);
+      if (r.status === 404 || r.status === 410) return { url, status: 'gone', http: r.status, tries: attempt };
+      const vs = r.body && r.body.product && Array.isArray(r.body.product.variants) ? r.body.product.variants : null;
+      if (r.status === 200 && vs) return { url, status: 'ok', http: 200, variants: new Set(vs.filter((v) => v.available !== false).map((v) => String(v.id))), tries: attempt };
+      return { url, status: 'unknown', http: r.status, tries: attempt };
+    } catch (err) {
+      lastError = err && err.name === 'AbortError' ? `timeout after ${timeout} ms` : String(err && err.message ? err.message : err);
+      if (attempt < tries) await sleep(retryDelay * attempt);
+    }
+  }
+  return { url, status: 'gone', http: null, error: lastError, tries };
+}
+// An offer's status from its product: gone when the product or the variant is gone.
+export function variantStatus(product, variant) {
+  if (!product) return 'unknown';
+  if (product.status !== 'ok') return product.status;
+  return product.variants.has(String(variant)) ? 'ok' : 'gone';
 }
 
 // ---------- metadata audit ----------
@@ -317,13 +363,18 @@ async function main() {
 
   const base = opts['base-override'] || null;
   const urls = [];
+  const products = new Set();
   const plan = items.map((r) => {
-    const offers = (r.offers || []).map((o) => ({ url: o.url, check: rewrite(o.url, base) }));
+    const offers = (r.offers || []).map((o) => {
+      const sk = flags.has('no-shopify') ? null : shopifyKey(o.url);
+      if (sk) { const product = rewrite(sk.product, base); products.add(product); return { url: o.url, product, variant: sk.variant }; }
+      return { url: o.url, check: rewrite(o.url, base) };
+    });
     const local = r.image && r.image.src && !/^https?:\/\//.test(r.image.src);
     const image = local ? { url: r.image.src, local: true } : { url: r.image.src, check: rewrite(r.image.src, base) };
     const samePage = offers.some((o) => o.url === r.source.page);
     const page = !flags.has('no-pages') && r.source && r.source.page && !samePage ? { url: r.source.page, check: rewrite(r.source.page, base) } : null;
-    for (const o of offers) urls.push(o.check);
+    for (const o of offers) if (o.check) urls.push(o.check);
     if (image.check) urls.push(image.check);
     if (page) urls.push(page.check);
     return { r, offers, image, page, samePage };
@@ -333,15 +384,26 @@ async function main() {
   const timeout = Number(opts.timeout || 15000);
   const spacing = Number(opts.spacing || 300);
   const tries = Number(opts.tries || 3);
-  const unique = new Set(urls).size;
-  console.log(`Checking ${unique} urls for ${items.length} items (${concurrency} at a time, ${timeout} ms timeout, ${spacing} ms per host, ${tries} tries)${base ? ` against ${base}` : ''}`);
+  const unique = new Set(urls).size + products.size;
+  console.log(`Checking ${unique} urls (${products.size} of them Shopify products, each checked for its variants) for ${items.length} items (${concurrency} at a time, ${timeout} ms timeout, ${spacing} ms per host, ${tries} tries)${base ? ` against ${base}` : ''}`);
   let last = Date.now();
   const results = await checkMany(urls, {
     concurrency, timeout, spacing, tries,
     onDone: (n, total) => { if (!flags.has('quiet') && (Date.now() - last > 5000 || n === total)) { last = Date.now(); console.log(`  ${n} of ${total}`); } },
   });
+  // Shopify products, one host at a time with the same spacing.
+  const productResults = new Map();
+  let pn = 0;
+  for (const u of products) {
+    productResults.set(u, await checkProduct(u, { timeout, tries }));
+    pn++; if (!flags.has('quiet') && (Date.now() - last > 5000 || pn === products.size)) { last = Date.now(); console.log(`  products ${pn} of ${products.size}`); }
+    await sleep(spacing);
+  }
 
-  const take = (u) => { const r = results.get(u.check); return { url: u.url, status: r.status, http: r.http, finalUrl: r.finalUrl, error: r.error, tries: r.tries }; };
+  const take = (u) => {
+    if (u.product) { const pr = productResults.get(u.product); return { url: u.url, status: variantStatus(pr, u.variant), http: pr && pr.http, via: 'product json', error: pr && pr.error, tries: pr && pr.tries }; }
+    const r = results.get(u.check); return { url: u.url, status: r.status, http: r.http, finalUrl: r.finalUrl, error: r.error, tries: r.tries };
+  };
   const out = plan.map(({ r, offers, image, page, samePage }) => {
     const offerResults = offers.map(take);
     const imageResult = image.local

@@ -176,7 +176,7 @@ node tools/check_catalog.mjs --dry      # metadata audit only, no network; write
 node tools/check_catalog.mjs --apply    # write the gone flags from tools/health.json into demo/catalog.json
 ```
 
-The full check sends about 16,300 requests: 6 at a time, 300 ms apart per host, 15 s timeout, a browser User-Agent. Expect 40 to 50 minutes, most of it House of Spoils, which has one url per size, mount and frame color (about 7,600 urls on one host, so concurrency does not help there), then Society6 (about 5,000). `--limit 50` or `--only id,id` for a quick look; `--no-pages` skips the Unsplash, Pexels and Pixabay pages of free photos; `--concurrency`, `--spacing`, `--timeout` and `--tries` change the pace. Each url is tried with HEAD first, then a one-byte GET (`Range: bytes=0-0`) if the host refuses HEAD. A local image (`art/...`) is checked on disk.
+The full check sends about 4,200 requests: 6 at a time, 300 ms apart per host, 15 s timeout, a browser User-Agent. Shopify shops (House of Spoils, Society6, Juniper) are checked one product at a time: each product's public JSON (`/products/<handle>.json`) is read once and every offer is checked against its variants, so a dropped size or frame color counts as gone even though the product page still answers (about 1,200 products for about 12,000 offers; `--no-shopify` checks each link instead). Expect 20 to 30 minutes. `--limit 50` or `--only id,id` for a quick look; `--no-pages` skips the Unsplash, Pexels and Pixabay pages of free photos; `--concurrency`, `--spacing`, `--timeout` and `--tries` change the pace. Each url is tried with HEAD first, then a one-byte GET (`Range: bytes=0-0`) if the host refuses HEAD. A local image (`art/...`) is checked on disk.
 
 What gone means, per url:
 
