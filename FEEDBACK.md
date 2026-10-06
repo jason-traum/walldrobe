@@ -207,4 +207,6 @@ Status: Live (on the real link), v3 (on branch v3, not live), To do, Reversed (a
 | 172 | "we need to have WAYYYYY more art" (row 127, from the open list) | 238 more Society6 prints, looked at and tagged. | Claude | More choice per spot. | Live |
 | 173 | (from the open list) "ask more in the taste test: room style, real or abstract, busy or quiet" | Three quick questions in the list of walls, one at a time, each leaning every wall; Room, Scenes and Busy in Preferences. | Jason | Better walls with a few taps, never in the way. | Live |
 | 174 | (Claude, from the open list) the one-off "We know your taste 0%" card | A taste at 0% shows the test card instead. | Claude | Never a card that says it knows nothing. | Live |
+| 175 | "Mix price points" (first walls with no budget) | One of the first three walls is under $400 all in. | Jason | A new person sees what it costs at more than one level. | Live |
+| 176 | "Spread the walls" (a catalog heavy on flowers and landscapes) | A wall mostly of one subject ranks a little lower; the lead walls differ in subject. | Jason | Walls shouldn't lean on what there's most of. | Live |
 
