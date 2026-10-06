@@ -207,3 +207,15 @@ test('the metadata audit names weak fields and skips good records', () => {
   assert.ok(audit.counts['placeholder title'] === 1);
   assert.equal(audit.worst[0].id, r.id);
 });
+
+test('a Shopify offer is checked by its product: gone when the product or the variant is gone', async () => {
+  const { shopifyKey, variantStatus } = await import('../tools/check_catalog.mjs');
+  assert.deepEqual(shopifyKey('https://houseofspoils.com/products/a-b?variant=123'), { product: 'https://houseofspoils.com/products/a-b.json', variant: '123' });
+  assert.equal(shopifyKey('https://desenio.com/p/posters/x/'), null);
+  const live = { status: 'ok', variants: new Set(['123', '456']) };
+  assert.equal(variantStatus(live, '123'), 'ok');
+  assert.equal(variantStatus(live, '999'), 'gone');
+  assert.equal(variantStatus({ status: 'gone' }, '123'), 'gone');
+  assert.equal(variantStatus({ status: 'unknown' }, '123'), 'unknown');
+  assert.equal(variantStatus(undefined, '123'), 'unknown');
+});
