@@ -318,6 +318,16 @@ function build(key) {
   S.stepBase = null;
   for (const L of all) remember(L);
 }
+// A wall's main subject among its new pieces (flowers, horses), when one has more than any other.
+function mainSubject(L) {
+  const n = new Map();
+  for (const p of L.pieces) { if (p.ref.source !== 'catalog') continue; const c = byId.get(p.ref.id), k = c && c.record && c.record.category; if (k) n.set(k, (n.get(k) || 0) + 1); }
+  const top = [...n].sort((a, b) => b[1] - a[1]);
+  return top.length && (top.length === 1 || top[0][1] > top[1][1]) ? top[0][0] : null;
+}
+const CHEAP_WALL = 400;
+// A wall's price all in, priced as that wall (its own mats), not the one that's open.
+function priceOfWall(L) { const was = PRICE_L; PRICE_L = L; try { return wallPrices(L); } finally { PRICE_L = was; } }
 function rank() {
   const v = S.view;
   purgeNotForMe();
@@ -332,11 +342,24 @@ function rank() {
   if (d0.fullness !== 'calm' && !d0.pieces && !d0.justMine) {
     const fresh = (L) => L.pieces.filter((p) => p.ref.source === 'catalog').length;
     const most = Math.min(3, Math.max(0, ...v.list.filter((L) => L.variant !== 'asis').map(fresh)));
-    const rich = most ? v.list.filter((L) => L.variant !== 'asis' && fresh(L) >= most).slice(0, 3) : [];
+    // Three different leads: a wall whose main subject a lead already has waits, when there are others.
+    const pool = most ? v.list.filter((L) => L.variant !== 'asis' && fresh(L) >= most) : [];
+    const rich = [], subjects = new Set();
+    for (const L of pool) { if (rich.length >= 3) break; const k = mainSubject(L); if (k && subjects.has(k)) continue; rich.push(L); if (k) subjects.add(k); }
+    for (const L of pool) { if (rich.length >= 3) break; if (!rich.includes(L)) rich.push(L); }
     const lead = new Set(rich);
     const rest = v.list.filter((L) => !lead.has(L));
     v.list = [...rich, ...rest.filter((L) => fresh(L) > 0 || L.variant === 'asis'), ...rest.filter((L) => !fresh(L) && L.variant !== 'asis')];
     v.list.forEach((L, i) => { L.rank = i + 1; });
+  }
+  // With no budget, the first three aren't all pricey: when each is over CHEAP_WALL all in,
+  // the best wall under it with new art comes third.
+  if (!d0.budget && !d0.justMine && v.list.length > 3) {
+    const cost = (L) => { const c = priceOfWall(L); return c.unknown ? Infinity : c.art + c.frames; };
+    if (v.list.slice(0, 3).every((L) => cost(L) > CHEAP_WALL)) {
+      const i = v.list.findIndex((L, j) => j >= 3 && L.variant !== 'asis' && L.pieces.some((p) => p.ref.source === 'catalog') && cost(L) <= CHEAP_WALL);
+      if (i > 0) { const [L] = v.list.splice(i, 1); v.list.splice(2, 0, L); v.list.forEach((x, k) => { x.rank = k + 1; }); }
+    }
   }
   // Walls made with Show more go at the end, newest batch last, so they show up where you asked for them.
   // They're kept even when they look like one above at a glance: new art in the same frames is the point.

@@ -840,6 +840,12 @@ with sync_playwright() as p:
         pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         side = lambda: pg.evaluate('document.documentElement.scrollWidth') <= W
         pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4500)
+        # With no budget, one of the first three walls is under $400 all in, and the leads differ in subject.
+        def dollars(t):
+            import re
+            return sum(int(x.replace(',', '')) for x in re.findall(r'\$([\d,]+)', t))
+        tags = pg.locator('.entry-link .price-tag').all_inner_texts()[:3]
+        check(f'{W} one of the first three walls is under $400 all in', any(dollars(t) <= 400 for t in tags), str(tags))
         # The quick questions: one at a time, each one leans every wall, all three in Preferences.
         card = pg.locator('.ask-card')
         check(f'{W} the list asks what the room is like', card.count() == 1 and 'room' in card.inner_text(), card.inner_text()[:60] if card.count() else '')

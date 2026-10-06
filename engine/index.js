@@ -30,6 +30,7 @@ export const VERSION = '0.2.0';
 const KEEPS = new Set(['must', 'happy', 'dontcare']);
 const REUSE_BONUS = 0.08;
 const SAME_ARTIST = 0.02;
+const SUBJECT_SPREAD = 0.03;  // a wall whose new pieces are mostly one subject (all flowers) ranks a little lower
 // A layout beside the TV or furniture is shown among the first ones when it scores at least this share of the best.
 const PLACE_SHOW = 0.85;
 const COMP_FIT = 0.55;     // share of the composition score that is fit; the rest is design
@@ -517,6 +518,12 @@ function judge(L, ctx) {
 
   const artists = L.pieces.map((p) => p.artistName).filter(Boolean);
   const dupArtists = artists.length - new Set(artists).size;
+  // Subjects spread: with three or more new pieces, more than half of one subject costs a
+  // little, all of one subject the most. The catalog has far more flowers and landscapes
+  // than dogs or coffee, so without this the walls lean on what there's most of.
+  const subj = L.pieces.filter((p) => p.ref.source === 'catalog').map((p) => { const c = ctx.catalogById.get(p.ref.id); return c && (c.category || (c.record && c.record.category)); }).filter(Boolean);
+  let oneSubject = 0;
+  if (subj.length >= 3) { const n = new Map(); for (const k of subj) n.set(k, (n.get(k) || 0) + 1); oneSubject = Math.max(0, Math.max(...n.values()) / subj.length - 0.5) * 2; }
   // Using what you already own is the point: a small bonus for each happy-to-move piece on the wall.
   const happyUsed = L.pieces.filter((p) => p.keep === 'happy').length;
   const reuse = L.happyTotal ? REUSE_BONUS * (happyUsed / L.happyTotal) : 0;
@@ -548,7 +555,7 @@ function judge(L, ctx) {
   // a color thread, mostly color or mostly black and white. A nudge, not a rule.
   const styling = stylingScore(PC);
   parts.styling = styling.score;
-  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - MAT_WEIGHT * (1 - mats) - MAT_LEAN * matShort - STYLE_WEIGHT * (1 - styling.score);
+  const score = WEIGHTS.comp * comp + WEIGHTS.taste * taste + WEIGHTS.color * c.score + reuse + PREFER_WALL * picked - SAME_ARTIST * dupArtists - SUBJECT_SPREAD * oneSubject - MAT_WEIGHT * (1 - mats) - MAT_LEAN * matShort - STYLE_WEIGHT * (1 - styling.score);
   return { score: score + size, comp, parts: { ...parts, comp }, checks, color: c, design: d };
 }
 
