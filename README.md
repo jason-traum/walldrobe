@@ -43,7 +43,8 @@ Each layout lists every piece with its position in inches, where the nail goes, 
 
 ```sh
 npm test               # 287 tests, including 300 random walls and real room photos
-python3 tools/ui_walk.py out/walk   # every screen at 320, 390 and desktop, against the built site on :8830
+node tools/check.mjs                # the tests and screen checks this change reaches, one line each (--full for all, --plan to preview)
+python3 tools/ui_walk.py out/walk [--only core,home]   # screen checks at 320, 390 and desktop, against the built site on :8830
 node tools/bench_read.mjs <dir>     # how well the photo reader boxes furniture side by side
 npm run elevations     # draws the sample walls' top layouts as SVG in out/
 ```
