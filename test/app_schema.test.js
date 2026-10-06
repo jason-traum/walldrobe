@@ -65,5 +65,17 @@ grant execute on function auth.uid() to anon, authenticated;
   ok('three reports hide a wall', (await as(null, 'anon', 'select count(*)::int n from walls')).rows[0].n === 0);
   threw = false; try { await as(A, 'authenticated', `insert into walls (client_id, body) values ('big', '{"x":"${'a'.repeat(410000)}"}')`); } catch { threw = true; }
   ok('a wall over 400 KB is refused', threw);
+  // The full plan's fake door: a yes is recorded as yourself, seen only by you.
+  await as(B, 'authenticated', `insert into plan_interest (asked_from, price) values ('get', '')`);
+  ok('a yes is recorded as yourself', (await db.query('select user_id from plan_interest')).rows[0].user_id === B);
+  threw = false; try { await as(B, 'authenticated', `insert into plan_interest (asked_from) values ('get')`); } catch { threw = true; }
+  ok('once per place you asked from', threw);
+  threw = false; try { await as(B, 'authenticated', `insert into plan_interest (user_id, asked_from) values ('${A}', 'piece')`); } catch { threw = true; }
+  ok('nobody can ask for someone else', threw);
+  threw = false; try { await as(null, 'anon', `insert into plan_interest (asked_from) values ('get')`); } catch { threw = true; }
+  ok('signed out can\'t ask', threw);
+  ok('your asks are yours only', (await as(A, 'authenticated', 'select * from plan_interest')).rows.length === 0 && (await as(B, 'authenticated', 'select * from plan_interest')).rows.length === 1);
+  threw = false; try { await as(null, 'anon', 'select * from plan_interest'); } catch { threw = true; }
+  ok('signed out reads none', threw);
   await db.close();
 });

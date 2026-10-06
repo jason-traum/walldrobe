@@ -106,14 +106,25 @@ end $$;
 drop trigger if exists reports_hide on public.reports;
 create trigger reports_hide after insert on public.reports for each row execute function public.reports_hide();
 
+-- Who asked for the full plan while paying isn't open (the Unlock button is a fake door):
+-- where they tapped it and the price shown, once per place. Only they can see their own rows.
+create table if not exists public.plan_interest (
+  user_id uuid not null references public.profiles (id) on delete cascade default auth.uid(),
+  asked_from text not null default '' check (char_length(asked_from) <= 20),
+  price text not null default '' check (char_length(price) <= 40),
+  created_at timestamptz not null default now(),
+  primary key (user_id, asked_from)
+);
+
 -- ---------- Who can do what ----------
 alter table public.profiles enable row level security;
 alter table public.walls enable row level security;
 alter table public.follows enable row level security;
 alter table public.wall_saves enable row level security;
 alter table public.reports enable row level security;
+alter table public.plan_interest enable row level security;
 
-revoke all on public.profiles, public.walls, public.follows, public.wall_saves, public.reports from anon, authenticated;
+revoke all on public.profiles, public.walls, public.follows, public.wall_saves, public.reports, public.plan_interest from anon, authenticated;
 grant select on public.profiles, public.follows to anon, authenticated;
 grant select (id, owner, client_id, name, room, note, body, photo, is_public, show_photo, hidden, created_at, updated_at, shared_at) on public.walls to anon, authenticated;
 grant update (handle, name, bio, avatar_url) on public.profiles to authenticated;
@@ -126,6 +137,8 @@ grant select on public.wall_saves to authenticated;
 grant insert (wall_id) on public.wall_saves to authenticated;
 grant delete on public.wall_saves to authenticated;
 grant insert (wall_id, reason) on public.reports to authenticated;
+grant select (asked_from, price, created_at, user_id) on public.plan_interest to authenticated;
+grant insert (asked_from, price) on public.plan_interest to authenticated;
 
 drop policy if exists profiles_read on public.profiles;
 create policy profiles_read on public.profiles for select to anon, authenticated using (true);
@@ -159,6 +172,11 @@ create policy saves_delete on public.wall_saves for delete to authenticated usin
 
 drop policy if exists reports_insert on public.reports;
 create policy reports_insert on public.reports for insert to authenticated with check (reporter = (select auth.uid()));
+
+drop policy if exists plan_read on public.plan_interest;
+create policy plan_read on public.plan_interest for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists plan_insert on public.plan_interest;
+create policy plan_insert on public.plan_interest for insert to authenticated with check (user_id = (select auth.uid()));
 
 -- How many saved a public wall, without showing who.
 create or replace function public.save_counts(ids uuid[]) returns table (wall_id uuid, n bigint)

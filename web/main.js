@@ -131,6 +131,13 @@ const yourWalls = () => { const n = store.listWalls().length; return n ? `<a cla
 const back = (href, label) => `<a class="back" href="${href}"><span aria-hidden="true">‹</span> ${esc(label)}</a>`;
 // The front page's small print: where things live and where the art comes from.
 function credits() {
+  // The app site's free tier doesn't say where the art comes from: that's the full plan.
+  if (locked()) {
+    return `<footer class="credits">
+    <p>Plan the wall here for free. The full plan says where each piece is from and where to print and frame it.</p>
+    <p>Your room photo never leaves your device. Walls you save go to your account when you sign in, private until you share one.</p>
+  </footer>`;
+  }
   return `<footer class="credits">
     <p>Plan the wall here. Each piece links to the shop that sells it, or to the free photo. Soon you'll get it all in one order.</p>
     <p>Your photos and picks never leave <em>your device</em>.</p>
@@ -1801,9 +1808,9 @@ function homeGetScreen() {
     <h1>Get it all</h1>
     <p class="price-line">${esc(priceWords(sum.total))}</p>
     <ul class="home-costs">${rows}</ul>
-    <p class="pencil small">Shop prints are ordered from each wall's list. Frames and printing for every wall are below, so you can order them at once.</p>
+    ${locked() ? `<p class="pencil small">Shop prints, printing and frames for every wall are in the full plan, in one place.</p>${planBlock('home')}` : `<p class="pencil small">Shop prints are ordered from each wall's list. Frames and printing for every wall are below, so you can order them at once.</p>
     ${whereToPrint(null, sum.prints)}
-    ${whereToFrame(null, sum.frames, sum.prints.length)}
+    ${whereToFrame(null, sum.frames, sum.prints.length)}`}
   </main>`;
 }
 function splitHomeBudget() {
@@ -1942,7 +1949,7 @@ function browse() {
   const card = (c) => {
     const p = fromPrice(c), shop = c.offers && c.offers.length;
     return `<li class="art-card"><span class="art-card-img"><img src="${c.imageData}" alt="${esc(c.title)}" loading="lazy" style="aspect-ratio:${c.aspect || 0.8}"></span>
-      <span class="art-card-text"><span class="name">${esc(c.title)}</span><span class="pencil small">${esc(c.artist || '')}${shop ? `, ${esc(c.source)}` : ', free photo'}${p != null ? ` · from $${Math.round(p)}` : ''}</span></span>
+      <span class="art-card-text"><span class="name">${esc(c.title)}</span><span class="pencil small">${locked() ? (shop ? (p != null ? `from $${Math.round(p)}` : 'Print') : 'Photo you print') : `${esc(c.artist || '')}${shop ? `, ${esc(c.source)}` : ', free photo'}${p != null ? ` · from $${Math.round(p)}` : ''}`}</span></span>
       <span class="art-card-acts"><button type="button" class="heart" data-browse-save="${esc(c.id)}" aria-pressed="${saved.has(c.id)}" aria-label="${saved.has(c.id) ? 'Saved' : 'Save'} ${esc(c.title)}">${heart(saved.has(c.id))}</button><button type="button" class="link small" data-browse-no="${esc(c.id)}">Not for me</button></span></li>`;
   };
   const shown = list.slice(0, f.n);
@@ -2443,7 +2450,7 @@ function pieceSheet(id) {
     </button></li>`;
   };
   return `<h2 id="sheet-h">${esc(item.title)}</h2>
-    <p class="meta">${p.frame && p.frame.border ? `${soldW(p)} x ${soldH(p)} in frame, ${p.w} x ${p.h} in outside` : `${p.w} x ${p.h} in`}. ${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}${p.frame && p.frame.margin ? `. Printed with a ${p.frame.margin} in white border` : ''}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}</p>
+    <p class="meta">${p.frame && p.frame.border ? `${soldW(p)} x ${soldH(p)} in frame, ${p.w} x ${p.h} in outside` : `${p.w} x ${p.h} in`}.${locked() ? (p.frame && p.frame.margin ? ` Printed with a ${p.frame.margin} in white border.` : '') : ` ${item.offers && item.offers.length ? `Art by ${esc(item.artist)}, sold by ${esc(item.source)}${p.frame && p.frame.margin ? `. Printed with a ${p.frame.margin} in white border` : ''}` : `Photo by ${esc(item.artist)} on ${esc(item.source)}`}`}</p>
     ${kept ? '<p class="pencil small">Kept in every wall. Tap Kept to let it change again.</p>'
       : all.length ? `<ul class="choices${showAll ? ' is-all' : ''}${ar >= 1 ? ' is-wide' : ''}">${list.map(choice).join('')}</ul>
       ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
@@ -2453,7 +2460,7 @@ function pieceSheet(id) {
       <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep in every wall'}</button>
       ${L.pieces.length > 1 ? `<button type="button" class="btn quiet" data-act="remove" data-id="${esc(id)}">Remove this frame</button>` : ''}
     </div>
-    ${c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
+    ${locked() ? '<button type="button" class="btn quiet small fit" data-act="unlock" data-from="piece">Where to get it</button>' : c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
 }
 
 // What a wall looks like, for telling whether this one is saved already.
@@ -2947,12 +2954,14 @@ function wallSummary(L) {
   const cost = (pc || !pn.length) && (fc || !fn.length) && (pn.length || fn.length) ? (pc ? pc.total : 0) + (fc ? fc.total : 0) : null;
   // The next steps, in order, so the page reads as a plan: the art, the frames, the nails.
   const shops = [...new Set(fresh.filter((p) => (byId.get(p.ref.id).offers || []).length).map((p) => byId.get(p.ref.id).source))];
-  const art = [shop && `order ${shop === 1 ? 'the print' : `${shop} prints`} from ${shops.join(' and ')}`, nPrint && `print ${nPrint === 1 ? 'the free photo' : `${nPrint} free photos`}${pc ? `, about ${usd(pc.total)} at ${pc.p.name}` : ''}`].filter(Boolean).join(', and ');
-  const frames = nFrame ? `${nFrame} frame${nFrame === 1 ? '' : 's'}${nMat ? `, ${nMat === nFrame ? 'each' : nMat} with a mat` : ''}${fc ? `, about ${usd(fc.total)} at ${fc.p.name}` : ''}` : '';
+  // The free tier (app site) gives the prices but not the names: those are the full plan.
+  const lk = locked(), at = (x) => (lk ? ' at the cheapest' : ` at ${x.p.name}`);
+  const art = [shop && `order ${shop === 1 ? 'the print' : `${shop} prints`} from ${lk ? (shop === 1 ? 'its shop' : 'their shops') : shops.join(' and ')}`, nPrint && `print ${nPrint === 1 ? (lk ? 'the photo' : 'the free photo') : `${nPrint} ${lk ? 'photos' : 'free photos'}`}${pc ? `, about ${usd(pc.total)}${at(pc)}` : ''}`].filter(Boolean).join(', and ');
+  const frames = nFrame ? `${nFrame} frame${nFrame === 1 ? '' : 's'}${nMat ? `, ${nMat === nFrame ? 'each' : nMat} with a mat` : ''}${fc ? `, about ${usd(fc.total)}${at(fc)}` : ''}` : '';
   return `<div class="wall-sum"><p>${fresh.length} new piece${fresh.length === 1 ? '' : 's'}: ${parts.join(', ')}. Three steps:</p>
     <ol class="next-steps">
       <li><strong>Get the art.</strong> ${esc(art[0].toUpperCase() + art.slice(1))}.</li>
-      ${frames ? `<li><strong>Get the frames.</strong> ${esc(frames[0].toUpperCase() + frames.slice(1))}. The table below has every seller.</li>` : ''}
+      ${frames ? `<li><strong>Get the frames.</strong> ${esc(frames[0].toUpperCase() + frames.slice(1))}. ${lk ? 'The full plan has every seller.' : 'The table below has every seller.'}</li>` : ''}
       <li><strong>Hang it.</strong> When everything arrives, Hang it at the bottom has the nail spots.</li>
     </ol>
     ${cost != null ? `<p class="pencil small">Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.</p>` : ''}</div>`;
@@ -3133,6 +3142,8 @@ function getScreen() {
       get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
     }
     if (mixedC && (needsFrame(p) || shopColors(p))) frame += ` ${FRAME_LOOKS[colorOf(p)].name} frame.`;
+    // The free tier: what to get and its price, not where; the full plan has that.
+    if (locked()) { credit = o && o.price != null ? `${money(o.price, o.currency)} at its shop` : o ? 'From its shop' : 'A photo you print'; get = ''; }
     const ticks = `${tick(`art:${p.ref.id}`, o ? 'Ordered' : 'Printed')}${needsFrame(p) ? tick(`frame:${p.ref.id}`, 'Frame ordered') : ''}`;
     return `<li class="buy-row"><span class="buy-art">${thumbFor(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
       <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
@@ -3145,17 +3156,18 @@ function getScreen() {
     ${flashHtml()}
     <section aria-labelledby="buy-h"><h2 id="buy-h" class="sr-only">What to get</h2>
       ${wallSummary(L)}
+      ${locked() ? planBlock('get') : ''}
       <p class="order-state" role="status">${st.done ? 'Everything is ordered.' : `Ordered so far: ${st.art} of ${st.fresh} ${st.fresh === 1 ? 'piece' : 'pieces'}${st.frames ? `, ${st.fr} of ${st.frames} frame${st.frames === 1 ? '' : 's'}` : ''}. Tick each one as you go.`}</p>
       <ul class="buy-list">${buy}</ul>
       ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
     </section>
-    ${whereToPrint(L)}
+    ${locked() ? '' : `${whereToPrint(L)}
     ${whereToFrame(L)}
-    ${copyBlock(L)}
+    ${copyBlock(L)}`}
     <section class="next-up" aria-labelledby="next-h">
       <h2 id="next-h">When it all arrives</h2>
       <p>The nail spots for every frame, and a check of what each one hangs on.</p>
-      <div class="acts left"><a class="btn${st.done ? '' : ' quiet'}" href="#/hang">Hang it</a>
+      <div class="acts left"><a class="btn${st.done && !locked() ? '' : ' quiet'}" href="#/hang">Hang it</a>
       <button type="button" class="btn quiet" data-act="save"${savedNow(L) ? ' aria-pressed="true" disabled' : ''}>${savedNow(L) ? 'Saved' : 'Save'}</button></div>
     </section>
   </main>`;
@@ -3264,7 +3276,7 @@ function savedScreen() {
       <span class="piece-art"><span class="tn new${kept.has(id) ? ' kept' : ''}" style="width:${(h * ar).toFixed(0)}px;height:${h.toFixed(0)}px"><img src="${it.imageData}" alt="${esc(it.title)}"></span></span>
       <span class="piece-name">${esc(it.title)}</span>
       <span class="fav-acts">${hasWall ? (kept.has(id) ? '<span class="piece-kept">On your wall</span>' : `<button type="button" class="link" data-onwall="${esc(id)}">See it on my wall</button>`) : ''}
-      ${shop && shop.url ? `<a class="link" href="${esc(shop.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : it.url ? `<a class="link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : ''}</span>
+      ${locked() ? '<button type="button" class="link" data-act="unlock" data-from="favorites">Where to get it</button>' : shop && shop.url ? `<a class="link" href="${esc(shop.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : it.url ? `<a class="link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source)}</a>` : ''}</span>
       <button type="button" class="heart" data-save="${esc(id)}" data-unfav="1" aria-label="Take ${esc(it.title)} out of favorites">${heart(true)}</button>
     </li>`;
   };
@@ -3344,12 +3356,52 @@ function focusSelector(el) {
 const ACCT = globalThis.WD_ACCOUNT || null;
 const APP = !!ACCT;
 const A = { me: null, started: false, signing: false, err: null, saves: new Set(), counts: new Map(), cache: new Map(), mine: null,
-  feed: { scope: 'all', posts: [], status: 'idle', more: false, at: 0, err: null } };
+  feed: { scope: 'all', posts: [], status: 'idle', more: false, at: 0, err: null }, plan: { status: 'idle', err: null } };
+
+// ---------- The full plan (the app site only) ----------
+// The app's free tier plans the wall: every wall, the art, swaps, frames, the nails. It
+// doesn't say where a piece comes from or where to print and frame it; that's the full
+// plan, which a person pays for. Until paying opens (web/app.config.js), Unlock is a fake
+// door: it says what's in the plan and records who asked. The build leaves the sources
+// out of the app's page too (tools/build_site.mjs). The free site shows everything.
+const PLAN = (ACCT && ACCT.plan) || { open: false, price: '' };
+function locked() { return APP && !PLAN.open; }
+const PLAN_HAS = ['Where each piece is from, with a link to it at the size on your wall', 'Every place to print and frame it, cheapest first, for your sizes', 'One list to paste into your AI for today\'s codes'];
+function planBlock(from) {
+  return `<section class="plan-lock" aria-labelledby="plan-${from}-h">
+    <h2 id="plan-${from}-h">The full plan</h2>
+    <ul class="plan-has">${PLAN_HAS.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    <div class="acts left"><button type="button" class="btn" data-act="unlock" data-from="${esc(from)}">Unlock the full plan</button>${PLAN.price ? `<span class="pencil">${esc(PLAN.price)}</span>` : ''}</div>
+  </section>`;
+}
+function planScreen() {
+  const backTo = S.ui.planBack || '#/';
+  const P = A.plan;
+  // Signed in: whether you asked already, once per visit.
+  if (signedIn() && P.status === 'idle') {
+    A.plan = { status: 'checking', err: null };
+    ACCT.askedPlan().then((y) => { if (A.plan.status === 'checking') A.plan = { status: y ? 'on' : 'ready', err: null }; }).catch(() => { if (A.plan.status === 'checking') A.plan = { status: 'ready', err: null }; }).finally(render);
+  }
+  const done = P.status === 'on';
+  const act = !signedIn()
+    ? '<div class="acts left"><button type="button" class="btn" data-act="plan-signin">Sign in to unlock</button></div><p class="pencil small">Your plan goes with your account, so it\'s on every device.</p>'
+    : done ? `<p class="plan-done note" tabindex="-1">You're on the list. Paying isn't open yet; we'll write to ${esc(A.me.email || 'you')} when it is. Your walls stay free to plan.</p>`
+      : `<div class="acts left"><button type="button" class="btn" data-act="plan-yes"${P.status === 'saving' || P.status === 'checking' ? ' disabled' : ''}>${P.status === 'saving' ? 'Unlocking…' : 'Unlock the full plan'}</button></div>
+        ${P.status === 'error' ? `<p class="error" role="alert" tabindex="-1">Couldn't do that: ${esc(P.err)}. Try again.</p>` : ''}`;
+  return `${bar(back(backTo, 'Back'))}
+  <main class="page plan-page">
+    <h1>The full plan</h1>
+    <p class="lede">Planning the wall is free. The full plan is how you get it:</p>
+    <ul class="plan-has">${PLAN_HAS.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    ${PLAN.price ? `<p class="price-line">${esc(PLAN.price)}</p>` : ''}
+    ${act}
+  </main>`;
+}
 function acctStart() {
   if (!APP || A.started) return;
   A.started = true;
   if (!ACCT.ready()) return;
-  ACCT.start((me) => { A.me = me; A.mine = null; if (me) loadSaves(); render(); })
+  ACCT.start((me) => { A.me = me; A.mine = null; A.plan = { status: 'idle', err: null }; if (me) loadSaves(); render(); })
     .then((me) => { A.me = me; if (me) { loadSaves(); const after = ACCT.afterSignIn(); if (after) { history.replaceState(null, '', `${location.pathname}${after}`); } } render(); })
     .catch((e) => console.warn('account', e));
 }
@@ -3582,10 +3634,10 @@ function render() {
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
   if (APP) acctStart();
-  const appScreens = APP ? { signin: signInScreen, me: meScreen, u: userScreen, hung: hungScreen, w: oneWallScreen } : {};
+  const appScreens = APP ? { signin: signInScreen, me: meScreen, u: userScreen, hung: hungScreen, w: oneWallScreen, plan: planScreen } : {};
   const screens = { ...appScreens, '': home, begin, browse, stuff: stuffScreen, home: homeScreen, 'home-get': homeGetScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
   const fn = S.crop ? cropScreen : screens[r0] || home;
-  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', 'home-get': 'Get it all · Walldrobe', signin: 'Sign in · Walldrobe', me: 'Your profile · Walldrobe', hung: 'Walls people hung · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', 'home-get': 'Get it all · Walldrobe', signin: 'Sign in · Walldrobe', plan: 'The full plan · Walldrobe', me: 'Your profile · Walldrobe', hung: 'Walls people hung · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -4616,7 +4668,28 @@ document.addEventListener('click', (e) => {
     }
     case 'plan-home': planHome(); S.flash = 'Spread across your walls.'; render(); break;
     case 'signin-google': A.signing = true; A.err = null; render(); ACCT.signInGoogle(S.ui.afterSignIn || '#/me').catch((e) => { A.signing = false; A.err = e.message; render(); }); break;
-    case 'signout': ACCT.signOut().then(() => { A.me = null; A.mine = null; A.saves = new Set(); A.cache.clear(); go('#/'); }).catch((e) => { S.flash = e.message; render(); }); break;
+    case 'signout': ACCT.signOut().then(() => { A.me = null; A.mine = null; A.saves = new Set(); A.cache.clear(); A.plan = { status: 'idle', err: null }; go('#/'); }).catch((e) => { S.flash = e.message; render(); }); break;
+    // The full plan: a fake door for now. Unlock opens what it is; the yes is recorded.
+    case 'unlock': {
+      const from = t.dataset.from || '';
+      S.ui.planFrom = from; S.ui.planBack = location.hash && !/^#\/plan/.test(location.hash) ? location.hash : '#/';
+      S.sheet = null; S.selected = null;
+      store.logEvent('plan-open', { from });
+      go('#/plan');
+      break;
+    }
+    case 'plan-signin': S.ui.afterSignIn = '#/plan'; go('#/signin'); break;
+    case 'plan-yes': {
+      if (!signedIn() || A.plan.status === 'saving') break;
+      A.plan = { status: 'saving', err: null };
+      store.logEvent('plan-yes', { from: S.ui.planFrom || '' });
+      render();
+      ACCT.wantPlan(S.ui.planFrom || 'plan', PLAN.price)
+        .then(() => { A.plan = { status: 'on', err: null }; })
+        .catch((e) => { A.plan = { status: 'error', err: e.message }; })
+        .finally(() => { render(); const f = document.querySelector('.plan-done, .plan-page .error'); if (f) f.focus({ preventScroll: true }); });
+      break;
+    }
     case 'tab-walls': S.ui.savedTab = false; render(); break;
     case 'tab-saved': S.ui.savedTab = true; render(); break;
     case 'feed-retry': A.feed.status = 'idle'; render(); break;
@@ -4679,6 +4752,7 @@ document.addEventListener('click', (e) => {
     case 'unhung': S.draft.hung = null; persist(); render(); break;
     case 'print': window.print(); break;
     case 'copy-ai': {
+      if (locked()) break;
       const L = shown(); if (!L) break;
       const text = wallQuestion(L);
       const done = (ok) => { S.ui.copied = ok ? 'ok' : 'no'; render(); const b = document.querySelector('[data-act="copy-ai"]'); if (b) b.focus({ preventScroll: true }); };

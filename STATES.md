@@ -357,3 +357,10 @@ Same screens as the free site, plus these. The free site shows none of them.
 | Try these on my wall | Its pieces go in your favorites: "4 pieces are in your favorites. Your walls try them first where they fit." and your walls | |
 | Report | First tap: "Tap Report again to hide this wall for you and flag it. Three reports hide it for everyone."; second: it's gone from your feed, "Reported. Thanks." | |
 | Private or gone wall | "This wall is private or gone." | Back |
+| Free tier (Oct 6) | No artist, shop or link anywhere: a piece's sheet shows its size (and a printed border), Browse shows "from $45" or "Photo you print", Get it shows each piece's print, mat and frame in words with "$39 at its shop" or "A photo you print", and the three steps with prices but no names ("about $54.66 at the cheapest") | |
+| Where to get it | On a new piece's sheet and on each favorite, where the shop link was | Opens The full plan |
+| The full plan block | On Get it under the three steps, and on Get it all: "The full plan", the three things it has, Unlock the full plan (and the price once set) | Unlock |
+| The full plan, signed out | "Planning the wall is free. The full plan is how you get it:", the three things, Sign in to unlock, "Your plan goes with your account, so it's on every device." | Sign in, Back |
+| The full plan, signed in | The same, Unlock the full plan; "Unlocking…" while it records | Unlock |
+| On the list | "You're on the list. Paying isn't open yet; we'll write to you@x.com when it is. Your walls stay free to plan." Shown again on coming back | Back |
+| Couldn't record it | "Couldn't do that: [reason]. Try again." | Unlock again |
