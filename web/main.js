@@ -700,7 +700,7 @@ function home() {
   const { w, L } = homeLayout;
   const saved = store.listWalls();
   const resume = !!ownDraftSaved();
-  return `${bar(wordmark(), saved.length ? '<a class="btn quiet small" href="#/walls">Your walls</a>' : '')}
+  return `${bar(wordmark(), `${saved.length ? '<a class="btn quiet small" href="#/walls">Your walls</a>' : ''}${APP ? (signedIn() ? `<a class="acct-chip" href="#/me" aria-label="Your profile">${avatar(A.me.profile, 28)}</a>` : '<a class="btn quiet small" href="#/signin">Sign in</a>') : ''}`)}
   <main class="home">
     <div class="drawing hero">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, still: true, pxWide: 900, label: 'A sample living room wall, with new pieces taped up where they would hang' })}<span class="chip">Sample wall</span></div>
     <div class="home-copy">
@@ -2353,6 +2353,8 @@ function menuSheet() {
       ${item('#/stuff', 'Your art and frames')}
       ${d.width && !d.sample ? item(d.photo ? '#/check' : '#/things', 'Check the wall') : ''}
       ${item('#/begin', 'Start a new wall')}
+      ${APP ? item('#/hung', 'Walls people hung') : ''}
+      ${APP ? (signedIn() ? item('#/me', 'Your profile') : item('#/signin', 'Sign in')) : ''}
     </ul>`;
 }
 function sheetHtml() {
@@ -2471,6 +2473,7 @@ function saveThisWall() {
   if (!store.addWall(copy)) { S.flash = "Didn't save. This device's storage may be full. Try again after deleting an old wall."; return; }
   if (store.demoMode) { S.flash = 'Sample mode: nothing is saved.'; return; }
   S.undo = { label: `Saved as ${copy.name}.`, run: () => { store.deleteWall(copy.id); } };
+  if (signedIn()) pushWall(copy).catch((e) => console.warn('sync', e));
 }
 
 // ---------- Get it: the hanging guide ----------
@@ -3288,7 +3291,23 @@ function wallSheet(id) {
     <p class="meta">Saved ${esc(date(w.savedAt))}.</p>
     ${S.ui.confirmDelete === w.id ? `<p class="error">Delete this wall? This can't be undone.</p>
       <div class="acts left"><button type="button" class="btn danger" data-delete="${esc(w.id)}">Delete</button><button type="button" class="btn quiet" data-act="cancel-delete">Keep it</button></div>`
-    : `<div class="acts left"><button type="button" class="btn" data-open="${esc(w.id)}">Open</button><button type="button" class="btn quiet" data-ask-delete="${esc(w.id)}">Delete</button></div>`}`;
+    : `<div class="acts left"><button type="button" class="btn" data-open="${esc(w.id)}">Open</button><button type="button" class="btn quiet" data-ask-delete="${esc(w.id)}">Delete</button></div>`}
+    ${APP ? shareBlock(w) : ''}`;
+}
+// Share a saved wall to your profile and the feed, or take it off. The room photo never goes up;
+// the flattened wall photo only with the box ticked.
+function shareBlock(w) {
+  if (!signedIn()) return '<p class="pencil small"><a href="#/signin">Sign in</a> to keep this wall on every device and share it.</p>';
+  const r = (A.mine || []).find((x) => x.client_id === w.id);
+  const hasPhoto = !!(w.photo && (w.photo.clean || w.photo.flat));
+  if (r && r.is_public) return `<p class="pencil small">Shared on your profile${r.show_photo ? ', with the wall photo' : ''}. <a href="#/w/${esc(r.id)}">See it</a></p>
+    <div class="acts left"><button type="button" class="btn quiet small" data-unshare-wall="${esc(w.id)}"${S.ui.sharing ? ' disabled' : ''}>Take it off your profile</button></div>`;
+  return `<form class="fields share-form" data-share-wall="${esc(w.id)}">
+    <label class="name-in"><span>A line about it, if you like</span><input type="text" name="note" maxlength="240" placeholder="Why this one?"></label>
+    ${hasPhoto ? '<label class="check"><input type="checkbox" name="photo"> <span>Show my wall photo</span></label>' : ''}
+    ${A.err ? `<p class="error" role="alert">${esc(A.err)}</p>` : ''}
+    <div class="acts left"><button class="btn" type="submit"${S.ui.sharing ? ' disabled' : ''}>${S.ui.sharing ? 'Sharing…' : 'Share to your profile'}</button></div>
+  </form>`;
 }
 // Two saved walls, one above the other, each with what only it has.
 function compare() {
@@ -3320,6 +3339,231 @@ function focusSelector(el) {
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
 
+// ---------- Accounts and the feed (the app site only: tools/build_site.mjs --app) ----------
+// On the free site WD_ACCOUNT isn't there and none of this shows.
+const ACCT = globalThis.WD_ACCOUNT || null;
+const APP = !!ACCT;
+const A = { me: null, started: false, signing: false, err: null, saves: new Set(), counts: new Map(), cache: new Map(), mine: null,
+  feed: { scope: 'all', posts: [], status: 'idle', more: false, at: 0, err: null } };
+function acctStart() {
+  if (!APP || A.started) return;
+  A.started = true;
+  if (!ACCT.ready()) return;
+  ACCT.start((me) => { A.me = me; A.mine = null; if (me) loadSaves(); render(); })
+    .then((me) => { A.me = me; if (me) { loadSaves(); const after = ACCT.afterSignIn(); if (after) { history.replaceState(null, '', `${location.pathname}${after}`); } } render(); })
+    .catch((e) => console.warn('account', e));
+}
+const signedIn = () => !!(APP && A.me && A.me.profile);
+function loadSaves() { if (!signedIn()) return; ACCT.mySaves().then((s) => { A.saves = s; render(); }).catch(() => {}); }
+// A shared wall from the database, drawn like a saved wall.
+function postWall(row) {
+  const b = row.body || {};
+  return { width: b.width, height: b.height, obstacles: b.obstacles || [], photo: row.photo ? { clean: row.photo, flat: row.photo } : null, chosen: { layout: b.layout }, owned: b.owned || [], name: row.name || row.room || 'A wall' };
+}
+// A saved wall as it goes up: its size, what's in the way, the layout and your pieces as
+// sizes and small thumbnails. Never the room photo.
+function wallBody(w) {
+  const L = w.chosen && w.chosen.layout;
+  const on = new Set(L ? L.pieces.map((p) => p.ref.id) : []);
+  return { v: 1, width: w.width, height: w.height, obstacles: (w.obstacles || []).map(({ id, kind, x, y, w: ow, h, label }) => ({ id, kind, x, y, w: ow, h, label })),
+    layout: L || null, owned: (w.owned || []).filter((o) => on.has(o.id)).map((o) => ({ id: o.id, title: o.title, w: o.w, h: o.h, color: o.color || null, art: !!o.art, thumb: o.thumb && o.thumb.length < 40000 ? o.thumb : null })),
+    look: w.look || null, colorFor: w.colorFor || null, mat: w.mat || null };
+}
+// The flattened wall photo, smaller, same shape (never stretched): only when its owner shows it.
+function smallPhoto(url, maxW = 900, q = 0.72) {
+  return new Promise((resolve) => {
+    if (!url) { resolve(null); return; }
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, maxW / im.naturalWidth), cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      const out = cv.toDataURL('image/jpeg', q);
+      resolve(out.length < 580000 ? out : null);
+    };
+    im.onerror = () => resolve(null);
+    im.src = url;
+  });
+}
+// Your saved wall to your account: private unless you share it.
+async function pushWall(w, { isPublic, showPhoto, note } = {}) {
+  if (!signedIn() || !w) return null;
+  const prev = (A.mine || []).find((r) => r.client_id === w.id);
+  const pub = isPublic != null ? isPublic : !!(prev && prev.is_public);
+  const show = showPhoto != null ? showPhoto : !!(prev && prev.show_photo);
+  const photo = show ? await smallPhoto(w.photo && (w.photo.clean || w.photo.flat)) : null;
+  const row = await ACCT.putWall({ clientId: w.id, name: w.name, room: w.base || '', note: note != null ? note : (prev && prev.note) || '', body: wallBody(w), photo, isPublic: pub, showPhoto: show && !!photo });
+  A.mine = [row, ...(A.mine || []).filter((r) => r.id !== row.id)];
+  A.feed.at = 0;
+  return row;
+}
+function loadMine() {
+  if (!signedIn() || A.mine) return;
+  A.mine = [];
+  ACCT.myWalls().then((rows) => { A.mine = rows; render(); }).catch((e) => { A.mine = null; A.err = e.message; render(); });
+}
+function loadFeed(more) {
+  const F = A.feed;
+  if (F.status === 'loading' || !APP || !ACCT.ready()) return;
+  F.status = 'loading'; F.err = null;
+  const before = more && F.posts.length ? F.posts[F.posts.length - 1].shared_at : null;
+  ACCT.feed({ following: F.scope === 'following', before })
+    .then(async (rows) => {
+      F.posts = more ? [...F.posts, ...rows.filter((r) => !F.posts.some((x) => x.id === r.id))] : rows;
+      F.more = rows.length === ACCT.PAGE; F.status = 'ok'; F.at = Date.now();
+      try { const c = await ACCT.saveCounts(rows.map((r) => r.id)); for (const [k, v] of c) A.counts.set(k, v); } catch { /* counts are extra */ }
+    })
+    .catch((e) => { F.status = 'error'; F.err = e.message; F.at = Date.now(); })
+    .finally(() => render());
+}
+const who = (row) => (row.profiles ? row.profiles : null);
+const avatar = (p, size = 32) => (p && p.avatar_url ? `<img class="avatar" src="${esc(p.avatar_url)}" alt="" width="${size}" height="${size}" referrerpolicy="no-referrer">` : `<span class="avatar is-letter" style="width:${size}px;height:${size}px" aria-hidden="true">${esc(((p && (p.name || p.handle)) || '?').slice(0, 1).toUpperCase())}</span>`);
+// One shared wall: who, the wall, its pieces, Save and Try these on my wall.
+function postCard(row, opts = {}) {
+  const p = who(row) || (opts.profile || null);
+  const w = postWall(row), L = w.chosen.layout;
+  const fresh = L ? L.pieces.filter((x) => x.ref.source === 'catalog' && byId.get(x.ref.id)) : [];
+  const saved = A.saves.has(row.id), n = A.counts.get(row.id) || 0, mine = A.me && row.owner === A.me.id;
+  const date = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };
+  return `<li class="post" id="post-${esc(row.id)}">
+    <p class="post-head">${p ? `<a class="post-who" href="#/u/${esc(p.handle)}">${avatar(p, 28)}<span>${esc(p.name || p.handle)}</span></a>` : ''} <span class="pencil">${esc(row.room || '')}${row.shared_at ? `${row.room ? ', ' : ''}${esc(date(row.shared_at))}` : ''}</span></p>
+    ${row.note ? `<p class="post-note">${esc(row.note)}</p>` : ''}
+    <a class="drawing" href="#/w/${esc(row.id)}" aria-label="Open this wall">${L ? savedSvg(w, opts.px || pxNow()) : ''}</a>
+    <div class="acts left post-acts">
+      ${mine ? '' : `<button type="button" class="btn quiet small" data-wsave="${esc(row.id)}" aria-pressed="${saved}">${saved ? 'Saved' : 'Save'}${n ? ` · ${n}` : ''}</button>`}
+      ${fresh.length ? `<button type="button" class="btn quiet small" data-try-wall="${esc(row.id)}">Try these on my wall</button>` : ''}
+      ${mine ? `<span class="pencil small">Yours${n ? `, saved by ${n}` : ''}</span>` : `<button type="button" class="link small" data-report-wall="${esc(row.id)}">Report</button>`}
+    </div>
+  </li>`;
+}
+function signInScreen() {
+  const ready = ACCT.ready();
+  if (signedIn()) { go('#/me'); return ''; }
+  return `${bar(back('#/', 'Walldrobe'))}
+  <main class="page signin">
+    <h1>Sign in</h1>
+    <p class="lede">Keep your walls on every device, share the ones you hang, and follow people whose walls you like.</p>
+    ${ready ? `<div class="acts left"><button type="button" class="btn wide" data-act="signin-google"${A.signing ? ' disabled' : ''}>${A.signing ? 'Opening Google…' : 'Continue with Google'}</button></div>
+      ${ACCT.emailReady() ? `<form class="fields" id="email-form"><label class="name-in"><span>Or get a link by email</span><input type="email" name="email" required autocomplete="email" inputmode="email"></label><button type="submit" class="btn quiet">Email me a link</button></form>` : ''}
+      ${S.ui.emailSent ? `<p class="note">Check ${esc(S.ui.emailSent)} for the link.</p>` : ''}
+      ${A.err ? `<p class="error" role="alert">${esc(A.err)}</p>` : ''}`
+    : '<p class="note">Sign-in is coming soon. Your walls still save on this device.</p>'}
+    <p class="pencil small">Your walls stay private until you share one. Your room photo never goes up; a shared wall shows the drawing, and the wall photo only if you turn it on.</p>
+  </main>`;
+}
+function profileHead(p, { own, counts, following } = {}) {
+  return `<div class="profile-head">${avatar(p, 64)}<div class="profile-text"><h1>${esc(p.name || p.handle)}</h1><p class="pencil">@${esc(p.handle)}${counts ? ` · ${counts.followers} follower${counts.followers === 1 ? '' : 's'} · ${counts.following} following` : ''}</p>${p.bio ? `<p class="profile-bio">${esc(p.bio)}</p>` : ''}</div></div>
+    <div class="acts left">${own ? '<a class="btn quiet small" href="#/me/edit">Edit profile</a><button type="button" class="link small" data-act="signout">Sign out</button>' : signedIn() ? `<button type="button" class="btn${following ? ' quiet' : ''} small" data-follow="${esc(p.id)}" aria-pressed="${!!following}">${following ? 'Following' : 'Follow'}</button>` : '<a class="btn small" href="#/signin">Sign in to follow</a>'}</div>`;
+}
+function meScreen() {
+  if (!signedIn()) { go('#/signin'); return ''; }
+  const [, sub] = route();
+  const p = A.me.profile;
+  if (sub === 'edit') {
+    return `${bar(back('#/me', 'Profile'))}
+    <main class="page">
+      <h1>Edit profile</h1>
+      <form class="fields" id="profile-form">
+        <label class="name-in"><span>Name</span><input type="text" name="name" maxlength="40" value="${esc(p.name || '')}"></label>
+        <label class="name-in"><span>Handle</span><input type="text" name="handle" maxlength="24" value="${esc(p.handle)}" autocapitalize="none" spellcheck="false" pattern="[a-z0-9_]{3,24}"></label>
+        <label class="name-in"><span>A line about you</span><input type="text" name="bio" maxlength="160" value="${esc(p.bio || '')}"></label>
+        ${A.err ? `<p class="error" role="alert">${esc(A.err)}</p>` : ''}
+        <div class="acts left"><button class="btn" type="submit">Save</button><a class="btn quiet" href="#/me">Cancel</a></div>
+      </form>
+    </main>`;
+  }
+  loadMine();
+  const key = `counts:${p.id}`;
+  if (!A.cache.has(key)) { A.cache.set(key, null); ACCT.followCounts(p.id).then((c) => { A.cache.set(key, c); render(); }).catch(() => {}); }
+  const local = store.listWalls();
+  const remote = A.mine || [];
+  const byClient = new Map(remote.map((r) => [r.client_id, r]));
+  const card = (w) => { const r = byClient.get(w.id); return `<li><button type="button" class="wall-card" data-wallcard="${esc(w.id)}" aria-label="${esc(w.name)}"><span class="drawing small-drawing">${savedSvg(w, 180)}</span><span class="wall-name">${esc(w.name)}${r && r.is_public ? ' <span class="chip-s">Shared</span>' : ''}</span></button></li>`; };
+  const onlyRemote = remote.filter((r) => !local.some((w) => w.id === r.client_id));
+  if (S.ui.savedTab && !A.cache.has('saved')) { A.cache.set('saved', null); ACCT.savedWalls().then((rows) => { A.cache.set('saved', rows); render(); }).catch(() => A.cache.delete('saved')); }
+  const savedRows = A.cache.get('saved') || [];
+  return `${bar(back('#/', 'Walldrobe'), '<a class="btn quiet small" href="#/hung">Walls people hung</a>')}
+  <main class="page profile-page">
+    ${profileHead(p, { own: true, counts: A.cache.get(key) })}
+    ${flashHtml()}
+    <div class="seg tabs" role="tablist"><button type="button" role="tab" data-act="tab-walls" aria-selected="${!S.ui.savedTab}">Your walls</button><button type="button" role="tab" data-act="tab-saved" aria-selected="${!!S.ui.savedTab}">Saved</button></div>
+    ${S.ui.savedTab
+      ? (savedRows.length ? `<ul class="posts">${savedRows.map((r) => postCard(r)).join('')}</ul>` : `<p class="pencil">${A.cache.get('saved') === null ? 'Loading…' : 'Walls you save from other people land here.'}</p>`)
+      : `${local.length || onlyRemote.length ? `<ul class="wall-grid">${local.map(card).join('')}${onlyRemote.map((r) => `<li><a class="wall-card" href="#/w/${esc(r.id)}"><span class="drawing small-drawing">${savedSvg(postWall(r), 180)}</span><span class="wall-name">${esc(r.name)}${r.is_public ? ' <span class="chip-s">Shared</span>' : ''}</span></a></li>`).join('')}</ul>` : '<p class="pencil">Save a wall and it shows up here, on every device you sign in on.</p>'}
+        <p class="pencil small">Tap a wall to share it to your profile.</p>`}
+  </main>${sheetHtml()}`;
+}
+function userScreen() {
+  const [, handle] = route();
+  const key = `u:${(handle || '').toLowerCase()}`;
+  if (!A.cache.has(key)) {
+    A.cache.set(key, { status: 'loading' });
+    ACCT.profileByHandle(handle).then(async (p) => {
+      if (!p) { A.cache.set(key, { status: 'none' }); render(); return; }
+      const [walls, counts, following] = await Promise.all([ACCT.wallsOf(p.id), ACCT.followCounts(p.id), ACCT.isFollowing(p.id)]);
+      A.cache.set(key, { status: 'ok', p, walls, counts, following });
+      try { const c = await ACCT.saveCounts(walls.map((r) => r.id)); for (const [k, v] of c) A.counts.set(k, v); } catch { /* extra */ }
+      render();
+    }).catch((e) => { A.cache.set(key, { status: 'error', err: e.message }); render(); });
+  }
+  const u = A.cache.get(key);
+  const body = u.status === 'loading' ? '<p class="pencil">Loading…</p>'
+    : u.status === 'none' ? '<p class="pencil">Nobody by that name.</p>'
+      : u.status === 'error' ? `<p class="note">Couldn't load it: ${esc(u.err)}.</p>`
+        : `${profileHead(u.p, { own: A.me && A.me.id === u.p.id, counts: u.counts, following: u.following })}
+          ${u.walls.length ? `<ul class="posts">${u.walls.map((r) => postCard(r, { profile: u.p })).join('')}</ul>` : '<p class="pencil">No shared walls yet.</p>'}`;
+  return `${bar(back('#/hung', 'Walls people hung'))}<main class="page profile-page">${flashHtml()}${body}</main>`;
+}
+function hungScreen() {
+  const F = A.feed;
+  if (ACCT.ready() && F.status !== 'loading' && (F.status === 'idle' || Date.now() - F.at > 60000)) setTimeout(() => loadFeed(false), 0);
+  const tabs = `<div class="seg tabs" role="tablist"><button type="button" role="tab" data-feed-scope="all" aria-selected="${F.scope === 'all'}">Everyone</button><button type="button" role="tab" data-feed-scope="following" aria-selected="${F.scope === 'following'}">Following</button></div>`;
+  const status = !ACCT.ready() ? '<p class="note">The feed opens with sign-in, soon.</p>'
+    : F.status === 'error' ? `<p class="note">Couldn't load the walls: ${esc(F.err)}. <button type="button" class="link" data-act="feed-retry">Try again</button></p>`
+      : F.status === 'loading' && !F.posts.length ? '<p class="pencil">Loading walls…</p>' : '';
+  const empty = F.status === 'ok' && !F.posts.length ? `<p class="pencil">${F.scope === 'following' ? (signedIn() ? 'Nobody you follow has shared a wall yet.' : 'Sign in to see walls from people you follow.') : 'No walls yet. Share one from Your walls and it shows up here.'}</p>` : '';
+  return `${bar(back('#/', 'Walldrobe'), signedIn() ? `<a class="acct-chip" href="#/me" aria-label="Your profile">${avatar(A.me.profile, 28)}</a>` : '<a class="btn quiet small" href="#/signin">Sign in</a>')}
+  <main class="page hung-page">
+    <h1>Walls people hung</h1>
+    ${tabs}
+    ${status}${empty}
+    ${F.posts.length ? `<ul class="posts">${F.posts.map((r) => postCard(r)).join('')}</ul>` : ''}
+    ${F.more && F.status !== 'error' ? `<div class="acts"><button type="button" class="btn quiet" data-act="feed-more"${F.status === 'loading' ? ' disabled' : ''}>${F.status === 'loading' ? 'Loading…' : 'More walls'}</button></div>` : ''}
+  </main>`;
+}
+function oneWallScreen() {
+  const [, id] = route();
+  const key = `w:${id}`;
+  if (!A.cache.has(key)) { A.cache.set(key, { status: 'loading' }); ACCT.getWall(id).then((r) => { A.cache.set(key, r ? { status: 'ok', r } : { status: 'none' }); render(); }).catch((e) => { A.cache.set(key, { status: 'error', err: e.message }); render(); }); }
+  const u = A.cache.get(key);
+  if (u.status !== 'ok') return `${bar(back('#/hung', 'Walls people hung'))}<main class="page"><p class="pencil">${u.status === 'loading' ? 'Loading…' : u.status === 'none' ? 'This wall is private or gone.' : esc(u.err)}</p></main>`;
+  const r = u.r, w = postWall(r), L = w.chosen.layout;
+  const fresh = L ? L.pieces.filter((x) => x.ref.source === 'catalog' && byId.get(x.ref.id)) : [];
+  const mine = A.me && r.owner === A.me.id;
+  return `${bar(back('#/hung', 'Walls people hung'))}
+  <main class="page">
+    ${who(r) ? `<p class="post-head"><a class="post-who" href="#/u/${esc(who(r).handle)}">${avatar(who(r), 28)}<span>${esc(who(r).name || who(r).handle)}</span></a></p>` : ''}
+    <h1>${esc(r.name || 'A wall')}</h1>
+    ${r.note ? `<p class="post-note">${esc(r.note)}</p>` : ''}
+    ${flashHtml()}
+    <div class="drawing">${L ? savedSvg(w, pxNow()) : ''}</div>
+    <div class="acts left">${fresh.length ? `<button type="button" class="btn" data-try-wall="${esc(r.id)}">Try these on my wall</button>` : ''}${mine ? '' : `<button type="button" class="btn quiet" data-wsave="${esc(r.id)}" aria-pressed="${A.saves.has(r.id)}">${A.saves.has(r.id) ? 'Saved' : 'Save'}</button>`}<button type="button" class="btn quiet" data-act="copy-wall-link">${S.ui.copied === 'wall' ? 'Link copied' : 'Copy link'}</button></div>
+    ${fresh.length ? `<h2>The pieces</h2><ul class="rows">${fresh.map((x) => { const it = byId.get(x.ref.id); return `<li class="row piece-row"><span class="thumb" style="aspect-ratio:${it.aspect || x.w / x.h}"><img src="${it.imageData}" alt=""></span><span class="row-text"><span class="name">${esc(it.title)}</span><span class="meta">${x.w} x ${x.h} in</span></span><button type="button" class="heart" data-save="${esc(it.id)}" aria-pressed="${(S.draft && S.draft.saved || []).includes(it.id)}" aria-label="Favorite ${esc(it.title)}">${heart((S.draft && S.draft.saved || []).includes(it.id))}</button></li>`; }).join('')}</ul>` : ''}
+  </main>`;
+}
+// Try a shared wall's pieces on your own: they become favorites, which your walls try first.
+function tryWall(id) {
+  const rows = [...A.feed.posts, ...(A.cache.get(`w:${id}`) && A.cache.get(`w:${id}`).r ? [A.cache.get(`w:${id}`).r] : []), ...[...A.cache.values()].flatMap((v) => (v && v.walls) || []), ...((A.cache.get('saved')) || [])];
+  const r = rows.find((x) => x && x.id === id);
+  if (!r) return;
+  const L = r.body && r.body.layout;
+  const ids = L ? L.pieces.filter((x) => x.ref.source === 'catalog' && byId.get(x.ref.id)).map((x) => x.ref.id) : [];
+  const fav = new Set((S.draft && S.draft.saved) || store.loadMe().saved);
+  for (const pid of ids) if (!fav.has(pid)) toggleSave(pid);
+  S.flash = `${ids.length} pieces are in your favorites. Your walls try them first where they fit.`;
+  go(S.draft && S.draft.width ? '#/layouts' : '#/saved');
+}
+
 function render() {
   const [r0, r1] = route();
   applyLook();
@@ -3337,9 +3581,11 @@ function render() {
     resetLayouts(); persist(); location.replace('#/start'); return;
   }
   if (r0 === 'resume') { if (!resumeDraft()) { location.replace('#/start'); return; } location.replace(need() || '#/layouts'); return; }
-  const screens = { '': home, begin, browse, stuff: stuffScreen, home: homeScreen, 'home-get': homeGetScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
+  if (APP) acctStart();
+  const appScreens = APP ? { signin: signInScreen, me: meScreen, u: userScreen, hung: hungScreen, w: oneWallScreen } : {};
+  const screens = { ...appScreens, '': home, begin, browse, stuff: stuffScreen, home: homeScreen, 'home-get': homeGetScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
   const fn = S.crop ? cropScreen : screens[r0] || home;
-  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', 'home-get': 'Get it all · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
+  document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', 'home-get': 'Get it all · Walldrobe', signin: 'Sign in · Walldrobe', me: 'Your profile · Walldrobe', hung: 'Walls people hung · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
   let html;
@@ -3776,6 +4022,29 @@ document.addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
   if (f.id === 'drop-form') return;
+  if (APP && f.id === 'email-form') {
+    const email = String(f.elements.email.value || '').trim();
+    if (!email) return;
+    ACCT.signInEmail(email, '#/me').then(() => { S.ui.emailSent = email; A.err = null; render(); }).catch((x) => { A.err = x.message; render(); });
+    return;
+  }
+  if (APP && f.id === 'profile-form') {
+    const v = (n) => String(f.elements[n].value || '').trim();
+    A.err = null;
+    ACCT.updateProfile({ name: v('name').slice(0, 40), handle: v('handle').toLowerCase(), bio: v('bio').slice(0, 160) })
+      .then(() => { S.flash = 'Saved.'; go('#/me'); }).catch((x) => { A.err = x.message; render(); });
+    return;
+  }
+  if (APP && f.dataset.shareWall) {
+    const w = store.getWall(f.dataset.shareWall);
+    if (!w || !signedIn()) return;
+    S.ui.sharing = true; A.err = null; render();
+    pushWall(w, { isPublic: true, showPhoto: !!(f.elements.photo && f.elements.photo.checked), note: String(f.elements.note.value || '').trim().slice(0, 240) })
+      .then((r) => { S.flash = 'Shared on your profile.'; S.sheet = null; go(`#/w/${r.id}`); })
+      .catch((x) => { A.err = x.message; })
+      .finally(() => { S.ui.sharing = false; render(); });
+    return;
+  }
   if (f.dataset.homeBudget !== undefined) {
     const v = Math.round(Number(f.elements.budget.value) || 0), h = myHome();
     h.budget = v >= 20 ? Math.min(100000, v) : null; saveHome(h); render(); return;
@@ -4204,6 +4473,41 @@ document.addEventListener('click', (e) => {
     const f = document.querySelector(S.focusAfter); S.focusAfter = null; if (f) f.focus({ preventScroll: true });
     return;
   }
+  // The app site: follow, save someone's wall, try its pieces, the feed, share, report.
+  if (APP && t.dataset.follow) {
+    const id = t.dataset.follow, key = [...A.cache.keys()].find((k) => k.startsWith('u:') && A.cache.get(k).p && A.cache.get(k).p.id === id), u = key && A.cache.get(key);
+    if (!u || !signedIn()) return;
+    const on = !u.following;
+    u.following = on; u.counts = { ...u.counts, followers: Math.max(0, u.counts.followers + (on ? 1 : -1)) }; render();
+    (on ? ACCT.follow(id) : ACCT.unfollow(id)).then(() => { A.feed.at = 0; }).catch((e) => { u.following = !on; u.counts = { ...u.counts, followers: Math.max(0, u.counts.followers + (on ? -1 : 1)) }; S.flash = e.message; render(); });
+    return;
+  }
+  if (APP && t.dataset.wsave) {
+    const id = t.dataset.wsave;
+    if (!signedIn()) { go('#/signin'); return; }
+    const on = !A.saves.has(id);
+    if (on) A.saves.add(id); else A.saves.delete(id);
+    A.counts.set(id, Math.max(0, (A.counts.get(id) || 0) + (on ? 1 : -1))); A.cache.delete('saved'); render();
+    (on ? ACCT.saveWall(id) : ACCT.unsaveWall(id)).catch((e) => { if (on) A.saves.delete(id); else A.saves.add(id); A.counts.set(id, Math.max(0, (A.counts.get(id) || 0) + (on ? -1 : 1))); S.flash = e.message; render(); });
+    return;
+  }
+  if (APP && t.dataset.tryWall) { tryWall(t.dataset.tryWall); return; }
+  if (APP && t.dataset.reportWall) {
+    const id = t.dataset.reportWall;
+    if (!signedIn()) { go('#/signin'); return; }
+    if (S.ui.askReport !== id) { S.ui.askReport = id; S.flash = 'Tap Report again to hide this wall for you and flag it. Three reports hide it for everyone.'; render(); return; }
+    S.ui.askReport = null; A.feed.posts = A.feed.posts.filter((r) => r.id !== id);
+    ACCT.report(id, 'reported in app').then(() => { S.flash = 'Reported. Thanks.'; render(); }).catch((e) => { S.flash = e.message; render(); });
+    render(); return;
+  }
+  if (APP && t.dataset.feedScope) { A.feed = { ...A.feed, scope: t.dataset.feedScope, posts: [], status: 'idle', more: false, at: 0 }; render(); return; }
+  if (APP && t.dataset.unshareWall) {
+    const w = store.getWall(t.dataset.unshareWall);
+    if (!w) return;
+    S.ui.sharing = true; render();
+    pushWall(w, { isPublic: false, showPhoto: false }).then(() => { S.flash = 'Off your profile.'; }).catch((e) => { A.err = e.message; }).finally(() => { S.ui.sharing = false; render(); });
+    return;
+  }
   if (t.dataset.otherWall) {
     // Swap to the wall on that side; the one you had becomes the way back.
     const p = S.draft && S.draft.photo, i = p && (p.others || []).findIndex((o) => o.side === t.dataset.otherWall);
@@ -4311,6 +4615,13 @@ document.addEventListener('click', (e) => {
       break;
     }
     case 'plan-home': planHome(); S.flash = 'Spread across your walls.'; render(); break;
+    case 'signin-google': A.signing = true; A.err = null; render(); ACCT.signInGoogle(S.ui.afterSignIn || '#/me').catch((e) => { A.signing = false; A.err = e.message; render(); }); break;
+    case 'signout': ACCT.signOut().then(() => { A.me = null; A.mine = null; A.saves = new Set(); A.cache.clear(); go('#/'); }).catch((e) => { S.flash = e.message; render(); }); break;
+    case 'tab-walls': S.ui.savedTab = false; render(); break;
+    case 'tab-saved': S.ui.savedTab = true; render(); break;
+    case 'feed-retry': A.feed.status = 'idle'; render(); break;
+    case 'feed-more': loadFeed(true); render(); break;
+    case 'copy-wall-link': { const url = location.href; (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => { S.ui.copied = 'wall'; render(); }).catch(() => { S.flash = url; render(); }); break; }
     case 'home-split': splitHomeBudget(); S.flash = 'Each wall has its share of the budget, by how wide it is.'; render(); break;
     case 'quiz-more': if (S.quiz) { S.quiz.check = false; saveQuiz(); render(); window.scrollTo({ top: 0 }); } break;
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;

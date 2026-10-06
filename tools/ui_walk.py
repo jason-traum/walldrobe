@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get('WD_BASE', 'http://localhost:8830/index.html')
 # Sections, so a change can be checked with only the parts it touches:
 #   python3 tools/ui_walk.py out --only home,homeget     python3 tools/ui_walk.py --list
-SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget']
+SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget', 'app']
 args = [a for a in sys.argv[1:]]
 ONLY = None
 if '--only' in args:
@@ -987,6 +987,35 @@ with sync_playwright() as p:
             check(f'{W} a wall\'s list opens its Get it', '#/get' in pg.url, pg.url)
             check(f'{W} no errors on the home list', not errs, '; '.join(errs[:2]))
             ctx.close()
+    if section('app'):
+        # The app site (docs/app/): the same screens with accounts. Before its database is set
+        # up, sign-in says it's coming and nothing breaks; the free site shows none of it.
+        APPBASE = BASE.replace('index.html', '') + 'app/'
+        for W, H in ((390, 844), (320, 700), (1280, 860)):
+            ctx = b.new_context(viewport={'width': W, 'height': H}, color_scheme='light')
+            pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.goto(APPBASE + '#/'); pg.wait_for_timeout(2500)
+            check(f'{W} the app front page has Sign in', vis(pg, '.bar a[href="#/signin"]') is not None)
+            vis(pg, '.bar a[href="#/signin"]').click(); pg.wait_for_timeout(800)
+            t = pg.evaluate('document.body.innerText')
+            check(f'{W} sign in says it is coming until the database is set up', 'Sign in' in t and ('coming soon' in t or 'Continue with Google' in t))
+            check(f'{W} sign in promises the room photo stays private', 'room photo never goes up' in t)
+            pg.screenshot(path=f'{OUT}/app-signin-{W}.png')
+            pg.goto(APPBASE + '#/hung'); pg.wait_for_timeout(1200)
+            check(f'{W} Walls people hung opens', 'Walls people hung' in pg.evaluate('document.body.innerText') and pg.locator('[data-feed-scope]').count() == 2)
+            pg.goto(APPBASE + '#/sample/living'); pg.wait_for_timeout(4500)
+            check(f'{W} the app builds the same walls, art loading from one folder up', pg.locator('.entry-link').count() > 0 and pg.evaluate("[...document.querySelectorAll('.entry-link image')].slice(0,6).every(i => !i.getAttribute('href').startsWith('art/'))"))
+            vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
+            check(f'{W} the menu has Walls people hung and Sign in', pg.locator('#sheet a[href="#/hung"]').count() == 1 and pg.locator('#sheet a[href="#/signin"]').count() == 1)
+            check(f'{W} no sideways scroll on the app', pg.evaluate('document.documentElement.scrollWidth') <= W)
+            check(f'{W} no errors on the app', not errs, '; '.join(errs[:2]))
+            ctx.close()
+        ctx = b.new_context(viewport={'width': 390, 'height': 844}, color_scheme='light')
+        pg = ctx.new_page()
+        pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4000)
+        vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
+        check('390 the free site has no sign in and no feed', pg.locator('a[href="#/signin"], a[href="#/hung"]').count() == 0)
+        ctx.close()
     b.close()
 
 for name, ok, detail in results:
