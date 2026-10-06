@@ -344,7 +344,9 @@ async function main() {
     const health = JSON.parse(readFileSync(outPath, 'utf8'));
     if (health.dry) { console.error('that health report came from --dry and has no url results; run the check without --dry first'); process.exit(1); }
     const changed = applyHealth(catalog.items, health);
-    writeFileSync(catalogPath, JSON.stringify(catalog, null, 1) + '\n');
+    // Written with non-ASCII as \\u escapes, the way tools/analyze.py writes it, and only when
+    // something changed (Python and JavaScript also write some numbers differently, 1.0 and 1).
+    if (Object.values(changed).some(Boolean)) writeFileSync(catalogPath, JSON.stringify(catalog, null, 1).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`) + '\n');
     console.log(`Applied ${health.checkedAt} to ${catalogPath}: ${changed.offersGone} offers marked gone, ${changed.offersBack} offers back, ${changed.itemsGone} items marked gone, ${changed.itemsBack} items back`);
     const gone = catalog.items.filter((r) => r.health && r.health.gone);
     console.log(`${gone.length} items carry health.gone (${WHY.map((w) => `${w}: ${gone.filter((r) => r.health.why === w).length}`).join(', ')})`);
