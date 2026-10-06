@@ -17,6 +17,7 @@
 //   --base-override <url>   test hook: every url keeps its path but points at this origin
 //   --no-pages              skip the source page of free photos (only offers and images)
 //   --no-shopify            check Shopify offer links one by one instead of one product JSON each
+//   --product-spacing <ms>  default 1000 between two Shopify product JSON requests (a 429 waits and asks again)
 //
 // Gone means: 404 or 410, a redirect that lands on the shop's home or a category
 // page, or a network failure on every try. Anything else that is not a plain
@@ -158,11 +159,14 @@ async function getJson(url, timeout) {
   } finally { clearTimeout(timer); }
 }
 // One product: gone on 404 or 410, its live variant ids when it answers, unknown otherwise.
-export async function checkProduct(url, { timeout = 15000, tries = 3, retryDelay = 800 } = {}) {
+export async function checkProduct(url, { timeout = 15000, tries = 3, retryDelay = 800, slowDown = 5000 } = {}) {
   let lastError = null;
-  for (let attempt = 1; attempt <= tries; attempt++) {
+  for (let attempt = 1, waits = 0; attempt <= tries; attempt++) {
     try {
       const r = await getJson(url, timeout);
+      // Asked to slow down: wait longer each time (5, 10, 20, 40 s) and ask again; that
+      // doesn't use up a try. After four waits it's unknown.
+      if (r.status === 429 && waits < 4) { await sleep(slowDown * 2 ** waits); waits++; attempt--; continue; }
       if (r.status === 404 || r.status === 410) return { url, status: 'gone', http: r.status, tries: attempt };
       const vs = r.body && r.body.product && Array.isArray(r.body.product.variants) ? r.body.product.variants : null;
       if (r.status === 200 && vs) return { url, status: 'ok', http: 200, variants: new Set(vs.filter((v) => v.available !== false).map((v) => String(v.id))), tries: attempt };
@@ -397,7 +401,8 @@ async function main() {
   for (const u of products) {
     productResults.set(u, await checkProduct(u, { timeout, tries }));
     pn++; if (!flags.has('quiet') && (Date.now() - last > 5000 || pn === products.size)) { last = Date.now(); console.log(`  products ${pn} of ${products.size}`); }
-    await sleep(spacing);
+    // Shopify's product JSON is rate limited harder than its pages: about one a second.
+    await sleep(Math.max(spacing, Number(opts['product-spacing'] || 1000)));
   }
 
   const take = (u) => {

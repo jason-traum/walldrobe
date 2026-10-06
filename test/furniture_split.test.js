@@ -61,3 +61,17 @@ test('the top line splits at a step that holds, not at a narrow bump or a dip', 
   // three pieces stepping down
   assert.equal(splitByTops(run([[2, 30], [14, 30], [26, 30]]), 40).length, 3);
 });
+
+test('a photo with a second wall past the side offers it, read on its own; one without offers nothing', async () => {
+  const { otherWalls } = await import('../web/detect.js');
+  const img = readPng(new URL('11.png', dir));
+  const seg = unpackLabels(JSON.parse(readFileSync(new URL('11.labels.json', dir), 'utf8')));
+  const others = otherWalls(img, seg, suggestWall(img, seg));
+  assert.equal(others.length, 1);
+  assert.equal(others[0].side, 'right');
+  const x0 = Math.min(others[0].corners[0][0], others[0].corners[3][0]) / img.width;
+  assert.ok(x0 > 0.6, `the right wall starts at ${x0.toFixed(2)} of the photo`);
+  const liv = readPng(new URL('./fixtures/living_room.png', import.meta.url));
+  const lseg = unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room.labels.json', import.meta.url), 'utf8')));
+  assert.deepEqual(otherWalls(liv, lseg, suggestWall(liv, lseg)), []);
+});

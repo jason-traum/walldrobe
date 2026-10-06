@@ -100,5 +100,32 @@
   ],
   "touching": true,
   "notes": "Straight-on, portrait. Wood three-drawer nightstand (lamp top about 0.39) touching a bed frame and headboard cut by the right edge."
+ },
+ {
+  "file": "11.jpg",
+  "unsplash_page": "https://unsplash.com/photos/a-room-with-wooden-furniture-and-a-painting-on-the-wall-S8i-Q-SeE9k",
+  "image_url": "https://images.unsplash.com/photo-1699367797244-3957fc2d114b?w=1200&q=80",
+  "pieces": [
+   {
+    "kind": "cabinet",
+    "x0": 0.052,
+    "x1": 0.395,
+    "top": 0.233
+   },
+   {
+    "kind": "cabinet",
+    "x0": 0.5,
+    "x1": 0.725,
+    "top": 0.603
+   },
+   {
+    "kind": "cabinet",
+    "x0": 0.71,
+    "x1": 0.975,
+    "top": 0.175
+   }
+  ],
+  "touching": false,
+  "notes": "Nearly straight-on. Tall buffet cabinet, open trunk (kind cabinet, lid top 0.603, body top about 0.76), tall buffet cabinet. Large gap between the left cabinet and the trunk; the trunk sits slightly forward and overlaps the right cabinet. Useful as a not-touching contrast."
  }
 ]
