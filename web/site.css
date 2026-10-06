@@ -841,3 +841,12 @@ svg.is-dragging .measure { opacity: 0.25; }
 .chip-s { font-size: 12px; padding: 1px 6px; border-radius: 10px; background: var(--surface); border: 1px solid var(--hairline); }
 .share-form { margin-top: 12px; border-top: 1px solid var(--hairline); padding-top: 12px; }
 .link.small { font-size: 14px; }
+
+/* ---------- The full plan (the app site's free tier) ---------- */
+.plan-lock { display: grid; gap: 10px; margin: 16px 0; padding: 16px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.plan-lock h2 { margin: 0; }
+.plan-has { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; line-height: 22px; max-width: 36em; }
+.plan-lock .acts, .plan-page .acts { align-items: center; }
+.plan-page .plan-has { margin: 4px 0 8px; }
+.plan-page .price-line { text-align: left; font-size: 18px; font-weight: 600; }
+.plan-done:focus { outline: none; }

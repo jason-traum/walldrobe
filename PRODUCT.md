@@ -204,6 +204,10 @@ Order to build: sections on one wall (the soffit is already half of it), then tw
 
 Built (2026-10-03): sections on one wall, split by wall edges, each with its own group and the wall judged as one (ENGINE.md, "Walls with sections"). Not yet: each face of a corner photo flattened on its own, sections with their own height or depth, and a home.
 
+## Two sites (Oct 6)
+
+The free site stays as it is, with everything. The app site (docs/app/) adds accounts and splits the product: planning the wall is free; the full plan (where each piece is from with its link, every place to print and frame, Copy for your AI) is the paid part. Unlock is a fake door until paying opens (DECISIONS, Oct 6).
+
 ## Side pages (planned)
 
 - **Saved** (built): your hearts from any wall, the sizes each comes in, "See it on my wall".

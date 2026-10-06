@@ -20,6 +20,7 @@ const plain = (e) => {
   if (/duplicate key.*handle/i.test(m)) return 'That name is taken';
   if (/handle/i.test(m) && /check/i.test(m)) return 'Use 3 to 24 lowercase letters, numbers or _';
   if (/Failed to fetch|NetworkError|timed? ?out/i.test(m)) return 'No connection. Try again';
+  if (/schema cache|does not exist/i.test(m)) return 'This isn\'t set up yet. Try again later';
   return m.replace(/\s+/g, ' ').slice(0, 160);
 };
 async function run(p) {
@@ -124,5 +125,17 @@ export async function savedWalls() {
   const ids = [...await mySaves()];
   if (!ids.length) return [];
   return run(client().from('walls').select(`${WALL_COLS}, profiles!walls_owner_fkey(handle, name, avatar_url)`).in('id', ids));
+}
+// ---------- The full plan ----------
+// Paying isn't open yet: Unlock records that you asked (where from, and the price shown),
+// once per place you asked from. web/app.config.js says when it opens and the price.
+const P = APP_CONFIG.plan || {};
+export const plan = { open: !!P.open, price: typeof P.price === 'string' ? P.price : '' };
+export const wantPlan = (from, price = '') => run(client().from('plan_interest').insert({ asked_from: String(from || '').slice(0, 20), price: String(price || '').slice(0, 40) })
+  .then((r) => (r.error && r.error.code === '23505' ? { data: null, error: null } : r)));
+export async function askedPlan() {
+  if (!me) return false;
+  const rows = await run(client().from('plan_interest').select('asked_from').eq('user_id', me.id).limit(1));
+  return !!(rows && rows.length);
 }
 export const report = (id, reason) => run(client().from('reports').insert({ wall_id: id, reason: String(reason || '').slice(0, 120) }));

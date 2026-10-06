@@ -33,7 +33,15 @@ const items = catalog.items.filter((it) => it.status === 'active' && !(it.health
   // From docs/app/, the free photos are one folder up.
   image: { ...it.image, data: APP && !/^https?:/.test(it.image.src) ? `../${it.image.src}` : it.image.src },
 }));
-const json = JSON.stringify({ ...catalog, items }).replace(/</g, '\\u003c');
+// The app site's free tier doesn't say where the art comes from (DECISIONS, Oct 6), so its
+// page doesn't carry it either: no artist, shop, page, license, credit, description or buy
+// link. Sizes, prices and which colors a framed print comes in stay; they say nothing about
+// the source. The images still load from where they live (we never re-host a shop's image).
+const bare = (it) => ({
+  ...it, artist: { name: '' }, source: { provider: '' }, rights: { show: true, sell: false }, description: undefined,
+  offers: it.offers.map(({ url, vid, colors, ...o }) => ({ ...o, ...(colors ? { colors: Object.fromEntries(Object.keys(colors).map((k) => [k, 1])) } : {}) })),
+});
+const json = JSON.stringify(APP ? { schema: catalog.schema, items: items.map(bare) } : { ...catalog, items }).replace(/</g, '\\u003c');
 
 const html = readFileSync(join(root, 'web/index.html'), 'utf8')
   .replace('{{CSS}}', () => css)
