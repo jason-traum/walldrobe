@@ -60,7 +60,7 @@ create index if not exists walls_feed on public.walls (shared_at desc) where is_
 create index if not exists walls_owner on public.walls (owner, updated_at desc);
 
 -- A wall's photo is shown only when its owner turned it on; otherwise it isn't stored at all.
-create or replace function public.walls_touch() returns trigger language plpgsql as $$
+create or replace function public.walls_touch() returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at := now();
   if not new.show_photo then new.photo := null; end if;
