@@ -362,6 +362,13 @@ export function findWall(img, opts = {}) {
     const topBin = [...bins].sort((p, q) => q[1] - p[1])[0][0];
     seedPx = win.filter((i) => key(i) === topBin);
   }
+  // Another wall in the same photo (a corner): only its part of the photo seeds it.
+  if (opts.xRange) {
+    const [a, b] = opts.xRange.map((v) => v * s);
+    let part = seedPx.filter((i) => (i % w) >= a && (i % w) <= b);
+    if (part.length < 20 && Gm) { part = []; for (let i = 0; i < w * h; i++) if (Gm[i] === G.WALL && (i % w) >= a && (i % w) <= b) part.push(i); }
+    if (part.length >= 20) seedPx = part;
+  }
   const seed = [0, 1, 2].map((k) => seedPx.reduce((t, i) => t + lab[i * 3 + k], 0) / seedPx.length);
   const cx = seedPx.reduce((t, i) => t + (i % w), 0) / seedPx.length, cy = seedPx.reduce((t, i) => t + Math.floor(i / w), 0) / seedPx.length;
   const px = (x, y) => { const X = Math.max(0, Math.min(w - 1, Math.round(x))), Y = Math.max(0, Math.min(h - 1, Math.round(y))); return Y * w + X; };
@@ -433,6 +440,8 @@ export function findWall(img, opts = {}) {
   // deep close up as further out; a crease keeps deepening for a hand's width.
   // A crease between the middle and the side found means the wall turns there.
   let valleyLines = [];
+  // Where the wall turns into the next one (a crease), in photo pixels at the wall's middle height.
+  const turns = { left: null, right: null };
   if (Gm) {
     const V = new Uint8Array(w * h), D1 = OFF, D4 = OFF * 4;
     for (let y = OFF; y < h - OFF; y++) for (let x = D4; x < w - D4; x++) {
@@ -447,9 +456,11 @@ export function findWall(img, opts = {}) {
     const at = (c) => c.a + c.b * cy;
     // Which side a crease is on goes by the photo's middle: with a window in the
     // middle of the wall, most of the wall color is to one side of it.
-    const inner = (side, f) => valleyLines.filter((c) => (side < 0 ? at(c) < w / 2 - 4 && (!f || at(c) > at(f) + 2) : at(c) > w / 2 + 4 && (!f || at(c) < at(f) - 2))).sort((p, q) => q.votes - p.votes)[0];
-    Lf = inner(-1, Lf) || Lf;
-    Rf = inner(1, Rf) || Rf;
+    const mx = opts.xRange ? cx : w / 2;
+    const inner = (side, f) => valleyLines.filter((c) => (side < 0 ? at(c) < mx - 4 && (!f || at(c) > at(f) + 2) : at(c) > mx + 4 && (!f || at(c) < at(f) - 2))).sort((p, q) => q.votes - p.votes)[0];
+    const iL = inner(-1, Lf), iR = inner(1, Rf);
+    if (iL) { Lf = iL; turns.left = at(iL) / s; }
+    if (iR) { Rf = iR; turns.right = at(iR) / s; }
   }
   if (opts.debug) opts.debug.sideCandidates = { left: leftLines.map((c) => ({ ...c, resumes: resumes(c, -1) })), right: rightLines.map((c) => ({ ...c, resumes: resumes(c, 1) })), valleys: valleyLines };
   const lo = Lf ? Lf.a + Lf.b * cy : 0, hi = Rf ? Rf.a + Rf.b * cy : w - 1;
@@ -495,6 +506,19 @@ export function findWall(img, opts = {}) {
         if (bad === Lf) Lf = fixed; else Rf = fixed;
       }
     }
+  }
+  // A side with a good stretch of wall past it is another wall (a corner, a step forward or
+  // back): it can be read as the wall instead.
+  if (Gm) {
+    let all = 0, pastL = 0, pastR = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (Gm[y * w + x] !== G.WALL) continue;
+      all++;
+      if (Lf && x < Lf.a + Lf.b * y - 2) pastL++;
+      if (Rf && x > Rf.a + Rf.b * y + 2) pastR++;
+    }
+    if (Lf && turns.left == null && pastL >= all * 0.12) turns.left = (Lf.a + Lf.b * cy) / s;
+    if (Rf && turns.right == null && pastR >= all * 0.12) turns.right = (Rf.a + Rf.b * cy) / s;
   }
   const floorLines = houghLines(marks(0, -1), w, h, true, 30);
   const top = T0 || { a: by0, b: 0 }, left = Lf || { a: bx0, b: 0 }, right = Rf || { a: bx1, b: 0 };
@@ -554,7 +578,7 @@ export function findWall(img, opts = {}) {
   const up = (p) => [Math.max(0, Math.min(img.width, p[0] / s)), Math.max(0, Math.min(img.height, p[1] / s))];
   const corners = [meet(top, left), meet(top, right), meet(bottom, right), meet(bottom, left)].map(up);
   if (opts.debug) opts.debug.find = { w, h, wall: marks(1, 0), M, seed, lines: { top, bottom, left, right } };
-  return { corners, ceiling: !!T0, floor, soffit, sides: [!!Lf, !!Rf] };
+  return { corners, ceiling: !!T0, floor, soffit, sides: [!!Lf, !!Rf], turns };
 }
 
 // The largest rectangle of marked pixels whose width over height is in [lo, hi]
@@ -1444,8 +1468,36 @@ export function hiddenFromFor(corners, seenBottom, W, H) {
  * moved down to where the floor would be under the stand.
  * Returns findWall's result, with floorFrom 'photo', 'stand' or null.
  */
-export function suggestWall(img, seg = null) {
-  const f = findWall(img, { seg });
+// The other walls in a corner photo, read on their own: past a side where the wall turns,
+// when reading just that part finds a wall that stays on its side of the turn and is a
+// good width (15% of the photo or more). [{ side: 'left' | 'right', corners }], maybe empty.
+export function otherWalls(img, seg, found) {
+  const out = [], W = img.width, t = (found && found.turns) || {};
+  const xs = (c) => [Math.min(c[0][0], c[3][0]), Math.max(c[1][0], c[2][0])];
+  // Where the other wall's floor wasn't seen, it's the first wall's floor line carried on
+  // (two walls meet the same floor), when it sits lower: furniture hides the floor, so the
+  // lower guess is the nearer one.
+  const [bl, br] = [found.corners[3], found.corners[2]];
+  const floorAt = (x) => bl[1] + ((br[1] - bl[1]) * (x - bl[0])) / Math.max(1, br[0] - bl[0]);
+  const fixFloor = (g) => {
+    if (g.floor) return g.corners;
+    const c = g.corners.map((q) => q.slice());
+    for (const i of [2, 3]) { const y = Math.min(img.height, floorAt(c[i][0])); if (y > c[i][1]) c[i][1] = y; }
+    return c;
+  };
+  if (t.right != null) {
+    const g = suggestWall(img, seg, { xRange: [t.right, W] }), [x0, x1] = xs(g.corners);
+    if (x0 >= t.right - 0.05 * W && x1 - x0 >= 0.15 * W) out.push({ side: 'right', corners: fixFloor(g) });
+  }
+  if (t.left != null) {
+    const g = suggestWall(img, seg, { xRange: [0, t.left] }), [x0, x1] = xs(g.corners);
+    if (x1 <= t.left + 0.05 * W && x1 - x0 >= 0.15 * W) out.push({ side: 'left', corners: fixFloor(g) });
+  }
+  return out;
+}
+
+export function suggestWall(img, seg = null, opts = {}) {
+  const f = findWall(img, { seg, xRange: opts.xRange || null });
   if (f.floor) return { ...f, floorFrom: 'photo' };
   const { aspect } = aspectFromCorners(f.corners, img.width, img.height);
   const W = 600, H = Math.max(40, Math.round(W / aspect));

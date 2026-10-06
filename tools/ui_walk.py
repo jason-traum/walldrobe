@@ -901,6 +901,23 @@ with sync_playwright() as p:
             check(f'{W} a House of Spoils print reaches a wall', False, 'none in 10 walls')
         check(f'{W} no errors on the Oct 5 path', not errs, '; '.join(errs[:2]))
         ctx.close()
+    # A photo with a second wall in it offers that wall, and back.
+    ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
+    pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto(BASE + '#/start'); pg.wait_for_timeout(2500)
+    pg.set_input_files('#photo-input', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'fixtures', 'bench', '11.png'))
+    pg.wait_for_selector('[data-act="corners-ok"]:not([disabled])', timeout=90000); pg.wait_for_timeout(800)
+    quad = lambda: pg.evaluate("document.querySelector('#corner-svg .quad').getAttribute('points')")
+    q0 = quad()
+    check('390 a photo with a second wall offers it', pg.locator('[data-other-wall=right]').count() == 1)
+    if pg.locator('[data-other-wall=right]').count():
+        pg.locator('[data-other-wall=right]').click(); pg.wait_for_timeout(600)
+        check('390 the dots move to that wall, with the first one as the way back', quad() != q0 and pg.locator('[data-other-wall=left]').count() == 1)
+        pg.screenshot(path=f'{OUT}/other-wall-390.png')
+        pg.locator('[data-other-wall=left]').click(); pg.wait_for_timeout(600)
+        check('390 and back again', quad() == q0)
+    check('390 no errors on the other wall', not errs, '; '.join(errs[:2]))
+    ctx.close()
     # A whole home: each wall's price, the total, a home budget and one list for everything.
     for W, H in ((390, 844), (1280, 860)):
         ctx = b.new_context(viewport={'width': W, 'height': H}, color_scheme='light')

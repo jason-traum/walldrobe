@@ -49,6 +49,7 @@ States that apply everywhere:
 | Reader didn't load | The corners screen says "The photo reader didn't load, so these are rougher guesses than usual." | Drag, "Looks right" |
 | Dragging a dot | A round close-up floats above the finger showing the spot under it, with a cross. The picked dot is filled, and a nudge pad under the photo moves it a pixel at a time | Drag, nudge |
 | Checking | The photo with a dot on each corner of the wall where we found it. A note when the ceiling or the floor wasn't in the photo, or when a soffit is over the wall | Drag, "Looks right" |
+| Another wall in the photo (Oct 5) | When there's a good stretch of wall past a side (a corner, a wall that steps forward) and reading just that part finds a wall on its own: "Use the wall on the right" (or left) under the photo | Tap it: the dots move to that wall, and "Use the wall on the left" takes you back |
 | Reading | "Reading your wall…" on the button while the wall inside the corners is flattened and read | Wait |
 | Corners crossed or off photo | Handles turn to the error style, "Corners should go clockwise from top left." | Fix |
 | Sized from a TV | On the check screen: "Worked out from your TV, taken as a 55 in TV." with the TV size to change | Change the TV size, type the width |

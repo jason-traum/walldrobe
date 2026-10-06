@@ -42,7 +42,7 @@ const { layouts, problems } = layout({
 Each layout lists every piece with its position in inches, where the nail goes, and one sentence on why it's there. Every wall is judged whole: fit, taste, color (the scheme on the color wheel, how much of each color, whether accents repeat) and design (balance, a focal piece, busy next to quiet). `refill(input, layout, { keep, swap })` keeps the frames where they are and changes the art in them. The rules (57 in to center, 2 to 3 in gaps, about two thirds the width of the couch, 8 in above it) and the scoring are in [ENGINE.md](ENGINE.md).
 
 ```sh
-npm test               # 284 tests, including 300 random walls and real room photos
+npm test               # 287 tests, including 300 random walls and real room photos
 python3 tools/ui_walk.py out/walk   # every screen at 320, 390 and desktop, against the built site on :8830
 node tools/bench_read.mjs <dir>     # how well the photo reader boxes furniture side by side
 npm run elevations     # draws the sample walls' top layouts as SVG in out/

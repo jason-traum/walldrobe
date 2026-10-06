@@ -12,7 +12,7 @@ import { normalizePalette, paletteSimilarity } from '../engine/color.js';
 import { WALLS as SAMPLES, SAMPLE_PICKS } from '../demo/samples.js';
 import { esc, inches, feet, wallSvg, wallPoint, KIND_NAME, obName, labelSize, setPrintFor, setFrameColorFor } from './draw.js';
 import { aspectFromCorners, cornerProblem, flatten, paintOut, palette, crop, photoQuality, loadFile, toDataUrl, fromDataUrl, homography, apply, findArtBox, wallTone } from './photo.js';
-import { readWall, guessWidth, labToRgb, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
+import { readWall, guessWidth, labToRgb, suggestWall, otherWalls, tvDepthFactor, hiddenFromFor, TV_SIZES } from './detect.js';
 import * as store from './store.js';
 import { PRICES_CHECKED, PRINTERS, printOptions, picks as printPicks, aiQuestion, sizeKey } from './printers.js';
 import { FRAMES_CHECKED, FRAMERS, frameOptions, framePicks, framesTable, frameKey, sizesIn } from './framers.js';
@@ -792,7 +792,11 @@ async function onPhoto(file) {
     // Find the wall in the photo: its four corners, for the person to check.
     // Nothing is read off the photo until they say the corners are right.
     const found = suggestWall(img, seg);
+    // A corner photo: the wall on the other side of the turn, ready if that's the one you meant.
+    let others = [];
+    try { others = seg ? otherWalls(img, seg, found) : []; } catch (e) { console.warn('other walls', e); }
     S.draft.photo = {
+      others: others.map((o) => ({ side: o.side, corners: o.corners })),
       src: img.url, w: img.width, h: img.height,
       corners: found.corners, seen: { ceiling: found.ceiling, floor: found.floor, floorFrom: found.floorFrom, seenBottom: found.seenBottom || null, sides: found.sides, soffit: !!found.soffit, model: !!seg },
       seg: seg ? packLabels(seg) : null,
@@ -1294,6 +1298,7 @@ function corners() {
       </span>
     </div>
     ${S.ui.quality || misses.length ? `<ul class="notes">${[S.ui.quality, ...misses].filter(Boolean).map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
+    ${(p.others || []).length ? `<p class="small">${p.others.map((o) => `<button type="button" class="link" data-other-wall="${o.side}">Use the wall on the ${o.side}</button>`).join(' · ')}</p>` : ''}
     <div class="acts end">
       <a class="btn quiet" href="#/start">Use another photo</a>
       <button class="btn" type="button" data-act="corners-ok"${err || S.busy ? ' disabled' : ''}>${S.busy === 'read' ? 'Reading your wall…' : 'Looks right'}</button>
@@ -4198,6 +4203,15 @@ document.addEventListener('click', (e) => {
     resetLayouts(); persist(); S.focusAfter = `[data-stuff-wall="${CSS.escape(x.id)}"]`; render();
     const f = document.querySelector(S.focusAfter); S.focusAfter = null; if (f) f.focus({ preventScroll: true });
     return;
+  }
+  if (t.dataset.otherWall) {
+    // Swap to the wall on that side; the one you had becomes the way back.
+    const p = S.draft && S.draft.photo, i = p && (p.others || []).findIndex((o) => o.side === t.dataset.otherWall);
+    if (i == null || i < 0) return;
+    const o = p.others[i], back = { side: o.side === 'right' ? 'left' : 'right', corners: p.corners };
+    p.corners = o.corners; p.others = [...p.others.filter((_, k) => k !== i).filter((x) => x.side !== back.side), back];
+    p.seen = { ...(p.seen || {}), floorFrom: null, soffit: false };
+    persist(); render(); return;
   }
   if (t.dataset.openHome || t.dataset.openHomeGet) {
     saveHomeDraft();
