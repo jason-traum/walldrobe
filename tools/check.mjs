@@ -38,7 +38,7 @@ changed = [...new Set(changed.filter(Boolean))];
 const ALL_TESTS = readdirSync(join(ROOT, 'test')).filter((f) => f.endsWith('.test.js')).map((f) => `test/${f}`);
 // 300 random walls, about 80 s: only in --full, or when the engine itself changed.
 const SLOW = new Set(['test/properties.test.js']);
-const SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget'];
+const SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget', 'app'];
 
 // Which tests and walk sections each kind of file reaches. First match wins per file.
 const RULES = [
@@ -51,6 +51,8 @@ const RULES = [
   [/^demo\/(catalog\.json|samples\.js)$/, { tests: ['catalog_health', 'metadata', 'mats', 'engine', 'taste_vision', 'subjects'], walk: ['core', 'society6'] }],
   [/^fixtures\//, { tests: 'all', walk: [] }],
   [/^tools\/check_catalog\.mjs$/, { tests: ['catalog_health'], walk: [] }],
+  [/^server\/app\.sql$/, { tests: ['app_schema'], walk: [] }],
+  [/^web\/(account|app-entry|app-global|app\.config)\.js$/, { tests: [], walk: ['app'] }],
   [/^tools\/ui_walk\.py$/, { tests: [], walk: 'all' }],
   [/^tools\/build_site\.mjs$/, { tests: [], walk: ['core'] }],
   [/^test\/.+\.test\.js$/, { tests: 'self', walk: [] }],
@@ -100,8 +102,11 @@ if (tests.length) {
 if (walk.length) {
   if (build) {
     const t = Date.now();
-    const r = spawnSync('node', ['tools/build_site.mjs'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, PATH: `${join(ROOT, 'node_modules', '.bin')}:${process.env.PATH}` } });
-    if (r.status !== 0) { line(`Build FAILED:\n${(r.stderr || r.stdout).slice(0, 800)}`); process.exit(1); }
+    const env = { ...process.env, PATH: `${join(ROOT, 'node_modules', '.bin')}:${process.env.PATH}` };
+    // Both sites: the free one, and the app (accounts on), from the same code.
+    const r = spawnSync('node', ['tools/build_site.mjs'], { cwd: ROOT, encoding: 'utf8', env });
+    const ra = r.status === 0 ? spawnSync('node', ['tools/build_site.mjs', '--app'], { cwd: ROOT, encoding: 'utf8', env }) : r;
+    if (r.status !== 0 || ra.status !== 0) { line(`Build FAILED:\n${(ra.stderr || ra.stdout || r.stderr || r.stdout).slice(0, 800)}`); process.exit(1); }
     line(`Build: ${(r.stdout.match(/docs\/index\.html [\d.]+ MB/) || ['done'])[0]} in ${secs(t)}`);
   }
   const up = () => { try { sh('curl -s -o /dev/null -w "%{http_code}" http://localhost:8830/'); return true; } catch { return false; } };

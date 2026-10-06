@@ -332,3 +332,28 @@ From Preferences ("Browse all the art"), the feed (after the seventh wall) and F
 | Your art (a wall's pieces) | Each piece: name, Framed or Not framed, Wide and Tall with Keep shape, the frame it goes in when not framed, Keep, Maybe, Skip, Save to your stuff (or In your stuff), Remove | |
 | A Society6 print on a wall | The frame, the paper with its printed white border (1 in small, 2 in medium and up), the art inside at its own shape | Never a second mat |
 | Start, the wall photo | Phone: Take a photo (camera), Or choose one you have. Computer: Choose a photo | |
+
+## 13. The app site: sign in, profiles, Walls people hung (Oct 6, docs/app/)
+
+Same screens as the free site, plus these. The free site shows none of them.
+
+| State | What they see | Action |
+|---|---|---|
+| Front page, signed out | Sign in in the bar | Sign in |
+| Front page, signed in | Your picture (or first letter) in the bar | Your profile |
+| Sign in, before the database is set up | "Sign in", what it's for, "Sign-in is coming soon. Your walls still save on this device.", and that the room photo never goes up | Back |
+| Sign in | Continue with Google; Email me a link once email is set up; "Check you@x.com for the link." after sending | Google, email |
+| Sign in failed | The reason in plain words under the buttons ("No connection. Try again") | Try again |
+| Your profile | Picture, name, @handle, followers and following, the bio, Edit profile, Sign out; tabs Your walls and Saved; your walls two across, Shared on the ones that are up; walls only on your account (from another device) open their page | Edit, a wall, Saved |
+| Your profile, Saved | Walls you saved from other people, each as a card | Open, Try these on my wall |
+| Edit profile | Name, Handle (3 to 24 lowercase letters, numbers or _), A line about you, Save, Cancel; "That name is taken" | Save |
+| A saved wall's sheet, signed out | "Sign in to keep this wall on every device and share it." | Sign in |
+| A saved wall's sheet, signed in | A line about it, Show my wall photo (when there is one, off), Share to your profile | Share: "Shared on your profile." and its page |
+| A shared wall's sheet | "Shared on your profile. See it", Take it off your profile | Take it off: "Off your profile." |
+| Walls people hung | Everyone or Following; each wall with who shared it, the room, the date, the line, the drawing (the wall photo only if shown), Save with its count, Try these on my wall, Report; More walls | Save, Try, Report, a person |
+| Following, nobody shared | "Nobody you follow has shared a wall yet." (signed out: "Sign in to see walls from people you follow.") | |
+| Someone's profile | Their picture, name, @handle, counts, bio, Follow (Following when on; signed out: Sign in to follow), their shared walls | Follow, a wall |
+| One wall | Who, the name, the line, the drawing, Try these on my wall, Save, Copy link, the pieces with hearts | Try, Save, Copy link |
+| Try these on my wall | Its pieces go in your favorites: "4 pieces are in your favorites. Your walls try them first where they fit." and your walls | |
+| Report | First tap: "Tap Report again to hide this wall for you and flag it. Three reports hide it for everyone."; second: it's gone from your feed, "Reported. Thanks." | |
+| Private or gone wall | "This wall is private or gone." | Back |
