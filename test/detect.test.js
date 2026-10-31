@@ -8,8 +8,12 @@ import assert from 'node:assert/strict';
 import { readWall, guessWidth, suggestWall, tvDepthFactor, hiddenFromFor } from '../web/detect.js';
 import { flatten, aspectFromCorners, homography, apply } from '../web/photo.js';
 import { readPng } from './png.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { unpackLabels } from '../web/segcore.js';
+
+// Oct 31 2026: Jason's living room photo is kept out of the public repo (his apartment photos stay private).
+// These tests run only where that photo is present locally.
+const NO_LIVING = existsSync(new URL('./fixtures/living_room.png', import.meta.url)) ? false : 'the living room photo is kept private, out of the public repo';
 
 // A flattened wall: the wall fills the image and the floor is its bottom edge.
 function scene() {
@@ -119,7 +123,7 @@ const livingLabels = () => unpackLabels(JSON.parse(readFileSync(new URL('./fixtu
 const MODES = [['with the image model', livingLabels], ['without it', () => null]];
 
 for (const [mode, labels] of MODES) {
-  test(`living room, ${mode}: the suggested corners are close to the real ones, with the hidden floor found from the TV stand`, () => {
+  test(`living room, ${mode}: the suggested corners are close to the real ones, with the hidden floor found from the TV stand`, { skip: NO_LIVING }, () => {
     const img = living();
     const f = suggestWall(img, labels());
     assert.ok(f.ceiling && f.sides[0] && f.sides[1], JSON.stringify(f));
@@ -131,7 +135,7 @@ for (const [mode, labels] of MODES) {
   });
 }
 
-test('living room, with the image model: the top corners are under a soffit, so the ceiling is higher elsewhere', () => {
+test('living room, with the image model: the top corners are under a soffit, so the ceiling is higher elsewhere', { skip: NO_LIVING }, () => {
   assert.equal(suggestWall(living(), livingLabels()).soffit, true);
 });
 
@@ -146,7 +150,7 @@ function readLiving(seg) {
 }
 
 for (const [mode, labels] of MODES) {
-test(`living room, ${mode}: reading the flattened wall finds two prints, the TV, its stand and the lamp`, () => {
+test(`living room, ${mode}: reading the flattened wall finds two prints, the TV, its stand and the lamp`, { skip: NO_LIVING }, () => {
   const { corners, W, H, r } = readLiving(labels());
   // Detected boxes go back into the photo, then into the hand-set frame, so the
   // check doesn't depend on exactly where the suggested corners landed.
@@ -169,7 +173,7 @@ test(`living room, ${mode}: reading the flattened wall finds two prints, the TV,
   near(box(r.items.find((i) => i.kind === 'lamp')), EXPECT.lamp, 'lamp');
 });
 
-test(`living room, ${mode}: the 55 in TV on its stand sizes the wall at about 10 ft by 7 ft 6 in`, () => {
+test(`living room, ${mode}: the 55 in TV on its stand sizes the wall at about 10 ft by 7 ft 6 in`, { skip: NO_LIVING }, () => {
   const { img, corners, W, H, aspect, r } = readLiving(labels());
   const tv = r.items.find((i) => i.kind === 'tv');
   assert.ok(tv.alone && tv.onStand, JSON.stringify(tv));
@@ -185,7 +189,7 @@ test(`living room, ${mode}: the 55 in TV on its stand sizes the wall at about 10
 });
 }
 
-test('living room with the TV on: a TV showing a picture is still the TV, not a print, and still sizes the wall', () => {
+test('living room with the TV on: a TV showing a picture is still the TV, not a print, and still sizes the wall', { skip: NO_LIVING }, () => {
   // The same photo with a landscape on the screen (from Jason's own photo of it on).
   const img = readPng(new URL('./fixtures/living_room_tv_on.png', import.meta.url));
   const seg = unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room_tv_on.labels.json', import.meta.url), 'utf8')));

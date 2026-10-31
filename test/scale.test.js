@@ -7,8 +7,12 @@ import assert from 'node:assert/strict';
 import { readWall, guessWidth, scaleEstimates, reconcileScale, suggestWall, tvDepthFactor, hiddenFromFor, TV_SIZES } from '../web/detect.js';
 import { flatten, aspectFromCorners, homography, apply } from '../web/photo.js';
 import { readPng } from './png.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { unpackLabels } from '../web/segcore.js';
+
+// Oct 31 2026: Jason's living room photo is kept out of the public repo (his apartment photos stay private).
+// These tests run only where that photo is present locally.
+const NO_LIVING = existsSync(new URL('./fixtures/living_room.png', import.meta.url)) ? false : 'the living room photo is kept private, out of the public repo';
 
 // A flattened 800 x 560 wall with things drawn on it and a label map (ADE20K
 // ids, at a quarter of the size) that says what each one is. The TV is 242 px
@@ -162,7 +166,7 @@ test('any TV size in the list can be the pick; one within 15% of 55 in is left a
 const living = () => readPng(new URL('./fixtures/living_room.png', import.meta.url));
 const livingLabels = () => unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room.labels.json', import.meta.url), 'utf8')));
 for (const [mode, labels, want] of [['with the image model', livingLabels, 120], ['without it', () => null, 118]]) {
-  test(`living room, ${mode}: the TV is the only reference, so the width is still ${want} in and the note says to measure`, () => {
+  test(`living room, ${mode}: the TV is the only reference, so the width is still ${want} in and the note says to measure`, { skip: NO_LIVING }, () => {
     const img = living(), seg = labels();
     const { corners, seenBottom } = suggestWall(img, seg);
     const { aspect } = aspectFromCorners(corners, img.width, img.height);

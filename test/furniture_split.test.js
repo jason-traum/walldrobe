@@ -4,11 +4,15 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { readPng } from './png.js';
 import { readWall, suggestWall, hiddenFromFor, splitByTops } from '../web/detect.js';
 import { flatten, aspectFromCorners, homography, apply } from '../web/photo.js';
 import { unpackLabels } from '../web/segcore.js';
+
+// Oct 31 2026: Jason's living room photo is kept out of the public repo (his apartment photos stay private).
+// These tests run only where that photo is present locally.
+const NO_LIVING = existsSync(new URL('./fixtures/living_room.png', import.meta.url)) ? false : 'the living room photo is kept private, out of the public repo';
 
 const dir = new URL('./fixtures/bench/', import.meta.url);
 const truth = JSON.parse(readFileSync(new URL('truth.json', dir), 'utf8'));
@@ -71,7 +75,9 @@ test('a photo with a second wall past the side offers it, read on its own; one w
   assert.equal(others[0].side, 'right');
   const x0 = Math.min(others[0].corners[0][0], others[0].corners[3][0]) / img.width;
   assert.ok(x0 > 0.6, `the right wall starts at ${x0.toFixed(2)} of the photo`);
-  const liv = readPng(new URL('./fixtures/living_room.png', import.meta.url));
-  const lseg = unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room.labels.json', import.meta.url), 'utf8')));
-  assert.deepEqual(otherWalls(liv, lseg, suggestWall(liv, lseg)), []);
+  if (!NO_LIVING) {
+    const liv = readPng(new URL('./fixtures/living_room.png', import.meta.url));
+    const lseg = unpackLabels(JSON.parse(readFileSync(new URL('./fixtures/living_room.labels.json', import.meta.url), 'utf8')));
+    assert.deepEqual(otherWalls(liv, lseg, suggestWall(liv, lseg)), []);
+  }
 });

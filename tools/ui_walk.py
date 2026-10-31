@@ -508,7 +508,7 @@ with sync_playwright() as p:
             errs = []
             pg.on('pageerror', lambda e: errs.append(str(e)))
             pg.goto(BASE + '#/start'); pg.wait_for_timeout(2500)
-            pg.set_input_files('#photo-input', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'fixtures', 'living_room.png')); pg.wait_for_timeout(3000)
+            pg.set_input_files('#photo-input', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test', 'fixtures', 'bench', '04.png')); pg.wait_for_timeout(3000)
             pg.wait_for_selector('[data-act="corners-ok"]:not([disabled])', timeout=90000)
             vis(pg, '[data-act="corners-ok"]').click(); pg.wait_for_timeout(8000)
             if '#/size' in pg.url:

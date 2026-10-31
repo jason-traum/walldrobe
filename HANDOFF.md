@@ -55,7 +55,7 @@ Everything runs in the browser. No server, no account, the photo never leaves th
 | `web/draw.js` | SVG wall drawings. |
 | `tools/build_site.mjs` | Bundles `web/main.js` with esbuild into `docs/index.html`. |
 | `tools/segment.mjs` | Labels a photo in Node with onnxruntime-node (model cached in `tools/.cache/`). |
-| `test/` | About 136 tests. `detect.test.js` uses Jason's living room fixture (`test/fixtures/living_room*.png`, 450 px wide, plus model labels). |
+| `test/` | About 136 tests. The living room tests in `detect.test.js`, `scale.test.js` and `furniture_split.test.js` run only where Jason's living room photo is present locally (`test/fixtures/living_room*.png`); it was taken out of the public repo Oct 31 2026. The UI walk uploads `test/fixtures/bench/04.png` (Unsplash). |
 | `demo/catalog.json` | About 1,500 pieces: about 840 real prints (Desenio, House of Spoils) in 13 frame sizes, plus free photos (Unsplash, Pexels, Pixabay). |
 
 ## 4. Build, test, check, ship
@@ -208,7 +208,7 @@ From a run on 81 Unsplash room photos (section 8):
 - A TV mounted on the wall and off is read as art; the TV rules assume a stand.
 - A couch back is sometimes read as a TV, which then sets the wall's scale.
 - Gallery walls: some frames are missed.
-- A TV that's on (showing a picture) reads as a painting. The code now catches it on the composite fixture (`test/fixtures/living_room_tv_on.png`), and "It's the TV" goes on the biggest wide piece as a fallback; still unverified on Jason's real phone photo.
+- A TV that's on (showing a picture) reads as a painting. The code now catches it on the composite fixture (`test/fixtures/living_room_tv_on.png`, kept locally, not in the public repo), and "It's the TV" goes on the biggest wide piece as a fallback; still unverified on Jason's real phone photo.
 - Add error margins: grow uncertain boxes, and check layouts still fit at plus or minus 5 to 10% scale.
 - Ask only the questions that change the answer: TV or art, does this piece stay, a known measurement.
 
