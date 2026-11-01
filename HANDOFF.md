@@ -2,6 +2,10 @@
 
 Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the next working session (a new chat, Claude Code, or a person). Read this first, then CLAUDE.md, PRODUCT.md, ENGINE.md, STATES.md, DESIGN.md and DECISIONS.md, in that order. When this file and DECISIONS.md disagree, DECISIONS.md wins for product calls; this file wins for "what's in flight".
 
+## Git history rewritten, 2026-11-01 (read first)
+
+Jason's two living room photos (test/fixtures/living_room.png, living_room_tv_on.png and their label files) are gone from the whole git history, on every branch (Jason: "force push walldrobe"). Every commit hash before Nov 1 changed. Any clone from before then holds the old history, photos included: don't pull, merge or rebase it. Reset it instead (`git fetch origin` then `git reset --hard origin/<branch>`), or clone fresh. Never push old commits back.
+
 ## 0. Status, 2026-10-05 (read this before the older sections below)
 
 - Branch `v4` is live: `main` is moved up to it after every batch, and GitHub Pages serves `docs/` from `main`. A frozen beta for testers lives at `/walldrobe/beta/` and is updated only when Jason says.
