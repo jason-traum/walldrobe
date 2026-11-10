@@ -124,7 +124,7 @@ Open risks (need a real iPhone or real use):
 
 ## 5e. v2 is live (2026-10-02, noon)
 
-Jason said to switch. `main` is v2 (e2ae9ea) and the site at jason-traum.github.io/walldrobe is v2. The first version is kept three ways: branch `v1`, tag `v1` (both at 6f3fe32), and a working copy at jason-traum.github.io/walldrobe/v1/ (`docs/v1/`, which the build leaves alone). Pushes go from Jason's Mac with a bundle, as before.
+Jason said to switch. `main` is v2 (e2ae9ea) and the site at jason-traum.github.io/walldrobe is v2. The first version is kept three ways: branch `v1`, and a working copy at jason-traum.github.io/walldrobe/v1/ (`docs/v1/`, which the build leaves alone). Pushes go from Jason's Mac with a bundle, as before.
 
 ## 5g. Where things stand (2026-10-02, 4 pm). Read this first in a new chat.
 
