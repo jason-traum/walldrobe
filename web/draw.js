@@ -136,19 +136,51 @@ function tab(cx, cy, len, w, ang, rnd, cls) {
   const a = (ang * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
   return `<polygon points="${pts.map(([x, y]) => `${(cx + x * c - y * sn).toFixed(2)},${(cy + x * sn + y * c).toFixed(2)}`).join(' ')}" class="${cls}"/>`;
 }
-// A framed print gets the top two only (the frame holds it; four tabs on frames that sit
-// close crossed into blue X marks), and a tab that would land on a neighbor is left off
-// (audit Nov 2, fix 2). `others` are the other pieces' outside boxes, in drawing space.
-export function tapeTabs(x, y, w, h, id, cls = 'tape', ppi = 4, { bottom = true, others = [] } = {}) {
+// A tab's outline as a rotated rectangle, for overlap tests (the torn ends don't matter here).
+function tabPoly(cx, cy, len, w, ang) {
+  const a = (ang * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+  return [[-len / 2, -w / 2], [len / 2, -w / 2], [len / 2, w / 2], [-len / 2, w / 2]].map(([x, y]) => [cx + x * c - y * sn, cy + x * sn + y * c]);
+}
+const rectPoly = (o) => [[o.x, o.y], [o.x + o.w, o.y], [o.x + o.w, o.y + o.h], [o.x, o.y + o.h]];
+// Two convex outlines overlap unless some edge's normal separates them.
+function overlaps(a, b) {
+  for (const poly of [a, b]) {
+    for (let i = 0; i < poly.length; i++) {
+      const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % poly.length];
+      const nx = y2 - y1, ny = x1 - x2;
+      let aMin = Infinity, aMax = -Infinity, bMin = Infinity, bMax = -Infinity;
+      for (const [x, y] of a) { const d = x * nx + y * ny; aMin = Math.min(aMin, d); aMax = Math.max(aMax, d); }
+      for (const [x, y] of b) { const d = x * nx + y * ny; bMin = Math.min(bMin, d); bMax = Math.max(bMax, d); }
+      if (aMax <= bMin || bMax <= aMin) return false;
+    }
+  }
+  return true;
+}
+// A framed print gets the top two tabs only (the frame holds it). A tab that would cross
+// another tab or land on a neighbor is left off, but every new print keeps at least one,
+// so it never reads as a piece of yours (audit Nov 2, fix 2; review Nov 17, B1 and H1).
+// Tabs sit a little in from the corner, the way tape lands on a frame, which leaves the
+// gap between frames clear. `others`: the other pieces' outside boxes; `placed`: tabs
+// already drawn on this wall, shared across its pieces.
+export function tapeTabs(x, y, w, h, id, cls = 'tape', ppi = 4, { bottom = true, others = [], placed = null } = {}) {
   const rnd = seeded(String(id));
   const tw = Math.max(TAPE_W, 5 / ppi), tl = Math.max(3.2, 15 / ppi);
   const j = () => (rnd() - 0.5) * 10;
-  const r = ((tl + tw) / 2) * 0.75;
-  const clear = (cx, cy) => !others.some((o) => cx + r > o.x && cx - r < o.x + o.w && cy + r > o.y && cy - r < o.y + o.h);
-  const spots = [[x, y, -42], [x + w, y, 42]];
-  if (bottom && h > 20) spots.push([x, y + h, 42], [x + w, y + h, -42]);
-  // Draw every jitter so a tab left off doesn't change how the others lean.
-  return spots.map(([cx, cy, a]) => { const ang = a + j(); const t = tab(cx, cy, tl, tw, ang, rnd, cls); return clear(cx, cy) ? t : ''; }).join('');
+  const k = tl * 0.18;
+  const spots = [[x, y, -42, 1, 1], [x + w, y, 42, -1, 1]];
+  if (bottom && h > 20) spots.push([x, y + h, 42, 1, -1], [x + w, y + h, -42, -1, -1]);
+  // Every jitter and torn edge is drawn in the same order, so a tab left off doesn't change the others.
+  const cands = spots.map(([cx0, cy0, a, dx, dy]) => {
+    const ang = a + j(), cx = cx0 + dx * k, cy = cy0 + dy * k;
+    return { svg: tab(cx, cy, tl, tw, ang, rnd, cls), poly: tabPoly(cx, cy, tl, tw, ang) };
+  });
+  if (!placed) return cands.map((t) => t.svg).join('');
+  const boxes = others.map(rectPoly);
+  for (const t of cands) { t.tabHit = placed.some((q) => overlaps(q, t.poly)); t.pieceHit = boxes.some((b) => overlaps(b, t.poly)); }
+  let keep = cands.filter((t) => !t.tabHit && !t.pieceHit);
+  if (!keep.length) keep = [cands.find((t) => !t.tabHit) || cands[0]];
+  for (const t of keep) placed.push(t.poly);
+  return keep.map((t) => t.svg).join('');
 }
 // One short strip across the top left corner: this one stays where it hangs.
 function pinStrip(x, y, id) {
@@ -165,7 +197,7 @@ function pinStrip(x, y, id) {
 // When not even the first word fits, the paper stays blank rather than show a cut word (audit Nov 2, fix 5).
 function waitTitle(title, cx, cy, iw, ppi) {
   const fs = Math.max(10 / (ppi || 3), Math.min(2.4, iw / 8));
-  const fit = Math.max(3, Math.floor(iw / (fs * 0.56)));
+  const fit = Math.max(3, Math.floor(iw / (fs * 0.5)));
   const words = String(title || '').split(/\s+/).filter(Boolean);
   const lines = [];
   let i = 0;
@@ -179,7 +211,8 @@ function waitTitle(title, cx, cy, iw, ppi) {
   if (i < words.length) {
     const ws = lines[lines.length - 1].split(' ');
     if (ws.join(' ').length + 1 > fit && ws.length > 1) ws.pop();
-    lines[lines.length - 1] = `${ws.join(' ')}…`;
+    if (ws.join(' ').length + 1 <= fit) lines[lines.length - 1] = `${ws.join(' ')}…`;
+    else lines[lines.length - 1] = ws.join(' ');
   }
   const lh = fs * 1.2, y0 = cy - ((lines.length - 1) * lh) / 2;
   return `<text x="${cx}" y="${y0}" font-size="${fs}" class="art-wait">${lines.map((t, k) => `<tspan x="${cx}" dy="${k ? lh : 0}">${esc(t)}</tspan>`).join('')}</text>`;
@@ -192,7 +225,7 @@ function printImg(img, x, y, w, h, margin) {
   const m = Math.min(margin, w / 4, h / 4);
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="print-paper"/><image href="${img}" x="${x + m}" y="${y + m}" width="${w - 2 * m}" height="${h - 2 * m}" preserveAspectRatio="xMidYMid meet"/>`;
 }
-function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, printFor, others = [] }) {
+function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, printFor, others = [], placed = null }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
   const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
@@ -235,7 +268,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     <rect x="${p.x + b}" y="${y + b}" width="${ow}" height="${oh}" class="mat"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, pw, ppi)}
     ${img ? printImg(img, ix, iy, pw, ph, p.frame.margin) : ''}
-    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi, { bottom: false, others })}
+    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi, { bottom: false, others, placed })}
     ${sel}
   </g>`;
   }
@@ -244,7 +277,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="paper" filter="url(#wd-shadow-soft)"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, p.w - 2 * m, ppi)}
     ${img ? `<image href="${img}" x="${p.x + m}" y="${y + m}" width="${p.w - 2 * m}" height="${p.h - 2 * m}" preserveAspectRatio="xMidYMid slice"/>` : ''}
-    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi, { others })}
+    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi, { others, placed })}
     ${sel}
   </g>`;
 }
@@ -322,13 +355,14 @@ export function wallSvg(o) {
   const showObs = o.hideObstacles ? '' : obs;
   const L = o.layout;
   const boxes = L ? L.pieces.map((p) => ({ id: p.ref.id, x: p.x, y: H - p.y - p.h, w: p.w, h: p.h })) : [];
+  const placed = [];
   const arts = L ? L.pieces.map((p) => {
     const owned = p.ref.source === 'owned';
     const info = owned && o.ownedFor ? o.ownedFor(p.ref.id) : null;
     const kind = owned ? (p.role === 'pinned' ? 'pin' : 'own') : (o.keptIds && o.keptIds.has(p.ref.id) ? 'kept' : 'new');
     // A pinned piece is still on the wall in the photo: only its strip of tape is drawn.
     if (kind === 'pin' && o.photo) return `<g class="art is-pin" data-id="${esc(p.ref.id)}"${o.still ? '' : ` tabindex="0" role="button" aria-label="${esc(p.title)}, stays where it hangs"`}><rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="hit"/>${pinStrip(p.x, H - p.y - p.h, p.ref.id)}</g>`;
-    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi, printFor: o.printFor || PRINT_FOR, others: boxes.filter((b) => b.id !== p.ref.id) });
+    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi, printFor: o.printFor || PRINT_FOR, others: boxes.filter((b) => b.id !== p.ref.id), placed });
   }).join('') : '';
   // A wall you can tap pieces on is a group, so screen readers reach each piece.
   const role = L && !o.still ? 'group' : 'img';

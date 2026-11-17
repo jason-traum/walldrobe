@@ -108,6 +108,8 @@ function upgradeDraft(d) {
 }
 upgradeDraft(S.draft);
 
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
 // ---------- Router ----------
 
 const route = () => (location.hash.replace(/^#\/?/, '') || '').split('/');
@@ -720,7 +722,7 @@ function home() {
   const resume = !!ownDraftSaved();
   return `${bar(wordmark(), `${saved.length ? '<a class="btn quiet small" href="#/walls">Your walls</a>' : ''}${APP ? (signedIn() ? `<a class="acct-chip" href="#/me" aria-label="Your profile">${avatar(A.me.profile, 28)}</a>` : '<a class="btn quiet small" href="#/signin">Sign in</a>') : ''}`)}
   <main class="home">
-    <div class="drawing hero">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, still: true, pxWide: 900, label: 'A sample living room wall, with new pieces taped up where they would hang' })}<span class="chip">Sample wall</span></div>
+    <div class="drawing hero">${wallSvg({ wall: w.wall, obstacles: w.obstacles, layout: L, imageFor: (p) => byId.get(p.ref.id)?.imageData, still: true, pxWide: Math.min(900, pxNow()), label: 'A sample living room wall, with new pieces taped up where they would hang' })}<span class="chip">Sample wall</span></div>
     <div class="home-copy">
       <h1>A wardrobe for your walls</h1>
       <p class="lede">Photo a wall. Get art laid out around what you own, with every nail marked.</p>
@@ -2233,7 +2235,7 @@ function feed() {
   })();
   // A budget, asked in the list after the fourth wall until you set one or say no limit.
   const budgetCard = d.budget || d.budgetAsked ? '' : `<li class="taste-card budget-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="budget-q">Budget for this wall?</span><span class="pencil small">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span>
-    <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}" aria-label="$${b.toLocaleString('en-US')}">${b >= 1000 ? `$${b / 1000}k` : `$${b}`}</button>`).join('')}<button type="button" data-budget-ask="0">No limit</button></span>${budgetForm('feed')}</span></div></li>`;
+    <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}">${b >= 1000 ? `$${b / 1000}k` : `$${b}`}</button>`).join('')}<button type="button" data-budget-ask="0">Any</button></span>${budgetForm('feed')}</span></div></li>`;
   const tasteTaken = pct0 > 0;
   const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Heart what you like. Your walls try it first.</span></span></a></li>`;
   const items = (tasteTaken ? '' : tasteCard) + v.list.map((L, i) => `<li class="entry">
@@ -3081,7 +3083,7 @@ function framesScreen() {
     const whole = p.frame && p.frame.can && p.frame.can.mat && !p.frame.can.plain && !(item.offers && item.offers.length);
     const mg = p.frame && p.frame.margin;
     // How it's framed (said once above the list when every piece shares it) and its sizes (per row).
-    const sizes = `Print ${sz(ps ? ps[0] : fw, ps ? ps[1] : fh)} in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
+    const sizes = ps ? `Print ${sz(ps[0], ps[1])}, in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `${cap(aOrAn(fw))} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
     const [how, size] = !needsFrame(p) ? (p.frame && p.frame.print ? ['Comes framed with a white border.', `Art ${sz(p.frame.print.w, p.frame.print.h)}, ${sz(p.w, p.h)} outside.`] : ['Comes framed.', `${sz(p.w, p.h)}.`])
       : mg ? [`White border printed on (${mg} in), so no mat.`, sizes]
         : ps ? [`Printed smaller, with a mat${whole ? ', so the photo keeps its shape' : ''}.`, sizes]
@@ -3373,7 +3375,7 @@ function compare() {
 
 function focusSelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
-  const keys = ['style', 'art', 'count', 'step', 'choice', 'for', 'onwall', 'nudge', 'pin', 'wall', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
+  const keys = ['askpick', 'style', 'art', 'count', 'step', 'choice', 'for', 'onwall', 'nudge', 'pin', 'wall', 'isArt', 'isTv', 'fullness', 'just', 'save', 'piece', 'goto', 'fix', 'obk', 'obid', 'ok', 'oid', 'keep', 'act', 'id', 'which', 'corner', 'add', 'pick', 'open', 'rename'];
   const parts = keys.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${CSS.escape(el.dataset[k])}"]`);
   return parts.length ? `${el.tagName.toLowerCase()}${parts.join('')}` : null;
 }
@@ -4316,7 +4318,7 @@ document.addEventListener('click', (e) => {
   if (!t) return;
   const a = t.dataset.act;
   if (t.dataset.frameOpen) { S.ui.frameOpen = t.dataset.frameOpen; render(); const b = document.querySelector(`[data-color-one="${CSS.escape(t.dataset.frameOpen)}"][aria-pressed="true"]`) || document.querySelector(`[data-color-one="${CSS.escape(t.dataset.frameOpen)}"]`); if (b) b.focus({ preventScroll: true }); return; }
-  if (t.dataset.cacheRetry) { A.cache.delete(t.dataset.cacheRetry); render(); return; }
+  if (t.dataset.cacheRetry) { A.cache.delete(t.dataset.cacheRetry); render(); const m = document.querySelector('main'); if (m) { m.setAttribute('tabindex', '-1'); m.focus({ preventScroll: true }); } return; }
   if (t.dataset.wall) { S.openKey = t.dataset.wall; S.selected = null; S.undo = null; S.edit = false; S.sheet = null; if (location.hash === '#/wall') { e.preventDefault(); render(); } return; }
   if (t.dataset.goto !== undefined) { if (t.dataset.goto) { S.openKey = t.dataset.goto; S.selected = null; S.undo = null; S.edit = false; render(); } return; }
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
@@ -4845,7 +4847,9 @@ document.addEventListener('error', (e) => {
   // A taped thumbnail's corners are its tape, so its title goes in as text, not as ::after.
   const tn = img.closest('.tn');
   if (tn) { tn.classList.add('tn-gone'); const t = document.createElement('span'); t.className = 'tn-title'; t.textContent = img.alt || img.dataset.title || ''; img.replaceWith(t); return; }
-  const box = img.closest('.thumb, .art-big, .pick-art, .art-card-img');
+  const card = img.closest('.art-card-img');
+  if (card) { card.classList.add('is-missing-art'); return; }
+  const box = img.closest('.thumb, .art-big, .pick-art');
   if (box) { box.classList.add('is-missing'); if (img.alt) box.dataset.missing = img.alt; img.remove(); }
 }, true);
 // iOS needs a touch listener for :active press states.

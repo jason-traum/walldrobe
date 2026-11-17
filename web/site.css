@@ -130,9 +130,9 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .seg button:first-child { border-left: 0; }
 .seg button[aria-pressed="true"] { background: var(--tape-soft); color: var(--tape); font-weight: 600; }
 .seg button.is-default[aria-pressed="true"] { background: transparent; color: var(--ink); font-weight: 500; }
-.ask-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#sheet .sheet-row.ask-row, .ask-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ask-pick { display: grid; gap: 4px; min-width: 0; }
-.ask-pick .ask-label { font-size: 14px; color: var(--pencil); }
+.ask-pick .ask-label { font-size: 15px; font-weight: 500; color: var(--ink); }
 .ask-pick select { min-height: 44px; width: 100%; font: inherit; font-size: 16px; padding: 0 8px; border: 1px solid var(--field); border-radius: var(--r-control); background: var(--surface); color: var(--ink); }
 /* The group clips its corners, so a focused segment draws its ring inside itself. */
 .seg button:focus-visible { outline-offset: -3px; }
@@ -579,8 +579,8 @@ svg.is-dragging .measure { opacity: 0.25; }
 .taste-text { display: grid; gap: 2px; }
 .taste-text .name { font-weight: 600; color: var(--tape); }
 .taste-link.is-text .name { color: var(--ink); }
-.ask-seg { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-.ask-skip { display: inline-block; min-height: 44px; line-height: 44px; color: var(--pencil); }
+.budget-seg.ask-seg { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.ask-skip { display: block; justify-self: start; width: max-content; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0; text-align: left; color: var(--pencil); }
 
 /* ---------- Where to print ---------- */
 .where { margin-top: 16px; }
@@ -648,7 +648,7 @@ svg.is-dragging .measure { opacity: 0.25; }
 .dot-btn { width: 44px; height: 44px; display: inline-grid; place-items: center; border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
 .dot-btn .swatch-dot { width: 22px; height: 22px; border-radius: 50%; }
 .dot-btn[aria-pressed="true"] .swatch-dot { outline: 2px solid var(--ink); outline-offset: 3px; }
-.dot-btn:focus-visible { outline: 2px solid var(--focus, var(--ink)); outline-offset: -2px; }
+.dot-btn:focus-visible { outline: 2px solid var(--tape); outline-offset: -2px; }
 
 /* How well we know your taste: a thin bar that fills toward 100 */
 .known { position: relative; height: 6px; border-radius: 3px; background: var(--hairline); overflow: hidden; margin: 4px 0 8px; }
@@ -707,7 +707,7 @@ svg.is-dragging .measure { opacity: 0.25; }
 .sheet .sheet-status.is-empty { display: none; }
 .sheet .sheet-status { min-height: 32px; margin: -4px 0 0; }
 .sheet:has(.taste-promo) { gap: 14px; }
-.budget-form { margin: -6px 0 0; }
+.budget-form { margin: 8px 0 0; }
 .taste-promo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--tape-soft); color: var(--ink); text-decoration: none; }
 .taste-promo .known { grid-column: 1 / -1; margin: 4px 0 0; background: var(--surface); }
 .taste-promo-text { display: grid; gap: 2px; }
@@ -861,3 +861,5 @@ svg.is-dragging .measure { opacity: 0.25; }
 .plan-page .plan-has { margin: 4px 0 8px; }
 .plan-page .price-line { text-align: left; font-size: 18px; font-weight: 600; }
 .plan-done:focus { outline: none; }
+.art-card-img.is-missing-art { background: var(--mat); box-shadow: inset 0 0 0 1px var(--hairline); }
+.art-card-img.is-missing-art img { visibility: hidden; }
