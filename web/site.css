@@ -869,3 +869,50 @@ svg.is-dragging .measure { opacity: 0.25; }
 .plan-done:focus { outline: none; }
 .art-card-img.is-missing-art { background: var(--mat); box-shadow: inset 0 0 0 1px var(--hairline); }
 .art-card-img.is-missing-art img { visibility: hidden; }
+
+/* The opening story (Nov 17): the wall on top, one question a screen. Jason asked for slides
+   and fun motion here, like Knowunity's onboarding; everything else in the app stays calm. */
+.story { display: grid; gap: 12px; align-content: start; }
+.story-bar { height: 4px; border-radius: 2px; background: var(--hairline); overflow: hidden; }
+.story-bar span { display: block; height: 100%; width: var(--to); background: var(--tape); border-radius: 2px; animation: story-fill 420ms var(--ease) both; }
+@keyframes story-fill { from { width: var(--from); } to { width: var(--to); } }
+.story-wall { position: relative; }
+.story-wall.is-new-wall g.art { transform-box: fill-box; transform-origin: center; animation: story-pop 380ms var(--ease) both; }
+.story-wall.is-new-wall g.art:nth-of-type(2n) { animation-delay: 50ms; }
+.story-wall.is-new-wall g.art:nth-of-type(3n) { animation-delay: 100ms; }
+.story-wall.is-new-wall g.art:nth-of-type(5n) { animation-delay: 150ms; }
+.story-wall.is-new-wall g.art:nth-of-type(7n) { animation-delay: 200ms; }
+@keyframes story-pop { 0% { opacity: 0; transform: scale(0.8) rotate(-2deg); } 70% { opacity: 1; transform: scale(1.04) rotate(0.5deg); } 100% { opacity: 1; transform: none; } }
+.story-status { min-height: 44px; margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 0 6px; font-size: 15px; line-height: 22px; }
+.story-q { display: grid; gap: 12px; }
+.story-q h1 { margin: 0; font-size: 26px; line-height: 32px; text-wrap: balance; }
+.story-q h1:focus { outline: none; }
+.story-q.is-next { animation: story-in 320ms var(--ease) both; }
+.story-q.is-back { animation: story-in-back 320ms var(--ease) both; }
+.story-q.is-first { animation: story-up 420ms var(--ease) 120ms both; }
+@keyframes story-in { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+@keyframes story-in-back { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: none; } }
+@keyframes story-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.story-opts { display: grid; gap: 8px; }
+.story-opts.two { grid-template-columns: 1fr 1fr; }
+.story-opt { min-height: 52px; justify-content: flex-start; text-align: left; font-size: 17px; font-weight: 500; transition: background-color 120ms var(--ease), border-color 120ms var(--ease), transform 120ms var(--ease); }
+.story-opts.two .story-opt { justify-content: center; text-align: center; }
+.btn.quiet.story-opt.is-picked, .btn.quiet.story-opt.is-picked:hover, .btn.quiet.story-opt.is-picked:active { background: var(--tape); border-color: var(--tape); color: var(--surface); transform: scale(0.98); }
+.btn.quiet.story-opt[data-on] { background: var(--tape); border-color: var(--tape); color: var(--surface); }
+.story.is-building .story-opt:not([data-on]) { opacity: 0.5; }
+.story.is-building .story-opts, .story.is-building .story-skip { pointer-events: none; }
+.story-skip { justify-self: start; min-height: 44px; }
+.story-said { animation: story-up 420ms var(--ease) both; }
+.feed.is-reveal > li { animation: story-deal 520ms var(--ease) both; }
+.feed.is-reveal > li:nth-child(2) { animation-delay: 110ms; }
+.feed.is-reveal > li:nth-child(3) { animation-delay: 220ms; }
+.feed.is-reveal > li:nth-child(n+4) { animation-delay: 330ms; }
+@keyframes story-deal { from { opacity: 0; transform: translateY(36px) rotate(1.2deg); } to { opacity: 1; transform: none; } }
+.tape-burst { position: fixed; inset: 0 0 auto 0; height: 0; pointer-events: none; z-index: 5; }
+.tape-burst span { position: absolute; left: var(--x); top: -24px; width: 26px; height: 9px; background: var(--tape); opacity: 0; animation: tape-fall 1100ms cubic-bezier(0.3, 0.6, 0.6, 1) var(--d) both; }
+@keyframes tape-fall { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)); } 12% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(var(--f)) rotate(calc(var(--r) + 140deg)); } }
+@media (prefers-reduced-motion: reduce) {
+  .story-bar span, .story-wall.is-new-wall g.art, .story-q.is-next, .story-q.is-back, .story-q.is-first, .story-said, .feed.is-reveal > li { animation: none; }
+  .tape-burst { display: none; }
+  .story-opt { transition: none; }
+}

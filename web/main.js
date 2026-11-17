@@ -2215,10 +2215,12 @@ function building() {
 function feed() {
   if (need()) { go(need()); return ''; }
   const wait = building();
-  if (wait) return wait;
+  // Mid-story, the question you just answered stays up while the walls build, so nothing blanks.
+  if (wait) return S.ui.storyLive && S.mem.storyHtml && !(S.view && S.view.failed) ? storyHold() : wait;
   const v = run();
   if (!v.list.length) return noWalls(v);
   const d = S.draft;
+  if (storyOn(d)) { const st = story(v, d); if (st) return st; }
   const px = pxNow();
   const note = v.problems.find((x) => x.code === 'LOOSENED');
   // The taste test, in the list where it's seen: after the second wall, until you've done it.
@@ -2238,6 +2240,7 @@ function feed() {
   const tasteTaken = pct0 > 0;
   const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Heart what you like. Your walls try it first.</span></span></a></li>`;
   const n = feedCount(v);
+  const reveal = !!S.ui.reveal; S.ui.reveal = false;
   const items = v.list.slice(0, n).map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
@@ -2246,15 +2249,78 @@ function feed() {
   </li>${i === 1 ? tasteCard : ''}${i === 3 ? budgetCard : ''}${i === (budgetCard ? 5 : 3) ? askCard() : ''}${i === 6 ? browseCard : ''}`).join('');
   return `${bar(d.home ? back('#/home', 'Your home') : wordmark(), `<button type="button" class="btn quiet small" data-act="menu" aria-haspopup="dialog">Menu</button><button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="feed-page">
+    ${reveal ? `<p class="note story-said" role="status">${esc(storySaid(d))}</p>${tapeBurst()}` : ''}
     <p class="feed-intro">${d.home && d.name ? `${esc(d.name)}: best` : 'Best'} fit first. Tap one to make it yours.</p>
     ${readLine(d)}
     ${note ? `<p class="note">${esc(note.message)}</p>` : ''}
     ${v.moved ? '<p class="note">Ranked again for what you saved and swapped.</p>' : ''}
     ${S.undo && /^(Budget|No budget|Taste test reset)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
-    <ol class="feed">${items}</ol>
+    <ol class="feed${reveal ? ' is-reveal' : ''}">${items}</ol>
     <div class="feed-end"><button type="button" class="btn quiet" data-act="more-walls" data-left="${v.list.length - n}"${S.busy ? ' disabled' : ''}>${S.busy === 'more' ? 'Making more…' : 'Show more walls'}</button>${S.ui.noMore ? '<span class="pencil small">No more new walls fit here. Try a change in Preferences.</span>' : ''}</div>
   </main><!--sheet-->${sheetHtml()}`;
+}
+
+// ---------- The opening story (Nov 17) ----------
+// A new person sees their best wall first, then one question a screen with the wall on top,
+// changing as they answer: the room, scenes, busy, the budget. Then the 3 best walls.
+// Jason picked "wall first, then story" and a friendly voice with no character, and asked for
+// slides and fun motion like Knowunity's onboarding. Once per device; Skip ends it.
+const STORY_KEY = 'walldrobe.story';
+const storyDone = () => { try { return localStorage.getItem(STORY_KEY) === 'done'; } catch { return true; } };
+function endStory() { try { localStorage.setItem(STORY_KEY, 'done'); } catch { /* a private window: it just shows again */ } S.ui.storyOff = true; S.ui.storyLive = false; }
+function storySteps(d) {
+  const a = asked();
+  return [...ASK.map((q) => ({ kind: 'ask', q, done: q.id in a })), { kind: 'budget', done: !!(d.budget || d.budgetAsked) }];
+}
+function storyOn(d) {
+  if (S.ui.storyOff || d.home || storyDone()) return false;
+  if (S.ui.storyLive) return true;
+  return storySteps(d).every((x) => !x.done);
+}
+const SAID = { room: { light: 'a calm, light room', wood: 'a warm room with wood', bold: 'a bold, colorful room', moody: 'a dark, moody room' }, real: { real: 'real scenes', abstract: 'abstract art' }, busy: { quiet: 'quiet art', busy: 'busy art' } };
+function storySaid(d) {
+  const a = asked();
+  const bits = ASK.map((q) => (SAID[q.id] || {})[a[q.id]]).filter(Boolean);
+  if (d.budget) bits.push(`up to $${d.budget.toLocaleString('en-US')}`);
+  return bits.length ? `Your best walls, for ${bits.join(', ')}.` : 'Your best walls.';
+}
+// A few strips of tape fall once when the walls come in.
+function tapeBurst() {
+  const strips = Array.from({ length: 14 }, (_, k) => `<span style="--x:${(k * 37 + 11) % 100}%;--r:${(k * 53) % 70 - 35}deg;--d:${(k % 5) * 60}ms;--f:${520 + ((k * 29) % 5) * 60}px"></span>`).join('');
+  return `<div class="tape-burst" aria-hidden="true">${strips}</div>`;
+}
+function storyHold() {
+  const pick = S.ui.storyPick == null ? '' : `data-pick="${esc(S.ui.storyPick)}"`;
+  let h = S.mem.storyHtml.replace(/ is-(next|back|first|new-wall)/g, '').replace('class="feed-page story"', 'class="feed-page story is-building" aria-busy="true"');
+  if (pick) h = h.replace(pick, `${pick} data-on="1"`);
+  return h;
+}
+function story(v, d) {
+  const steps = storySteps(d), i = steps.findIndex((x) => !x.done), n = steps.length;
+  if (i < 0) { endStory(); S.ui.reveal = true; S.undo = null; return ''; }
+  S.ui.storyLive = true;
+  const L = v.list[0], step = steps[i];
+  const was = S.ui.storyAt == null ? i : S.ui.storyAt, dir = i < was ? 'is-back' : i > was ? 'is-next' : S.ui.storyAt == null ? 'is-first' : '';
+  const newWall = S.ui.storyKey !== L.key;
+  S.ui.storyAt = i; S.ui.storyKey = L.key;
+  const opts = step.kind === 'ask'
+    ? step.q.opts.map(([k, label]) => `<button type="button" class="btn quiet story-opt" data-pick="${k}" data-ask="${step.q.id}" data-v="${k}">${esc(label)}</button>`).join('')
+    : `${BUDGETS.filter(Boolean).map((b) => `<button type="button" class="btn quiet story-opt" data-pick="b${b}" data-budget-ask="${b}">Up to $${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" class="btn quiet story-opt" data-pick="b0" data-budget-ask="0">Any budget</button>`;
+  const title = step.kind === 'ask' ? step.q.q : 'Budget for this wall?';
+  const under = step.kind === 'budget' ? BUDGET_WORDS : '';
+  return (S.mem.storyHtml = `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="story-skip">Skip</button>')}
+  <main class="feed-page story">
+    <div class="story-bar" role="progressbar" aria-label="Question ${i + 1} of ${n}" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${i}"><span style="--from:${Math.round(((was + 1) / (n + 1)) * 100)}%;--to:${Math.round(((i + 1) / (n + 1)) * 100)}%"></span></div>
+    <div class="drawing story-wall${newWall ? ' is-new-wall' : ''}">${drawWall(L, pxNow(), { still: true, label: 'Your wall so far' })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
+    ${S.undo && i > 0 ? `<p class="sheet-status story-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : `<p class="story-status pencil">${i === 0 ? 'A first go at your wall. A few quick picks make it yours.' : ''}</p>`}
+    <section class="story-q ${dir}" aria-labelledby="story-h">
+      <h1 id="story-h" tabindex="-1">${esc(title)}</h1>
+      ${under ? `<p class="pencil small">${esc(under)}</p>` : ''}
+      <div class="story-opts${step.kind === 'budget' ? ' two' : ''}" role="group" aria-labelledby="story-h">${opts}</div>
+      ${step.kind === 'ask' ? `<button type="button" class="link story-skip" data-ask="${step.q.id}" data-v="">Skip this one</button>` : ''}
+    </section>
+  </main>`);
 }
 
 // The list opens on a few walls, the best ones, so the first look is short (Nov 17). Show more
@@ -4498,6 +4564,12 @@ document.addEventListener('click', (e) => {
     const b = document.querySelector(`[data-askset="${CSS.escape(t.dataset.askset)}"]`); if (b) b.focus({ preventScroll: true });
     return;
   }
+  // In the story, the answer you tapped lights up for a beat before the next question slides in.
+  if ((t.dataset.ask || t.dataset.budgetAsk !== undefined) && t.closest('.story') && !t.dataset.picked) {
+    t.dataset.picked = '1'; t.classList.add('is-picked'); S.ui.storyPick = t.dataset.pick || null;
+    setTimeout(() => t.click(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
+    return;
+  }
   if (t.dataset.ask) {
     const me = store.loadMe(), was = { ...(me.asked || {}) }, q = ASK.find((x) => x.id === t.dataset.ask);
     if (!q) return;
@@ -4753,6 +4825,7 @@ document.addEventListener('click', (e) => {
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;
     case 'change': S.sheet = 'change'; render(); break;
     case 'menu': S.sheet = 'menu'; render(); break;
+    case 'story-skip': endStory(); render(); break;
     case 'crop-use': useCrop(false); break;
     case 'crop-whole': useCrop(true); break;
     case 'crop-cancel': S.crop = null; render(); break;

@@ -4,6 +4,8 @@ Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the ne
 
 ## Status, 2026-11-16 (read this first)
 
+Nov 17, the opening story (branch lite-story-2026-11, on top of audit-fixes-2026-11, not live): Jason picked "wall first, then story" with a friendly voice and no character, and asked for slides and fun motion. First cut built: story() and storyHold() in web/main.js, styles at the end of web/site.css, a 'story' walk section (25 checks). Every other walk section starts past the story through an init script. FEEDBACK 200 and 201, three DECISIONS lines.
+
 Nov 17, calm pass (branch audit-fixes-2026-11, not live): the list opens on 3 walls with Show more walls, Start, Frame it and Hang it each open on their one job, width, mats and the hanger check are one tap down. FEEDBACK 197 and 198, DECISIONS Nov 17, STATES and DESIGN updated. Walk: 583 of 593 on the full run, then the oct5 section rerun after a test fix; what still fails is the two checks that fail on main too (FEEDBACK 194). Five picks wait on Jason (open wall, piece sheet, Preferences, Get it, one friendly moment): vault note Projects/Walldrobe - calm pass (2026-11-17).md.
 
 - Nothing has changed in the app since Oct 6. Main (d668d3f) is live; the beta link is the Oct 4 build.

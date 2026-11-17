@@ -38,7 +38,7 @@ changed = [...new Set(changed.filter(Boolean))];
 const ALL_TESTS = readdirSync(join(ROOT, 'test')).filter((f) => f.endsWith('.test.js')).map((f) => `test/${f}`);
 // 300 random walls, about 80 s: only in --full, or when the engine itself changed.
 const SLOW = new Set(['test/properties.test.js']);
-const SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget', 'app'];
+const SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget', 'app', 'story'];
 
 // Which tests and walk sections each kind of file reaches. First match wins per file.
 const RULES = [

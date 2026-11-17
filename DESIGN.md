@@ -191,3 +191,7 @@ v4 references, 2026-10-02 (proposed, waiting on Jason's OK). Mocked on the a63c9
 ## Calm pass (Nov 17 2026)
 
 Every screen opens on its one job, and anything else is one tap down. The list of walls: 3 walls, then Show more walls. Start: the photo button. Frame it: the color row. Hang it: the nails drawing. A closed section uses the same chevron and 44 px row everywhere (`.more summary`, `.hangers summary`) so it reads as tappable. A question card never sits above the first wall. Before adding a control or a sentence to the top of a screen, count what the screen opens with at 390 wide; the walk's numbers are in FEEDBACK 198.
+
+## The opening story's motion (Nov 17 2026, Jason's call)
+
+The story is the one place with playful motion: a 320 ms slide between questions, a filling bar, a blue fill on the tapped answer, pieces that pop on with a small overshoot when the wall changes, walls that deal in, and one fall of blue tape strips when the walls arrive. Tokens only (tape blue, the app's ease). Everything is off under reduced motion. Nowhere else gets this; the rest of the app keeps "motion confirms an action".

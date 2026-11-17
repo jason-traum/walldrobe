@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get('WD_BASE', 'http://localhost:8830/index.html')
 # Sections, so a change can be checked with only the parts it touches:
 #   python3 tools/ui_walk.py out --only home,homeget     python3 tools/ui_walk.py --list
-SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget', 'app']
+SECTIONS = ['core', 'desktop', 'print', 'images', 'camera', 'photo', 'home', 'pieces', 'society6', 'browse', 'oct5', 'otherwall', 'homeget', 'app', 'story']
 args = [a for a in sys.argv[1:]]
 ONLY = None
 if '--only' in args:
@@ -57,6 +57,12 @@ def check(name, ok, detail=''):
 
 with sync_playwright() as p:
     b = p.chromium.launch()
+    # The opening story (Nov 17) shows once per device. Every section but 'story' starts past it.
+    _raw_context = b.new_context
+    def _past_story(*a, **k):
+        c = _raw_context(*a, **k); c.add_init_script("try { localStorage.setItem('walldrobe.story', 'done'); } catch (e) {}"); return c
+    b.new_context = _past_story
+    b.new_page = lambda *a, **k: _past_story(*a, **k).new_page()
     if section('core'):
         for W in (390, 320):
             ctx = b.new_context(viewport={'width': W, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, color_scheme='light')
@@ -1080,6 +1086,39 @@ with sync_playwright() as p:
         pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4000)
         vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
         check('390 the free site has no sign in and no feed', pg.locator('a[href="#/signin"], a[href="#/hung"]').count() == 0)
+        ctx.close()
+    if section('story'):
+        # The opening story (Nov 17): a new person gets the best wall first, then one question a screen.
+        for W, H in ((390, 844), (320, 568)):
+            ctx = _raw_context(viewport={'width': W, 'height': H}, color_scheme='light')
+            pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4500)
+            check(f'{W} a new person sees a wall and one question, no list yet', pg.locator('main.story .story-wall g.art').count() > 0 and pg.locator('.story-q h1').count() == 1 and pg.locator('.entry-link').count() == 0)
+            check(f'{W} the first question is the room, four answers at least 44 tall', 'room' in pg.locator('.story-q h1').inner_text() and pg.evaluate("[...document.querySelectorAll('.story-opt')].filter(b => b.getBoundingClientRect().height >= 44).length") == 4)
+            check(f'{W} the story has no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
+            before = pg.evaluate("[...document.querySelectorAll('.story-wall g.art')].map(g => g.dataset.id).join()")
+            pg.locator('.story-opt[data-v=wood]').click(); pg.wait_for_timeout(1500)
+            check(f'{W} an answer moves to the next question and says what it did, with Undo', 'scenes' in pg.locator('.story-q h1').inner_text().lower() and 'wood' in pg.locator('.story-status').inner_text().lower() and vis(pg, '[data-act=undo]') is not None)
+            check(f'{W} the wall on top changed with the answer', pg.evaluate("[...document.querySelectorAll('.story-wall g.art')].map(g => g.dataset.id).join()") != before)
+            vis(pg, '[data-act=undo]').click(); pg.wait_for_timeout(1200)
+            check(f'{W} Undo goes back a question', 'room' in pg.locator('.story-q h1').inner_text())
+            pg.locator('.story-opt[data-v=wood]').click(); pg.wait_for_timeout(1500)
+            pg.locator('.story-skip').click(); pg.wait_for_timeout(1500)
+            check(f'{W} Skip this one moves on', 'busy' in pg.locator('.story-q h1').inner_text().lower())
+            pg.locator('.story-opt[data-v=quiet]').click(); pg.wait_for_timeout(1500)
+            check(f'{W} the budget comes last', 'budget' in pg.locator('.story-q h1').inner_text().lower() and pg.locator('.story-opt').count() == 5)
+            pg.locator('.story-opt[data-budget-ask="600"]').click(); pg.wait_for_timeout(2200)
+            said = pg.locator('.story-said').inner_text() if pg.locator('.story-said').count() else ''
+            check(f'{W} then 3 walls, with what you said read back', pg.locator('.entry-link').count() == 3 and 'wood' in said and '$600' in said, said)
+            check(f'{W} the story never shows twice', pg.evaluate("localStorage.getItem('walldrobe.story')") == 'done')
+            pg.reload(); pg.wait_for_timeout(2500); pg.goto(BASE + '#/sample/bedroom'); pg.wait_for_timeout(4000)
+            check(f'{W} the next wall goes straight to the list', pg.locator('main.story').count() == 0 and pg.locator('.entry-link').count() == 3)
+            check(f'{W} story: no page errors', not errs, '; '.join(errs[:2]))
+            ctx.close()
+        ctx = _raw_context(viewport={'width': 390, 'height': 844}, color_scheme='light', reduced_motion='reduce')
+        pg = ctx.new_page(); pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4500)
+        vis(pg, '[data-act=story-skip]').click(); pg.wait_for_timeout(1200)
+        check('390 Skip in the bar goes to the 3 walls, questions left for the list', pg.locator('.entry-link').count() == 3 and pg.locator('main.story').count() == 0)
         ctx.close()
     b.close()
 
