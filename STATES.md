@@ -34,6 +34,7 @@ States that apply everywhere:
 | State | What they see | Action |
 |---|---|---|
 | Empty | "Stand back and take the whole wall, floor to ceiling if you can. People in the photo aren't needed." | Take photo, choose from library |
+| Empty (Nov 17, calm pass) | One line: "Stand back and get the whole wall, floor to ceiling. Use 1x." The photo button, then "Your photo never leaves your device." No photo? Type the size (closed). "Or try a sample wall": three buttons, Living room, Bedroom, Hallway, with no description under them | Take a photo, a sample |
 | Uploading | The photo, dimmed, with a progress bar | Cancel |
 | Too dark or blurry | The photo, with "Hard to see the corners. Try more light." | Retake, use anyway |
 | Wrong type or too large | "That file won't open. Use a JPG, PNG or HEIC under 20 MB." | Choose another |
@@ -165,6 +166,8 @@ Reached from "Suggestions" at the top of your wall. The five-step bar shows Pick
 | No room for art | The bare wall, "There isn't room for art on this wall." and the reason | Check what's marked, Try another wall |
 | Engine error | "Something broke building your walls. Your photo and pieces are saved on this device." | Try again |
 
+Nov 17 (calm pass): the list opens on the 3 best walls. Show more walls brings the walls already built 3 at a time, then makes new ones as before. No card sits above the first wall: the taste card is after the second wall, the budget card after the fourth (so after one Show more walls). The open wall is always in the list.
+
 Oct 5, quick questions: after the budget card (or after the fourth wall once a budget is set), one card at a time: "What is the room like?" (Calm and light, Warm with wood, Bold and colorful, Dark and moody), then "Real scenes or abstract?" (Real scenes, Abstract, Both), then "Busy art or quiet art?" (Quiet, Busy, A mix), each with Skip and "1 of 3. Every wall leans that way." An answer leans every wall's art (each piece up to 1.3 times when it fits, 0.7 when it doesn't) and builds the walls again; Warm with wood also makes the frames oak unless you picked a color. When all three are answered or skipped, the card is gone. A taste at 0% (picks undone) shows the taste test card again, never "We know your taste 0%".
 
 Nov 16 (audit fixes 9 and item 12): the cards' answers use the short words (Light, Wood, Bold, Dark; Real, Abstract, Both; Quiet, Busy, A mix) on one row, with Skip as a quiet link under them; the question isn't blue. In Preferences, Room, Scenes and Busy are one row of three dropdowns, each starting at Any. Anywhere in Preferences, an Any that wasn't changed is drawn unlit.
@@ -216,6 +219,7 @@ From the open wall's Frame it. One look for every new frame, a mat or not, and t
 | Shop sells it framed | "Comes framed, 14.5 x 18.5 in." | |
 | Shop sells it framed with a white border (House of Spoils, Oct 5) | Drawn as the frame, a wide white border and the art inside at its size. "Comes framed with a white border, art 8 x 12 in, 14.5 x 18.5 in outside." The size list has its full bleed size too ("9.5 x 13.5") | Color dots; the buy link opens that size and frame color |
 | Nothing new | The wall's Hang it goes straight to Hang it | |
+| Width and mats (Nov 17, calm pass) | The lede is "One color for the set." Frame width, How many mats and Mat width sit under one closed "Width and mats", under the color row. It stays open once opened, and opens by itself when the width isn't Standard or the mat is Wide | Open it, then pick |
 | Frame width (Oct 4) | Slim, Standard (pressed), Wide; a line on the moulding; with Wide, "easy in 8 x 10, 12 x 16, 16 x 20 and 20 x 28 (IKEA EDSBRUK); other sizes are made to order" | Pick one: the frames grow or shrink about their centers, "Slim frames." with Undo |
 | A width that doesn't fit | "Wide frames don't fit this wall as it's laid out." and the rule it breaks; nothing changes | |
 | Mat width (Oct 4) | When a free photo has a mat: Standard (pressed), Wide; Wide prints the photo two sizes down, "a precut mat with that window, about $10 to $15" | Pick one |
@@ -247,6 +251,7 @@ From the open wall's Frame it. One look for every new frame, a mat or not, and t
 | Hanging guide | The drawing with measurements and nails always on, and a table: piece, frame, from the left, up from the floor. Under a piece's name, when something is within 30 in: the same spot from its nearest edge | Change the wire drop, Print |
 | A piece of yours moves | "Take it down and rehang it here." under its name | |
 | Hang it page | "Hang it": 1. What each frame hangs on (open: each frame's hanger and measurements), 2. Where the nails go (drawing, table, steps), 3. Done? with It's up | Set a hanger, It's up |
+| Hang it page (Nov 17, calm pass) | "Hang it": 1. Where the nails go (the drawing first, then "Check each frame's hanger", closed, then the table and steps), 2. Done? with It's up. Each table row still says its hanger, "assumed" until you set it | Open the check, set a hanger, It's up |
 | It's up | "It's up", "Nice. When you want a change, open this wall and swap a piece; the frames and nails stay.", Add a photo of it, Save, Not up yet; the open wall says "This wall is up. See it" | Add a photo, Save, Not up yet |
 | A photo of it | The photo of the hung wall, whole, above the line | New photo of it |
 | Hangers, assumed | Under "Where the nails go": "Nail spots assume the hanger each frame usually comes with. When your frames arrive, check them at the bottom of this page." Each row: "Sawtooth hanger, assumed", "Wire, assumed" or "Two D-rings, assumed"; D-ring frames list two nails ("21½ in, and 39 in") | |

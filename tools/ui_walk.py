@@ -38,6 +38,15 @@ def vis(pg, sel):
     v = [l.nth(i) for i in range(l.count()) if l.nth(i).is_visible()]
     return v[0] if v else None
 
+def all_walls(pg):
+    # The list opens on 3 walls (Nov 17). Bring in every wall already built, without making new ones.
+    for _ in range(12):
+        m = pg.locator('[data-act=more-walls]')
+        if not m.count() or int(m.get_attribute('data-left') or 0) <= 0: break
+        m.click(); pg.wait_for_timeout(250)
+def open_more(pg):
+    # Frame it keeps width and mats under one closed row (Nov 17).
+    pg.evaluate("document.querySelectorAll('details.frame-more:not([open])').forEach(d => { d.open = true; })"); pg.wait_for_timeout(200)
 def arts(pg):
     return pg.evaluate("[...document.querySelectorAll('#drawing g.art')].map(g => g.dataset.id)")
 
@@ -59,7 +68,12 @@ with sync_playwright() as p:
             pg.screenshot(path=f'{OUT}/feed-{W}.png')
             check(f'{W} feed has walls', pg.locator('.entry-link').count() > 2)
             check(f'{W} feed no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
-            check(f'{W} the taste test leads the list until it is taken', pg.evaluate("(() => { const c = document.querySelector('.feed > li'); return !!c && c.classList.contains('taste-card') && !c.classList.contains('budget-card'); })()"))
+            check(f'{W} the list opens on 3 walls, a wall first, the taste test after the second', pg.evaluate("(() => { const li = [...document.querySelectorAll('.feed > li')]; return document.querySelectorAll('.entry-link').length === 3 && li[0].classList.contains('entry') && li[2].classList.contains('taste-card') && !document.querySelector('.budget-card'); })()"))
+            left = int(pg.locator('[data-act=more-walls]').get_attribute('data-left') or 0)
+            if left > 0:
+                vis(pg, '[data-act=more-walls]').click(); pg.wait_for_timeout(400)
+                check(f'{W} Show more walls brings 3 built walls at once, no wait', pg.locator('.entry-link').count() == 3 + min(3, left), str(pg.locator('.entry-link').count()))
+            all_walls(pg)
             nw = pg.locator('.entry-link').count()
             vis(pg, '[data-act=more-walls]').click(); pg.wait_for_timeout(5000)
             check(f'{W} Show more walls adds walls at the end', pg.locator('.entry-link').count() > nw, f"{nw} then {pg.locator('.entry-link').count()}")
@@ -342,7 +356,8 @@ with sync_playwright() as p:
             trs = pg.locator('.nails tbody tr').count(); allp = pg.evaluate("document.querySelectorAll('#guide g.art').length")
             check(f'{W} a nail row for every piece', trs == allp, f'{trs} rows, {allp} pieces')
             check(f'{W} each frame says the hanger it is assumed to have', pg.evaluate("[...document.querySelectorAll('.nails tbody tr')].every(r => /Sawtooth|Wire|D-rings/.test(r.innerText))"))
-            check(f'{W} the hangers are open to check first', pg.evaluate("document.querySelector('details.hangers').open"))
+            check(f'{W} the nails drawing comes first, the hanger check closed under it', pg.evaluate("(() => { const d = document.querySelector('#guide details.hangers'); const dr = document.querySelector('#guide .drawing'); return !!d && !d.open && !!dr && (dr.compareDocumentPosition(d) & 4) > 0; })()"))
+            vis(pg, 'details.hangers summary').click(); pg.wait_for_timeout(300)
             n1 = pg.locator('#guide circle.nail').count()
             first = pg.locator('[data-hang-type]').first
             fid = first.get_attribute('data-hang-type')
@@ -409,6 +424,8 @@ with sync_playwright() as p:
                 nx.click(); pg.wait_for_timeout(1200)
                 vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
             # The mat choice shows for free photos, and no mat means the print fills the frame.
+            check(f'{W} Frame it opens on the color row, width and mats closed', pg.evaluate("(() => { const d = document.querySelector('details.frame-more'); return !!d && !d.open && !!document.querySelector('[data-look]'); })()"))
+            open_more(pg)
             check(f'{W} Frame it offers how many mats, from none to all, Most first', pg.locator('[data-mat]').count() == 5 and pg.locator('[data-mat=most]').get_attribute('aria-pressed') == 'true')
             mw = lambda: pg.evaluate("[...document.querySelectorAll('.frame-row .frame-words')].map(e => e.textContent)")
             big = [w for w in mw() if 'with a mat' in w]
@@ -725,6 +742,7 @@ with sync_playwright() as p:
                 g = vis(pg, '[data-act=get]')
                 if g:
                     g.click(); pg.wait_for_timeout(1500)
+                    open_more(pg)
                     check(f'{W} Frame it has frame width', pg.locator('[data-fwidth]').count() == 3)
                     if pg.locator('[data-fwidth=slim]').count():
                         pg.locator('[data-fwidth=slim]').click(); pg.wait_for_timeout(2500)
@@ -813,6 +831,7 @@ with sync_playwright() as p:
             pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(5000)
             tags = pg.locator('.feed .price-tag').all_inner_texts()
             check(f'{W} every wall in the list says its price', tags and all(t.startswith('$') for t in tags), str(tags[:3]))
+            all_walls(pg)
             for _ in range(2):
                 m = pg.locator('[data-act=more-walls]')
                 if m.count() and m.is_enabled(): m.click(); pg.wait_for_timeout(3000)
@@ -846,6 +865,7 @@ with sync_playwright() as p:
         vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
         seen = False
         for k in range(8):
+            all_walls(pg)
             if pg.locator('.entry-link').count() <= k: break
             pg.locator('.entry-link').nth(k).click(); pg.wait_for_timeout(2000)
             if pg.evaluate("[...document.querySelectorAll('#drawing .art')].some(g => g.dataset.id.startsWith('s6-'))"):
@@ -884,6 +904,7 @@ with sync_playwright() as p:
             tags = pg.locator('.entry-link .price-tag').all_inner_texts()[:3]
             check(f'{W} one of the first three walls is under $400 all in', any(dollars(t) <= 400 for t in tags), str(tags))
             # The quick questions: one at a time, each one leans every wall, all three in Preferences.
+            all_walls(pg)
             card = pg.locator('.ask-card')
             check(f'{W} the list asks what the room is like', card.count() == 1 and 'room' in card.inner_text(), card.inner_text()[:60] if card.count() else '')
             if card.count():
@@ -928,6 +949,7 @@ with sync_playwright() as p:
             seen = False
             for k in range(10):
                 pg.goto(BASE + '#/layouts'); pg.wait_for_timeout(1500)
+                all_walls(pg)
                 if pg.locator('.entry-link').count() <= k: break
                 pg.locator('.entry-link').nth(k).click(); pg.wait_for_timeout(2000)
                 if pg.locator('#drawing g.art[data-id^="hos-"]').count(): seen = True; break

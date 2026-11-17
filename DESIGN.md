@@ -187,3 +187,7 @@ v4 references, 2026-10-02 (proposed, waiting on Jason's OK). Mocked on the a63c9
 
 `design/references/v4-feed-390.png` and `v4-feed-320.png`: the first screen, the bedroom sample's ranked walls, with Your walls 2 in the bar.
 `design/references/v4-wall-hard-390.png` and `v4-wall-hard-320.png`: the hard state, full page: an open wall after keeping one new piece (green tape) and swapping another, with the Undo line (no tape legend), the why line, your two pieces as thumbnails, and the long title wrapping to three lines without truncation.
+
+## Calm pass (Nov 17 2026)
+
+Every screen opens on its one job, and anything else is one tap down. The list of walls: 3 walls, then Show more walls. Start: the photo button. Frame it: the color row. Hang it: the nails drawing. A closed section uses the same chevron and 44 px row everywhere (`.more summary`, `.hangers summary`) so it reads as tappable. A question card never sits above the first wall. Before adding a control or a sentence to the top of a screen, count what the screen opens with at 390 wide; the walk's numbers are in FEEDBACK 198.

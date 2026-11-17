@@ -745,15 +745,14 @@ function start() {
   return `${bar(inHome ? back('#/home', 'Your home') : back('#/begin', 'Back'))}
   <main class="page">
     <h1>${inHome ? `A photo of ${esc(S.draft.name || 'this wall')}` : 'Start with a photo of one wall'}</h1>
-    <p class="lede">Stand back. Get the whole wall, floor to ceiling.</p>
-    <p class="pencil small">Use 1x, not 0.5x. It bends the edges.</p>
+    <p class="lede">Stand back and get the whole wall, floor to ceiling. Use 1x.</p>
     ${flashHtml()}
     <label class="upload">
       <input type="file" accept="image/*" capture="environment" id="photo-input">
       <span class="btn wide" data-busy-label>${S.busy === 'photo' ? busyPhotoLabel() : '<span class="on-touch">Take a photo</span><span class="on-desk">Choose a photo</span>'}</span>
     </label>
     <label class="upload choose"><input type="file" accept="image/*" id="photo-input-2" data-photo-pick="1"><span class="link">Or choose one you have</span></label>
-    <p class="small pencil">Nothing is sent to a server. Your photos and picks never leave <em>your device</em>.</p>
+    <p class="small pencil">Your photo never leaves <em>your device</em>.</p>
     ${S.ui.photoErr ? `<p class="error">${esc(S.ui.photoErr)}</p>` : ''}
     ${d && d.photo ? '<p><a href="#/check">Keep using the photo you added</a></p>' : ''}
     <details class="more"${S.ui.sizeErr ? ' open' : ''}>
@@ -772,8 +771,8 @@ function start() {
       </form>
     </details>
     <section class="samples">
-      <h2>Or try it on a sample wall</h2>
-      <ul class="sample-list">${SAMPLES.map((w) => `<li><a href="#/sample/${w.key}"><span class="sample-name">${esc(w.name)}</span><span class="pencil small">${esc(w.note)}</span></a></li>`).join('')}</ul>
+      <h2>Or try a sample wall</h2>
+      <ul class="sample-row">${SAMPLES.map((w) => `<li><a class="btn quiet" href="#/sample/${w.key}" title="${esc(w.note)}">${esc(w.name)}</a></li>`).join('')}</ul>
     </section>
   </main>`;
 }
@@ -2238,12 +2237,13 @@ function feed() {
     <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}">${b >= 1000 ? `$${b / 1000}k` : `$${b}`}</button>`).join('')}<button type="button" data-budget-ask="0">Any</button></span>${budgetForm('feed')}</span></div></li>`;
   const tasteTaken = pct0 > 0;
   const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Heart what you like. Your walls try it first.</span></span></a></li>`;
-  const items = (tasteTaken ? '' : tasteCard) + v.list.map((L, i) => `<li class="entry">
+  const n = feedCount(v);
+  const items = v.list.slice(0, n).map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
       ${priceTag(L)}
     </a>
-  </li>${i === 1 && tasteTaken ? tasteCard : ''}${i === 3 ? budgetCard : ''}${i === (budgetCard ? 5 : 3) ? askCard() : ''}${i === 6 ? browseCard : ''}`).join('');
+  </li>${i === 1 ? tasteCard : ''}${i === 3 ? budgetCard : ''}${i === (budgetCard ? 5 : 3) ? askCard() : ''}${i === 6 ? browseCard : ''}`).join('');
   return `${bar(d.home ? back('#/home', 'Your home') : wordmark(), `<button type="button" class="btn quiet small" data-act="menu" aria-haspopup="dialog">Menu</button><button type="button" class="btn quiet small" data-act="change" aria-haspopup="dialog">Preferences</button>`)}
   <main class="feed-page">
     <p class="feed-intro">${d.home && d.name ? `${esc(d.name)}: best` : 'Best'} fit first. Tap one to make it yours.</p>
@@ -2253,10 +2253,21 @@ function feed() {
     ${S.undo && /^(Budget|No budget|Taste test reset)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
     <ol class="feed">${items}</ol>
-    <div class="feed-end"><button type="button" class="btn quiet" data-act="more-walls"${S.busy ? ' disabled' : ''}>${S.busy === 'more' ? 'Making more…' : 'Show more walls'}</button>${S.ui.noMore ? '<span class="pencil small">No more new walls fit here. Try a change in Preferences.</span>' : ''}</div>
+    <div class="feed-end"><button type="button" class="btn quiet" data-act="more-walls" data-left="${v.list.length - n}"${S.busy ? ' disabled' : ''}>${S.busy === 'more' ? 'Making more…' : 'Show more walls'}</button>${S.ui.noMore ? '<span class="pencil small">No more new walls fit here. Try a change in Preferences.</span>' : ''}</div>
   </main><!--sheet-->${sheetHtml()}`;
 }
 
+// The list opens on a few walls, the best ones, so the first look is short (Nov 17). Show more
+// walls brings the rest three at a time, then makes new ones. The open wall is always in it.
+const FEED_FIRST = 3, FEED_STEP = 3;
+function feedCount(v) {
+  const d = S.draft || {};
+  const id = `${d.sample || ''}|${d.name || ''}|${d.width}x${d.height}`;
+  if (S.ui.feedFor !== id) { S.ui.feedFor = id; S.ui.feedN = FEED_FIRST; }
+  const open = v.list.findIndex((L) => L.key === S.openKey);
+  S.ui.feedN = Math.max(FEED_FIRST, S.ui.feedN || 0, open + 1);
+  return Math.min(v.list.length, S.ui.feedN);
+}
 // One wall, open: the drawing, why it works, what's in it, and Get this wall.
 // The list and the open wall stay on screen under Preferences while a change builds the
 // walls again, so the tap shows at once and the page doesn't blank and fade back.
@@ -2974,8 +2985,8 @@ function wallSummary(L) {
   return `<div class="wall-sum"><p>${fresh.length} new piece${fresh.length === 1 ? '' : 's'}: ${parts.join(', ')}. Three steps:</p>
     <ol class="next-steps">
       <li><strong>Get the art.</strong> ${esc(art[0].toUpperCase() + art.slice(1))}.</li>
-      ${frames ? `<li><strong>Get the frames.</strong> ${esc(frames[0].toUpperCase() + frames.slice(1))}. ${lk ? 'The full plan has every seller.' : 'The table below has every seller.'}</li>` : ''}
-      <li><strong>Hang it.</strong> When everything arrives, Hang it at the bottom has the nail spots.</li>
+      ${frames ? `<li><strong>Get the frames.</strong> ${esc(frames[0].toUpperCase() + frames.slice(1))}. ${lk ? 'The full plan has every seller.' : 'Every seller is below.'}</li>` : ''}
+      <li><strong>Hang it.</strong> The nail spots are at the bottom.</li>
     </ol>
     ${cost != null ? `<p class="pencil small">Printing and frames from about ${usd(cost)} at the cheapest, before codes${shop ? ', plus the shop prints' : ''}.</p>` : ''}</div>`;
 }
@@ -3006,7 +3017,7 @@ function hangerCheck(pieces, open = false) {
       <label class="num"><span>${hg.type === 'rings' ? 'Rings below the top' : hg.type === 'wire' ? 'Wire, pulled up, below the top' : 'Below the top'}</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-drop="${id}" value="${hg.drop}"> in</span></label>
       ${hg.type === 'rings' ? `<label class="num"><span>In from each side</span><span class="num-in"><input type="number" step="0.25" min="0" max="12" inputmode="decimal" data-hang-in="${id}" value="${hg.inset ?? RULES.ringInset}"> in</span></label>` : ''}</span></li>`;
   }).join('');
-  return `<details class="hangers"${open || S.ui.hangOpen ? ' open' : ''}><summary>${open ? 'Check each frame' : 'When your frames arrive: check the hangers'}</summary>
+  return `<details class="hangers"${open || S.ui.hangOpen ? ' open' : ''}><summary>${open ? 'Check each frame' : "Check each frame's hanger"}</summary>
     <p class="pencil small">Measure from each frame's hanger (wire pulled tight) to its top. The nail spots follow.</p>
     <ul class="hang-list">${rows}</ul></details>`;
 }
@@ -3110,12 +3121,13 @@ function framesScreen() {
   return `${bar(back('#/wall', 'This wall'))}
   <main class="page frames">
     <h1>Frame it</h1>
-    <p class="lede">One color for the set. To change one piece, use Change this frame on its row.</p>
+    <p class="lede">One color for the set.</p>
     <div class="drawing" id="frames-wall">${drawWall(L, pxNow(), { still: true, label: 'Your wall with the frames you picked' })}</div>
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
     </fieldset>
     ${framed.length ? '' : '<p class="pencil small">Every piece here comes framed, so width and mats are already set.</p>'}
+    ${framed.length ? `<details class="more frame-more"${S.ui.frameMore || widthKey() !== 'standard' || matWide() ? ' open' : ''}><summary>Width and mats</summary>` : ''}
     ${framed.length ? `<fieldset class="choose"><legend>Frame width</legend>
       <span class="seg" role="group" aria-label="Frame width">${Object.entries(FRAME_WIDTHS).map(([k, v]) => `<button type="button" class="seg-btn" data-fwidth="${k}" aria-pressed="${widthKey() === k}">${v.name}</button>`).join('')}</span>
       <span class="help">The moulding, ${esc(widthOf().words)}. ${widthKey() === 'wide' ? 'Wide frames are easy in 8 x 10, 12 x 16, 16 x 20 and 20 x 28 (IKEA EDSBRUK); other sizes are made to order.' : 'Most ready-made frames are slim or standard.'}</span>
@@ -3128,6 +3140,7 @@ function framesScreen() {
       <span class="seg" role="group" aria-label="Mat width">${[['standard', 'Standard'], ['wide', 'Wide']].map(([k, v]) => `<button type="button" class="seg-btn" data-mwidth="${k}" aria-pressed="${(matWide() ? 'wide' : 'standard') === k}">${v}</button>`).join('')}</span>
       <span class="help">${matWide() ? 'More white. Needs a precut mat, about $10 to $15.' : 'The one in the frame, about 2 in.'}</span>
     </fieldset>` : ''}
+    ${framed.length ? '</details>' : ''}
     <h2>Sizes</h2>
     ${S.undo ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
@@ -3202,7 +3215,7 @@ function getScreen() {
   </main>`;
 }
 
-// ---------- Hang it: hangers first, then the nails, then it's up ----------
+// ---------- Hang it: the nails first, the hanger check closed under the drawing, then it's up ----------
 
 function hangScreen() {
   const L = chosenWall();
@@ -3233,13 +3246,11 @@ function hangScreen() {
   <main class="page get hang">
     <h1>Hang it</h1>
     ${flashHtml()}
-    <section aria-labelledby="hangers-h"><h2 id="hangers-h">1. What each frame hangs on</h2>
-      ${hangerCheck(hangOrder, true)}
-    </section>
     <section class="guide" id="guide" aria-labelledby="guide-h">
-      <h2 id="guide-h">2. Where the nails go</h2>
+      <h2 id="guide-h">1. Where the nails go</h2>
       ${estimate ? `<p class="note">These spots are estimates. The wall's size was worked out from ${esc(sizeSource(d))} in your photo, not measured, so a spot can be off by several inches. <a href="${fix}">Measure the wall's width once</a> and every spot firms up.</p>` : d.photo ? '<p class="pencil small">The wall\'s width is your measurement. Heights and furniture are read from the photo, so check one spot before drilling.</p>' : ''}
       <div class="drawing">${wallSvg({ wall: { width: d.width, height: d.height }, obstacles: trueObs(d), layout: LG, imageFor: (p) => byId.get(p.ref.id)?.imageData, ownedFor: ownedInfo, keptIds: kept, measure: true, still: true, pxWide: pxNow(), label: `${d.name}, hanging guide` })}</div>
+      ${hangerCheck(hangOrder, false)}
       <div class="table-scroll"><table class="nails"><thead><tr><th scope="col">Piece</th><th scope="col">From the left</th><th scope="col">Up from the floor</th></tr></thead>
         <tbody>${hangOrder.map((p) => `<tr><td><span class="nail-pc">${thumbFor(p, 40)}<span><span class="nail-name">${esc(nameOf(p))}</span><span class="nail-ref">${p.frame && p.frame.border ? `${esc(sz(soldW(p), soldH(p)))} frame, ${esc(sz(p.w, p.h))} outside` : `${esc(sz(p.w, p.h))} frame`}</span>${p.hanger ? `<span class="nail-ref">${esc(HANGER_WORDS[p.hanger.type])}${p.hanger.set ? '' : ', assumed'}</span>` : ''}</span></span>${p.ref.source !== 'catalog' && /^Moves/.test(moveNote(p)) ? '<span class="nail-ref">Take it down and rehang it here.</span>' : ''}${refs.get(p.ref.id) ? `<span class="nail-ref">Or ${p.nails ? 'the left nail ' : ''}${esc(refs.get(p.ref.id))}</span>` : ''}</td><td>${p.nails ? `<span class="nail-two">${esc(inches(p.nails[0].x))}</span><span class="nail-two">and ${esc(inches(p.nails[1].x))}</span>` : esc(inches(p.nail.x))}</td><td>${esc(inches(p.nail.y))}</td></tr>`).join('')}</tbody></table></div>
       <ol class="steps">
@@ -3253,7 +3264,7 @@ function hangScreen() {
       </ol>
     </section>
     <section class="done" aria-labelledby="done-h">
-      <h2 id="done-h">${hung ? "It's up" : '3. Done?'}</h2>
+      <h2 id="done-h">${hung ? "It's up" : '2. Done?'}</h2>
       ${hung ? `${hung.photo ? `<img class="hung-photo" src="${hung.photo}" alt="Your wall, hung">` : ''}
         <p>Nice. When you want a change, open this wall and swap a piece; the frames and nails stay.</p>
         <div class="acts left">
@@ -4189,7 +4200,7 @@ document.addEventListener('submit', (e) => {
   }
 });
 
-document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('filter-box')) S.ui.filtersOpen = e.target.open; }, true);
+document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('frame-more')) S.ui.frameMore = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('filter-box')) S.ui.filtersOpen = e.target.open; }, true);
 
 document.addEventListener('change', (e) => {
   const t = e.target;
@@ -4761,8 +4772,10 @@ document.addEventListener('click', (e) => {
       S.sheet = null; render(); break;
     }
     case 'more-walls': {
+      // Walls already built come first, three more at a time. New ones are made after those.
+      if (S.view && (S.ui.feedN || 0) < S.view.list.length) { S.ui.feedN = (S.ui.feedN || FEED_FIRST) + FEED_STEP; render(); break; }
       S.busy = 'more'; S.ui.noMore = false; render();
-      setTimeout(() => { try { moreWalls(); } finally { S.busy = null; render(); } }, 30);
+      setTimeout(() => { try { moreWalls(); S.ui.feedN = run().list.length; } finally { S.busy = null; render(); } }, 30);
       break;
     }
     case 'not-for-me': notForThis(t.dataset.id); S.sheet = null; S.selected = null; S.focusAfter = '[data-act="undo"]'; render(); { const u = document.querySelector('[data-act="undo"]'); if (u) u.focus({ preventScroll: true }); } break;

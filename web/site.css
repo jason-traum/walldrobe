@@ -224,7 +224,10 @@ input, select, textarea { font: inherit; font-size: max(16px, 1rem); color: var(
 .more summary::-webkit-details-marker { display: none; }
 .more summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--pencil); border-bottom: 2px solid var(--pencil); transform: rotate(-45deg); transition: transform 120ms var(--ease); }
 .more[open] summary::before { transform: rotate(45deg); }
+.frame-more { display: grid; gap: 12px; }
+.hang .hangers { margin: 8px 0 4px; }
 .samples { display: grid; gap: 12px; margin-top: 8px; }
+.sample-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .sample-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: var(--r-sheet); }
 .sample-list li + li { border-top: 1px solid var(--hairline); }
 .sample-list a { display: grid; gap: 2px; padding: 12px 14px; color: var(--ink); text-decoration: none; }
@@ -613,7 +616,10 @@ svg.is-dragging .measure { opacity: 0.25; }
 .where.ask { margin-top: 8px; }
 .nail-two { display: block; }
 .hangers { border-top: 1px solid var(--hairline); padding-top: 8px; margin-top: 8px; }
-.hangers summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; cursor: pointer; }
+.hangers summary { min-height: 44px; display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; list-style: none; }
+.hangers summary::-webkit-details-marker { display: none; }
+.hangers summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--pencil); border-bottom: 2px solid var(--pencil); transform: rotate(-45deg); }
+.hangers[open] summary::before { transform: rotate(45deg); }
 .hang-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 16px; }
 .hang-row { display: grid; gap: 8px; }
 .hang-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }

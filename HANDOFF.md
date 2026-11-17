@@ -4,6 +4,8 @@ Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the ne
 
 ## Status, 2026-11-16 (read this first)
 
+Nov 17, calm pass (branch audit-fixes-2026-11, not live): the list opens on 3 walls with Show more walls, Start, Frame it and Hang it each open on their one job, width, mats and the hanger check are one tap down. FEEDBACK 197 and 198, DECISIONS Nov 17, STATES and DESIGN updated. Walk: 583 of 593 on the full run, then the oct5 section rerun after a test fix; what still fails is the two checks that fail on main too (FEEDBACK 194). Five picks wait on Jason (open wall, piece sheet, Preferences, Get it, one friendly moment): vault note Projects/Walldrobe - calm pass (2026-11-17).md.
+
 - Nothing has changed in the app since Oct 6. Main (d668d3f) is live; the beta link is the Oct 4 build.
 - The Nov 16 catch-up is in Jason's vault: wharton-os, Projects/Walldrobe - brief (2026-11-16).md (every call with his words, what's built, the UI/UX and business research, conflicts, open calls). The open list is Projects/Walldrobe - open list (2026-11-16).md.
 - Branch catch-up-2026-11-16 holds doc changes only: DECISIONS lines and FEEDBACK rows 180 to 190 from chats. Nothing goes to main or the beta until Jason says.
