@@ -9,6 +9,7 @@ Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the ne
 - Branch catch-up-2026-11-16 holds doc changes only: DECISIONS lines and FEEDBACK rows 180 to 190 from chats. Nothing goes to main or the beta until Jason says.
 - Waiting on Jason: what separates Walldrobe and Walldrobe Lite (DECISIONS, Oct 22); the Nov 2 audit (fixes 1 to 11 wait on "fix"; item 12 is his call); the business model; switching Google sign-in on in Supabase (checked Nov 16: still off); an OK for the plan_interest table (checked Nov 16: not there).
 - The history rewrite and the v1 tag are done (no tags on origin; no branch touches the living room photos).
+- Nov 17: branch audit-fixes-2026-11 has the Nov 2 audit's fixes 1 to 11 and item 12, then the fixes from a fresh Opus review (FEEDBACK 196). Two walk checks fail on main too and are left as they were (FEEDBACK 194). Waiting on Jason to look at the screenshots before anything goes to main.
 
 ## Git history rewritten, 2026-11-01 (read first)
 
