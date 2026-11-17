@@ -136,13 +136,19 @@ function tab(cx, cy, len, w, ang, rnd, cls) {
   const a = (ang * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
   return `<polygon points="${pts.map(([x, y]) => `${(cx + x * c - y * sn).toFixed(2)},${(cy + x * sn + y * c).toFixed(2)}`).join(' ')}" class="${cls}"/>`;
 }
-export function tapeTabs(x, y, w, h, id, cls = 'tape', ppi = 4) {
+// A framed print gets the top two only (the frame holds it; four tabs on frames that sit
+// close crossed into blue X marks), and a tab that would land on a neighbor is left off
+// (audit Nov 2, fix 2). `others` are the other pieces' outside boxes, in drawing space.
+export function tapeTabs(x, y, w, h, id, cls = 'tape', ppi = 4, { bottom = true, others = [] } = {}) {
   const rnd = seeded(String(id));
   const tw = Math.max(TAPE_W, 5 / ppi), tl = Math.max(3.2, 15 / ppi);
   const j = () => (rnd() - 0.5) * 10;
-  const out = [tab(x, y, tl, tw, -42 + j(), rnd, cls), tab(x + w, y, tl, tw, 42 + j(), rnd, cls)];
-  if (h > 20) out.push(tab(x, y + h, tl, tw, 42 + j(), rnd, cls), tab(x + w, y + h, tl, tw, -42 + j(), rnd, cls));
-  return out.join('');
+  const r = ((tl + tw) / 2) * 0.75;
+  const clear = (cx, cy) => !others.some((o) => cx + r > o.x && cx - r < o.x + o.w && cy + r > o.y && cy - r < o.y + o.h);
+  const spots = [[x, y, -42], [x + w, y, 42]];
+  if (bottom && h > 20) spots.push([x, y + h, 42], [x + w, y + h, -42]);
+  // Draw every jitter so a tab left off doesn't change how the others lean.
+  return spots.map(([cx, cy, a]) => { const ang = a + j(); const t = tab(cx, cy, tl, tw, ang, rnd, cls); return clear(cx, cy) ? t : ''; }).join('');
 }
 // One short strip across the top left corner: this one stays where it hangs.
 function pinStrip(x, y, id) {
@@ -155,24 +161,29 @@ function pinStrip(x, y, id) {
 // kind: 'own' (a frame of yours), 'pin' (yours, stays put), 'new' (blue tape),
 // 'kept' (green tape).
 // The title shown on the paper while its image loads, or if it never does: at least
-// 10 px on screen, cut to what fits the paper's width.
+// 10 px on screen, whole words only, up to two lines, then "…" when more didn't fit.
+// Nothing on paper under about 40 px wide, where no title can be read (audit Nov 2, fix 5).
 function waitTitle(title, cx, cy, iw, ppi) {
+  if (iw * (ppi || 3) < 40) return '';
   const fs = Math.max(10 / (ppi || 3), Math.min(2.4, iw / 8));
   const fit = Math.max(3, Math.floor(iw / (fs * 0.56)));
-  // Up to two lines, broken at spaces; only what still doesn't fit is cut.
   const words = String(title || '').split(/\s+/).filter(Boolean);
-  const lines = [''];
-  for (const w of words) {
-    const cur = lines[lines.length - 1];
-    if (!cur) lines[lines.length - 1] = w;
-    else if (`${cur} ${w}`.length <= fit) lines[lines.length - 1] = `${cur} ${w}`;
-    else if (lines.length < 2) lines.push(w);
-    else { lines[1] = `${lines[1]} ${w}`; }
+  const lines = [];
+  let i = 0;
+  while (i < words.length && lines.length < 2) {
+    let cur = '';
+    while (i < words.length && (cur ? cur.length + 1 + words[i].length : words[i].length) <= fit) { cur = cur ? `${cur} ${words[i]}` : words[i]; i++; }
+    if (!cur) break;
+    lines.push(cur);
   }
-  const cut = (t) => (t.length > fit ? `${t.slice(0, fit - 1).trimEnd()}.` : t);
-  const shown = lines.map(cut);
-  const lh = fs * 1.2, y0 = cy - ((shown.length - 1) * lh) / 2;
-  return `<text x="${cx}" y="${y0}" font-size="${fs}" class="art-wait">${shown.map((t, i) => `<tspan x="${cx}" dy="${i ? lh : 0}">${esc(t)}</tspan>`).join('')}</text>`;
+  if (!lines.length) return '';
+  if (i < words.length) {
+    const ws = lines[lines.length - 1].split(' ');
+    if (ws.join(' ').length + 1 > fit && ws.length > 1) ws.pop();
+    lines[lines.length - 1] = `${ws.join(' ')}…`;
+  }
+  const lh = fs * 1.2, y0 = cy - ((lines.length - 1) * lh) / 2;
+  return `<text x="${cx}" y="${y0}" font-size="${fs}" class="art-wait">${lines.map((t, k) => `<tspan x="${cx}" dy="${k ? lh : 0}">${esc(t)}</tspan>`).join('')}</text>`;
 }
 // The print in its opening. A print with its own white border printed on the paper
 // (Society6) shows the paper, then the art inside the border at its own shape, never
@@ -182,7 +193,7 @@ function printImg(img, x, y, w, h, margin) {
   const m = Math.min(margin, w / 4, h / 4);
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="print-paper"/><image href="${img}" x="${x + m}" y="${y + m}" width="${w - 2 * m}" height="${h - 2 * m}" preserveAspectRatio="xMidYMid meet"/>`;
 }
-function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, printFor }) {
+function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, printFor, others = [] }) {
   const y = H - p.y - p.h;
   const sel = `<rect x="${p.x - 2}" y="${y - 2}" width="${p.w + 4}" height="${p.h + 4}" class="select-ring"/>`;
   const label = still ? '' : `tabindex="0" role="button" aria-label="${esc(p.title)}, ${p.w} by ${p.h} inches"`;
@@ -225,7 +236,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     <rect x="${p.x + b}" y="${y + b}" width="${ow}" height="${oh}" class="mat"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, pw, ppi)}
     ${img ? printImg(img, ix, iy, pw, ph, p.frame.margin) : ''}
-    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi)}
+    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi, { bottom: false, others })}
     ${sel}
   </g>`;
   }
@@ -234,7 +245,7 @@ function framed(p, H, img, { kind, selected, fallback, still, frames, art, ppi, 
     <rect x="${p.x}" y="${y}" width="${p.w}" height="${p.h}" class="paper" filter="url(#wd-shadow-soft)"/>
     ${waitTitle(p.title, p.x + p.w / 2, y + p.h / 2, p.w - 2 * m, ppi)}
     ${img ? `<image href="${img}" x="${p.x + m}" y="${y + m}" width="${p.w - 2 * m}" height="${p.h - 2 * m}" preserveAspectRatio="xMidYMid slice"/>` : ''}
-    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi)}
+    ${tapeTabs(p.x, y, p.w, p.h, p.ref.id, kind === 'kept' ? 'tape-keep' : 'tape', ppi, { others })}
     ${sel}
   </g>`;
 }
@@ -311,13 +322,14 @@ export function wallSvg(o) {
     : furniture(ob, H))).join('');
   const showObs = o.hideObstacles ? '' : obs;
   const L = o.layout;
+  const boxes = L ? L.pieces.map((p) => ({ id: p.ref.id, x: p.x, y: H - p.y - p.h, w: p.w, h: p.h })) : [];
   const arts = L ? L.pieces.map((p) => {
     const owned = p.ref.source === 'owned';
     const info = owned && o.ownedFor ? o.ownedFor(p.ref.id) : null;
     const kind = owned ? (p.role === 'pinned' ? 'pin' : 'own') : (o.keptIds && o.keptIds.has(p.ref.id) ? 'kept' : 'new');
     // A pinned piece is still on the wall in the photo: only its strip of tape is drawn.
     if (kind === 'pin' && o.photo) return `<g class="art is-pin" data-id="${esc(p.ref.id)}"${o.still ? '' : ` tabindex="0" role="button" aria-label="${esc(p.title)}, stays where it hangs"`}><rect x="${p.x}" y="${H - p.y - p.h}" width="${p.w}" height="${p.h}" class="hit"/>${pinStrip(p.x, H - p.y - p.h, p.ref.id)}</g>`;
-    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi, printFor: o.printFor || PRINT_FOR });
+    return framed(p, H, owned ? info && info.thumb : o.imageFor && o.imageFor(p), { kind, selected: p.ref.id === o.selected, fallback: info && info.color, still: !!o.still, frames: o.frames || null, art: !!(info && info.art), ppi, printFor: o.printFor || PRINT_FOR, others: boxes.filter((b) => b.id !== p.ref.id) });
   }).join('') : '';
   // A wall you can tap pieces on is a group, so screen readers reach each piece.
   const role = L && !o.still ? 'group' : 'img';

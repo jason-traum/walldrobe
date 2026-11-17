@@ -167,6 +167,8 @@ Reached from "Suggestions" at the top of your wall. The five-step bar shows Pick
 
 Oct 5, quick questions: after the budget card (or after the fourth wall once a budget is set), one card at a time: "What is the room like?" (Calm and light, Warm with wood, Bold and colorful, Dark and moody), then "Real scenes or abstract?" (Real scenes, Abstract, Both), then "Busy art or quiet art?" (Quiet, Busy, A mix), each with Skip and "1 of 3. Every wall leans that way." An answer leans every wall's art (each piece up to 1.3 times when it fits, 0.7 when it doesn't) and builds the walls again; Warm with wood also makes the frames oak unless you picked a color. When all three are answered or skipped, the card is gone. A taste at 0% (picks undone) shows the taste test card again, never "We know your taste 0%".
 
+Nov 16 (audit fixes 9 and item 12): the cards' answers use the short words (Light, Wood, Bold, Dark; Real, Abstract, Both; Quiet, Busy, A mix) on one row, with Skip as a quiet link under them; the question isn't blue. In Preferences, Room, Scenes and Busy are one row of three dropdowns, each starting at Any. Anywhere in Preferences, an Any that wasn't changed is drawn unlit.
+
 Preferences (one sheet, from your wall and from Suggestions): "Any change here builds the walls again. The one you have now stays as a version." How many pieces (minus, the count, plus; "Any number" when a count is set); dropdowns for How full (Calm, Balanced, Full), Kind of wall (Any, Structured, Loose), Which art (Shop prints, Free photos, Both, Just my pieces), People in the art (Fine, Leave them out), Price per print, Color (Any, Color only, Black and white only), From (when Both). This wall: New art in the open frames, Move pieces by hand, Show measurements, Put it back, See it as it hangs now. Links: Fix what's marked, Taste test, What we learned, New wall.
 
 ## 9. Your wall (the Pick step)
@@ -204,8 +206,9 @@ From the open wall's Frame it. One look for every new frame, a mat or not, and t
 
 | State | What they see | Action |
 |---|---|---|
-| Default | "Frame it", "One color for the set. Tap a dot on a piece to change just that one.", the wall drawn with its frames, Frame: Black, White, Oak, Brass (Black pressed), "Sizes": each new piece with its print, mat and frame in words ("Print 8 x 10 in with a mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside"), Get it docked | Pick a look, Get it |
+| Default | "Frame it", "One color for the set. To change one piece, use Change this frame on its row." (Nov 16), the sentence most pieces share said once above the list ("No mat.", or "..., unless a piece says otherwise." when one differs), the wall drawn with its frames, Frame: Black, White, Oak, Brass (Black pressed), "Sizes": each new piece with its print, mat and frame in words ("Print 8 x 10 in with a mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside"), Get it docked | Pick a look, Get it |
 | A frame color per piece (Oct 5) | Each piece that takes a frame has four dots (Black, White, Oak, Brass, 44 px to tap), its color ringed; a House of Spoils print has the three it comes in | Tap a dot: that frame changes on the drawing and its thumbnail, the price and Get the frames follow; Get it adds "Oak frame." to that piece. Picking one color for the set puts every frame on it: "Every frame white." with Undo |
+| One piece's frame (Nov 16, audit item 12) | Each piece that takes a frame shows one "Change this frame" link instead of four dots; tapping it opens that piece's dots. A piece already in its own color shows its dots open | Change this frame, then a dot |
 | Free photos on the wall | "How many mats": None, Few, Some, Most, All (Most pressed since Oct 5, or the level you picked last), and a line on what a mat is and how they're chosen. Each free photo that can take a mat has a Mat tick | Pick a level, flip one |
 | A shop print hung a frame up | "Print 12 x 16 in with a mat, in a 16 x 20 in frame, 17.5 x 21.5 in outside"; no tick (the wall is sized for it) | |
 | A piece without a mat | "Print 11 x 14 in, no mat, in a 11 x 14 in frame, 12.5 x 15.5 in outside" | Tick Mat |
@@ -300,7 +303,7 @@ From Preferences ("Browse all the art"), the feed (after the seventh wall) and F
 |---|---|---|
 | Default | "All the art", the count, a line on what saving does (and "Teach it your taste" before the test), Filter and sort folded, then a grid of every piece at its own shape: title, artist and shop (or "free photo"), "from $29", a heart, Not for me | Open Filter and sort, save, Not for me, Favorites |
 | Filters open | Subject, Color, Mood, Shape, From, Price, Sort (For you once there's a taste) | Pick; "Clear filters" when any are on |
-| Saved | "Saved The Dream." with Undo; the heart filled | Undo |
+| Favorited | "The Dream is in your favorites." with Undo; the heart filled | Undo |
 | Not for me | The piece leaves the grid, "Not for me." with Undo | Undo |
 | Nothing matches | "Nothing matches. Try fewer filters." | |
 | More than 60 | "Show more" and "60 of 442" | Show more |

@@ -9,6 +9,7 @@ The wall is the hero. People are judging art, and art needs neutral surroundings
 ## v4: Taped up (2026-10-02)
 
 - New prints are drawn as paper, unframed, with a thin white edge, held by torn tape tabs across the corners: two at the top, two more at the bottom on anything taller than 20 in. Blue `--tape-strip` while proposed, green `--tape-keep` once kept. Pieces of yours are framed (frame and mat), never taped.
+- Since Oct 3 a new print is drawn in its frame at true size (DECISIONS, Oct 3), with tape still saying it's new. A framed new print gets the two top tabs only, and a tab that would land on a neighbor is left off; four tabs on frames that sit close crossed into blue X marks (Nov 16, audit fix 2). Unframed paper (a free photo with no frame picked) keeps four on anything taller than 20 in.
 - Tab size: the real roll's width, 1.41 in at wall scale, never under 5 px on screen; about 3.2 in long, never under 15 px. Each tab sits at about 42 degrees with a few degrees of random lean, torn at both ends. Not wider: at 7.5 px it read as clip art (FEEDBACK 74).
 - The wordmark is "walldrobe" in lowercase Familjen Grotesk 600 with one blue tab across the top left of the w, 15 x 5 px, the same proportion as on the wall.
 - Mixed with Finished wall (FEEDBACK 75): the room in its own colors (wall lit a touch lighter at the top, wood bed and dresser, linen bedding, a black floor lamp), pieces of yours in black frames with mats and one soft shadow, new prints as paper with a fainter shadow under their tape.
@@ -17,7 +18,7 @@ The wall is the hero. People are judging art, and art needs neutral surroundings
 - New pieces on the open wall are a two-across grid of the art itself, about 150 px tall, taped like the drawing; under each, the title in `--pencil` at 14 px and "Kept" when kept, and a heart. No size or shop line; those are in the piece sheet with the credit ("Art by Lindsey Cherek, sold by Desenio"). Images carry the title as alt text and the heart says which piece it saves.
 - Save and "Get it" sit at the right of the pager row, Save quiet and Get it filled, 44 px tall, inside the 16 px gutter.
 - Thumbnails repeat the drawing's code: new pieces as taped paper, yours framed. No cards anywhere.
-- No legend (FEEDBACK 70). No prices for now (FEEDBACK 72).
+- No legend (FEEDBACK 70). Prices are back since Oct 4, said as "$1,000 (+$200 to frame)" (DECISIONS, Oct 4; replaces FEEDBACK 72).
 
 ## The direction and its source
 
@@ -94,6 +95,8 @@ Every pair at or above 4.5. Re-run the check when a token changes.
 ## Type
 
 One family: Switzer (Fontshare, free for commercial use), self-hosted, weights 400, 500, 600. Fallback stack: `Switzer, -apple-system, "Helvetica Neue", Arial, sans-serif` with a size-adjusted fallback face so nothing shifts when the font lands.
+
+Since Oct 2 the family is Familjen Grotesk 400, 500, 600, self-hosted as one variable file (DECISIONS, v4 round 0); the Switzer line above is history. Page text is 14 px or larger, drawn labels 13 px or larger (Nov 16, audit fix 10). Fields are 44 px tall with 16 px text and the `--field` edge (audit fix 4).
 
 | Role | Size / line | Weight | Notes |
 |---|---|---|---|

@@ -116,7 +116,15 @@ window.addEventListener('popstate', () => {
   if (S.ui.ownBack) { S.ui.ownBack = false; return; }
   if (S.sheet) { S.ui.sheetStep = false; S.sheet = null; S.selected = null; S.ui.allFor = null; render(); }
 });
-window.addEventListener('hashchange', () => { S.mem.under = null; S.flash = null; S.ui.copied = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { undoFollowsScreen(route()[0]); S.mem.under = null; S.flash = null; S.ui.copied = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
+
+// An Undo belongs to the screen it was made on. One made while moving to a screen belongs to that screen;
+// leaving drops it, so an Undo can never run from a page that doesn't show what it changes (audit Nov 2, fix 1).
+function undoFollowsScreen(r0) {
+  if (!S.undo) return;
+  if (!S.undo.on) S.undo.on = r0;
+  else if (S.undo.on !== r0) S.undo = null;
+}
 
 // ---------- Shell ----------
 
@@ -156,6 +164,8 @@ const ASK = [
   { id: 'real', q: 'Real scenes or abstract?', opts: [['real', 'Real scenes', { abstract: -1 }], ['abstract', 'Abstract', { abstract: 1 }], ['both', 'Both', {}]] },
   { id: 'busy', q: 'Busy art or quiet art?', opts: [['quiet', 'Quiet', { busy: -1 }], ['busy', 'Busy', { busy: 1 }], ['both', 'A mix', {}]] },
 ];
+// The short words Preferences uses, so a card's answers fit one row at 320 (audit Nov 2, fix 9).
+const ASK_SHORT = { room: { light: 'Light', wood: 'Wood', bold: 'Bold', moody: 'Dark' }, real: { real: 'Real', abstract: 'Abstract', both: 'Both' }, busy: { quiet: 'Quiet', busy: 'Busy', both: 'A mix' } };
 const asked = () => store.loadMe().asked || {};
 function askLeans() {
   const a = asked(), out = {};
@@ -173,7 +183,8 @@ function askCard() {
   const a = asked(), q = ASK.find((x) => !(x.id in a));
   if (!q) return '';
   return `<li class="taste-card ask-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="ask-${q.id}">${esc(q.q)}</span>
-    <span class="seg budget-seg" role="group" aria-labelledby="ask-${q.id}">${q.opts.map(([k, label]) => `<button type="button" data-ask="${q.id}" data-v="${k}">${esc(label)}</button>`).join('')}<button type="button" data-ask="${q.id}" data-v="">Skip</button></span>
+    <span class="seg budget-seg ask-seg" role="group" aria-labelledby="ask-${q.id}">${q.opts.map(([k, label]) => `<button type="button" data-ask="${q.id}" data-v="${k}" aria-label="${esc(label)}">${esc(ASK_SHORT[q.id][k] || label)}</button>`).join('')}</span>
+    <button type="button" class="link ask-skip" data-ask="${q.id}" data-v="">Skip</button>
     <span class="pencil small">${ASK.indexOf(q) + 1} of ${ASK.length}. Every wall leans that way.</span></span></div></li>`;
 }
 
@@ -1072,7 +1083,7 @@ function photoTopLine(d, s) {
   const a = d.photo && d.photo.mode === 'auto' && d.photo.auto;
   if (!a || !a.shownH || d.height <= a.shownH + 2) return '';
   const y = d.height - a.shownH;
-  return `<g class="photo-top"><line x1="0" y1="${y}" x2="${d.width}" y2="${y}"/><text x="${s * 0.6}" y="${y - s * 0.5}" font-size="${s * 0.8}">Above here is drawn, not photographed</text></g>`;
+  return `<g class="photo-top"><line x1="0" y1="${y}" x2="${d.width}" y2="${y}"/><text x="${s * 0.6}" y="${y - s * 0.5}" font-size="${s}">Above here is drawn, not photographed</text></g>`;
 }
 
 // With no TV found, the one piece of art most likely to be it (a TV that's on
@@ -1102,10 +1113,10 @@ function check() {
   const hr = s * 0.9; // handle radius, in wall inches at this size
   // On a small box the corners' touch areas would overlap and the last one drawn would win, so each stops at half the box.
   const handles = (b) => [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]].map(([x, y], i) => `<g class="box-h" data-hcorner="${i}"><circle cx="${x}" cy="${y}" r="${Math.min(hr * 2.2, Math.min(b.w, b.h) / 2)}" class="handle-hit"/><circle cx="${x}" cy="${y}" r="${Math.min(hr * 0.7, Math.min(b.w, b.h) / 5)}" class="handle-dot"/></g>`).join('');
-  const sizeTag = (b, w, h) => `<text x="${b.x + b.w / 2}" y="${b.y + b.h + s * 1.1}" font-size="${s * 0.85}" class="box-size">${r2(w)} x ${r2(h)} in</text>`;
+  const sizeTag = (b, w, h) => `<text x="${b.x + b.w / 2}" y="${b.y + b.h + s * 1.1}" font-size="${s}" class="box-size">${r2(w)} x ${r2(h)} in</text>`;
   const picked = S.ui.fix;
   const boxes = [
-    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id, t = trueOb(o, d); return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.85}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, t.w, t.h) : ''}</g>`; }),
+    ...d.obstacles.map((o) => { const b = { x: o.x, y: H - o.y - o.h, w: o.w, h: o.h }, on = picked === o.id, t = trueOb(o, d); return `<g class="ob box${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="ob">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="ob-box"/>${o.w >= 8 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s}" class="ob-label">${esc(obName(o))}</text>` : ''}${on ? handles(b) + sizeTag(b, t.w, t.h) : ''}</g>`; }),
     ...d.owned.filter((o) => o.at).map((o) => { const b = { x: o.at.x, y: H - o.at.y - o.h, w: o.w, h: o.h }, on = picked === o.id; return `<g class="owned-mark box${o.keep === 'skip' ? ' is-skip' : ''}${on ? ' is-picked' : ''}" data-box="${esc(o.id)}" data-kind="own">${hitPad(b.x, b.y, b.w, b.h)}<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" class="owned-box-mark"/>${on ? handles(b) + sizeTag(b, o.w, o.h) : ''}</g>`; }),
   ].join('') + photoTopLine(d, s);
   const ft = (v) => Math.floor(v / 12), inch = (v) => Math.round(v % 12);
@@ -1425,7 +1436,7 @@ function obstacleLayer(showHandles = true) {
   return S.draft.obstacles.map((o) => `
     <g class="ob" data-ob="${esc(o.id)}">
       ${hitPad(o.x, H - o.y - o.h, o.w, o.h)}<rect x="${o.x}" y="${H - o.y - o.h}" width="${o.w}" height="${o.h}" class="ob-box"/>
-      ${o.w >= 10 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s * 0.9}" class="ob-label">${esc(obName(o))}</text>` : ''}
+      ${o.w >= 10 ? `<text x="${o.x + o.w / 2}" y="${H - o.y - o.h / 2}" font-size="${s}" class="ob-label">${esc(obName(o))}</text>` : ''}
       ${showHandles && o.w >= 6 ? `<circle cx="${o.x + o.w}" cy="${H - o.y - o.h}" r="${s * 0.55}" class="ob-resize" data-resize="${esc(o.id)}"/>` : ''}
     </g>`).join('');
 }
@@ -1950,14 +1961,14 @@ function browse() {
     const p = fromPrice(c), shop = c.offers && c.offers.length;
     return `<li class="art-card"><span class="art-card-img"><img src="${c.imageData}" alt="${esc(c.title)}" loading="lazy" style="aspect-ratio:${c.aspect || 0.8}"></span>
       <span class="art-card-text"><span class="name">${esc(c.title)}</span><span class="pencil small">${locked() ? (shop ? (p != null ? `from $${Math.round(p)}` : 'Print') : 'Photo you print') : `${esc(c.artist || '')}${shop ? `, ${esc(c.source)}` : ', free photo'}${p != null ? ` · from $${Math.round(p)}` : ''}`}</span></span>
-      <span class="art-card-acts"><button type="button" class="heart" data-browse-save="${esc(c.id)}" aria-pressed="${saved.has(c.id)}" aria-label="${saved.has(c.id) ? 'Saved' : 'Save'} ${esc(c.title)}">${heart(saved.has(c.id))}</button><button type="button" class="link small" data-browse-no="${esc(c.id)}">Not for me</button></span></li>`;
+      <span class="art-card-acts"><button type="button" class="heart" data-browse-save="${esc(c.id)}" aria-pressed="${saved.has(c.id)}" aria-label="Favorite ${esc(c.title)}">${heart(saved.has(c.id))}</button><button type="button" class="link small" data-browse-no="${esc(c.id)}">Not for me</button></span></li>`;
   };
   const shown = list.slice(0, f.n);
   return `${bar(back(d && d.width ? '#/layouts' : '#/', d && d.width ? 'Your walls' : 'Walldrobe'), '<a class="btn quiet small" href="#/saved">Favorites</a>')}
   <main class="page browse">
     <h1>All the art</h1>
     <p class="lede">${list.length.toLocaleString('en-US')} pieces. Heart what you like; your walls try it first. ${tasteOn ? '' : '<a href="#/taste">Teach it your taste</a> to sort for you.'}</p>
-    ${S.undo && /^(Saved|Not for me)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
+    ${S.undo && /(in your favorites\.$|^Not for me)/.test(S.undo.label) ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     <details class="filter-box"${S.ui.filtersOpen ? ' open' : ''}><summary>Filter and sort${(() => { const n = ['theme', 'color', 'mood', 'shape', 'kind', 'price'].filter((k) => f[k]).length; return n ? ` <span class="pencil">${n} on</span>` : ''; })()}</summary>
     <div class="filters">
       ${sel('theme', 'Subject', [['', 'Any'], ...Object.entries(THEME_WORDS)])}
@@ -2016,7 +2027,7 @@ function railHtml(r0) {
     { id: 'pick', name: 'Pick a wall', href: '#/layouts', at: ['layouts', 'browse'], done: !!chosen,
       note: v ? `${v.list.length} walls fit` : 'Every wall that fits' },
     { id: 'mine', name: 'Make it yours', href: '#/wall', at: ['wall', 'stuff'], done: !!chosen,
-      note: L ? `${(keptSet().size ? `${keptSet().size} kept, ` : '')}${L.pieces.length} pieces` : 'Keep, swap, save' },
+      note: L ? `${(keptSet().size ? `${keptSet().size} kept, ` : '')}${L.pieces.length} pieces` : 'Keep, swap, favorite' },
     { id: 'frame', name: 'Frame it', href: chosen ? '#/frames' : '', at: ['frames'], done: !!(st && (st.art || st.fr)),
       note: chosen ? `${FRAME_LOOKS[lookOf()].name}${widthKey() === 'standard' ? '' : `, ${FRAME_WIDTHS[widthKey()].name.toLowerCase()}`}` : 'Frames and mats' },
     { id: 'get', name: 'Get it', href: chosen ? '#/get' : '', at: ['get'], done: !!(st && st.done),
@@ -2222,9 +2233,9 @@ function feed() {
   })();
   // A budget, asked in the list after the fourth wall until you set one or say no limit.
   const budgetCard = d.budget || d.budgetAsked ? '' : `<li class="taste-card budget-card"><div class="taste-link is-text"><span class="taste-text"><span class="name" id="budget-q">Budget for this wall?</span><span class="pencil small">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span>
-    <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}">$${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" data-budget-ask="0">No limit</button></span>${budgetForm('feed')}</span></div></li>`;
+    <span class="seg budget-seg" role="group" aria-labelledby="budget-q">${BUDGETS.filter(Boolean).map((b) => `<button type="button" data-budget-ask="${b}" aria-label="$${b.toLocaleString('en-US')}">${b >= 1000 ? `$${b / 1000}k` : `$${b}`}</button>`).join('')}<button type="button" data-budget-ask="0">No limit</button></span>${budgetForm('feed')}</span></div></li>`;
   const tasteTaken = pct0 > 0;
-  const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Save what you like. Your walls try it first.</span></span></a></li>`;
+  const browseCard = `<li class="taste-card"><a href="#/browse" class="taste-link is-text"><span class="taste-text"><span class="name">Browse all ${CATALOG.length.toLocaleString('en-US')} pieces</span><span class="pencil small">Heart what you like. Your walls try it first.</span></span></a></li>`;
   const items = (tasteTaken ? '' : tasteCard) + v.list.map((L, i) => `<li class="entry">
     <a class="entry-link" href="#/wall" data-wall="${esc(L.key)}" aria-label="Wall ${i + 1} of ${v.list.length}. ${esc(whyText(L))}">
       <span class="drawing">${drawWall(L, px, { still: true, label: `Wall ${i + 1}` })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</span>
@@ -2323,7 +2334,7 @@ function wallScreen() {
     <h1 class="sr-only">${esc(whyText(L))}</h1>
     </div>
     <section class="wall-side" aria-label="In this wall">
-    <p class="wall-hint">Tap a piece to swap, keep or save it.</p>
+    <p class="wall-hint">Tap a piece to swap, keep or favorite it.</p>
     ${L.pieces.some((p) => p.ref.source === 'catalog' && !keptSet().has(p.ref.id)) ? `<p class="layout-not-art">Love the layout, not the art? <button type="button" class="link" data-act="new-art"${S.busy ? ' disabled' : ''}>New art in these frames</button></p>` : ''}
     ${mine.length ? `<div class="yours"><span class="yours-l">Yours</span>${yours}</div>` : ''}
     ${L.left && L.left.length ? `<p class="pencil small">Left off: ${L.left.map((l) => `your ${esc(l.title)}`).join(', ')}.</p>` : ''}
@@ -2394,7 +2405,7 @@ function changeSheet() {
   const dis = S.busy ? ' disabled' : '';
   // Each row says what the choice it has means, in a few words, so nothing needs a guess.
   // Each row: a short label beside its choices. Only Look and Budget need a line of help.
-  const segBtns = (id, pairs, cur, attr) => `<span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${dis}>${esc(l)}</button>`).join('')}</span>`;
+  const segBtns = (id, pairs, cur, attr) => `<span class="seg" role="group" aria-labelledby="${id}">${pairs.map(([v, l]) => `<button type="button" data-${attr}="${v == null ? '' : esc(String(v))}" aria-pressed="${cur === v}"${v == null && cur === v ? ' class="is-default"' : ''}${dis}>${esc(l)}</button>`).join('')}</span>`;
   const seg = (id, label, pairs, cur, attr) => `<div class="sheet-row"><span class="label" id="${id}">${label}</span>${segBtns(id, pairs, cur, attr)}</div>`;
   const counts = (S.view && S.view.counts) || [];
   const n = d.pieces || (L ? L.pieces.length : null);
@@ -2410,12 +2421,12 @@ function changeSheet() {
       <span class="look-segs">${segBtns('look-l', [[null, 'Any'], ['structured', 'Lined up'], ['gallery', 'Mixed']], d.style || null, 'style')}${segBtns('look-l', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness')}</span>
       <span class="row-help">${esc(lookWords(d.style || null, d.fullness || 'balanced'))}</span></div>
     <div class="sheet-row"><span class="label" id="count-l">How many</span>
-      <span class="count-ctl"><span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
+      <span class="count-ctl"><span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${d.pieces ? '' : ' class="is-default"'}${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
       ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</span></div>
     ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
     ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
-    ${(() => { const a = asked(); const row = (q, label, short) => seg(`ask-${q.id}-l`, label, [[`${q.id}:`, 'Any'], ...q.opts.filter((o) => Object.keys(o[2]).length).map(([k, l]) => [`${q.id}:${k}`, short[k] || l])], `${q.id}:${a[q.id] && q.opts.some((o) => o[0] === a[q.id] && Object.keys(o[2]).length) ? a[q.id] : ''}`, 'askset');
-      return row(ASK[0], 'Room', { light: 'Light', wood: 'Wood', bold: 'Bold', moody: 'Dark' }) + row(ASK[1], 'Scenes', { real: 'Real', abstract: 'Abstract' }) + row(ASK[2], 'Busy', { quiet: 'Quiet', busy: 'Busy' }); })()}
+    ${(() => { const a = asked(); const pick = (q, label, short) => { const cur = a[q.id] && q.opts.some((o) => o[0] === a[q.id] && Object.keys(o[2]).length) ? a[q.id] : ''; return `<label class="ask-pick"><span class="ask-label">${label}</span><select data-askpick="${q.id}"${cur ? '' : ' class="is-default"'}${dis}><option value=""${cur ? '' : ' selected'}>Any</option>${q.opts.filter((o) => Object.keys(o[2]).length).map(([k, l]) => `<option value="${k}"${cur === k ? ' selected' : ''}>${esc(short[k] || l)}</option>`).join('')}</select></label>`; };
+      return `<div class="sheet-row ask-row">${pick(ASK[0], 'Room', { light: 'Light', wood: 'Wood', bold: 'Bold', moody: 'Dark' })}${pick(ASK[1], 'Scenes', { real: 'Real', abstract: 'Abstract' })}${pick(ASK[2], 'Busy', { quiet: 'Quiet', busy: 'Busy' })}</div>`; })()}
     ${seg('frame-l', 'Frames', Object.entries(FRAME_LOOKS).map(([k, v]) => [k, v.name]), lookOf(), 'look')}
     ${seg('mats-l', 'Mats', MAT_LEVELS, matLevel(), 'mat')}
     <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
@@ -3062,27 +3073,42 @@ function framesScreen() {
   const free = fresh.filter(canMat);
   // Pieces that get a frame from you (a print sold framed keeps its own).
   const framed = fresh.filter(needsFrame);
-  const rows = fresh.map((p) => {
+  const rowsHow = [];
+  const rowItems = fresh.map((p) => {
     const item = byId.get(p.ref.id);
     const ps = printOf(p);
     const fw = soldW(p), fh = soldH(p);
     const whole = p.frame && p.frame.can && p.frame.can.mat && !p.frame.can.plain && !(item.offers && item.offers.length);
     const mg = p.frame && p.frame.margin;
-    const words = !needsFrame(p) ? (p.frame && p.frame.print ? `Comes framed with a white border, art ${sz(p.frame.print.w, p.frame.print.h)}, ${sz(p.w, p.h)} outside.` : `Comes framed, ${sz(p.w, p.h)}.`) : mg ? `Print ${sz(fw, fh)} with a ${mg} in white border printed on, so no mat. In ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : ps ? `Print ${sz(ps[0], ps[1])} with a mat${whole ? ', so the photo keeps its shape' : ''}, in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.` : `Print ${sz(fw, fh)}, no mat, in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
+    // How it's framed (said once above the list when every piece shares it) and its sizes (per row).
+    const sizes = `Print ${sz(ps ? ps[0] : fw, ps ? ps[1] : fh)} in ${aOrAn(fw)} ${sz(fw, fh)} frame, ${sz(p.w, p.h)} outside.`;
+    const [how, size] = !needsFrame(p) ? (p.frame && p.frame.print ? ['Comes framed with a white border.', `Art ${sz(p.frame.print.w, p.frame.print.h)}, ${sz(p.w, p.h)} outside.`] : ['Comes framed.', `${sz(p.w, p.h)}.`])
+      : mg ? [`White border printed on (${mg} in), so no mat.`, sizes]
+        : ps ? [`Printed smaller, with a mat${whole ? ', so the photo keeps its shape' : ''}.`, sizes]
+          : ['No mat.', sizes];
     const flip = canMat(p) ? `<button type="button" class="tick" data-mat-one="${esc(p.ref.id)}" aria-pressed="${matFor(p)}">Mat</button>` : '';
     const opts = sizesFor(p);
     const cur = p.frame ? `${p.frame.w}x${p.frame.h}${p.frame.print && item.offers && item.offers.length ? 'm' : ''}` : '';
-    const size = opts.length > 1 ? `<label class="size-pick"><span class="sr-only">Size for ${esc(item.title)}</span><select data-resize="${esc(p.ref.id)}">${opts.map((z) => { const k = `${z.w}x${z.h}${z.matted ? 'm' : ''}`; return `<option value="${k}"${k === cur ? ' selected' : ''}>${z.w} x ${z.h}${z.matted ? `, matted ${z.matted.w} x ${z.matted.h}` : ''}</option>`; }).join('')}</select></label>` : '';
+    const sizeSel = opts.length > 1 ? `<label class="size-pick"><span class="sr-only">Size for ${esc(item.title)}</span><select data-resize="${esc(p.ref.id)}">${opts.map((z) => { const k = `${z.w}x${z.h}${z.matted ? 'm' : ''}`; return `<option value="${k}"${k === cur ? ' selected' : ''}>${z.w} x ${z.h}${z.matted ? `, matted ${z.matted.w} x ${z.matted.h}` : ''}</option>`; }).join('')}</select></label>` : '';
+    // One "Change this frame" per piece opens its colors; a piece already in its own color shows them.
     const dots = colorDots(p, item.title);
-    return `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${words}</span>${flip || size || dots ? `<span class="row-ticks">${size}${flip}${dots}</span>` : ''}</span></li>`;
-  }).join('');
+    const own = dots && colorOf(p) !== look, open = dots && (own || S.ui.frameOpen === p.ref.id);
+    const change = dots && !open ? `<button type="button" class="link frame-change" data-frame-open="${esc(p.ref.id)}" aria-expanded="false">Change this frame</button>` : '';
+    rowsHow.push(how);
+    return { how, html: (shared) => `<li class="frame-row"><span class="buy-art">${thumbFor(p, 56)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span><span class="frame-words">${how === shared ? size : `${how} ${size}`}</span>${flip || sizeSel || change || open ? `<span class="row-ticks">${sizeSel}${flip}${change}${open ? dots : ''}</span>` : ''}</span></li>` };
+  });
+  // The sentence most pieces share is said once; a piece that differs says its own.
+  const tally = rowsHow.reduce((m, h) => m.set(h, (m.get(h) || 0) + 1), new Map());
+  const [shared, many] = [...tally.entries()].sort((a, b) => b[1] - a[1])[0] || [null, 0];
+  const common = many >= 2 ? shared : null;
+  const rows = rowItems.map((r) => r.html(common)).join('');
   // Your own art that isn't framed yet gets a frame on this wall too.
   const yours = L.pieces.filter((p) => p.ref.source === 'owned').map((p) => [p, S.draft.owned.find((o) => o.id === p.ref.id)]).filter(([, o]) => o && o.needsFrame);
   const ownRows = yours.map(([p, o]) => { const f = o.needsFrame, dots = f.custom ? '' : colorDots(p, o.title); return `<li class="frame-row"><span class="buy-art"><span class="tn own"${o.thumb ? '' : ` style="background:${esc(o.color || '#8A8F94')}"`}>${o.thumb ? `<img src="${o.thumb}" alt="">` : ''}</span></span><span class="buy-text"><span class="name">Your ${esc(o.title)}</span><span class="frame-words">${f.custom ? `Needs a custom frame for ${sz(f.w, f.h)}.` : f.print && (f.print.w !== f.w || f.print.h !== f.h) ? `${sz(f.print.w, f.print.h)}, with a mat, in ${aOrAn(f.w)} ${sz(f.w, f.h)} frame.` : `In ${aOrAn(f.w)} ${sz(f.w, f.h)} frame, no mat.`}</span>${dots ? `<span class="row-ticks">${dots}</span>` : ''}</span></li>`; }).join('');
   return `${bar(back('#/wall', 'This wall'))}
   <main class="page frames">
     <h1>Frame it</h1>
-    <p class="lede">One color for the set. Tap a dot on a piece to change just that one.</p>
+    <p class="lede">One color for the set. To change one piece, use Change this frame on its row.</p>
     <div class="drawing" id="frames-wall">${drawWall(L, pxNow(), { still: true, label: 'Your wall with the frames you picked' })}</div>
     <fieldset class="choose"><legend>Frame</legend>
       <span class="seg" role="group" aria-label="Frame">${Object.entries(FRAME_LOOKS).map(([k, v]) => `<button type="button" class="seg-btn" data-look="${k}" aria-pressed="${look === k}"><span class="swatch-dot" style="background:${v.hex}${v.edge ? `;box-shadow:inset 0 0 0 1px ${v.edge}` : ''}"></span>${v.name}</button>`).join('')}</span>
@@ -3103,6 +3129,7 @@ function framesScreen() {
     <h2>Sizes</h2>
     ${S.undo ? `<p class="sheet-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : ''}
     ${flashHtml()}
+    ${common && rowItems.length ? `<p class="frame-common">${esc(rowItems.length === many ? common : `${common.replace(/\.$/, '')}, unless a piece says otherwise.`)}</p>` : ''}
     <ul class="frame-list">${rows}${ownRows}</ul>
     <div class="dock"><button type="button" class="btn wide" data-act="to-get">Get it</button></div>
   </main>`;
@@ -3387,7 +3414,7 @@ function planScreen() {
     ? '<div class="acts left"><button type="button" class="btn" data-act="plan-signin">Sign in to unlock</button></div><p class="pencil small">Your plan goes with your account, so it\'s on every device.</p>'
     : done ? `<p class="plan-done note" tabindex="-1">You're on the list. Paying isn't open yet; we'll write to ${esc(A.me.email || 'you')} when it is. Your walls stay free to plan.</p>`
       : `<div class="acts left"><button type="button" class="btn" data-act="plan-yes"${P.status === 'saving' || P.status === 'checking' ? ' disabled' : ''}>${P.status === 'saving' ? 'Unlocking…' : 'Unlock the full plan'}</button></div>
-        ${P.status === 'error' ? `<p class="error" role="alert" tabindex="-1">Couldn't do that: ${esc(P.err)}. Try again.</p>` : ''}`;
+        ${P.status === 'error' ? `<p class="error" role="alert" tabindex="-1">Couldn't do that: ${esc(P.err)}. Try again in a moment.</p>` : ''}`;
   return `${bar(back(backTo, 'Back'))}
   <main class="page plan-page">
     <h1>The full plan</h1>
@@ -3458,6 +3485,7 @@ function loadFeed(more) {
   const F = A.feed;
   if (F.status === 'loading' || !APP || !ACCT.ready()) return;
   F.status = 'loading'; F.err = null;
+  setTimeout(render, 0);
   const before = more && F.posts.length ? F.posts[F.posts.length - 1].shared_at : null;
   ACCT.feed({ following: F.scope === 'following', before })
     .then(async (rows) => {
@@ -3561,7 +3589,7 @@ function userScreen() {
   const u = A.cache.get(key);
   const body = u.status === 'loading' ? '<p class="pencil">Loading…</p>'
     : u.status === 'none' ? '<p class="pencil">Nobody by that name.</p>'
-      : u.status === 'error' ? `<p class="note">Couldn't load it: ${esc(u.err)}.</p>`
+      : u.status === 'error' ? `<p class="note">Couldn't load it: ${esc(u.err)}. <button type="button" class="link" data-cache-retry="${esc(key)}">Try again</button></p>`
         : `${profileHead(u.p, { own: A.me && A.me.id === u.p.id, counts: u.counts, following: u.following })}
           ${u.walls.length ? `<ul class="posts">${u.walls.map((r) => postCard(r, { profile: u.p })).join('')}</ul>` : '<p class="pencil">No shared walls yet.</p>'}`;
   return `${bar(back('#/hung', 'Walls people hung'))}<main class="page profile-page">${flashHtml()}${body}</main>`;
@@ -3588,7 +3616,7 @@ function oneWallScreen() {
   const key = `w:${id}`;
   if (!A.cache.has(key)) { A.cache.set(key, { status: 'loading' }); ACCT.getWall(id).then((r) => { A.cache.set(key, r ? { status: 'ok', r } : { status: 'none' }); render(); }).catch((e) => { A.cache.set(key, { status: 'error', err: e.message }); render(); }); }
   const u = A.cache.get(key);
-  if (u.status !== 'ok') return `${bar(back('#/hung', 'Walls people hung'))}<main class="page"><p class="pencil">${u.status === 'loading' ? 'Loading…' : u.status === 'none' ? 'This wall is private or gone.' : esc(u.err)}</p></main>`;
+  if (u.status !== 'ok') return `${bar(back('#/hung', 'Walls people hung'))}<main class="page"><p class="pencil">${u.status === 'loading' ? 'Loading…' : u.status === 'none' ? 'This wall is private or gone.' : `Couldn't load it: ${esc(u.err)}. <button type="button" class="link" data-cache-retry="${esc(key)}">Try again</button>`}</p></main>`;
   const r = u.r, w = postWall(r), L = w.chosen.layout;
   const fresh = L ? L.pieces.filter((x) => x.ref.source === 'catalog' && byId.get(x.ref.id)) : [];
   const mine = A.me && r.owner === A.me.id;
@@ -3637,6 +3665,7 @@ function render() {
   const appScreens = APP ? { signin: signInScreen, me: meScreen, u: userScreen, hung: hungScreen, w: oneWallScreen, plan: planScreen } : {};
   const screens = { ...appScreens, '': home, begin, browse, stuff: stuffScreen, home: homeScreen, 'home-get': homeGetScreen, start, check, corners, size: sizeScreen, things, pieces, taste, layouts: keepUnder('feed', feed), wall: keepUnder('wall', wallScreen), frames: framesScreen, get: getScreen, hang: hangScreen, walls, compare, saved: savedScreen };
   const fn = S.crop ? cropScreen : screens[r0] || home;
+  if (S.undo && !S.undo.on) S.undo.on = r0;
   document.title = { '': 'Walldrobe', begin: 'Start · Walldrobe', browse: 'All the art · Walldrobe', stuff: 'Your stuff · Walldrobe', home: 'Your home · Walldrobe', 'home-get': 'Get it all · Walldrobe', signin: 'Sign in · Walldrobe', plan: 'The full plan · Walldrobe', me: 'Your profile · Walldrobe', hung: 'Walls people hung · Walldrobe', walls: 'Your walls · Walldrobe', frames: 'Frame it · Walldrobe', get: 'Get it · Walldrobe', hang: 'Hang it · Walldrobe', layouts: 'Your walls, ranked · Walldrobe', wall: 'Your wall · Walldrobe', taste: 'Make it mine · Walldrobe' }[r0] || 'Walldrobe';
   const el = document.activeElement;
   const sel = el && el !== document.body && el.closest('#app') ? focusSelector(el) : null;
@@ -3877,13 +3906,13 @@ function guideSvg(L, me, spot, H) {
   if (spot.sy && spot.sy.line !== undefined) out.push(hline(spot.sy.line));
   if (spot.sx && spot.sx.gap) {
     const [a, b] = spot.sx.gap, y = H - (Math.max(spot.y, spot.sx.o.y) + Math.min(spot.y + me.h, spot.sx.o.y + spot.sx.o.h)) / 2;
-    out.push(`<line x1="${a}" x2="${b}" y1="${y}" y2="${y}" class="snap-gap"/><text x="${(a + b) / 2}" y="${y - s * 0.4}" text-anchor="middle" font-size="${s * 0.8}" class="snap-label">${esc(inches(b - a))}</text>`);
+    out.push(`<line x1="${a}" x2="${b}" y1="${y}" y2="${y}" class="snap-gap"/><text x="${(a + b) / 2}" y="${y - s * 0.4}" text-anchor="middle" font-size="${s}" class="snap-label">${esc(inches(b - a))}</text>`);
   }
   if (spot.sy && spot.sy.gap) {
     const [a, b] = spot.sy.gap, x = (Math.max(spot.x, spot.sy.o.x) + Math.min(spot.x + me.w, spot.sy.o.x + spot.sy.o.w)) / 2;
-    out.push(`<line x1="${x}" x2="${x}" y1="${H - a}" y2="${H - b}" class="snap-gap"/><text x="${x + s * 0.4}" y="${H - (a + b) / 2 + s * 0.3}" font-size="${s * 0.8}" class="snap-label">${esc(inches(b - a))}</text>`);
+    out.push(`<line x1="${x}" x2="${x}" y1="${H - a}" y2="${H - b}" class="snap-gap"/><text x="${x + s * 0.4}" y="${H - (a + b) / 2 + s * 0.3}" font-size="${s}" class="snap-label">${esc(inches(b - a))}</text>`);
   }
-  if (spot.sy && spot.sy.what === 'eye') out.push(`<text x="${s * 0.4}" y="${H - RULES.centerline - s * 0.35}" font-size="${s * 0.8}" class="snap-label">57 in, eye level</text>`);
+  if (spot.sy && spot.sy.what === 'eye') out.push(`<text x="${s * 0.4}" y="${H - RULES.centerline - s * 0.35}" font-size="${s}" class="snap-label">57 in, eye level</text>`);
   return out.join('');
 }
 
@@ -4162,6 +4191,15 @@ document.addEventListener('toggle', (e) => { if (e.target && e.target.classList 
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset && t.dataset.askpick) {
+    const id = t.dataset.askpick, v = t.value, me = store.loadMe(), was = { ...(me.asked || {}) };
+    if (!ASK.some((q) => q.id === id)) return;
+    me.asked = { ...was, [id]: v || null }; store.saveMe(me);
+    S.undo = { label: 'Changed.', run: () => { const m = store.loadMe(); m.asked = was; store.saveMe(m); } };
+    S.sheet = 'change'; S.ui.sheetStay = true; persist(); render();
+    const b = document.querySelector(`[data-askpick="${CSS.escape(id)}"]`); if (b) b.focus({ preventScroll: true });
+    return;
+  }
   // The photo, caught at the document so a render while the picker is open can't lose it.
   if (t.id === 'photo-input' || t.id === 'photo-input-2') { onPhoto(t.files && t.files[0]); return; }
   // Your stuff: a piece of art from a photo, shaped like the photo until you type its size.
@@ -4277,6 +4315,8 @@ document.addEventListener('click', (e) => {
   const t = link || hit;
   if (!t) return;
   const a = t.dataset.act;
+  if (t.dataset.frameOpen) { S.ui.frameOpen = t.dataset.frameOpen; render(); const b = document.querySelector(`[data-color-one="${CSS.escape(t.dataset.frameOpen)}"][aria-pressed="true"]`) || document.querySelector(`[data-color-one="${CSS.escape(t.dataset.frameOpen)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.cacheRetry) { A.cache.delete(t.dataset.cacheRetry); render(); return; }
   if (t.dataset.wall) { S.openKey = t.dataset.wall; S.selected = null; S.undo = null; S.edit = false; S.sheet = null; if (location.hash === '#/wall') { e.preventDefault(); render(); } return; }
   if (t.dataset.goto !== undefined) { if (t.dataset.goto) { S.openKey = t.dataset.goto; S.selected = null; S.undo = null; S.edit = false; render(); } return; }
   if (t.dataset.which) { S.draft.photo.measure.which = t.dataset.which; S.draft.photo.measure.value = null; S.draft.photo.measure.override = null; persist(); render(); return; }
@@ -4430,7 +4470,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.piece) { S.sheet = { piece: t.dataset.piece }; S.selected = t.dataset.piece; S.ui.allFor = null; S.ui.sheetStay = false; render(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.browseSave) {
     const id = t.dataset.browseSave, on = browseSave(id), it = byId.get(id);
-    S.undo = on ? { label: `Saved ${it ? it.title : ''}.`.replace(' .', '.'), run: () => { browseSave(id); } } : null;
+    S.undo = on ? { label: it ? `${it.title} is in your favorites.` : 'In your favorites.', run: () => { browseSave(id); } } : null;
     S.focusAfter = `[data-browse-save="${CSS.escape(id)}"]`; render();
     const f = document.querySelector(S.focusAfter); S.focusAfter = null; if (f) f.focus({ preventScroll: true });
     return;
@@ -4597,7 +4637,7 @@ document.addEventListener('click', (e) => {
     const prev = clone(d.kept || []);
     d.kept = [...prev.filter((k) => k.id !== id), { id, w: pick.w, h: pick.h }];
     d.chosen = null;
-    rebuild('onwall', { label: 'Kept in every wall.', run: () => { d.kept = prev; persist(); } });
+    rebuild('onwall', { label: 'Kept in every wall.', on: 'wall', run: () => { d.kept = prev; persist(); } });
     go('#/wall'); return;
   }
   if (t.dataset.wallcard) { S.sheet = { wall: t.dataset.wallcard }; S.ui.confirmDelete = null; render(); return; }
@@ -4804,8 +4844,8 @@ document.addEventListener('error', (e) => {
   if (!(img instanceof HTMLImageElement)) return;
   // A taped thumbnail's corners are its tape, so its title goes in as text, not as ::after.
   const tn = img.closest('.tn');
-  if (tn) { tn.classList.add('tn-gone'); const t = document.createElement('span'); t.className = 'tn-title'; t.textContent = img.alt || img.dataset.title || (tn.offsetWidth >= 60 ? 'No image' : ''); img.replaceWith(t); return; }
-  const box = img.closest('.thumb, .art-big, .pick-art');
+  if (tn) { tn.classList.add('tn-gone'); const t = document.createElement('span'); t.className = 'tn-title'; t.textContent = img.alt || img.dataset.title || ''; img.replaceWith(t); return; }
+  const box = img.closest('.thumb, .art-big, .pick-art, .art-card-img');
   if (box) { box.classList.add('is-missing'); if (img.alt) box.dataset.missing = img.alt; img.remove(); }
 }, true);
 // iOS needs a touch listener for :active press states.

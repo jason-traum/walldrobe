@@ -3,6 +3,7 @@
 # Usage: serve docs/ (cd docs && python3 -m http.server 8830), then
 #   python3 tools/ui_walk.py [out_dir]
 # Needs Playwright for Python with Chromium.
+import re
 import sys, os
 from playwright.sync_api import sync_playwright
 
@@ -251,6 +252,11 @@ with sync_playwright() as p:
             vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(500)
             vis(pg, '#sheet a[href="#/walls"]').click(); pg.wait_for_timeout(1500)
             check(f'{W} Your walls lists both', pg.locator('.wall-card').count() == 2)
+            check(f'{W} the Save Undo stays on the wall it was made on', pg.locator('[data-act=undo]').count() == 0)
+            pg.evaluate("location.replace('#/browse')"); pg.wait_for_timeout(1200)
+            check(f'{W} Browse shows no Undo from the wall, so it can\'t delete a saved wall', pg.locator('[data-act=undo]').count() == 0)
+            pg.evaluate("location.replace('#/walls')"); pg.wait_for_timeout(1200)
+            check(f'{W} still two saved walls after Browse', pg.locator('.wall-card').count() == 2)
             pg.screenshot(path=f'{OUT}/walls-{W}.png', full_page=True)
             check(f'{W} Your walls no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
             # Compare: two saved walls go straight to the compare view, each with what only it has.
@@ -848,7 +854,7 @@ with sync_playwright() as p:
             check('1280 a Society6 print shows its printed border, the art never stretched', pg.evaluate("[...document.querySelectorAll('#drawing .art')].filter(g => g.dataset.id.startsWith('s6-')).every(g => g.querySelector('.print-paper') && g.querySelector('image').getAttribute('preserveAspectRatio') === 'xMidYMid meet')"))
             pg.locator('#drawing').screenshot(path=f'{OUT}/society6-1280.png')
             vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1500)
-            check('1280 Frame it says the border is printed on, so no mat', 'white border printed on, so no mat' in pg.evaluate('document.body.innerText').replace('\xa0', ' '))
+            check('1280 Frame it says the border is printed on, so no mat', re.search(r'white border printed on \(\d in\), so no mat', pg.evaluate('document.body.innerText').replace('\xa0', ' '), re.I) is not None)
         else:
             check('1280 a Society6 print reaches a wall of shop prints', False, 'none in 8 walls')
         ctx.close()
@@ -887,8 +893,10 @@ with sync_playwright() as p:
                 check(f'{W} three answers and the card is gone', pg.locator('.ask-card').count() == 0)
             pg.evaluate('window.scrollTo(0, 0)')
             vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(700)
-            on = [x.get_attribute('data-askset') for x in pg.locator('#sheet [data-askset][aria-pressed=true]').all()]
+            on = [f"{x.get_attribute('data-askpick')}:{x.input_value()}" for x in pg.locator('#sheet select[data-askpick]').all()]
             check(f'{W} Preferences shows the answers: room, scenes, busy', on == ['room:light', 'real:', 'busy:quiet'], str(on))
+            check(f'{W} Room, Scenes and Busy are one row of three dropdowns', pg.locator('#sheet .ask-row select').count() == 3)
+            check(f'{W} an unchanged Any isn\'t lit', pg.evaluate("[...document.querySelectorAll('#sheet .seg button.is-default[aria-pressed=true]')].every(b => getComputedStyle(b).backgroundColor === 'rgba(0, 0, 0, 0)')"))
             check(f'{W} Preferences mats default to Most', pg.locator('#sheet [data-mat="most"][aria-pressed=true]').count() == 1)
             check(f'{W} Preferences has no sideways scroll', side())
             pg.screenshot(path=f'{OUT}/prefs-oct5-{W}.png', full_page=True)
@@ -896,8 +904,11 @@ with sync_playwright() as p:
             # A frame color per piece on Frame it.
             pg.locator('.entry-link').first.click(); pg.wait_for_timeout(2500)
             vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1800)
+            change = pg.locator('.frame-row [data-frame-open]')
+            check(f'{W} each piece that takes a frame has one Change this frame link', change.count() >= 1 and pg.locator('.frame-row .color-dots').count() == 0, str(change.count()))
+            if change.count(): change.first.click(); pg.wait_for_timeout(600)
             dots = pg.locator('.frame-row .color-dots')
-            check(f'{W} each piece that takes a frame has color dots', dots.count() >= 1, str(dots.count()))
+            check(f'{W} Change this frame opens that piece\'s colors', dots.count() == 1, str(dots.count()))
             if dots.count():
                 row = dots.first
                 off = [x for x in row.locator('.dot-btn').all() if x.get_attribute('aria-pressed') == 'false']

@@ -19,7 +19,7 @@ const plain = (e) => {
   const m = String((e && e.message) || e || 'Something went wrong');
   if (/duplicate key.*handle/i.test(m)) return 'That name is taken';
   if (/handle/i.test(m) && /check/i.test(m)) return 'Use 3 to 24 lowercase letters, numbers or _';
-  if (/Failed to fetch|NetworkError|timed? ?out/i.test(m)) return 'No connection. Try again';
+  if (/Failed to fetch|NetworkError|timed? ?out/i.test(m)) return 'No connection';
   if (/schema cache|does not exist/i.test(m)) return 'This isn\'t set up yet. Try again later';
   return m.replace(/\s+/g, ' ').slice(0, 160);
 };
