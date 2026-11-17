@@ -2,6 +2,14 @@
 
 Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the next working session (a new chat, Claude Code, or a person). Read this first, then CLAUDE.md, PRODUCT.md, ENGINE.md, STATES.md, DESIGN.md and DECISIONS.md, in that order. When this file and DECISIONS.md disagree, DECISIONS.md wins for product calls; this file wins for "what's in flight".
 
+## Status, 2026-11-16 (read this first)
+
+- Nothing has changed in the app since Oct 6. Main (d668d3f) is live; the beta link is the Oct 4 build.
+- The Nov 16 catch-up is in Jason's vault: wharton-os, Projects/Walldrobe - brief (2026-11-16).md (every call with his words, what's built, the UI/UX and business research, conflicts, open calls). The open list is Projects/Walldrobe - open list (2026-11-16).md.
+- Branch catch-up-2026-11-16 holds doc changes only: DECISIONS lines and FEEDBACK rows 180 to 190 from chats. Nothing goes to main or the beta until Jason says.
+- Waiting on Jason: what separates Walldrobe and Walldrobe Lite (DECISIONS, Oct 22); the Nov 2 audit (fixes 1 to 11 wait on "fix"; item 12 is his call); the business model; switching Google sign-in on in Supabase (checked Nov 16: still off); an OK for the plan_interest table (checked Nov 16: not there).
+- The history rewrite and the v1 tag are done (no tags on origin; no branch touches the living room photos).
+
 ## Git history rewritten, 2026-11-01 (read first)
 
 Jason's two living room photos (test/fixtures/living_room.png, living_room_tv_on.png and their label files) are gone from the whole git history, on every branch (Jason: "force push walldrobe"). Every commit hash before Nov 1 changed. Any clone from before then holds the old history, photos included: don't pull, merge or rebase it. Reset it instead (`git fetch origin` then `git reset --hard origin/<branch>`), or clone fresh. Never push old commits back.
