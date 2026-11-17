@@ -162,9 +162,8 @@ function pinStrip(x, y, id) {
 // 'kept' (green tape).
 // The title shown on the paper while its image loads, or if it never does: at least
 // 10 px on screen, whole words only, up to two lines, then "…" when more didn't fit.
-// Nothing on paper under about 40 px wide, where no title can be read (audit Nov 2, fix 5).
+// When not even the first word fits, the paper stays blank rather than show a cut word (audit Nov 2, fix 5).
 function waitTitle(title, cx, cy, iw, ppi) {
-  if (iw * (ppi || 3) < 40) return '';
   const fs = Math.max(10 / (ppi || 3), Math.min(2.4, iw / 8));
   const fit = Math.max(3, Math.floor(iw / (fs * 0.56)));
   const words = String(title || '').split(/\s+/).filter(Boolean);

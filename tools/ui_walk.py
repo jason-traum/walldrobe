@@ -413,7 +413,8 @@ with sync_playwright() as p:
             mw = lambda: pg.evaluate("[...document.querySelectorAll('.frame-row .frame-words')].map(e => e.textContent)")
             big = [w for w in mw() if 'with a mat' in w]
             vis(pg, '[data-mat=none]').click(); pg.wait_for_timeout(500)
-            check(f'{W} no mats: every print fills its frame, unless only a mat keeps the photo whole', all('no mat' in t or 'framed' in t or 'keeps its shape' in t for t in mw()), str(mw()))
+            common = pg.evaluate("(document.querySelector('.frame-common') || {}).textContent || ''")
+            check(f'{W} no mats: every print fills its frame, unless only a mat keeps the photo whole', all('no mat' in t.lower() or 'framed' in t or 'keeps its shape' in t or ('No mat' in common and 'with a mat' not in t) for t in mw()), str(mw()) + ' | ' + common)
             vis(pg, '[data-mat=all]').click(); pg.wait_for_timeout(500)
             flips = pg.locator('[data-mat-one]')
             check(f'{W} all mats: every free photo that can take one has one', flips.count() > 0 and all(flips.nth(k).get_attribute('aria-pressed') == 'true' for k in range(flips.count())))
@@ -767,7 +768,7 @@ with sync_playwright() as p:
             pg.select_option('select[data-browse=color]', 'bw'); pg.wait_for_timeout(800)
             check(f'{W} a Browse filter narrows the list', 'Clear filters' in pg.evaluate('document.body.innerText'))
             pg.locator('[data-browse-save]').first.click(); pg.wait_for_timeout(500)
-            check(f'{W} the heart in Browse saves, with Undo', pg.locator('[data-browse-save][aria-pressed=true]').count() >= 1 and 'Saved' in pg.evaluate('document.body.innerText'))
+            check(f'{W} the heart in Browse saves, with Undo', pg.locator('[data-browse-save][aria-pressed=true]').count() >= 1 and 'in your favorites.' in pg.evaluate('document.body.innerText') and pg.locator('[data-act=undo]').count() >= 1)
             check(f'{W} Browse has no sideways scroll', side())
             pg.screenshot(path=f'{OUT}/browse-{W}.png')
             # Love the layout, not the art.
