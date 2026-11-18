@@ -2591,8 +2591,7 @@ function pieceSheet(id) {
       ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
       : '<p class="pencil small">No other print comes in this size for this spot.</p>'}
     <div class="piece-acts" role="group" aria-label="This piece">
-      <button type="button" class="btn quiet small" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button>
-      <button type="button" class="btn quiet small" data-act="not-for-me" data-id="${esc(id)}">Not for me</button>
+      <span class="seg feel" role="group" aria-label="How you feel about ${esc(item.title)}"><button type="button" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button><button type="button" data-act="not-for-me" data-id="${esc(id)}">Not for me</button></span>
       <button type="button" class="btn quiet small" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}" title="Keep it in every wall">${kept ? 'Kept' : 'Keep'}</button>
       ${L.pieces.length > 1 ? `<button type="button" class="btn quiet small" data-act="remove" data-id="${esc(id)}" title="Remove this frame">Remove</button>` : ''}
     </div>

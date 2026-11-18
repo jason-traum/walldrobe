@@ -70,7 +70,7 @@ with sync_playwright() as p:
     def _past_story(*a, **k):
         c = _raw_context(*a, **k); c.add_init_script("try { localStorage.setItem('walldrobe.story', 'done'); } catch (e) {}")
         # Preferences keeps its lesser rows under a closed More (Nov 18); the older checks reach them, so it opens by itself here.
-        c.add_init_script("new MutationObserver(() => { document.querySelectorAll('details.prefs-more:not([open])').forEach(d => { d.open = true; }); }).observe(document.documentElement, { childList: true, subtree: true });")
+        c.add_init_script("new MutationObserver(() => { document.querySelectorAll('details.prefs-more:not([open])').forEach(d => { d.open = true; }); }).observe(document, { childList: true, subtree: true });")
         return c
     b.new_context = _past_story
     b.new_page = lambda *a, **k: _past_story(*a, **k).new_page()

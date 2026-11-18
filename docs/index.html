@@ -961,6 +961,8 @@ svg.is-dragging .measure { opacity: 0.25; }
 .buy-row .buy-more { grid-row: 3; margin-top: -4px; }
 .buy-row { row-gap: 8px; padding: 14px 0; }
 .story .pick-name { font-size: 14px; line-height: 18px; }
+.piece-acts .seg.feel { flex: 2 1 auto; }
+.piece-acts .seg.feel button { min-height: 44px; padding-inline: 9px; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -1503,8 +1505,7 @@ ${r}`}var Oe={url:"https://huggingface.co/Xenova/segformer-b2-finetuned-ade-512-
     ${c?'<p class="pencil small">Kept in every wall. Tap Kept to let it change again.</p>':l.length?`<ul class="choices${h?" is-all":""}${d>=1?" is-wide":""}">${f.map(p).join("")}</ul>
       ${l.length>4?`<button type="button" class="link" data-act="all-choices" data-id="${A(t)}">${h?"Show fewer":`See all ${l.length} that fit`}</button>`:""}`:'<p class="pencil small">No other print comes in this size for this spot.</p>'}
     <div class="piece-acts" role="group" aria-label="This piece">
-      <button type="button" class="btn quiet small" data-save="${A(t)}" aria-pressed="${i}">${As(i)} Favorite</button>
-      <button type="button" class="btn quiet small" data-act="not-for-me" data-id="${A(t)}">Not for me</button>
+      <span class="seg feel" role="group" aria-label="How you feel about ${A(a.title)}"><button type="button" data-save="${A(t)}" aria-pressed="${i}">${As(i)} Favorite</button><button type="button" data-act="not-for-me" data-id="${A(t)}">Not for me</button></span>
       <button type="button" class="btn quiet small" data-act="keep" data-id="${A(t)}" aria-pressed="${c}" title="Keep it in every wall">${c?"Kept":"Keep"}</button>
       ${s.pieces.length>1?`<button type="button" class="btn quiet small" data-act="remove" data-id="${A(t)}" title="Remove this frame">Remove</button>`:""}
     </div>

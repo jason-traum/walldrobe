@@ -949,3 +949,5 @@ svg.is-dragging .measure { opacity: 0.25; }
 .buy-row .buy-more { grid-row: 3; margin-top: -4px; }
 .buy-row { row-gap: 8px; padding: 14px 0; }
 .story .pick-name { font-size: 14px; line-height: 18px; }
+.piece-acts .seg.feel { flex: 2 1 auto; }
+.piece-acts .seg.feel button { min-height: 44px; padding-inline: 9px; font-size: 15px; }
