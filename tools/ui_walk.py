@@ -47,6 +47,14 @@ def all_walls(pg):
 def open_more(pg):
     # Frame it keeps width and mats under one closed row (Nov 17).
     pg.evaluate("document.querySelectorAll('details.frame-more:not([open])').forEach(d => { d.open = true; })"); pg.wait_for_timeout(200)
+def sheet_fav(pg, nth=0):
+    # Favorite lives in the piece's sheet (Nov 18). Open the nth piece, tap Favorite, close. Says what it was and is.
+    b = pg.locator('button.piece-open').nth(nth); pid = b.get_attribute('data-piece'); b.click(); pg.wait_for_timeout(800)
+    s = vis(pg, '#sheet [data-save]'); was = s.get_attribute('aria-pressed'); label = s.inner_text().strip(); s.click(); pg.wait_for_timeout(700)
+    s2 = vis(pg, '#sheet [data-save]'); now = s2.get_attribute('aria-pressed') if s2 else ('false' if was == 'true' else 'true')
+    x = vis(pg, '.sheet-x')
+    if x: x.click(); pg.wait_for_timeout(400)
+    return pid, was, now, label
 def arts(pg):
     return pg.evaluate("[...document.querySelectorAll('#drawing g.art')].map(g => g.dataset.id)")
 
@@ -60,7 +68,10 @@ with sync_playwright() as p:
     # The opening story (Nov 17) shows once per device. Every section but 'story' starts past it.
     _raw_context = b.new_context
     def _past_story(*a, **k):
-        c = _raw_context(*a, **k); c.add_init_script("try { localStorage.setItem('walldrobe.story', 'done'); } catch (e) {}"); return c
+        c = _raw_context(*a, **k); c.add_init_script("try { localStorage.setItem('walldrobe.story', 'done'); } catch (e) {}")
+        # Preferences keeps its lesser rows under a closed More (Nov 18); the older checks reach them, so it opens by itself here.
+        c.add_init_script("new MutationObserver(() => { document.querySelectorAll('details.prefs-more:not([open])').forEach(d => { d.open = true; }); }).observe(document.documentElement, { childList: true, subtree: true });")
+        return c
     b.new_context = _past_story
     b.new_page = lambda *a, **k: _past_story(*a, **k).new_page()
     if section('core'):
@@ -94,9 +105,11 @@ with sync_playwright() as p:
             pg.screenshot(path=f'{OUT}/wall-{W}.png', full_page=True)
             check(f'{W} wall no sideways scroll', pg.evaluate('document.documentElement.scrollWidth') <= W)
             # Heart toggles.
-            h = vis(pg, '.piece .heart'); before = h.get_attribute('aria-pressed'); h.click(); pg.wait_for_timeout(600)
-            check(f'{W} heart toggles', vis(pg, '.piece .heart').get_attribute('aria-pressed') != before)
-            vis(pg, '.piece .heart').click(); pg.wait_for_timeout(600)
+            check(f'{W} no heart buttons under the wall', pg.locator('.piece .heart').count() == 0)
+            _pid, was, now, _l = sheet_fav(pg)
+            check(f'{W} heart toggles', was != now)
+            check(f'{W} a favorite shows a small heart on its picture', pg.locator('.piece .piece-fav').count() == (1 if now == 'true' else 0))
+            sheet_fav(pg)
             # Swap one piece: only that piece changes; Undo brings it back.
             a0 = arts(pg)
             opens = pg.locator('button.piece-open'); opens.nth(opens.count() - 1).click(); pg.wait_for_timeout(900)
@@ -296,10 +309,10 @@ with sync_playwright() as p:
             # Favorites: a heart lands there; See it on my wall keeps it in every wall.
             for _ in range(4):
                 vis(pg, '.pager [aria-label="Next wall"]').click(); pg.wait_for_timeout(1000)
-                if pg.locator('.piece .heart').count(): break
-            hp = pg.locator('.piece .heart').first; fav = hp.get_attribute('data-save')
-            check(f'{W} the heart says Favorite, not Save', (hp.get_attribute('aria-label') or '').startswith('Favorite '), hp.get_attribute('aria-label'))
-            if hp.get_attribute('aria-pressed') != 'true': hp.click(); pg.wait_for_timeout(600)
+                if pg.locator('button.piece-open').count(): break
+            fav, was, now, flabel = sheet_fav(pg)
+            check(f'{W} the heart says Favorite, not Save', flabel == 'Favorite', flabel)
+            if now != 'true': sheet_fav(pg)
             vis(pg, '[data-act=menu]').click(); pg.wait_for_timeout(600)
             vis(pg, '#sheet a[href="#/saved"]').click(); pg.wait_for_timeout(1200)
             check(f'{W} Favorites lists the heart', pg.locator(f'.saved-page [data-save="{fav}"]').count() == 1)
@@ -690,8 +703,10 @@ with sync_playwright() as p:
             pg.on('pageerror', lambda e: errs.append(str(e)))
             side = lambda: pg.evaluate('document.documentElement.scrollWidth') <= W
             pg.goto(BASE + '#/'); pg.wait_for_timeout(2500)
-            vis(pg, 'a[href="#/begin"]').click(); pg.wait_for_timeout(700)
-            check(f'{W} Start asks one wall or a whole home', pg.locator('a.path').count() == 2 and 'Basic' in pg.evaluate('document.body.innerText') and 'Advanced' in pg.evaluate('document.body.innerText'))
+            vis(pg, 'main a[href="#/new"]').click(); pg.wait_for_timeout(900)
+            check(f'{W} Start goes straight to the photo of one wall, with the reason first', '#/start' in pg.url and 'we measure the wall' in pg.locator('.lede').inner_text())
+            vis(pg, '.whole-home a').click(); pg.wait_for_timeout(700)
+            check(f'{W} Doing a whole home asks one wall or a whole home', pg.locator('a.path').count() == 2 and 'Basic' in pg.evaluate('document.body.innerText') and 'Advanced' in pg.evaluate('document.body.innerText'))
             check(f'{W} the fork has no sideways scroll', side())
             pg.screenshot(path=f'{OUT}/begin-{W}.png')
             pg.locator('a.path').nth(1).click(); pg.wait_for_timeout(700)
@@ -1106,6 +1121,14 @@ with sync_playwright() as p:
             pg.locator('.story-skip').click(); pg.wait_for_timeout(1500)
             check(f'{W} Skip this one moves on', 'busy' in pg.locator('.story-q h1').inner_text().lower())
             pg.locator('.story-opt[data-v=quiet]').click(); pg.wait_for_timeout(1500)
+            check(f'{W} then two pictures to pick between', 'rather have' in pg.locator('.story-q h1').inner_text() and pg.locator('.story .pick').count() == 2)
+            before = pg.evaluate("[...document.querySelectorAll('.story .pick')].map(b => b.dataset.pick).join()")
+            pg.locator('.story .pick').first.click(); pg.wait_for_timeout(2500)
+            check(f'{W} a pick brings two new pictures and says the walls lean', pg.locator('.story .pick').count() == 2 and pg.evaluate("[...document.querySelectorAll('.story .pick')].map(b => b.dataset.pick).join()") != before and 'lean' in pg.locator('.story-status').inner_text())
+            pg.locator('[data-act=quiz-skip]').click(); pg.wait_for_timeout(1200)
+            check(f'{W} Neither shows two more without counting', pg.locator('.story .pick').count() == 2)
+            pg.locator('.story .pick').first.click(); pg.wait_for_timeout(2500)
+            pg.locator('[data-act=story-skip-pairs]').click(); pg.wait_for_timeout(1500)
             check(f'{W} the budget comes last', 'budget' in pg.locator('.story-q h1').inner_text().lower() and pg.locator('.story-opt').count() == 5)
             pg.locator('.story-opt[data-budget-ask="600"]').click(); pg.wait_for_timeout(2200)
             said = pg.locator('.story-said').inner_text() if pg.locator('.story-said').count() else ''
@@ -1119,6 +1142,18 @@ with sync_playwright() as p:
         pg = ctx.new_page(); pg.goto(BASE + '#/sample/living'); pg.wait_for_timeout(4500)
         vis(pg, '[data-act=story-skip]').click(); pg.wait_for_timeout(1200)
         check('390 Skip in the bar goes to the 3 walls, questions left for the list', pg.locator('.entry-link').count() == 3 and pg.locator('main.story').count() == 0)
+        vis(pg, '[data-act=change]').click(); pg.wait_for_timeout(700)
+        check('390 Preferences shows four rows, the rest under a closed More', pg.evaluate("(() => { const d = document.querySelector('#sheet details.prefs-more'); return !!d && !d.open && !!document.querySelector('#sheet [data-fullness]') && !!document.querySelector('#sheet [data-budget]') && d.querySelector('[data-tone]') !== null; })()"))
+        check('390 How many gives a suggestion and a range', bool(re.search(r'\d+ suits? this wall\. \d+ to \d+ fit\.', pg.locator('#sheet .count-help').inner_text())), pg.locator('#sheet .count-help').inner_text())
+        vis(pg, '#sheet details.prefs-more summary').click(); pg.wait_for_timeout(300)
+        check('390 More opens to Color, Room, Frames and Mats', vis(pg, '#sheet [data-tone]') is not None and vis(pg, '#sheet select[data-askpick]') is not None and vis(pg, '#sheet [data-mat]') is not None)
+        vis(pg, '.sheet-x').click(); pg.wait_for_timeout(400)
+        vis(pg, '.entry-link').click(); pg.wait_for_timeout(1500); vis(pg, '[data-act=get]').click(); pg.wait_for_timeout(1200)
+        nx = vis(pg, '.dock .btn, .dock a.btn')
+        if nx: nx.click(); pg.wait_for_timeout(1500)
+        check('390 Get it is one row a piece with one tick, sizes a tap down', pg.locator('.buy-row').count() > 0 and pg.evaluate("[...document.querySelectorAll('.buy-row')].every(r => r.querySelectorAll('.tick').length === 1 && r.querySelector('.buy-short') && r.querySelector('details.buy-more') && !r.querySelector('details.buy-more').open)"))
+        n0 = pg.locator('.order-state').inner_text(); vis(pg, '.tick').click(); pg.wait_for_timeout(500)
+        check('390 Got it marks the print and its frame together', pg.locator('.order-state').inner_text() != n0 and pg.evaluate("(() => { const t = document.querySelector('.tick[aria-pressed=true]'); const o = JSON.parse(JSON.stringify((window.__wd || {}))); return !!t; })()"))
         ctx.close()
     b.close()
 

@@ -118,7 +118,17 @@ window.addEventListener('popstate', () => {
   if (S.ui.ownBack) { S.ui.ownBack = false; return; }
   if (S.sheet) { S.ui.sheetStep = false; S.sheet = null; S.selected = null; S.ui.allFor = null; render(); }
 });
-window.addEventListener('hashchange', () => { undoFollowsScreen(route()[0]); S.mem.under = null; S.flash = null; S.ui.copied = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { undoFollowsScreen(route()[0]); S.mem.under = null; S.flash = null; S.ui.copied = null; S.ui.cornerErr = null; S.ui.sizeErr = null; S.sheet = null; growOr(() => { render(); window.scrollTo(0, 0); }); });
+// One friendly moment (Nov 18): the wall you tap in the list grows into the open wall.
+function growOr(fn) {
+  const on = S.ui.grow && route()[0] === 'wall' && document.startViewTransition; S.ui.grow = false;
+  if (on) document.startViewTransition(() => fn()); else fn();
+}
+document.addEventListener('click', (e) => {
+  const a = e.target && e.target.closest && e.target.closest('.entry-link');
+  const dr = a && a.querySelector('.drawing');
+  if (dr && document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) { dr.style.viewTransitionName = 'wall'; S.ui.grow = true; }
+}, true);
 
 // An Undo belongs to the screen it was made on. One made while moving to a screen belongs to that screen;
 // leaving drops it, so an Undo can never run from a page that doesn't show what it changes (audit Nov 2, fix 1).
@@ -727,7 +737,7 @@ function home() {
       <h1>A wardrobe for your walls</h1>
       <p class="lede">Photo a wall. Get art laid out around what you own, with every nail marked.</p>
       <div class="acts">
-        <a class="btn" href="#/begin">${resume ? 'Start something new' : 'Start'}</a>
+        <a class="btn" href="#/new">${resume ? 'Start something new' : 'Start'}</a>
         ${resume ? '<a class="btn quiet" href="#/resume">Back to your wall</a>' : '<a class="btn quiet" href="#/sample/living">See a sample wall</a>'}
       </div>
       <p class="how">Take a photo. Pick a wall. Frame it, hang it.</p>
@@ -742,15 +752,17 @@ function start() {
   const d = S.draft && !S.draft.sample ? S.draft : null;
   const ft = (v) => (v ? Math.floor(v / 12) : ''), inch = (v) => (v ? Math.round(v % 12) : '');
   const inHome = S.draft && S.draft.home;
-  return `${bar(inHome ? back('#/home', 'Your home') : back('#/begin', 'Back'))}
+  return `${bar(inHome ? back('#/home', 'Your home') : back('#/', 'Back'))}
   <main class="page">
     <h1>${inHome ? `A photo of ${esc(S.draft.name || 'this wall')}` : 'Start with a photo of one wall'}</h1>
-    <p class="lede">Stand back and get the whole wall, floor to ceiling. Use 1x.</p>
+    <p class="lede">One photo and we measure the wall for you.</p>
+    <p class="small pencil">Stand back and get the whole wall, floor to ceiling. Use 1x.</p>
     ${flashHtml()}
     <label class="upload">
       <input type="file" accept="image/*" capture="environment" id="photo-input">
       <span class="btn wide" data-busy-label>${S.busy === 'photo' ? busyPhotoLabel() : '<span class="on-touch">Take a photo</span><span class="on-desk">Choose a photo</span>'}</span>
     </label>
+    ${S.busy === 'photo' ? `<p class="small pencil reading-for" role="status">Finding the wall's edges, your furniture and any art already up.</p>` : ''}
     <label class="upload choose"><input type="file" accept="image/*" id="photo-input-2" data-photo-pick="1"><span class="link">Or choose one you have</span></label>
     <p class="small pencil">Your photo never leaves <em>your device</em>.</p>
     ${S.ui.photoErr ? `<p class="error">${esc(S.ui.photoErr)}</p>` : ''}
@@ -774,6 +786,7 @@ function start() {
       <h2>Or try a sample wall</h2>
       <ul class="sample-row">${SAMPLES.map((w) => `<li><a class="btn quiet" href="#/sample/${w.key}" title="${esc(w.note)}">${esc(w.name)}</a></li>`).join('')}</ul>
     </section>
+    ${inHome ? '' : '<p class="small whole-home"><a href="#/begin">Doing a whole home?</a></p>'}
   </main>`;
 }
 
@@ -2269,9 +2282,28 @@ function feed() {
 const STORY_KEY = 'walldrobe.story';
 const storyDone = () => { try { return localStorage.getItem(STORY_KEY) === 'done'; } catch { return true; } };
 function endStory() { try { localStorage.setItem(STORY_KEY, 'done'); } catch { /* a private window: it just shows again */ } S.ui.storyOff = true; S.ui.storyLive = false; }
+const STORY_PAIRS = 3;
 function storySteps(d) {
   const a = asked();
-  return [...ASK.map((q) => ({ kind: 'ask', q, done: q.id in a })), { kind: 'budget', done: !!(d.budget || d.budgetAsked) }];
+  const tasted = !!(d.taste && d.taste.source === 'yours') && !S.ui.storyPairs;
+  const pairs = S.ui.storyPairsOff || tasted ? STORY_PAIRS : Math.min(STORY_PAIRS, S.ui.storyPairs || 0);
+  return [...ASK.map((q) => ({ kind: 'ask', q, done: q.id in a })),
+    ...Array.from({ length: STORY_PAIRS }, (_, k) => ({ kind: 'pair', k, done: k < pairs })),
+    { kind: 'budget', done: !!(d.budget || d.budgetAsked) }];
+}
+// A picture pick inside the story: the taste updates at once, so the wall on top moves with it.
+function storyPicked() {
+  const q = S.quiz, d = S.draft;
+  S.ui.storyPairs = (S.ui.storyPairs || 0) + 1; S.undo = null;
+  const all = [...(q.prior || []), ...q.picks].slice(-60);
+  d.taste = { source: 'yours', weights: fitTaste(all), picks: all.map((x) => [x.winner.id, x.loser.id]) };
+  q.pair.forEach((it) => q.shown.add(it.id)); q.n++;
+  const next = nextPair(CATALOG, all, q.shown);
+  if (S.ui.storyPairs >= STORY_PAIRS || !next) {
+    const me = store.loadMe(); me.quizSeen = [...new Set([...(me.quizSeen || []), ...q.shown])].slice(-400); store.saveMe(me);
+    S.quiz = null; d.quizState = null; S.ui.storyPairs = STORY_PAIRS;
+  } else { q.pair = next; saveQuiz(); }
+  resetLayouts(); persist(); render(); window.scrollTo({ top: 0 });
 }
 function storyOn(d) {
   if (S.ui.storyOff || d.home || storyDone()) return false;
@@ -2291,7 +2323,7 @@ function tapeBurst() {
   return `<div class="tape-burst" aria-hidden="true">${strips}</div>`;
 }
 function storyHold() {
-  const pick = S.ui.storyPick == null ? '' : `data-pick="${esc(S.ui.storyPick)}"`;
+  const pick = S.ui.storyPick == null ? '' : `data-opt="${esc(S.ui.storyPick)}"`;
   let h = S.mem.storyHtml.replace(/ is-(next|back|first|new-wall)/g, '').replace('class="feed-page story"', 'class="feed-page story is-building" aria-busy="true"');
   if (pick) h = h.replace(pick, `${pick} data-on="1"`);
   return h;
@@ -2304,21 +2336,29 @@ function story(v, d) {
   const was = S.ui.storyAt == null ? i : S.ui.storyAt, dir = i < was ? 'is-back' : i > was ? 'is-next' : S.ui.storyAt == null ? 'is-first' : '';
   const newWall = S.ui.storyKey !== L.key;
   S.ui.storyAt = i; S.ui.storyKey = L.key;
-  const opts = step.kind === 'ask'
-    ? step.q.opts.map(([k, label]) => `<button type="button" class="btn quiet story-opt" data-pick="${k}" data-ask="${step.q.id}" data-v="${k}">${esc(label)}</button>`).join('')
-    : `${BUDGETS.filter(Boolean).map((b) => `<button type="button" class="btn quiet story-opt" data-pick="b${b}" data-budget-ask="${b}">Up to $${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" class="btn quiet story-opt" data-pick="b0" data-budget-ask="0">Any budget</button>`;
-  const title = step.kind === 'ask' ? step.q.q : 'Budget for this wall?';
+  if (step.kind === 'pair') {
+    if (!S.quiz) S.quiz = restoreQuiz();
+    if (!S.quiz) { const me = store.loadMe(), prior = yourPicks(), seen = new Set(me.quizSeen || []); S.quiz = { picks: [], prior, shown: seen, n: 0, pair: nextPair(CATALOG, prior, seen) || nextPair(CATALOG, prior, new Set()) }; }
+    if (!S.quiz.pair) { S.ui.storyPairsOff = true; return story(v, d); }
+  }
+  const pairCard = (it) => `<button type="button" class="pick" data-opt="${esc(it.id)}" data-pick="${esc(it.id)}" aria-label="${esc(it.title)}"><span class="pick-art" style="--a:${it.aspect || 0.8}"><img src="${it.imageData}" alt=""></span><span class="pick-name">${esc(it.title)}</span></button>`;
+  const opts = step.kind === 'pair' ? S.quiz.pair.map(pairCard).join('') : step.kind === 'ask'
+    ? step.q.opts.map(([k, label]) => `<button type="button" class="btn quiet story-opt" data-opt="${k}" data-ask="${step.q.id}" data-v="${k}">${esc(label)}</button>`).join('')
+    : `${BUDGETS.filter(Boolean).map((b) => `<button type="button" class="btn quiet story-opt" data-opt="b${b}" data-budget-ask="${b}">Up to $${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" class="btn quiet story-opt" data-opt="b0" data-budget-ask="0">Any budget</button>`;
+  const title = step.kind === 'ask' ? step.q.q : step.kind === 'pair' ? 'Which would you rather have on your wall?' : 'Budget for this wall?';
+  const pairNote = step.kind === 'pair' && step.k > 0 ? 'Got it. The walls lean toward your picks.' : '';
   const under = step.kind === 'budget' ? BUDGET_WORDS : '';
   return (S.mem.storyHtml = `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="story-skip">Skip</button>')}
   <main class="feed-page story">
     <div class="story-bar" role="progressbar" aria-label="Question ${i + 1} of ${n}" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${i}"><span style="--from:${Math.round(((was + 1) / (n + 1)) * 100)}%;--to:${Math.round(((i + 1) / (n + 1)) * 100)}%"></span></div>
     <div class="drawing story-wall${newWall ? ' is-new-wall' : ''}">${drawWall(L, pxNow(), { still: true, label: 'Your wall so far' })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
-    ${S.undo && i > 0 ? `<p class="sheet-status story-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : `<p class="story-status pencil">${i === 0 ? 'A first go at your wall. A few quick picks make it yours.' : ''}</p>`}
+    ${pairNote ? `<p class="sheet-status story-status" role="status">${pairNote}</p>` : S.undo && i > 0 ? `<p class="sheet-status story-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : `<p class="story-status pencil">${i === 0 ? 'A first go at your wall. A few quick picks make it yours.' : ''}</p>`}
     <section class="story-q ${dir}" aria-labelledby="story-h">
       <h1 id="story-h" tabindex="-1">${esc(title)}</h1>
       ${under ? `<p class="pencil small">${esc(under)}</p>` : ''}
-      <div class="story-opts${step.kind === 'budget' ? ' two' : ''}" role="group" aria-labelledby="story-h">${opts}</div>
+      <div class="story-opts${step.kind === 'budget' ? ' two' : step.kind === 'pair' ? ' pair-picks' : ''}" role="group" aria-labelledby="story-h">${opts}</div>
       ${step.kind === 'ask' ? `<button type="button" class="link story-skip" data-ask="${step.q.id}" data-v="">Skip this one</button>` : ''}
+      ${step.kind === 'pair' ? `<span class="story-pair-acts"><button type="button" class="link story-skip" data-act="quiz-skip">Neither, show two more</button><button type="button" class="link story-skip" data-act="story-skip-pairs">Skip the pictures</button></span>` : ''}
     </section>
   </main>`);
 }
@@ -2392,7 +2432,7 @@ function wallScreen() {
     const saved = d.saved.includes(p.ref.id);
     return `<li class="piece">
       <button type="button" class="piece-open" data-piece="${esc(p.ref.id)}" aria-haspopup="dialog" aria-label="${esc(item.title)}${kept.has(p.ref.id) ? ', kept' : ''}"><span class="piece-art">${tile(p, true)}</span><span class="piece-name">${esc(item.title)}</span>${kept.has(p.ref.id) ? '<span class="piece-kept">Kept</span>' : ''}</button>
-      <button type="button" class="heart" data-save="${esc(p.ref.id)}" aria-pressed="${saved}" aria-label="Favorite ${esc(item.title)}">${heart(saved)}</button>
+      ${saved ? `<span class="piece-fav" aria-hidden="true">${heart(true)}</span>` : ''}
     </li>`;
   }).join('');
   const total = wallCost(L);
@@ -2492,26 +2532,31 @@ function changeSheet() {
   const arts = [['both', 'Both'], ['photos', 'Free only'], ['prints', 'Shop'], ...(keptOwned().length ? [['mine', 'Mine']] : [])];
   const tastePct = d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0;
   const status = stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : '';
+  // How many: a suggestion and the range that fits, not a number to work out (Jason, Oct 22).
+  const best = S.view && S.view.list && S.view.list[0] ? S.view.list[0].pieces.length : null;
+  const suits = counts.length > 1 ? `${!d.pieces && best ? `${best} ${best === 1 ? 'suits' : 'suit'} this wall. ` : ''}${counts[0]} to ${counts[counts.length - 1]} fit.` : '';
   return `<h2 id="sheet-h">Preferences</h2>
     ${status ? `<p class="sheet-status" role="status">${status}</p>` : '<p class="sheet-status is-empty" role="status"></p>'}
     <a class="taste-promo" href="#/taste"><span class="taste-promo-text"><span class="name">${tastePct ? `We know your taste ${tastePct}%` : 'Teach it your taste'}</span><span class="pencil small">${tastePct ? enoughWords(tastePct) : 'A minute of picks, and every wall ranks for you.'}</span></span>${knownBar(tastePct)}<span class="taste-promo-go">${tastePct ? 'Keep going' : 'Start'}</span></a>
-    ${tastePct || (d.quizState && d.quizState.picks && d.quizState.picks.length) ? `<p class="row-help taste-reset"><button type="button" class="link" data-act="reset-taste"${dis}>Start the taste test over</button></p>` : ''}
     <div class="sheet-row look-row"><span class="label" id="look-l">Look</span>
       <span class="look-segs">${segBtns('look-l', [[null, 'Any'], ['structured', 'Lined up'], ['gallery', 'Mixed']], d.style || null, 'style')}${segBtns('look-l', [['calm', 'Calm'], ['balanced', 'Balanced'], ['full', 'Full']], d.fullness || 'balanced', 'fullness')}</span>
       <span class="row-help">${esc(lookWords(d.style || null, d.fullness || 'balanced'))}</span></div>
     <div class="sheet-row"><span class="label" id="count-l">How many</span>
       <span class="count-ctl"><span class="seg" role="group" aria-labelledby="count-l"><button type="button" data-count="any" aria-pressed="${!d.pieces}"${d.pieces ? '' : ' class="is-default"'}${dis}>Any</button><button type="button" data-count="${n || counts[0] || ''}" aria-pressed="${!!d.pieces}"${dis}>Set</button></span>
-      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</span></div>
+      ${d.pieces ? `<span class="stepper" role="group" aria-label="Pieces"><button type="button" class="icon-btn" data-count="${fewer || ''}" aria-label="Fewer pieces"${fewer && !S.busy ? '' : ' disabled'}>−</button><span class="step-n">${n}</span><button type="button" class="icon-btn" data-count="${more || ''}" aria-label="More pieces"${more && !S.busy ? '' : ' disabled'}>+</button></span>` : ''}</span>
+      ${suits ? `<span class="row-help count-help">${suits}</span>` : ''}</div>
     ${seg('art-l', 'Art', arts, d.justMine ? 'mine' : artMode(), 'art')}
+    <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
+      <span class="budget-ctl">${segBtns('budget-l', BUDGETS.map((v) => [v, v ? (v >= 1000 ? `$${v / 1000}k` : `$${v}`) : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}${budgetForm('sheet')}</span>
+      <span class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span></div>
+    <details class="more prefs-more"${S.ui.prefsMore ? ' open' : ''}><summary>More</summary>
     ${seg('tone-l', 'Color', [[null, 'Either'], ['warm', 'Warm'], ['cool', 'Cool']], d.tone || null, 'tone')}
     ${(() => { const a = asked(); const pick = (q, label, short) => { const cur = a[q.id] && q.opts.some((o) => o[0] === a[q.id] && Object.keys(o[2]).length) ? a[q.id] : ''; return `<label class="ask-pick"><span class="ask-label">${label}</span><select data-askpick="${q.id}"${cur ? '' : ' class="is-default"'}${dis}><option value=""${cur ? '' : ' selected'}>Any</option>${q.opts.filter((o) => Object.keys(o[2]).length).map(([k, l]) => `<option value="${k}"${cur === k ? ' selected' : ''}>${esc(short[k] || l)}</option>`).join('')}</select></label>`; };
       return `<div class="sheet-row ask-row">${pick(ASK[0], 'Room', { light: 'Light', wood: 'Wood', bold: 'Bold', moody: 'Dark' })}${pick(ASK[1], 'Scenes', { real: 'Real', abstract: 'Abstract' })}${pick(ASK[2], 'Busy', { quiet: 'Quiet', busy: 'Busy' })}</div>`; })()}
     ${seg('frame-l', 'Frames', Object.entries(FRAME_LOOKS).map(([k, v]) => [k, v.name]), lookOf(), 'look')}
     ${seg('mats-l', 'Mats', MAT_LEVELS, matLevel(), 'mat')}
-    <div class="sheet-row budget-row"><span class="label" id="budget-l">Budget</span>
-      <span class="budget-ctl">${segBtns('budget-l', BUDGETS.map((v) => [v, v ? (v >= 1000 ? `$${v / 1000}k` : `$${v}`) : 'Any']), BUDGETS.includes(d.budget || null) ? d.budget || null : 'typed', 'budget')}${budgetForm('sheet')}</span>
-      <span class="row-help">${BUDGET_WORDS} <a href="#/stuff">Add yours</a></span></div>
-    <div class="acts left"><button type="button" class="link" data-act="reset-prefs"${dis}>Reset preferences</button></div>`;
+    <div class="acts left">${tastePct || (d.quizState && d.quizState.picks && d.quizState.picks.length) ? `<button type="button" class="link" data-act="reset-taste"${dis}>Start the taste test over</button>` : ''}<button type="button" class="link" data-act="reset-prefs"${dis}>Reset preferences</button></div>
+    </details>`;
 }
 function pieceSheet(id) {
   const d = S.draft;
@@ -2545,12 +2590,13 @@ function pieceSheet(id) {
       : all.length ? `<ul class="choices${showAll ? ' is-all' : ''}${ar >= 1 ? ' is-wide' : ''}">${list.map(choice).join('')}</ul>
       ${all.length > 4 ? `<button type="button" class="link" data-act="all-choices" data-id="${esc(id)}">${showAll ? 'Show fewer' : `See all ${all.length} that fit`}</button>` : ''}`
       : '<p class="pencil small">No other print comes in this size for this spot.</p>'}
-    <div class="acts left">
-      <span class="seg feel" role="group" aria-label="How you feel about ${esc(item.title)}"><button type="button" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button><button type="button" data-act="not-for-me" data-id="${esc(id)}">Not for me</button></span>
-      <button type="button" class="btn quiet" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}">${kept ? 'Kept' : 'Keep in every wall'}</button>
-      ${L.pieces.length > 1 ? `<button type="button" class="btn quiet" data-act="remove" data-id="${esc(id)}">Remove this frame</button>` : ''}
+    <div class="piece-acts" role="group" aria-label="This piece">
+      <button type="button" class="btn quiet small" data-save="${esc(id)}" aria-pressed="${saved}">${heart(saved)} Favorite</button>
+      <button type="button" class="btn quiet small" data-act="not-for-me" data-id="${esc(id)}">Not for me</button>
+      <button type="button" class="btn quiet small" data-act="keep" data-id="${esc(id)}" aria-pressed="${kept}" title="Keep it in every wall">${kept ? 'Kept' : 'Keep'}</button>
+      ${L.pieces.length > 1 ? `<button type="button" class="btn quiet small" data-act="remove" data-id="${esc(id)}" title="Remove this frame">Remove</button>` : ''}
     </div>
-    ${locked() ? '<button type="button" class="btn quiet small fit" data-act="unlock" data-from="piece">Where to get it</button>' : c && c.url ? `<a class="btn quiet small fit" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="btn quiet small fit" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
+    ${locked() ? '<button type="button" class="link piece-shop" data-act="unlock" data-from="piece">Where to get it</button>' : c && c.url ? `<a class="link piece-shop" href="${esc(c.url)}" target="_blank" rel="noopener">See it at ${esc(item.source)}</a>` : item.url ? `<a class="link piece-shop" href="${esc(item.url)}" target="_blank" rel="noopener">See it on ${esc(item.source)}</a>` : ''}`;
 }
 
 // What a wall looks like, for telling whether this one is saved already.
@@ -3233,7 +3279,7 @@ function getScreen() {
     const item = byId.get(p.ref.id);
     const shop = item.offers && item.offers.length ? offersAt(item, ...shopPrint(p)) : null;
     const o = shop && shop.main;
-    let credit, frame, get;
+    let credit, frame, get, short;
     if (o) {
       credit = `Art by ${esc(item.artist)}, sold by ${esc(item.source)}`;
       // The print said the same way up as the frame it goes in.
@@ -3242,20 +3288,26 @@ function getScreen() {
       const pw = land ? Math.max(ow, oh) : Math.min(ow, oh), ph = land ? Math.min(ow, oh) : Math.max(ow, oh), same = Math.min(pw, ph) === Math.min(fw, fh) && Math.max(pw, ph) === Math.max(fw, fh);
       const mg = p.frame && p.frame.margin;
       frame = o.framed ? (o.mount ? `Comes framed with a white border, art ${sz(o.mount.w, o.mount.h)}, ${sz(p.w, p.h)} outside.` : `Comes framed, ${sz(p.w, p.h)} outside.`) : mg && same ? `Print ${sz(pw, ph)}, with a ${mg} in white border printed on (art up to ${sz(pw - 2 * mg, ph - 2 * mg)}). Frame ${sz(fw, fh)}, no mat needed, ${sz(p.w, p.h)} outside.` : same ? `Print ${sz(pw, ph)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.` : `Print ${sz(pw, ph)}. Mat with a ${sz(pw - 2 * MAT_LIP, ph - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.`;
+      short = o.framed ? 'Comes framed' : `Print ${sz(pw, ph)}, frame ${sz(fw, fh)}`;
       get = `<a class="btn quiet small" href="${esc(colorUrl(o, colorOf(p)))}" target="_blank" rel="noopener">Buy at ${esc(item.source)}</a>`;
     } else {
       const fw = soldW(p), fh = soldH(p), ps = matFor(p) ? printSize(fw, fh) : null;
       credit = `Photo by ${esc(item.artist)} on ${esc(item.source)}, free under the ${esc(item.record.source.license)}`;
       frame = ps ? `Print it ${sz(ps[0], ps[1])}. Mat with a ${sz(ps[0] - 2 * MAT_LIP, ps[1] - 2 * MAT_LIP)} window. Frame ${sz(fw, fh)}, ${sz(p.w, p.h)} outside.` : `Print it ${sz(fw, fh)}. Frame ${sz(fw, fh)}, no mat, ${sz(p.w, p.h)} outside.`;
+      short = `Print ${ps ? sz(ps[0], ps[1]) : sz(fw, fh)}, frame ${sz(fw, fh)}`;
       get = `<a class="btn quiet small" href="${esc(item.url)}" target="_blank" rel="noopener">Get it on ${esc(item.source)}</a>`;
     }
     if (mixedC && (needsFrame(p) || shopColors(p))) frame += ` ${FRAME_LOOKS[colorOf(p)].name} frame.`;
     // The free tier: what to get and its price, not where; the full plan has that.
     if (locked()) { credit = o && o.price != null ? `${money(o.price, o.currency)} at its shop` : o ? 'From its shop' : 'A photo you print'; get = ''; }
-    const ticks = `${tick(`art:${p.ref.id}`, o ? 'Ordered' : 'Printed')}${needsFrame(p) ? tick(`frame:${p.ref.id}`, 'Frame ordered') : ''}`;
+    // One row a piece (Nov 18): the picture, its name, the two sizes, Buy and one tick. The rest is a tap down.
+    const fk = needsFrame(p) ? `frame:${p.ref.id}` : '';
+    const got = !!ord[`art:${p.ref.id}`] && (!fk || !!ord[fk]);
+    const ticks = `<button type="button" class="tick" data-order="art:${esc(p.ref.id)}"${fk ? ` data-order2="${esc(fk)}"` : ''} aria-pressed="${got}">Got it</button>`;
     return `<li class="buy-row"><span class="buy-art">${thumbFor(p, 72)}</span><span class="buy-text"><span class="name">${esc(item.title)}</span>
-      <span class="frame-words">${frame}</span><span class="meta">${credit}</span></span>
-      <span class="row-acts">${get}</span><span class="row-ticks">${ticks}</span></li>`;
+      <span class="buy-short">${short}${mixedC && (needsFrame(p) || shopColors(p)) ? `, ${FRAME_LOOKS[colorOf(p)].name.toLowerCase()}` : ''}</span></span>
+      <span class="row-acts">${get}</span><span class="row-ticks">${ticks}</span>
+      <details class="more buy-more"><summary>Sizes and credit</summary><span class="frame-words">${frame}</span><span class="meta">${credit}</span></details></li>`;
   }).join('');
   const st = orderState(L);
   return `${bar(back('#/frames', 'Frame it'), '<button type="button" class="btn quiet small" data-act="print">Print</button>')}
@@ -3265,7 +3317,7 @@ function getScreen() {
     <section aria-labelledby="buy-h"><h2 id="buy-h" class="sr-only">What to get</h2>
       ${wallSummary(L)}
       ${locked() ? planBlock('get') : ''}
-      <p class="order-state" role="status">${st.done ? 'Everything is ordered.' : `Ordered so far: ${st.art} of ${st.fresh} ${st.fresh === 1 ? 'piece' : 'pieces'}${st.frames ? `, ${st.fr} of ${st.frames} frame${st.frames === 1 ? '' : 's'}` : ''}. Tick each one as you go.`}</p>
+      <p class="order-state" role="status">${st.done ? 'Everything is ordered.' : `${st.art} of ${st.fresh} ordered.`}</p>
       <ul class="buy-list">${buy}</ul>
       ${fresh.some((p) => (byId.get(p.ref.id).offers || []).length) ? '<p class="pencil small">Shops sell and ship their own prints.</p>' : ''}
     </section>
@@ -3330,7 +3382,7 @@ function hangScreen() {
       </ol>
     </section>
     <section class="done" aria-labelledby="done-h">
-      <h2 id="done-h">${hung ? "It's up" : '2. Done?'}</h2>
+      <h2 id="done-h">${hung ? "It's up" : '2. Done?'}</h2>${hung && S.ui.burst ? ((S.ui.burst = false), tapeBurst()) : ''}
       ${hung ? `${hung.photo ? `<img class="hung-photo" src="${hung.photo}" alt="Your wall, hung">` : ''}
         <p>Nice. When you want a change, open this wall and swap a piece; the frames and nails stay.</p>
         <div class="acts left">
@@ -4266,7 +4318,7 @@ document.addEventListener('submit', (e) => {
   }
 });
 
-document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('frame-more')) S.ui.frameMore = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('filter-box')) S.ui.filtersOpen = e.target.open; }, true);
+document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('hangers')) S.ui.hangOpen = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('frame-more')) S.ui.frameMore = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('prefs-more')) S.ui.prefsMore = e.target.open; if (e.target && e.target.classList && e.target.classList.contains('filter-box')) S.ui.filtersOpen = e.target.open; }, true);
 
 document.addEventListener('change', (e) => {
   const t = e.target;
@@ -4422,7 +4474,7 @@ document.addEventListener('click', (e) => {
     if (S.sheet === 'change') S.ui.sheetStay = true;
     if (L0) { S.draft.chosen = { layout: bareLayout(L0), inputKey: viewKey(), at: 0 }; S.openKey = L0.key; } { const me = store.loadMe(); me.matLevel = S.draft.mat; store.saveMe(me); ME_MAT = S.draft.mat; } persist(); render(); const b = document.querySelector(`[data-mat="${CSS.escape(t.dataset.mat)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.matOne) { const L = shown(), p = L && L.pieces.find((x) => x.ref.id === t.dataset.matOne); if (p) { S.draft.matFor = { ...(S.draft.matFor || {}), [p.ref.id]: !matFor(p) }; persist(); render(); const b = document.querySelector(`[data-mat-one="${CSS.escape(p.ref.id)}"]`); if (b) b.focus({ preventScroll: true }); } return; }
-  if (t.dataset.order) { const k = t.dataset.order, o = { ...(S.draft.orders || {}) }; if (o[k]) delete o[k]; else o[k] = true; S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
+  if (t.dataset.order) { const k = t.dataset.order, k2 = t.dataset.order2, o = { ...(S.draft.orders || {}) }; const on = !(o[k] && (!k2 || o[k2])); for (const x of [k, k2]) { if (!x) continue; if (on) o[x] = true; else delete o[x]; } S.draft.orders = o; persist(); render(); const b = document.querySelector(`[data-order="${CSS.escape(k)}"]`); if (b) b.focus({ preventScroll: true }); return; }
   if (t.dataset.add) {
     const W = S.draft.width;
     const o = clampOb({ id: `${t.dataset.add}${Date.now().toString(36)}`, kind: t.dataset.add, ...DEFAULTS[t.dataset.add](W) });
@@ -4565,8 +4617,8 @@ document.addEventListener('click', (e) => {
     return;
   }
   // In the story, the answer you tapped lights up for a beat before the next question slides in.
-  if ((t.dataset.ask || t.dataset.budgetAsk !== undefined) && t.closest('.story') && !t.dataset.picked) {
-    t.dataset.picked = '1'; t.classList.add('is-picked'); S.ui.storyPick = t.dataset.pick || null;
+  if ((t.dataset.ask || t.dataset.budgetAsk !== undefined || t.dataset.pick) && t.closest('.story') && !t.dataset.picked) {
+    t.dataset.picked = '1'; t.classList.add('is-picked'); S.ui.storyPick = t.dataset.opt || null;
     setTimeout(() => t.click(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
     return;
   }
@@ -4707,7 +4759,9 @@ document.addEventListener('click', (e) => {
   }
   if (t.dataset.pick) {
     const q = S.quiz; const [x, y] = q.pair; const winner = x.id === t.dataset.pick ? x : y;
-    q.picks.push({ winner, loser: winner === x ? y : x }); advanceQuiz(true); return;
+    q.picks.push({ winner, loser: winner === x ? y : x });
+    if (S.ui.storyLive) { storyPicked(); return; }
+    advanceQuiz(true); return;
   }
   if (t.dataset.open) {
     const w = store.getWall(t.dataset.open);
@@ -4826,6 +4880,7 @@ document.addEventListener('click', (e) => {
     case 'change': S.sheet = 'change'; render(); break;
     case 'menu': S.sheet = 'menu'; render(); break;
     case 'story-skip': endStory(); render(); break;
+    case 'story-skip-pairs': S.ui.storyPairsOff = true; render(); break;
     case 'crop-use': useCrop(false); break;
     case 'crop-whole': useCrop(true); break;
     case 'crop-cancel': S.crop = null; render(); break;
@@ -4876,7 +4931,7 @@ document.addEventListener('click', (e) => {
     case 'save': saveThisWall(); render(); break;
     case 'get': { const L = shown(); S.draft.chosen = { layout: bareLayout(L), inputKey: viewKey() }; persist(); go(L.pieces.some((p) => p.ref.source === 'catalog') ? '#/frames' : '#/hang'); break; }
     case 'to-get': go('#/get'); break;
-    case 'hung': { const L = shown(); if (L) { S.draft.hung = { key: L.key, photo: null }; persist(); render(); const h = document.querySelector('#done-h'); if (h) h.scrollIntoView({ block: 'start' }); } break; }
+    case 'hung': { const L = shown(); if (L) { S.draft.hung = { key: L.key, photo: null }; persist(); S.ui.burst = true; render(); const h = document.querySelector('#done-h'); if (h) h.scrollIntoView({ block: 'start' }); } break; }
     case 'unhung': S.draft.hung = null; persist(); render(); break;
     case 'print': window.print(); break;
     case 'copy-ai': {

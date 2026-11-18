@@ -916,3 +916,36 @@ svg.is-dragging .measure { opacity: 0.25; }
   .tape-burst { display: none; }
   .story-opt { transition: none; }
 }
+
+/* Lite, end to end (Nov 18). */
+.whole-home { margin-top: 20px; }
+.whole-home a { display: inline-flex; align-items: center; min-height: 44px; }
+.reading-for { margin: 8px 0 0; }
+.piece { position: relative; }
+.piece-fav { position: absolute; top: 6px; right: 6px; pointer-events: none; }
+.piece-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.piece-acts .btn { min-height: 44px; padding-inline: 9px; font-size: 15px; gap: 5px; flex: 1 1 auto; }
+.piece-shop { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; }
+.prefs-more { display: grid; gap: 12px; }
+.prefs-more[open] summary { margin-bottom: 0; }
+.count-help { grid-column: 1 / -1; }
+.wall-page #drawing { view-transition-name: wall; }
+::view-transition-group(wall) { animation-duration: 380ms; animation-timing-function: var(--ease); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 220ms; }
+.buy-short { display: block; color: var(--pencil); font-size: 15px; line-height: 20px; }
+.buy-more { grid-column: 1 / -1; border-top: 0; padding-top: 0; }
+.buy-more summary { min-height: 44px; font-weight: 400; color: var(--pencil); font-size: 15px; }
+.buy-more .frame-words, .buy-more .meta { display: block; margin-bottom: 4px; }
+.story-opts.pair-picks { grid-template-columns: 1fr 1fr; gap: 12px; }
+.story .pick { transition: transform 140ms var(--ease), box-shadow 140ms var(--ease); }
+.story .pick.is-picked { transform: scale(0.97); box-shadow: 0 0 0 3px var(--tape); }
+.story .pick[data-on] { box-shadow: 0 0 0 3px var(--tape); }
+.story.is-building .pick:not([data-on]) { opacity: 0.5; }
+.story-pair-acts { display: flex; flex-wrap: wrap; gap: 0 20px; }
+.story .pick { --pick-h: 170px; padding: 10px 8px; }
+.buy-row .buy-art { grid-row: 1 / span 2; }
+.buy-row .row-acts { grid-column: 2; grid-row: 2; justify-self: start; }
+.buy-row .row-ticks { grid-column: 2; grid-row: 2; justify-self: end; align-self: center; }
+.buy-row .buy-more { grid-row: 3; margin-top: -4px; }
+.buy-row { row-gap: 8px; padding: 14px 0; }
+.story .pick-name { font-size: 14px; line-height: 18px; }
