@@ -2282,14 +2282,16 @@ function feed() {
 const STORY_KEY = 'walldrobe.story';
 const storyDone = () => { try { return localStorage.getItem(STORY_KEY) === 'done'; } catch { return true; } };
 function endStory() { try { localStorage.setItem(STORY_KEY, 'done'); } catch { /* a private window: it just shows again */ } S.ui.storyOff = true; S.ui.storyLive = false; }
-const STORY_PAIRS = 3;
+// The same meter Preferences and the taste test show: how well the picks pin down your taste.
+const tastePctNow = (d) => (d && d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0);
+// Four quick questions, then pictures for as long as you like: the meter says how well we know
+// your taste, and See my walls is always there (Jason, Nov 18). Pictures end by themselves at ENOUGH.
 function storySteps(d) {
   const a = asked();
   const tasted = !!(d.taste && d.taste.source === 'yours') && !S.ui.storyPairs;
-  const pairs = S.ui.storyPairsOff || tasted ? STORY_PAIRS : Math.min(STORY_PAIRS, S.ui.storyPairs || 0);
   return [...ASK.map((q) => ({ kind: 'ask', q, done: q.id in a })),
-    ...Array.from({ length: STORY_PAIRS }, (_, k) => ({ kind: 'pair', k, done: k < pairs })),
-    { kind: 'budget', done: !!(d.budget || d.budgetAsked) }];
+    { kind: 'budget', done: !!(d.budget || d.budgetAsked) },
+    { kind: 'pair', k: S.ui.storyPairs || 0, done: !!S.ui.storyPairsOff || tasted || tastePctNow(d) >= ENOUGH }];
 }
 // A picture pick inside the story: the taste updates at once, so the wall on top moves with it.
 function storyPicked() {
@@ -2299,9 +2301,9 @@ function storyPicked() {
   d.taste = { source: 'yours', weights: fitTaste(all), picks: all.map((x) => [x.winner.id, x.loser.id]) };
   q.pair.forEach((it) => q.shown.add(it.id)); q.n++;
   const next = nextPair(CATALOG, all, q.shown);
-  if (S.ui.storyPairs >= STORY_PAIRS || !next) {
+  if (tastePctNow(d) >= ENOUGH || !next) {
     const me = store.loadMe(); me.quizSeen = [...new Set([...(me.quizSeen || []), ...q.shown])].slice(-400); store.saveMe(me);
-    S.quiz = null; d.quizState = null; S.ui.storyPairs = STORY_PAIRS;
+    S.quiz = null; d.quizState = null; if (!next) S.ui.storyPairsOff = true;
   } else { q.pair = next; saveQuiz(); }
   resetLayouts(); persist(); render(); window.scrollTo({ top: 0 });
 }
@@ -2347,14 +2349,15 @@ function story(v, d) {
     : `${BUDGETS.filter(Boolean).map((b) => `<button type="button" class="btn quiet story-opt" data-opt="b${b}" data-budget-ask="${b}">Up to $${b.toLocaleString('en-US')}</button>`).join('')}<button type="button" class="btn quiet story-opt" data-opt="b0" data-budget-ask="0">Any budget</button>`;
   const title = step.kind === 'ask' ? step.q.q : step.kind === 'pair' ? 'Which would you rather have on your wall?' : 'Budget for this wall?';
   const pairNote = step.kind === 'pair' && step.k > 0 ? 'Got it. The walls lean toward your picks.' : '';
+  const pct = tastePctNow(d), quickN = ASK.length + 1;
   const under = step.kind === 'budget' ? BUDGET_WORDS : '';
   // Keep going or see the walls: the way out is on every question, and it turns into the main
   // button once the three quick questions are done (Jason, Nov 18).
-  const quick = steps.slice(0, ASK.length).every((x) => x.done);
-  const left = steps.filter((x) => !x.done).length;
+  const quick = step.kind === 'pair';
+  const left = steps.filter((x) => !x.done && x.kind !== 'pair').length;
   return (S.mem.storyHtml = `${bar(wordmark())}
   <main class="feed-page story">
-    <div class="story-bar" role="progressbar" aria-label="Question ${i + 1} of ${n}" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${i}"><span style="--from:${Math.round(((was + 1) / (n + 1)) * 100)}%;--to:${Math.round(((i + 1) / (n + 1)) * 100)}%"></span></div>
+    ${step.kind === 'pair' ? '' : `<div class="story-bar" role="progressbar" aria-label="Question ${i + 1} of ${quickN}" aria-valuemin="0" aria-valuemax="${quickN}" aria-valuenow="${i}"><span style="--from:${Math.round((Math.min(was, quickN) / quickN) * 100)}%;--to:${Math.round((i / quickN) * 100)}%"></span></div>`}
     <div class="drawing story-wall${newWall ? ' is-new-wall' : ''}">${drawWall(L, pxNow(), { still: true, label: 'Your wall so far' })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
     ${pairNote ? `<p class="sheet-status story-status" role="status">${pairNote}</p>` : S.undo && i > 0 ? `<p class="sheet-status story-status" role="status">${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button></p>` : `<p class="story-status pencil">${i === 0 ? 'A first go at your wall. A few quick picks make it yours.' : ''}</p>`}
     <section class="story-q ${dir}" aria-labelledby="story-h">
@@ -2362,10 +2365,11 @@ function story(v, d) {
       ${under ? `<p class="pencil small">${esc(under)}</p>` : ''}
       <div class="story-opts${step.kind === 'budget' ? ' two' : step.kind === 'pair' ? ' pair-picks' : ''}" role="group" aria-labelledby="story-h">${opts}</div>
       ${step.kind === 'ask' ? `<button type="button" class="link story-skip" data-ask="${step.q.id}" data-v="">Skip this one</button>` : ''}
-      ${step.kind === 'pair' ? `<span class="story-pair-acts"><button type="button" class="link story-skip" data-act="quiz-skip">Neither, show two more</button><button type="button" class="link story-skip" data-act="story-skip-pairs">Skip the pictures</button></span>` : ''}
+      ${step.kind === 'pair' ? `<span class="story-pair-acts"><button type="button" class="link story-skip" data-act="quiz-skip">Neither, show two more</button></span>` : ''}
     </section>
     <div class="dock story-dock">
-      <p class="small pencil story-left">${quick ? `Your walls are ready. ${left} more ${left === 1 ? 'pick sharpens' : 'picks sharpen'} them.` : 'Keep going, or see your walls any time.'}</p>
+      ${quick ? `<div class="story-known"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">${enoughWords(pct)}</span></div>`
+    : `<p class="small pencil story-left">${left} quick ${left === 1 ? 'question' : 'questions'} left, or see your walls now.</p>`}
       <button type="button" class="btn${quick ? '' : ' quiet'}" data-act="story-skip">See my walls</button>
     </div>
   </main>`);
@@ -2538,7 +2542,7 @@ function changeSheet() {
   const n = d.pieces || (L ? L.pieces.length : null);
   const fewer = n ? counts.filter((c) => c < n).pop() : null, more = n ? counts.find((c) => c > n) : counts[0];
   const arts = [['both', 'Both'], ['photos', 'Free only'], ['prints', 'Shop'], ...(keptOwned().length ? [['mine', 'Mine']] : [])];
-  const tastePct = d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0;
+  const tastePct = tastePctNow(d);
   const status = stale ? 'Building the walls…' : S.undo ? `${esc(S.undo.label)} <button type="button" class="link" data-act="undo">Undo</button>` : '';
   // How many: a suggestion and the range that fits, not a number to work out (Jason, Oct 22).
   const best = S.view && S.view.list && S.view.list[0] ? S.view.list[0].pieces.length : null;

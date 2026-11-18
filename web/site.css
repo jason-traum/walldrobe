@@ -955,3 +955,6 @@ svg.is-dragging .measure { opacity: 0.25; }
 .story-dock .story-left { margin: 0; }
 .story-dock .btn { flex: none; }
 .story.is-building .story-dock .btn { pointer-events: none; opacity: 0.6; }
+.story-known { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.story-known .name { font-weight: 600; font-size: 15px; }
+.story-known .known { margin: 4px 0 2px; }
