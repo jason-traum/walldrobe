@@ -951,3 +951,7 @@ svg.is-dragging .measure { opacity: 0.25; }
 .story .pick-name { font-size: 14px; line-height: 18px; }
 .piece-acts .seg.feel { flex: 2 1 auto; }
 .piece-acts .seg.feel button { min-height: 44px; padding-inline: 9px; font-size: 15px; }
+.story-dock { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.story-dock .story-left { margin: 0; }
+.story-dock .btn { flex: none; }
+.story.is-building .story-dock .btn { pointer-events: none; opacity: 0.6; }

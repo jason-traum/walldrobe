@@ -2348,7 +2348,11 @@ function story(v, d) {
   const title = step.kind === 'ask' ? step.q.q : step.kind === 'pair' ? 'Which would you rather have on your wall?' : 'Budget for this wall?';
   const pairNote = step.kind === 'pair' && step.k > 0 ? 'Got it. The walls lean toward your picks.' : '';
   const under = step.kind === 'budget' ? BUDGET_WORDS : '';
-  return (S.mem.storyHtml = `${bar(wordmark(), '<button type="button" class="btn quiet small" data-act="story-skip">Skip</button>')}
+  // Keep going or see the walls: the way out is on every question, and it turns into the main
+  // button once the three quick questions are done (Jason, Nov 18).
+  const quick = steps.slice(0, ASK.length).every((x) => x.done);
+  const left = steps.filter((x) => !x.done).length;
+  return (S.mem.storyHtml = `${bar(wordmark())}
   <main class="feed-page story">
     <div class="story-bar" role="progressbar" aria-label="Question ${i + 1} of ${n}" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${i}"><span style="--from:${Math.round(((was + 1) / (n + 1)) * 100)}%;--to:${Math.round(((i + 1) / (n + 1)) * 100)}%"></span></div>
     <div class="drawing story-wall${newWall ? ' is-new-wall' : ''}">${drawWall(L, pxNow(), { still: true, label: 'Your wall so far' })}${d.sample ? '<span class="chip">Sample wall</span>' : ''}</div>
@@ -2360,6 +2364,10 @@ function story(v, d) {
       ${step.kind === 'ask' ? `<button type="button" class="link story-skip" data-ask="${step.q.id}" data-v="">Skip this one</button>` : ''}
       ${step.kind === 'pair' ? `<span class="story-pair-acts"><button type="button" class="link story-skip" data-act="quiz-skip">Neither, show two more</button><button type="button" class="link story-skip" data-act="story-skip-pairs">Skip the pictures</button></span>` : ''}
     </section>
+    <div class="dock story-dock">
+      <p class="small pencil story-left">${quick ? `Your walls are ready. ${left} more ${left === 1 ? 'pick sharpens' : 'picks sharpen'} them.` : 'Keep going, or see your walls any time.'}</p>
+      <button type="button" class="btn${quick ? '' : ' quiet'}" data-act="story-skip">See my walls</button>
+    </div>
   </main>`);
 }
 
@@ -4878,7 +4886,7 @@ document.addEventListener('click', (e) => {
     case 'retry-save': persist(); if (!S.saveFailed) S.flash = 'Saved.'; render(); break;
     case 'change': S.sheet = 'change'; render(); break;
     case 'menu': S.sheet = 'menu'; render(); break;
-    case 'story-skip': endStory(); render(); break;
+    case 'story-skip': endStory(); S.ui.reveal = true; S.undo = null; render(); window.scrollTo({ top: 0 }); break;
     case 'story-skip-pairs': S.ui.storyPairsOff = true; render(); break;
     case 'crop-use': useCrop(false); break;
     case 'crop-whole': useCrop(true); break;
