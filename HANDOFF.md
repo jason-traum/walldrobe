@@ -4,6 +4,8 @@ Where Walldrobe stands and how to pick it up cold. Written 2026-10-01 for the ne
 
 ## Status, 2026-11-16 (read this first)
 
+Names (Jason, Nov 18): the default path is Walldrobe and everything open is Walldrobe+. Lines below that say "Lite" mean Walldrobe, and "full" means Walldrobe+. Only "Walldrobe" shows in the app until something is paid. DECISIONS Nov 18, FEEDBACK 204.
+
 Nov 18, Lite end to end (branch lite-story-2026-11, not live): Start goes straight to one wall, picture picks in the story, no hearts under the open wall, a one-row piece sheet, Preferences (More) and Get it (one row a piece, one tick), a suggestion and range on How many, the wall-grow transition. DECISIONS Nov 18, FEEDBACK 203. The walk opens Preferences' More by itself in every section but 'story'.
 
 Nov 17, the opening story (branch lite-story-2026-11, on top of audit-fixes-2026-11, not live): Jason picked "wall first, then story" with a friendly voice and no character, and asked for slides and fun motion. First cut built: story() and storyHold() in web/main.js, styles at the end of web/site.css, a 'story' walk section (25 checks). Every other walk section starts past the story through an init script. FEEDBACK 200 and 201, three DECISIONS lines.
