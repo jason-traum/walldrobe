@@ -406,3 +406,15 @@ A catalog size may carry `border`, the moulding's width; `borderOf` uses it (a s
 - The default mat level is Most (`prefs.matLevel`, was Some). With Most or All, a wall whose share of matted new pieces is short of the level ranks lower: `MAT_LEAN` (0.05) times the shortfall, so a wall with no mats under Most loses about 0.04. Under Some or less there's no lean; `matScore` still judges how the mats are spread.
 - A catalog size can carry `mount` (the art inside a white border, inches) when the shop sells it framed that way (House of Spoils "Border": a Small is an 8 x 12 in image in a 14.5 x 18.5 in frame). `toCandidate` turns it into `{ framed: true, matted: mount }`: the size is the frame's outside, it hangs matted, it can't be flipped, and with `prefs.mats: 'none'` it's left out like any matted size. The same print's full bleed size is another, smaller framed size with no mount. `validateRecord` checks a mount sits inside its frame and checks the 14% shape rule against the mount, not the frame.
 - `frameOf` marks a size the shop frames with `shopFramed: true`, so the app prices it as sold (frame included) and finds its offer by the outside size.
+
+## The taste test's art, drawn again for every pair (2026-11-18)
+
+`nextPair(items, picks, shown, { seed })`. The opener and test or explore logic is unchanged. What changed is the shortlist it picks from, now built on every call:
+
+- `genericScores(items)`: for each piece with image scores, the mean cosine similarity (8 embedding numbers plus the 30 concept scores at half weight, centered) to its 12 nearest neighbors, ranked over the catalog to 0 to 1. Memoized per items array. Without image scores, 0.5.
+- Value = looks + 0.5 x art (0.3 without generic scores) - 0.3 x generic + 0.3 x tanh(taste / TASTE_SCALE) after two picks + 0.12 x a seeded hash of the id.
+- Pool: quiz-worthy pieces; with generic scores, only looks >= 0.72 and art >= 0.7 when 48 or more clear it. Subjects in dislikedSubjects(subjectStats({ picks })) are left out.
+- Per theme, six pieces spread across categories, at most two per shop while others are left.
+- The four theme openers rotate by seed. Seed 0 keeps the old order.
+
+Tests: test/taste_vision.test.js (generic range and memo, seeds, a turned-down subject, the looks floor with a seed).

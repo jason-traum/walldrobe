@@ -2076,7 +2076,7 @@ function taste() {
     const me = store.loadMe();
     const prior = S.draft.taste && S.draft.taste.source === 'yours' ? picksOf(S.draft.taste.picks) : [];
     const shownIds = new Set(me.quizSeen || []);
-    S.quiz = { picks: [], prior, shown: shownIds, n: 0, pair: nextPair(CATALOG, prior, shownIds) || nextPair(CATALOG, prior, new Set()) };
+    S.quiz = { picks: [], prior, shown: shownIds, n: 0, pair: nextPair(CATALOG, prior, shownIds, { seed: quizSeed() }) || nextPair(CATALOG, prior, new Set(), { seed: quizSeed() }) };
   }
   const q = S.quiz;
   if (q.check) return quizCheck(q);
@@ -2170,7 +2170,7 @@ function advanceQuiz(picked) {
   const q = S.quiz;
   q.pair.forEach((it) => q.shown.add(it.id));
   if (picked) q.n++;
-  const next = nextPair(CATALOG, [...(q.prior || []), ...q.picks], q.shown);
+  const next = nextPair(CATALOG, [...(q.prior || []), ...q.picks], q.shown, { seed: quizSeed() });
   if (!next) { finishQuiz(); return; }
   q.pair = next;
   if (picked && q.n % QUIZ_LENGTH === 0) q.check = true;
@@ -2243,7 +2243,7 @@ function feed() {
     const pct = pct0;
     return `<li class="taste-card"><a href="#/taste" class="taste-link is-text"><span class="taste-text"><span class="name">We know your taste ${pct}%</span>${knownBar(pct)}<span class="pencil small">${enoughWords(pct)}</span></span></a></li>`;
   })() : (() => {
-    const pair = nextPair(CATALOG, [], new Set()) || [];
+    const pair = nextPair(CATALOG, [], new Set(), { seed: quizSeed() }) || [];
     const tn = (it) => (it ? `<span class="tn new" style="width:${Math.round(56 * Math.min(1, it.aspect || 0.8))}px;height:${Math.round(56 / Math.max(1, it.aspect || 0.8))}px"><img src="${it.imageData}" alt="" loading="lazy"></span>` : '');
     return `<li class="taste-card"><a href="#/taste" class="taste-link"><span class="taste-pair">${tn(pair[0])}<span class="taste-or">or</span>${tn(pair[1])}</span><span class="taste-text"><span class="name">Which do you like more?</span><span class="pencil small">A minute of picks, and every wall ranks for you.</span></span></a></li>`;
   })();
@@ -2282,6 +2282,12 @@ function feed() {
 const STORY_KEY = 'walldrobe.story';
 const storyDone = () => { try { return localStorage.getItem(STORY_KEY) === 'done'; } catch { return true; } };
 function endStory() { try { localStorage.setItem(STORY_KEY, 'done'); } catch { /* a private window: it just shows again */ } S.ui.storyOff = true; S.ui.storyLive = false; }
+// A seed per person, kept with them, so two people get different art in the taste test (Nov 18).
+function quizSeed() {
+  const me = store.loadMe();
+  if (!me.quizSeed) { me.quizSeed = 1 + Math.floor(Math.random() * 1e9); store.saveMe(me); }
+  return me.quizSeed;
+}
 // The same meter Preferences and the taste test show: how well the picks pin down your taste.
 const tastePctNow = (d) => (d && d.taste && d.taste.source === 'yours' ? knownPct([...yourPicks(), ...feedPairs()]) : 0);
 // Four quick questions, then pictures for as long as you like: the meter says how well we know
@@ -2300,7 +2306,7 @@ function storyPicked() {
   const all = [...(q.prior || []), ...q.picks].slice(-60);
   d.taste = { source: 'yours', weights: fitTaste(all), picks: all.map((x) => [x.winner.id, x.loser.id]) };
   q.pair.forEach((it) => q.shown.add(it.id)); q.n++;
-  const next = nextPair(CATALOG, all, q.shown);
+  const next = nextPair(CATALOG, all, q.shown, { seed: quizSeed() });
   if (tastePctNow(d) >= ENOUGH || !next) {
     const me = store.loadMe(); me.quizSeen = [...new Set([...(me.quizSeen || []), ...q.shown])].slice(-400); store.saveMe(me);
     S.quiz = null; d.quizState = null; if (!next) S.ui.storyPairsOff = true;
@@ -2340,7 +2346,7 @@ function story(v, d) {
   S.ui.storyAt = i; S.ui.storyKey = L.key;
   if (step.kind === 'pair') {
     if (!S.quiz) S.quiz = restoreQuiz();
-    if (!S.quiz) { const me = store.loadMe(), prior = yourPicks(), seen = new Set(me.quizSeen || []); S.quiz = { picks: [], prior, shown: seen, n: 0, pair: nextPair(CATALOG, prior, seen) || nextPair(CATALOG, prior, new Set()) }; }
+    if (!S.quiz) { const me = store.loadMe(), prior = yourPicks(), seen = new Set(me.quizSeen || []); S.quiz = { picks: [], prior, shown: seen, n: 0, pair: nextPair(CATALOG, prior, seen, { seed: quizSeed() }) || nextPair(CATALOG, prior, new Set(), { seed: quizSeed() }) }; }
     if (!S.quiz.pair) { S.ui.storyPairsOff = true; return story(v, d); }
   }
   const pairCard = (it) => `<button type="button" class="pick" data-opt="${esc(it.id)}" data-pick="${esc(it.id)}" aria-label="${esc(it.title)}"><span class="pick-art" style="--a:${it.aspect || 0.8}"><img src="${it.imageData}" alt=""></span><span class="pick-name">${esc(it.title)}</span></button>`;

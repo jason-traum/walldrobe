@@ -108,32 +108,96 @@ export function scoreTaste(weights, items) {
   return out;
 }
 
+// How generic a piece looks, 0 (one of a kind) to 1 (one of many look-alikes): how close its
+// image and concept scores sit to its 12 nearest neighbors in the catalog, ranked over the
+// catalog. A run of soft landscape paintings from one shop reads as generic; a quirky one-off
+// does not. Worked out once per catalog. Pieces without image scores sit at 0.5. (Nov 18:
+// "We really need to pick better less generic artwork for our test".)
+const GENERIC_K = 12;
+const genericMemo = new WeakMap();
+export function genericScores(items) {
+  if (genericMemo.has(items)) return genericMemo.get(items);
+  const vec = (it) => {
+    const v = rec(it).vision;
+    if (!v || !v.embed) return null;
+    const x = [...v.embed, ...(v.concepts || []).map((z) => z * 0.5)];
+    const m = x.reduce((a, b) => a + b, 0) / x.length;
+    const y = x.map((a) => a - m);
+    const n = Math.sqrt(y.reduce((a, b) => a + b * b, 0)) || 1;
+    return Float64Array.from(y, (a) => a / n);
+  };
+  const V = items.map(vec);
+  const raw = new Map();
+  for (let i = 0; i < items.length; i++) {
+    if (!V[i]) continue;
+    const top = new Float64Array(GENERIC_K).fill(-2);
+    for (let j = 0; j < items.length; j++) {
+      if (j === i || !V[j]) continue;
+      let d = 0; const a = V[i], b = V[j];
+      for (let k = 0; k < a.length; k++) d += a[k] * b[k];
+      if (d > top[GENERIC_K - 1]) { let k = GENERIC_K - 1; while (k > 0 && top[k - 1] < d) { top[k] = top[k - 1]; k--; } top[k] = d; }
+    }
+    let sum = 0, n = 0; for (const t of top) if (t > -2) { sum += t; n++; }
+    raw.set(items[i].id, n ? sum / n : 0);
+  }
+  const order = [...raw].sort((a, b) => a[1] - b[1] || cmp(a[0], b[0]));
+  const out = new Map(items.map((it) => [it.id, 0.5]));
+  order.forEach(([id], k) => out.set(id, order.length > 1 ? k / (order.length - 1) : 0.5));
+  genericMemo.set(items, out);
+  return out;
+}
+
 // A shortlist for the quiz: a few pieces per theme, only good-looking ones, best first,
 // so a pick is about taste and not about which is better made. With image scores, a
 // piece must rank in the top part of the catalog for looks and read as art; without
 // them, the tag pass's quality.
+// It is drawn again for every pair (Nov 18), so it moves as we learn: generic pieces sink,
+// subjects you turned down drop out, and once there are picks, pieces the model thinks you'd
+// like rise, so later pairs split finer differences among things you like. A seed per person
+// shuffles near-equal pieces, so two people don't see the same art. Seed 0 is the old order.
 const QUIZ_LOOKS = 0.55, QUIZ_ART = 0.35;
+const QUIZ_GENERIC = 0.3, QUIZ_TASTE = 0.3, QUIZ_JITTER = 0.12, QUIZ_PER_SHOP = 2;
+// With the generic penalty and the taste lean in, the floor for looks goes up, so a one-off
+// that isn't well made doesn't win on being unusual. It falls back if too few clear it.
+const QUIZ_FLOOR = 0.72, QUIZ_ART_FLOOR = 0.7;
 const quizWorthy = (it) => {
   const r = rec(it);
   const tagged = r.quality && typeof r.quality.score === 'number' ? r.quality.score : 0.75;
   if (r.vision && typeof r.vision.looks === 'number') return looksGood(it) >= QUIZ_LOOKS && artOf(r) >= QUIZ_ART && tagged >= 0.75;
   return tagged >= 0.75;
 };
-function shortlist(items, perTheme = 6) {
+function shortlist(items, { generic = null, w = null, out: dropped = null, seed = 0 } = {}, perTheme = 6) {
   const out = [];
-  const good = items.filter(quizWorthy);
-  const pool = good.length >= 24 ? good : items;
+  const keep = dropped && dropped.size ? items.filter((it) => !dropped.has(subjectOf(it))) : items;
+  const good = keep.filter(quizWorthy);
+  const fine = generic ? good.filter((it) => looksGood(it) >= QUIZ_FLOOR && artOf(rec(it)) >= QUIZ_ART_FLOOR) : good;
+  const pool = fine.length >= 48 ? fine : good.length >= 24 ? good : keep.length >= 24 ? keep : items;
+  const value = new Map(pool.map((it) => {
+    let v = looksGood(it) + (generic ? 0.5 : 0.3) * artOf(rec(it));
+    if (generic) v -= QUIZ_GENERIC * (generic.get(it.id) ?? 0.5);
+    if (w) v += QUIZ_TASTE * Math.tanh(dot(w, features(it)) / TASTE_SCALE);
+    if (seed) v += QUIZ_JITTER * (hash(it.id, seed) / 4294967296);
+    return [it.id, v];
+  }));
+  const shopOf = (it) => { const s = rec(it).source || {}; return s.name || s.provider || ''; };
   for (const th of THEMES) {
+    const shops = new Map();
     const list = pool.filter((it) => rec(it).tags.theme === th)
-      .sort((a, b) => looksGood(b) + 0.3 * artOf(rec(b)) - looksGood(a) - 0.3 * artOf(rec(a)) || cmp(a.id, b.id));
+      .sort((a, b) => value.get(b.id) - value.get(a.id) || cmp(a.id, b.id))
+      .filter((it) => { const s = shopOf(it); if (!s) return true; const n = shops.get(s) || 0; shops.set(s, n + 1); return n < QUIZ_PER_SHOP * 3; });
     // Spread picks across categories inside a theme.
     const byCat = new Map();
     for (const it of list) { const c = rec(it).category; if (!byCat.has(c)) byCat.set(c, []); byCat.get(c).push(it); }
     const cats = [...byCat.keys()];
-    for (let i = 0; out.filter((x) => rec(x).tags.theme === th).length < perTheme && i < list.length; i++) {
+    const taken = new Map();
+    for (let i = 0; out.filter((x) => rec(x).tags.theme === th).length < perTheme && i < list.length * 2; i++) {
       const pool = byCat.get(cats[i % cats.length]);
-      const next = pool && pool.shift();
-      if (next) out.push(next);
+      if (!pool || !pool.length) continue;
+      // No more than two pieces from one shop in a theme, while others are left.
+      let k = pool.findIndex((it) => (taken.get(shopOf(it)) || 0) < QUIZ_PER_SHOP);
+      if (k < 0) k = 0;
+      const next = pool.splice(k, 1)[0];
+      if (next) { out.push(next); taken.set(shopOf(next), (taken.get(shopOf(next)) || 0) + 1); }
     }
   }
   return out;
@@ -168,11 +232,14 @@ function bestPair(sl, feats, scoreOf) {
 //         real either-or choice confirms or corrects it;
 //   explore: a pair that differs most on what the model knows nothing about yet.
 // With no picks at all (every pair skipped), it keeps contrasting themes.
-export function nextPair(items, picks, shownIds = new Set()) {
+export function nextPair(items, picks, shownIds = new Set(), { seed = 0 } = {}) {
   // The shortlist is drawn from what hasn't been shown, so a second test gets fresh pairs, not leftovers.
-  const sl = shortlist(items.filter((it) => !shownIds.has(it.id)));
+  const generic = genericScores(items);
+  const lean = picks.length >= 2 ? fitTaste(picks) : null;
+  const turned = picks.length ? new Set(dislikedSubjects(subjectStats({ picks }))) : null;
+  const sl = shortlist(items.filter((it) => !shownIds.has(it.id)), { generic, w: lean, out: turned, seed });
   const step = Math.floor(shownIds.size / 2); // pairs shown so far, skips included
-  const opener = OPENERS[step % OPENERS.length];
+  const opener = OPENERS[(step + (seed % OPENERS.length)) % OPENERS.length];
   if (step < OPENERS.length || !picks.length) {
     const a = sl.find((it) => rec(it).tags.theme === opener[0]);
     const b = a && (sl.find((it) => rec(it).tags.theme === opener[1] && it !== a && Math.abs(looksGood(it) - looksGood(a)) <= QUIZ_GAP)
